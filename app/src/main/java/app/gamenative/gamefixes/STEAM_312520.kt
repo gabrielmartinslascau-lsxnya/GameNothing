@@ -62,16 +62,18 @@ private fun ensureWinHttpOverride(value: String): String {
         return value
     }
 
-    return (parts.mapNotNull { part ->
-        val dllNames = part.substringBefore('=').split(',')
-        val keptDllNames = dllNames.filterNot { it.equals("winhttp", ignoreCase = true) }
-        when {
-            keptDllNames.size == dllNames.size -> part
-            keptDllNames.isEmpty() -> null
-            part.contains('=') -> keptDllNames.joinToString(",") + part.substring(part.indexOf('='))
-            else -> keptDllNames.joinToString(",")
-        }
-    } + RAIN_WORLD_WINHTTP_OVERRIDE).joinToString(";")
+    return (
+        parts.mapNotNull { part ->
+            val dllNames = part.substringBefore('=').split(',')
+            val keptDllNames = dllNames.filterNot { it.equals("winhttp", ignoreCase = true) }
+            when {
+                keptDllNames.size == dllNames.size -> part
+                keptDllNames.isEmpty() -> null
+                part.contains('=') -> keptDllNames.joinToString(",") + part.substring(part.indexOf('='))
+                else -> keptDllNames.joinToString(",")
+            }
+        } + RAIN_WORLD_WINHTTP_OVERRIDE
+        ).joinToString(";")
 }
 
 private fun overridePartContainsWinHttp(part: String): Boolean =

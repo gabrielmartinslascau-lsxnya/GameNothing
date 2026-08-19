@@ -2,7 +2,6 @@ package app.gamenative.ui.component.dialog
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,8 +21,8 @@ import app.gamenative.ui.theme.settingsTileColorsAlt
 import app.gamenative.utils.LsfgVkManager
 import com.alorma.compose.settings.ui.SettingsGroup
 import com.alorma.compose.settings.ui.SettingsSwitch
-import com.winlator.contents.ContentProfile
 import com.winlator.container.Container
+import com.winlator.contents.ContentProfile
 import com.winlator.core.KeyValueSet
 import com.winlator.core.StringUtils
 import com.winlator.core.envvars.EnvVars
@@ -32,7 +31,7 @@ import kotlin.math.roundToInt
 @Composable
 fun GraphicsTabContent(state: ContainerConfigState, default: Boolean = false) {
     val config = state.config.value
-    SettingsGroup() {
+    SettingsGroup {
         if (config.containerVariant.equals(Container.BIONIC, ignoreCase = true)) {
             // Bionic: Graphics Driver (Wrapper/Wrapper-v2)
             SettingsListDropdown(
@@ -118,15 +117,22 @@ fun GraphicsTabContent(state: ContainerConfigState, default: Boolean = false) {
                         if (current.contains(idx)) current.filter { it != idx } else current + idx
                     val cfg = KeyValueSet(config.graphicsDriverConfig)
                     val allSelected = state.exposedExtIndices.value.size == state.gpuExtensions.size
-                    if (allSelected) cfg.put("exposedDeviceExtensions", "all") else cfg.put(
-                        "exposedDeviceExtensions",
-                        state.exposedExtIndices.value.sorted().joinToString("|") { state.gpuExtensions[it] },
-                    )
-                    val blacklisted = if (allSelected) "" else
+                    if (allSelected) {
+                        cfg.put("exposedDeviceExtensions", "all")
+                    } else {
+                        cfg.put(
+                            "exposedDeviceExtensions",
+                            state.exposedExtIndices.value.sorted().joinToString("|") { state.gpuExtensions[it] },
+                        )
+                    }
+                    val blacklisted = if (allSelected) {
+                        ""
+                    } else {
                         state.gpuExtensions.indices
                             .filter { it !in state.exposedExtIndices.value }
                             .sorted()
                             .joinToString(",") { state.gpuExtensions[it] }
+                    }
                     cfg.put("blacklistedExtensions", blacklisted)
                     state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
                 },
@@ -261,8 +267,7 @@ fun GraphicsTabContent(state: ContainerConfigState, default: Boolean = false) {
                     Text(text = "${state.sharpnessDenoise.value}%")
                 }
             }
-        }
-        else {
+        } else {
             // Non-bionic: existing driver/version UI and Vortek-specific options
             SettingsListDropdown(
                 colors = settingsTileColors(),
@@ -293,7 +298,9 @@ fun GraphicsTabContent(state: ContainerConfigState, default: Boolean = false) {
             // Vortek/Adreno specific settings
             run {
                 val driverType = StringUtils.parseIdentifier(state.graphicsDrivers.value.getOrNull(state.graphicsDriverIndex.value).orEmpty())
-                val isVortekLike = config.containerVariant.equals(Container.GLIBC) && (driverType == "vortek" || driverType == "adreno" || driverType == "sd-8-elite")
+                val isVortekLike =
+                    config.containerVariant.equals(Container.GLIBC) &&
+                        (driverType == "vortek" || driverType == "adreno" || driverType == "sd-8-elite")
                 if (isVortekLike) {
                     val vkVersions = listOf("1.0", "1.1", "1.2", "1.3")
                     SettingsListDropdown(
@@ -320,15 +327,22 @@ fun GraphicsTabContent(state: ContainerConfigState, default: Boolean = false) {
                                 if (current.contains(idx)) current.filter { it != idx } else current + idx
                             val cfg = KeyValueSet(config.graphicsDriverConfig)
                             val allSelected = state.exposedExtIndices.value.size == state.gpuExtensions.size
-                            if (allSelected) cfg.put("exposedDeviceExtensions", "all") else cfg.put(
-                                "exposedDeviceExtensions",
-                                state.exposedExtIndices.value.sorted().joinToString("|") { state.gpuExtensions[it] },
-                            )
-                            val blacklisted = if (allSelected) "" else
+                            if (allSelected) {
+                                cfg.put("exposedDeviceExtensions", "all")
+                            } else {
+                                cfg.put(
+                                    "exposedDeviceExtensions",
+                                    state.exposedExtIndices.value.sorted().joinToString("|") { state.gpuExtensions[it] },
+                                )
+                            }
+                            val blacklisted = if (allSelected) {
+                                ""
+                            } else {
                                 state.gpuExtensions.indices
                                     .filter { it !in state.exposedExtIndices.value }
                                     .sorted()
                                     .joinToString(",") { state.gpuExtensions[it] }
+                            }
                             cfg.put("blacklistedExtensions", blacklisted)
                             state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
                         },
@@ -441,10 +455,16 @@ private fun DxWrapperSection(state: ContainerConfigState) {
                     ) {
                         val currentConfig = KeyValueSet(config.dxwrapperConfig)
                         currentConfig.put("version", selectedId)
-                        if (selectedId.contains("async", ignoreCase = true)) currentConfig.put("async", "1")
-                        else currentConfig.put("async", "0")
-                        if (selectedId.contains("gplasync", ignoreCase = true)) currentConfig.put("asyncCache", "1")
-                        else currentConfig.put("asyncCache", "0")
+                        if (selectedId.contains("async", ignoreCase = true)) {
+                            currentConfig.put("async", "1")
+                        } else {
+                            currentConfig.put("async", "0")
+                        }
+                        if (selectedId.contains("gplasync", ignoreCase = true)) {
+                            currentConfig.put("asyncCache", "1")
+                        } else {
+                            currentConfig.put("asyncCache", "0")
+                        }
                         state.config.value = config.copy(dxwrapperConfig = currentConfig.toString())
                     }
                     return@SettingsListDropdown
@@ -453,10 +473,16 @@ private fun DxWrapperSection(state: ContainerConfigState) {
                 val currentConfig = KeyValueSet(config.dxwrapperConfig)
                 currentConfig.put("version", version)
                 val envVarsSet = EnvVars(config.envVars)
-                if (version.contains("async", ignoreCase = true)) currentConfig.put("async", "1")
-                else currentConfig.put("async", "0")
-                if (version.contains("gplasync", ignoreCase = true)) currentConfig.put("asyncCache", "1")
-                else currentConfig.put("asyncCache", "0")
+                if (version.contains("async", ignoreCase = true)) {
+                    currentConfig.put("async", "1")
+                } else {
+                    currentConfig.put("async", "0")
+                }
+                if (version.contains("gplasync", ignoreCase = true)) {
+                    currentConfig.put("asyncCache", "1")
+                } else {
+                    currentConfig.put("asyncCache", "0")
+                }
                 state.config.value =
                     config.copy(dxwrapperConfig = currentConfig.toString(), envVars = envVarsSet.toString())
             },
@@ -581,4 +607,3 @@ private fun LsfgSection(state: ContainerConfigState) {
         }
     }
 }
-

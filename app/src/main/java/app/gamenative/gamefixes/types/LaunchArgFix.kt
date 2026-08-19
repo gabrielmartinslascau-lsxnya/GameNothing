@@ -2,8 +2,8 @@ package app.gamenative.gamefixes
 
 import android.content.Context
 import app.gamenative.data.GameSource
-import timber.log.Timber
 import com.winlator.container.Container
+import timber.log.Timber
 
 class LaunchArgFix(
     private val launchArgs: String,

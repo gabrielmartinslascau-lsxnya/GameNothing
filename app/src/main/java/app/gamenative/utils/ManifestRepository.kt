@@ -46,16 +46,16 @@ object ManifestRepository {
     }
 
     private suspend fun fetchManifestJson(): String? = withContext(Dispatchers.IO) {
-    try {
-        val request = Request.Builder().url(MANIFEST_URL).build()
-        Net.http.newCall(request).execute().use { response ->
-            response.takeIf { it.isSuccessful }?.body?.string()
+        try {
+            val request = Request.Builder().url(MANIFEST_URL).build()
+            Net.http.newCall(request).execute().use { response ->
+                response.takeIf { it.isSuccessful }?.body?.string()
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "ManifestRepository: fetch failed")
+            null
         }
-    } catch (e: Exception) {
-        Timber.e(e, "ManifestRepository: fetch failed")
-        null
     }
-}
 
     private fun readLocalManifest(context: Context): ManifestData? = try {
         context.assets.open("manifest.json").bufferedReader().use { parseManifest(it.readText()) }

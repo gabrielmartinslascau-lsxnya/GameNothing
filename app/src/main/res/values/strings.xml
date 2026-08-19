@@ -2318,4 +2318,21 @@
     <string name="power_control_strategy_aggressive_desc">Maximizes performance on detected bottlenecks</string>
     <string name="power_control_strategy_conservative">Conservative</string>
     <string name="power_control_strategy_conservative_desc">AdjustsGradual gradually with a focus on stability</string>
+    <!-- Experimental Settings -->
+    <string name="settings_experimental_title">Experimental</string>
+    <string name="settings_experimental_subtitle">Try out new features and optimizations</string>
+    <string name="settings_experimental_feature_1_title">Advanced Caching</string>
+    <string name="settings_experimental_feature_1_subtitle">Improve load times by aggressively caching shaders and assets.</string>
+    <string name="settings_experimental_feature_2_title">Low Latency Input</string>
+    <string name="settings_experimental_feature_2_subtitle">Reduce input lag by prioritizing touch events.</string>
+    <string name="settings_experimental_feature_3_title">Experimental V-Sync</string>
+    <string name="settings_experimental_feature_3_subtitle">Alternative V-Sync implementation for smoother frame pacing.</string>
+
+    <!-- Looks Settings -->
+    <string name="settings_looks_title">Looks</string>
+    <string name="settings_looks_subtitle">Customize the visual style and animations</string>
+    <string name="settings_looks_jiggly_title">Jiggly Animations</string>
+    <string name="settings_looks_jiggly_subtitle">Add more bounce and spring to UI transitions.</string>
+    <string name="settings_looks_glass_title">Glass Panels</string>
+    <string name="settings_looks_glass_subtitle">Apply a frosted glass effect to backgrounds and cards.</string>
 </resources>

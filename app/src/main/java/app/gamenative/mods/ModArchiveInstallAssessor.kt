@@ -175,7 +175,13 @@ object ModArchiveInstallAssessor {
         if ("fnis" in identity) add("Run FNIS after installing animation changes")
         if ("dyndolod" in identity || "texgen" in identity) add("Run TexGen/DynDOLOD after load order is final")
         if ("synthesis" in identity) add("Run Synthesis patchers after load order is final")
-        if ("xedit" in identity || "sseedit" in identity || "fo4edit" in identity || "fnvedit" in identity) add("Review xEdit patcher instructions")
+        if ("xedit" in identity ||
+            "sseedit" in identity ||
+            "fo4edit" in identity ||
+            "fnvedit" in identity
+        ) {
+            add("Review xEdit patcher instructions")
+        }
         if ("loot" in identity) add("Review plugin order; LOOT metadata is not run inside GN")
         if ("patcher" in identity && isEmpty()) add("Run or review the mod patcher after install")
         if (isEmpty() && hits.isNotEmpty()) add("Review post-install tool instructions")

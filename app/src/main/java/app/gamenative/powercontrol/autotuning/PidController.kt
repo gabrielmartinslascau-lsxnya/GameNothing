@@ -2,7 +2,6 @@ package app.gamenative.powercontrol.autotuning
 
 import android.os.SystemClock
 import timber.log.Timber
-import kotlin.math.abs
 
 /**
  * Proportional-Integral-Derivative (PID) controller for automatic performance tuning.
@@ -27,7 +26,7 @@ class PidController(
     private val outputMax: Double,
     private val integralLimit: Double = 100.0,
     private val tag: String = "PidController",
-    private val enableLogging: Boolean = false
+    private val enableLogging: Boolean = false,
 ) {
     private var integral: Double = 0.0
     private var previousError: Double = 0.0
@@ -87,7 +86,7 @@ class PidController(
         if (enableLogging) {
             Timber.tag(tag).v(
                 "PID: error=%.2f, P=%.2f, I=%.2f, D=%.2f, output=%.2f",
-                error, proportional, integralTerm, derivativeTerm, clampedOutput
+                error, proportional, integralTerm, derivativeTerm, clampedOutput,
             )
         }
 

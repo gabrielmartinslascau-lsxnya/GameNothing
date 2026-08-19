@@ -111,7 +111,11 @@ object SteamBootstrap {
     private fun waitExit(p: Process, timeoutMs: Int) {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (p.isAlive && System.currentTimeMillis() < deadline) {
-            try { Thread.sleep(50) } catch (_: InterruptedException) { return }
+            try {
+                Thread.sleep(50)
+            } catch (_: InterruptedException) {
+                return
+            }
         }
     }
 
@@ -130,7 +134,7 @@ object SteamBootstrap {
             delete()
             writeText("INIT")
         }
-        
+
         val logFile = File(cfg.context.cacheDir, "sb_host.log")
 
         val pb = ProcessBuilder(
@@ -151,7 +155,11 @@ object SteamBootstrap {
             if (cfg.steamId64 != 0L) put("SB_STEAMID64", cfg.steamId64.toString())
         }
 
-        val proc = try { pb.start() } catch (_: Throwable) { return }
+        val proc = try {
+            pb.start()
+        } catch (_: Throwable) {
+            return
+        }
         hostProcess = proc
 
         val deadline = System.currentTimeMillis() + 60_000
@@ -165,7 +173,11 @@ object SteamBootstrap {
                 is ProcessStatus.Init -> {}
             }
 
-            try { Thread.sleep(100) } catch (_: InterruptedException) { return }
+            try {
+                Thread.sleep(100)
+            } catch (_: InterruptedException) {
+                return
+            }
         }
     }
 

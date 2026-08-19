@@ -94,7 +94,7 @@ object FanController {
         val floorDuty = dutyFor(floorPercent)
         val entered = pserver.executeRootCommand(
             "settings put system $FAN_MODE_SETTING $FAN_MODE_CUSTOM; " +
-                "chmod 644 '$DUTY_PATH'; echo $floorDuty > '$DUTY_PATH'"
+                "chmod 644 '$DUTY_PATH'; echo $floorDuty > '$DUTY_PATH'",
         ).isSuccess
 
         if (!entered) {
@@ -211,7 +211,7 @@ object FanController {
     private fun writeDuty(pserver: PServerDriver, percent: Int): Boolean {
         val duty = dutyFor(percent)
         val success = pserver.executeRootCommand(
-            "chmod 644 '$DUTY_PATH'; echo $duty > '$DUTY_PATH'"
+            "chmod 644 '$DUTY_PATH'; echo $duty > '$DUTY_PATH'",
         ).isSuccess
 
         if (success) {

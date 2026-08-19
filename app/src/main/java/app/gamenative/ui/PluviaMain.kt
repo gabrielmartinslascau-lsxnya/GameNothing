@@ -71,6 +71,7 @@ import com.posthog.PostHog
 import app.gamenative.ui.component.AchievementOverlay
 import app.gamenative.ui.component.ConnectionStatusBanner
 import app.gamenative.ui.component.GameInviteOverlay
+import app.gamenative.ui.component.RamViewerOverlay
 import app.gamenative.service.epic.EpicService
 import app.gamenative.service.gog.GOGService
 import app.gamenative.ui.component.dialog.ContainerConfigDialog
@@ -91,6 +92,7 @@ import app.gamenative.ui.screen.PluviaScreen
 import app.gamenative.ui.screen.login.UserLoginScreen
 import app.gamenative.ui.screen.settings.SettingsScreen
 import app.gamenative.ui.screen.xserver.XServerScreen
+import app.gamenative.ui.theme.PluviaAnimation
 import app.gamenative.ui.theme.PluviaTheme
 import app.gamenative.ui.util.LocalSnackbarHostController
 import app.gamenative.ui.util.SnackbarManager
@@ -1179,6 +1181,17 @@ fun PluviaMain(
         isAmoled = (state.appTheme == AppTheme.AMOLED),
         style = state.paletteStyle,
     ) {
+        val window = (context as? Activity)?.window
+        LaunchedEffect(state.maxRefreshRate) {
+            window?.let {
+                val lp = it.attributes
+                val targetHz = if (PrefManager.refreshRateEnabled) state.maxRefreshRate.toFloat() else 60f
+                lp.preferredRefreshRate = targetHz
+                it.attributes = lp
+                Timber.i("Applied experimental preferredRefreshRate: $targetHz Hz")
+            }
+        }
+
         Box(modifier = Modifier.fillMaxSize()) {
             LoadingDialog(
                 visible = state.loadingDialogVisible,
@@ -1571,8 +1584,15 @@ fun PluviaMain(
                 }
 
                 /** Settings **/
-                composable(route = PluviaScreen.Settings.route) {
+                composable(
+                    route = PluviaScreen.Settings.route,
+                    enterTransition = { PluviaAnimation.enterFromRight() },
+                    exitTransition = { PluviaAnimation.exitToRight() },
+                    popEnterTransition = { PluviaAnimation.enterFromRight() },
+                    popExitTransition = { PluviaAnimation.exitToRight() },
+                ) {
                     SettingsScreen(
+                        viewModel = viewModel,
                         appTheme = state.appTheme,
                         paletteStyle = state.paletteStyle,
                         onAppTheme = viewModel::setTheme,
@@ -1612,6 +1632,7 @@ fun PluviaMain(
 
             AchievementOverlay()
             GameInviteOverlay()
+            RamViewerOverlay()
         }
     }
 }

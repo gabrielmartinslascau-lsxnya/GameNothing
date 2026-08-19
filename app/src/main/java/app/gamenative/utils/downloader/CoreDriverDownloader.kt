@@ -3,12 +3,12 @@ package app.gamenative.utils.downloader
 import android.content.Context
 import app.gamenative.BuildConfig
 import app.gamenative.service.SteamService
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import timber.log.Timber
-import java.io.File
 
 /**
  * Utility for downloading core driver components (Adreno, SD8Elite) from the manifest server.
@@ -25,14 +25,14 @@ object CoreDriverDownloader {
     data class CoreDriverManifest(
         val version: Int,
         val updatedAt: String,
-        val components: List<CoreDriverComponent>
+        val components: List<CoreDriverComponent>,
     )
 
     @Serializable
     data class CoreDriverComponent(
         val id: String,
         val name: String,
-        val url: String
+        val url: String,
     )
 
     /**
@@ -46,7 +46,7 @@ object CoreDriverDownloader {
     suspend fun ensureCoreDriverAvailable(
         context: Context,
         componentName: String,
-        onProgress: (Float) -> Unit = {}
+        onProgress: (Float) -> Unit = {},
     ): File? = withContext(Dispatchers.IO) {
         // Extract component ID from name (remove .zip extension)
         val componentId = componentName.substringBeforeLast(".zip")
@@ -80,7 +80,7 @@ object CoreDriverDownloader {
                 fileName = "core_drivers/$componentName",
                 dest = destFile,
                 context = context,
-                onProgress = onProgress
+                onProgress = onProgress,
             )
             Timber.i("Successfully downloaded core driver: $componentName")
         } catch (e: Exception) {

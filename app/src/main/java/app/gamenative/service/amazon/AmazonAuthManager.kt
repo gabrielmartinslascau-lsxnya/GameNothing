@@ -2,18 +2,18 @@ package app.gamenative.service.amazon
 
 import android.content.Context
 import app.gamenative.data.AmazonCredentials
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import java.io.File
 import org.json.JSONObject
 import timber.log.Timber
-import java.io.File
 
 /** Manages Amazon authentication and credential lifecycle. */
 object AmazonAuthManager {
 
     /** In-flight PKCE state between start and code exchange. */
     @Volatile private var pendingCodeVerifier: String? = null
+
     @Volatile private var pendingDeviceSerial: String? = null
+
     @Volatile private var pendingClientId: String? = null
 
     // ── Paths ───────────────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ object AmazonAuthManager {
         pendingClientId = clientId
 
         val authUrl = AmazonConstants.buildAuthUrl(clientId, challenge)
-        
+
         Timber.d("[Amazon] Auth flow started (serial=${serial.take(8)}…)")
         Timber.d("[Amazon] Client ID: device:$clientId")
         Timber.d("[Amazon] Auth URL scope: device_auth_access")
@@ -129,7 +129,7 @@ object AmazonAuthManager {
                 if (refreshResult.isFailure) {
                     Timber.e("[Amazon] Token refresh failed")
                     return Result.failure(
-                        Exception("Failed to refresh token: ${refreshResult.exceptionOrNull()?.message}")
+                        Exception("Failed to refresh token: ${refreshResult.exceptionOrNull()?.message}"),
                     )
                 }
 

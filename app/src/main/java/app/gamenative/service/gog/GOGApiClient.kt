@@ -1,7 +1,7 @@
 package app.gamenative.service.gog
 
 import android.content.Context
-import app.gamenative.data.GOGGame
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -9,7 +9,6 @@ import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
 import timber.log.Timber
-import java.util.concurrent.TimeUnit
 
 /**
  * Parsed/Formartted details returned by GOGApiClient.
@@ -29,7 +28,7 @@ data class ParsedGogGame(
     val releaseDate: String,
     val downloadSize: Long,
     val isSecret: Boolean,
-    val isDlc: Boolean
+    val isDlc: Boolean,
 )
 
 /**
@@ -46,29 +45,29 @@ data class RawGogApiResponse(
     val languages: Map<String, String>?, // Language code -> Language name
     val description: Description?,
     val release_date: String?,
-    val downloads: Downloads?
+    val downloads: Downloads?,
 ) {
     data class Images(
         val background: String?,
         val logo2x: String?,
         val logo: String?,
-        val icon: String?
+        val icon: String?,
     )
 
     data class Developer(
-        val name: String?
+        val name: String?,
     )
 
     data class Genre(
-        val name: String?
+        val name: String?,
     )
 
     data class Description(
-        val lead: String?
+        val lead: String?,
     )
 
     data class Downloads(
-        val installers: List<Installer>?
+        val installers: List<Installer>?,
     )
 
     data class Installer(
@@ -76,7 +75,7 @@ data class RawGogApiResponse(
         val name: String?,
         val os: String?,
         val language: String?,
-        val total_size: Long?
+        val total_size: Long?,
     )
 }
 
@@ -119,7 +118,6 @@ object GOGApiClient {
                 return@withContext Result.failure(Exception("No valid credentials found"))
             }
 
-
             val url = "${GOGConstants.GOG_EMBED_URL}/user/data/games"
             val request = Request.Builder() // Returns an "owned" key with an array of ints.
                 .url(url)
@@ -135,7 +133,7 @@ object GOGApiClient {
                     val errorBody = response.body?.string() ?: "Unknown error"
                     Timber.e("Failed to fetch game IDs: HTTP ${response.code} - $errorBody")
                     return@withContext Result.failure(
-                        Exception("Failed to fetch game IDs: HTTP ${response.code}")
+                        Exception("Failed to fetch game IDs: HTTP ${response.code}"),
                     )
                 }
 
@@ -178,7 +176,7 @@ object GOGApiClient {
     suspend fun getGameById(
         context: Context,
         gameId: String,
-        expanded: List<String> = listOf("downloads", "description", "screenshots")
+        expanded: List<String> = listOf("downloads", "description", "screenshots"),
     ): Result<ParsedGogGame> = withContext(Dispatchers.IO) {
         try {
             Timber.tag("GOG").d("Fetching game details for gameId: $gameId")
@@ -220,7 +218,7 @@ object GOGApiClient {
                     val errorBody = response.body?.string() ?: "Unknown error"
                     Timber.tag("GOG").e("Failed to fetch game details for $gameId: HTTP ${response.code} - $errorBody")
                     return@withContext Result.failure(
-                        Exception("Failed to fetch game details: HTTP ${response.code}")
+                        Exception("Failed to fetch game details: HTTP ${response.code}"),
                     )
                 }
 
@@ -290,13 +288,17 @@ object GOGApiClient {
         }
     }
 
-        /**
+    /**
      * Fetch client secret from GOG build metadata API
      * @param gameId GOG game ID
      * @param installPath Game install path (for platform detection, defaults to "windows")
      * @return Pair of (clientId, clientSecret) from the build metadata, or null if not found
      */
-    suspend fun getClientCredentials(context: Context, gameId: String, installPath: String?): Pair<String, String>? = withContext(Dispatchers.IO) {
+    suspend fun getClientCredentials(
+        context: Context,
+        gameId: String,
+        installPath: String?,
+    ): Pair<String, String>? = withContext(Dispatchers.IO) {
         try {
             val platform = "windows" // For now, assume Windows (proton)
             val buildsUrl = "https://content-system.gog.com/products/$gameId/os/$platform/builds?generation=2"
@@ -365,14 +367,16 @@ object GOGApiClient {
 
                 // Check compression type by magic bytes
                 val isGzipped = manifestBytes.size >= 2 &&
-                                manifestBytes[0] == 0x1f.toByte() &&
-                                manifestBytes[1] == 0x8b.toByte()
+                    manifestBytes[0] == 0x1f.toByte() &&
+                    manifestBytes[1] == 0x8b.toByte()
 
                 val isZlib = manifestBytes.size >= 2 &&
-                             manifestBytes[0] == 0x78.toByte() &&
-                             (manifestBytes[1] == 0x9c.toByte() ||
-                              manifestBytes[1] == 0xda.toByte() ||
-                              manifestBytes[1] == 0x01.toByte())
+                    manifestBytes[0] == 0x78.toByte() &&
+                    (
+                        manifestBytes[1] == 0x9c.toByte() ||
+                            manifestBytes[1] == 0xda.toByte() ||
+                            manifestBytes[1] == 0x01.toByte()
+                        )
 
                 Timber.tag("GOG").d("[Cloud Saves] Manifest bytes: ${manifestBytes.size}, isGzipped: $isGzipped, isZlib: $isZlib")
 
@@ -425,7 +429,6 @@ object GOGApiClient {
                 Timber.tag("GOG").d("[Cloud Saves] Retrieved client credentials for game $gameId")
                 return@withContext clientId to clientSecret
             }
-
         } catch (e: Exception) {
             Timber.tag("GOG").e(e, "[Cloud Saves] Failed to get clientSecret for game $gameId")
             return@withContext null
@@ -536,7 +539,7 @@ object GOGApiClient {
             releaseDate = rawResponse.optString("release_date", ""),
             downloadSize = downloadSize,
             isSecret = isSecret,
-            isDlc = isDlc
+            isDlc = isDlc,
         )
     }
 }

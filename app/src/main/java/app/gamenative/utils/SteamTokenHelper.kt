@@ -10,7 +10,7 @@ class SteamTokenHelper {
             0x242df096.toInt(), 0x3829750b.toInt(), 0x38de7a77.toInt(), 0x72f0924c.toInt(),
             0x44783927.toInt(), 0x01925372.toInt(), 0x20902714.toInt(), 0x27585920.toInt(),
             0x27890632.toInt(), 0x82910476.toInt(), 0x72906721.toInt(), 0x28798904.toInt(),
-            0x78592700.toInt()
+            0x78592700.toInt(),
         )
 
         fun obfuscate(ptext: ByteArray, key: Long): String {
@@ -69,7 +69,8 @@ class SteamTokenHelper {
                 dataBytes[0] != 0x02.toByte() ||
                 dataBytes[1] != 0x00.toByte() ||
                 dataBytes[2] != 0x00.toByte() ||
-                dataBytes[3] != 0x00.toByte()) {
+                dataBytes[3] != 0x00.toByte()
+            ) {
                 throw Exception("wrong type of data")
             }
 
@@ -127,8 +128,10 @@ class SteamTokenHelper {
             val data = ByteArray(len / 2)
 
             for (i in 0 until len step 2) {
-                data[i / 2] = ((Character.digit(cleanHex[i], 16) shl 4) +
-                        Character.digit(cleanHex[i + 1], 16)).toByte()
+                data[i / 2] = (
+                    (Character.digit(cleanHex[i], 16) shl 4) +
+                        Character.digit(cleanHex[i + 1], 16)
+                    ).toByte()
             }
             return data
         }
@@ -138,4 +141,3 @@ class SteamTokenHelper {
         }
     }
 }
-

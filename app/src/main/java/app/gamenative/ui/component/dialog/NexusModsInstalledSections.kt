@@ -168,7 +168,7 @@ internal fun InstalledModsSection(
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val compact = maxWidth < 520.dp
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            val hasEnabledPlaceableMods = installs.any { it.canPlaceFiles() && isEnabledInProfile(it, enabledByInstallId) }
+                val hasEnabledPlaceableMods = installs.any { it.canPlaceFiles() && isEnabledInProfile(it, enabledByInstallId) }
                 if (compact) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(stringResource(R.string.nexus_mods_file_priority_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -191,99 +191,167 @@ internal fun InstalledModsSection(
                         }
                     }
                 }
-            if (installs.any { it.canPlaceFiles() }) {
-                Text(
-                    stringResource(R.string.nexus_mods_file_priority_description),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (installs.isEmpty()) {
-                Text(stringResource(R.string.nexus_no_mods_imported), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            val orderedInstalls = installs
-                .sortedWith(compareByDescending<ModInstall> { priorityByInstallId[it.installId] ?: 0 }.thenBy { it.modName.lowercase() })
-            val visibleInstalls = orderedInstalls.filter { install ->
-                val placementStatus = if (install.installId in placementNeededInstallIds) "needs placement" else ""
-                matchesNexusSearch(
-                    modSearchQuery,
-                    install.modName,
-                    install.fileName,
-                    install.status,
-                    install.errorMessage(),
-                    placementStatus,
-                    "priority ${priorityByInstallId[install.installId] ?: 0}",
-                )
-            }
-            if (installs.isNotEmpty()) {
-                NexusModsSearchField(
-                    value = modSearchQuery,
-                    placeholder = stringResource(R.string.nexus_search_mods),
-                    onValueChange = { modSearchQuery = it },
-                )
-                if (modSearchQuery.isNotBlank()) {
+                if (installs.any { it.canPlaceFiles() }) {
                     Text(
-                        stringResource(R.string.nexus_mods_shown, visibleInstalls.size, orderedInstalls.size),
+                        stringResource(R.string.nexus_mods_file_priority_description),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-            }
-            if (visibleInstalls.isEmpty() && installs.isNotEmpty()) {
-                Text(stringResource(R.string.nexus_no_mods_match), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            visibleInstalls
-                .forEach { install ->
-                    val index = orderedInstalls.indexOfFirst { it.installId == install.installId }
-                    val importActive = install.installId in activeInstallIds
-                    val enabledInProfile = isEnabledInProfile(install, enabledByInstallId)
-                    val status = if (install.installId in placementNeededInstallIds) {
-                        "NEEDS_PLACEMENT"
-                    } else {
-                        install.profileStatus(enabledInProfile)
+                if (installs.isEmpty()) {
+                    Text(stringResource(R.string.nexus_no_mods_imported), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                val orderedInstalls = installs
+                    .sortedWith(
+                        compareByDescending<ModInstall> {
+                            priorityByInstallId[it.installId] ?: 0
+                        }.thenBy { it.modName.lowercase() },
+                    )
+                val visibleInstalls = orderedInstalls.filter { install ->
+                    val placementStatus = if (install.installId in placementNeededInstallIds) "needs placement" else ""
+                    matchesNexusSearch(
+                        modSearchQuery,
+                        install.modName,
+                        install.fileName,
+                        install.status,
+                        install.errorMessage(),
+                        placementStatus,
+                        "priority ${priorityByInstallId[install.installId] ?: 0}",
+                    )
+                }
+                if (installs.isNotEmpty()) {
+                    NexusModsSearchField(
+                        value = modSearchQuery,
+                        placeholder = stringResource(R.string.nexus_search_mods),
+                        onValueChange = { modSearchQuery = it },
+                    )
+                    if (modSearchQuery.isNotBlank()) {
+                        Text(
+                            stringResource(R.string.nexus_mods_shown, visibleInstalls.size, orderedInstalls.size),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
-                    if (compact) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onSelect(install) }
-                                .padding(vertical = 6.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
+                }
+                if (visibleInstalls.isEmpty() && installs.isNotEmpty()) {
+                    Text(stringResource(R.string.nexus_no_mods_match), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                visibleInstalls
+                    .forEach { install ->
+                        val index = orderedInstalls.indexOfFirst { it.installId == install.installId }
+                        val importActive = install.installId in activeInstallIds
+                        val enabledInProfile = isEnabledInProfile(install, enabledByInstallId)
+                        val status = if (install.installId in placementNeededInstallIds) {
+                            "NEEDS_PLACEMENT"
+                        } else {
+                            install.profileStatus(enabledInProfile)
+                        }
+                        if (compact) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onSelect(install) }
+                                    .padding(vertical = 6.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Default.Extension,
+                                        contentDescription = null,
+                                        tint = if (selectedInstall?.installId ==
+                                            install.installId
+                                        ) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                        modifier = Modifier.size(22.dp),
+                                    )
+                                    InstalledModTitle(install, maxNameLines = 2, modifier = Modifier.weight(1f))
+                                    IconButton(
+                                        onClick = { onDelete(install) },
+                                        enabled = !importActive,
+                                        modifier = Modifier.size(38.dp),
+                                    ) {
+                                        Icon(Icons.Default.Delete, contentDescription = if (install.canRetryImport()) stringResource(R.string.nexus_remove) else stringResource(R.string.delete))
+                                    }
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    StatusChip(status)
+                                    if (install.canPlaceFiles()) {
+                                        Text(
+                                            text = "P${priorityByInstallId[install.installId] ?: 0}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    Spacer(Modifier.weight(1f))
+                                    if (install.canRetryImport()) {
+                                        TextButton(
+                                            onClick = { onRetry(install) },
+                                            enabled = !importActive,
+                                        ) {
+                                            Text(retryLabel(install), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        }
+                                    } else if (install.canPlaceFiles()) {
+                                        TextButton(onClick = { onSetEnabled(install, !enabledInProfile) }) {
+                                            Text(if (enabledInProfile) stringResource(R.string.nexus_disable) else stringResource(R.string.nexus_enable))
+                                        }
+                                    }
+                                    if (install.canPlaceFiles()) {
+                                        IconButton(
+                                            onClick = { onMovePriority(install.installId, -1) },
+                                            enabled = index > 0,
+                                            modifier = Modifier.size(36.dp),
+                                        ) {
+                                            Icon(Icons.Default.KeyboardArrowUp, contentDescription = stringResource(R.string.nexus_move_up))
+                                        }
+                                        IconButton(
+                                            onClick = { onMovePriority(install.installId, 1) },
+                                            enabled = index < orderedInstalls.lastIndex,
+                                            modifier = Modifier.size(36.dp),
+                                        ) {
+                                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.nexus_move_down))
+                                        }
+                                    }
+                                }
+                                if (install.canRetryImport()) {
+                                    InstalledModMetadata(install, priorityByInstallId[install.installId] ?: 0, enabledInProfile, errorMaxLines = 2)
+                                }
+                            }
+                        } else {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onSelect(install) }
+                                    .padding(vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
                                 Icon(
                                     Icons.Default.Extension,
                                     contentDescription = null,
-                                    tint = if (selectedInstall?.installId == install.installId) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(22.dp),
+                                    tint = if (selectedInstall?.installId ==
+                                        install.installId
+                                    ) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
                                 )
-                                InstalledModTitle(install, maxNameLines = 2, modifier = Modifier.weight(1f))
-                                IconButton(
-                                    onClick = { onDelete(install) },
-                                    enabled = !importActive,
-                                    modifier = Modifier.size(38.dp),
-                                ) {
-                                    Icon(Icons.Default.Delete, contentDescription = if (install.canRetryImport()) stringResource(R.string.nexus_remove) else stringResource(R.string.delete))
+                                Column(Modifier.weight(1f)) {
+                                    InstalledModTitle(install, maxNameLines = 1)
+                                    InstalledModMetadata(install, priorityByInstallId[install.installId] ?: 0, enabledInProfile, errorMaxLines = 1)
                                 }
-                            }
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
                                 StatusChip(status)
-                                if (install.canPlaceFiles()) {
-                                    Text(
-                                        text = "P${priorityByInstallId[install.installId] ?: 0}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                                Spacer(Modifier.weight(1f))
                                 if (install.canRetryImport()) {
                                     TextButton(
                                         onClick = { onRetry(install) },
@@ -292,79 +360,31 @@ internal fun InstalledModsSection(
                                         Text(retryLabel(install), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                 } else if (install.canPlaceFiles()) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        IconButton(onClick = { onMovePriority(install.installId, -1) }, enabled = index > 0) {
+                                            Icon(Icons.Default.KeyboardArrowUp, contentDescription = stringResource(R.string.nexus_move_up))
+                                        }
+                                        IconButton(
+                                            onClick = { onMovePriority(install.installId, 1) },
+                                            enabled =
+                                            index < orderedInstalls.lastIndex,
+                                        ) {
+                                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.nexus_move_down))
+                                        }
+                                    }
                                     TextButton(onClick = { onSetEnabled(install, !enabledInProfile) }) {
                                         Text(if (enabledInProfile) stringResource(R.string.nexus_disable) else stringResource(R.string.nexus_enable))
                                     }
                                 }
-                                if (install.canPlaceFiles()) {
-                                    IconButton(
-                                        onClick = { onMovePriority(install.installId, -1) },
-                                        enabled = index > 0,
-                                        modifier = Modifier.size(36.dp),
-                                    ) {
-                                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = stringResource(R.string.nexus_move_up))
-                                    }
-                                    IconButton(
-                                        onClick = { onMovePriority(install.installId, 1) },
-                                        enabled = index < orderedInstalls.lastIndex,
-                                        modifier = Modifier.size(36.dp),
-                                    ) {
-                                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.nexus_move_down))
-                                    }
-                                }
-                            }
-                            if (install.canRetryImport()) {
-                                InstalledModMetadata(install, priorityByInstallId[install.installId] ?: 0, enabledInProfile, errorMaxLines = 2)
-                            }
-                        }
-                    } else {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onSelect(install) }
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.Extension,
-                                contentDescription = null,
-                                tint = if (selectedInstall?.installId == install.installId) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Column(Modifier.weight(1f)) {
-                                InstalledModTitle(install, maxNameLines = 1)
-                                InstalledModMetadata(install, priorityByInstallId[install.installId] ?: 0, enabledInProfile, errorMaxLines = 1)
-                            }
-                            StatusChip(status)
-                            if (install.canRetryImport()) {
-                                TextButton(
-                                    onClick = { onRetry(install) },
+                                IconButton(
+                                    onClick = { onDelete(install) },
                                     enabled = !importActive,
                                 ) {
-                                    Text(retryLabel(install), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Icon(Icons.Default.Delete, contentDescription = if (install.canRetryImport()) stringResource(R.string.nexus_remove) else stringResource(R.string.delete))
                                 }
-                            } else if (install.canPlaceFiles()) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    IconButton(onClick = { onMovePriority(install.installId, -1) }, enabled = index > 0) {
-                                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = stringResource(R.string.nexus_move_up))
-                                    }
-                                    IconButton(onClick = { onMovePriority(install.installId, 1) }, enabled = index < orderedInstalls.lastIndex) {
-                                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.nexus_move_down))
-                                    }
-                                }
-                                TextButton(onClick = { onSetEnabled(install, !enabledInProfile) }) {
-                                    Text(if (enabledInProfile) stringResource(R.string.nexus_disable) else stringResource(R.string.nexus_enable))
-                                }
-                            }
-                            IconButton(
-                                onClick = { onDelete(install) },
-                                enabled = !importActive,
-                            ) {
-                                Icon(Icons.Default.Delete, contentDescription = if (install.canRetryImport()) stringResource(R.string.nexus_remove) else stringResource(R.string.delete))
                             }
                         }
                     }
-                }
             }
         }
     }
@@ -388,7 +408,13 @@ private fun retryLabel(install: ModInstall): String {
         "does not exist",
         "unsupported archive type: .part",
     ).any(error::contains)
-    return if (retainedArchive && !downloadError) stringResource(R.string.nexus_retry_unpack) else stringResource(R.string.nexus_retry_download)
+    return if (retainedArchive &&
+        !downloadError
+    ) {
+        stringResource(R.string.nexus_retry_unpack)
+    } else {
+        stringResource(R.string.nexus_retry_download)
+    }
 }
 
 @Composable

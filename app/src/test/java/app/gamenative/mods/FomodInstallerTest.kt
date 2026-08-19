@@ -2,13 +2,13 @@ package app.gamenative.mods
 
 import app.gamenative.data.ModPlacementMode
 import app.gamenative.data.ModTargetRoot
+import java.io.File
+import kotlin.io.path.createTempDirectory
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.io.File
-import kotlin.io.path.createTempDirectory
 
 class FomodInstallerTest {
     private lateinit var tempDir: File

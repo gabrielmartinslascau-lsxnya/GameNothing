@@ -5,8 +5,6 @@ import android.os.Handler
 import android.os.Looper
 import android.view.Choreographer
 import android.view.WindowManager
-import java.util.concurrent.Executors
-import app.gamenative.BuildConfig
 import app.gamenative.service.SteamService
 import com.winlator.container.Container
 import com.winlator.container.ContainerManager
@@ -14,8 +12,9 @@ import com.winlator.core.FileUtils
 import com.winlator.core.envvars.EnvVars
 import java.io.File
 import java.util.Locale
-import timber.log.Timber
+import java.util.concurrent.Executors
 import kotlin.jvm.JvmStatic
+import timber.log.Timber
 
 /**
  * Manages the lsfg-vk Vulkan implicit layer for frame generation.
@@ -205,6 +204,7 @@ object LsfgVkManager {
      */
     @JvmStatic
     @Volatile private var cachedMeasuredFps: Float? = null
+
     @Volatile private var lastStatsReadMs: Long = 0L
 
     /** Served from a cache refreshed off the main thread; callers poll ~1/s. */
@@ -260,7 +260,8 @@ object LsfgVkManager {
 
         val installedVersion = versionFile.takeIf { it.exists() }?.readText()?.trim().orEmpty()
         val needsInstall = installedVersion != RUNTIME_VERSION ||
-            !libFile.isFile || !manifestFile.isFile
+            !libFile.isFile ||
+            !manifestFile.isFile
 
         var success = true
 
@@ -286,7 +287,7 @@ object LsfgVkManager {
                     .bufferedReader().use { it.readText() }
                     .replace(
                         "\"library_path\": \"$LIB_FILENAME\"",
-                        "\"library_path\": \"$MANIFEST_LIBRARY_PATH\""
+                        "\"library_path\": \"$MANIFEST_LIBRARY_PATH\"",
                     )
                 FileUtils.writeString(manifestFile, manifestText)
                 FileUtils.writeString(versionFile, RUNTIME_VERSION)
@@ -356,7 +357,8 @@ object LsfgVkManager {
             val dllPath = containerDllPath(container)
             val savedMultiplier = multiplier(container)
             val frameGenActive = parseBool(container.getExtra(EXTRA_ARMED, "false")) &&
-                dllPath != null && savedMultiplier >= 2
+                dllPath != null &&
+                savedMultiplier >= 2
             val configFile = File(container.rootDir, CONFIG_RELATIVE_PATH)
             val configText = buildConfigToml(
                 dllPath = dllPath,
@@ -400,8 +402,10 @@ object LsfgVkManager {
         if (!armed) {
             // Remove the manifest so the Vulkan loader can't find the layer
             disableLayerInContainer(container)
-            Timber.tag(TAG).i("LSFG disabled (enabled=%s, dll=%s)",
-                container.getExtra(EXTRA_ARMED, "false"), dllPath ?: "null")
+            Timber.tag(TAG).i(
+                "LSFG disabled (enabled=%s, dll=%s)",
+                container.getExtra(EXTRA_ARMED, "false"), dllPath ?: "null",
+            )
             return false
         }
 
@@ -423,7 +427,7 @@ object LsfgVkManager {
         Timber.tag(TAG).i(
             "LSFG armed: dll=%s, multiplier=%d, flowScale=%.2f, perf=%s",
             dllPath, multiplier(container), flowScale(container),
-            if (performanceMode(container)) "on" else "off"
+            if (performanceMode(container)) "on" else "off",
         )
         return true
     }
@@ -644,7 +648,7 @@ object LsfgVkManager {
             if (ok) {
                 Timber.tag(TAG).i(
                     "Hot-reloaded conf.toml: enabled=%s, multiplier=%d, flowScale=%.2f, perf=%s, fpsLimit=%d",
-                    frameGenActive, multiplier, flowScale, performanceMode, fpsLimit(container)
+                    frameGenActive, multiplier, flowScale, performanceMode, fpsLimit(container),
                 )
             }
             ok
@@ -653,5 +657,4 @@ object LsfgVkManager {
             false
         }
     }
-
 }

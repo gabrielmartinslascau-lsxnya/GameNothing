@@ -58,6 +58,7 @@ object HltbService {
     }
 
     @Volatile private var auth: Auth? = null
+
     @Volatile private var apiBaseUrl = DEFAULT_API_BASE_URL
 
     private val httpClient = Net.http.newBuilder()
@@ -73,7 +74,10 @@ object HltbService {
                 if (!response.isSuccessful) return@withContext null
                 parseAuth(response.body?.string() ?: return@withContext null)?.also { auth = it }
             }
-        } catch (e: Exception) { Timber.tag("HLTB").e(e, "fetchAuth"); null }
+        } catch (e: Exception) {
+            Timber.tag("HLTB").e(e, "fetchAuth")
+            null
+        }
     }
 
     /** POST the HLTB search API, returning the best-matching game's stats. */
@@ -143,34 +147,49 @@ object HltbService {
             put("searchTerms", JSONArray(searchTerms))
             put("searchPage", 1)
             put("size", 20)
-            put("searchOptions", JSONObject().apply {
-                put("games", JSONObject().apply {
-                    put("userId", 0)
-                    put("platform", "")
-                    put("sortCategory", "name")
-                    put("rangeCategory", "main")
-                    put("modifier", "hide_dlc")
-                    put("rangeTime", JSONObject().apply {
-                        put("min", 0)
-                        put("max", 0)
-                    })
-                    put("rangeYear", JSONObject().apply {
-                        put("min", "")
-                        put("max", "")
-                    })
-                    put("gameplay", JSONObject().apply {
-                        put("perspective", "")
-                        put("flow", "")
-                        put("genre", "")
-                        put("difficulty", "")
-                    })
-                })
-                put("users", JSONObject())
-                put("lists", JSONObject())
-                put("filter", "")
-                put("sort", 0)
-                put("randomizer", 0)
-            })
+            put(
+                "searchOptions",
+                JSONObject().apply {
+                    put(
+                        "games",
+                        JSONObject().apply {
+                            put("userId", 0)
+                            put("platform", "")
+                            put("sortCategory", "name")
+                            put("rangeCategory", "main")
+                            put("modifier", "hide_dlc")
+                            put(
+                                "rangeTime",
+                                JSONObject().apply {
+                                    put("min", 0)
+                                    put("max", 0)
+                                },
+                            )
+                            put(
+                                "rangeYear",
+                                JSONObject().apply {
+                                    put("min", "")
+                                    put("max", "")
+                                },
+                            )
+                            put(
+                                "gameplay",
+                                JSONObject().apply {
+                                    put("perspective", "")
+                                    put("flow", "")
+                                    put("genre", "")
+                                    put("difficulty", "")
+                                },
+                            )
+                        },
+                    )
+                    put("users", JSONObject())
+                    put("lists", JSONObject())
+                    put("filter", "")
+                    put("sort", 0)
+                    put("randomizer", 0)
+                },
+            )
             put(auth.hpKey, auth.hpVal)
         }.toString()
 
@@ -251,13 +270,16 @@ object HltbService {
         val dp = Array(left.length + 1) { IntArray(right.length + 1) }
         for (leftIndex in 0..left.length) dp[leftIndex][0] = leftIndex
         for (rightIndex in 0..right.length) dp[0][rightIndex] = rightIndex
-        for (leftIndex in 1..left.length) for (rightIndex in 1..right.length)
-            dp[leftIndex][rightIndex] = minOf(
-                dp[leftIndex - 1][rightIndex] + 1,
-                dp[leftIndex][rightIndex - 1] + 1,
-                dp[leftIndex - 1][rightIndex - 1] +
-                    (if (left[leftIndex - 1] == right[rightIndex - 1]) 0 else 1),
-            )
+        for (leftIndex in 1..left.length) {
+            for (rightIndex in 1..right.length) {
+                dp[leftIndex][rightIndex] = minOf(
+                    dp[leftIndex - 1][rightIndex] + 1,
+                    dp[leftIndex][rightIndex - 1] + 1,
+                    dp[leftIndex - 1][rightIndex - 1] +
+                        (if (left[leftIndex - 1] == right[rightIndex - 1]) 0 else 1),
+                )
+            }
+        }
         return dp[left.length][right.length]
     }
 
@@ -319,7 +341,11 @@ object HltbCache {
         load()
         val k = key(name)
         val ts = stamps[k] ?: return null
-        if (System.currentTimeMillis() - ts >= TTL) { mem.remove(k); stamps.remove(k); return null }
+        if (System.currentTimeMillis() - ts >= TTL) {
+            mem.remove(k)
+            stamps.remove(k)
+            return null
+        }
         return mem[k]
     }
 
@@ -329,7 +355,10 @@ object HltbCache {
         val k = key(name)
         if (mem.size >= MAX_ENTRIES && !mem.containsKey(k)) {
             // Evict the oldest entry to stay within memory budget
-            stamps.minByOrNull { it.value }?.key?.let { oldest -> mem.remove(oldest); stamps.remove(oldest) }
+            stamps.minByOrNull { it.value }?.key?.let { oldest ->
+                mem.remove(oldest)
+                stamps.remove(oldest)
+            }
         }
         mem[k] = stats
         stamps[k] = System.currentTimeMillis()
@@ -340,5 +369,9 @@ object HltbCache {
 
     /** Reset state — for testing only. */
     @Synchronized
-    internal fun reset() { mem.clear(); stamps.clear(); loaded = false }
+    internal fun reset() {
+        mem.clear()
+        stamps.clear()
+        loaded = false
+    }
 }

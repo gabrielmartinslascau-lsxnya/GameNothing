@@ -24,9 +24,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -82,7 +82,9 @@ fun AuthWebViewDialog(
                                         webViewState.clear()
                                         onDismissRequest()
                                     },
-                                    content = { Icon(imageVector = Icons.Default.Close, contentDescription = stringResource(R.string.close)) },
+                                    content = {
+                                        Icon(imageVector = Icons.Default.Close, contentDescription = stringResource(R.string.close))
+                                    },
                                 )
                             },
                         )
@@ -123,7 +125,7 @@ fun AuthWebViewDialog(
 
                                     override fun shouldOverrideUrlLoading(
                                         view: WebView?,
-                                        request: WebResourceRequest?
+                                        request: WebResourceRequest?,
                                     ): Boolean {
                                         handleUrl(request?.url?.toString())
                                         return super.shouldOverrideUrlLoading(view, request)
@@ -146,7 +148,7 @@ fun AuthWebViewDialog(
                                         view: WebView?,
                                         errorCode: Int,
                                         description: String?,
-                                        failingUrl: String?
+                                        failingUrl: String?,
                                     ) {
                                         super.onReceivedError(view, errorCode, description, failingUrl)
                                         Timber.e("Auth WebView error: $errorCode - $description for URL: ${redactUrlForLogging(failingUrl)}")

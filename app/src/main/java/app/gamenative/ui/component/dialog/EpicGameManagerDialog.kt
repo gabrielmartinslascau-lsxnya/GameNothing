@@ -65,7 +65,7 @@ fun EpicGameManagerDialog(
     visible: Boolean,
     onGetDisplayInfo: @Composable (Context) -> GameDisplayInfo,
     onInstall: (List<Int>) -> Unit,
-    onDismissRequest: () -> Unit
+    onDismissRequest: () -> Unit,
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
@@ -89,7 +89,7 @@ fun EpicGameManagerDialog(
             val sizes = EpicService.fetchManifestSizes(context, baseGame.id ?: 0)
             val updatedGame = baseGame.copy(
                 downloadSize = sizes.downloadSize,
-                installSize = sizes.installSize
+                installSize = sizes.installSize,
             )
             allDownloadableGames.add(updatedGame)
             // Base game is always selected and can't be deselected
@@ -103,7 +103,7 @@ fun EpicGameManagerDialog(
             val sizes = EpicService.fetchManifestSizes(context, dlc.id ?: 0)
             val updatedDlc = dlc.copy(
                 downloadSize = sizes.downloadSize,
-                installSize = sizes.installSize
+                installSize = sizes.installSize,
             )
             allDownloadableGames.add(updatedDlc)
             selectedGameIds[updatedDlc.id ?: 0] = true
@@ -130,7 +130,7 @@ fun EpicGameManagerDialog(
             installSize = StringUtils.formatBytes(totalInstallBytes),
             availableSpace = StringUtils.formatBytes(availableBytes),
             installBytes = totalInstallBytes,
-            availableBytes = availableBytes
+            availableBytes = availableBytes,
         )
     }
 
@@ -143,7 +143,7 @@ fun EpicGameManagerDialog(
             R.string.steam_install_space,
             installSizeInfo.downloadSize,
             installSizeInfo.installSize,
-            installSizeInfo.availableSpace
+            installSizeInfo.availableSpace,
         )
     }
 
@@ -177,7 +177,7 @@ fun EpicGameManagerDialog(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(250.dp)
+                                .height(250.dp),
                         ) {
                             // Hero background image
                             if (displayInfo.heroImageUrl != null) {
@@ -194,7 +194,7 @@ fun EpicGameManagerDialog(
                                             // Gradient background as fallback
                                             Surface(
                                                 modifier = Modifier.fillMaxSize(),
-                                                color = MaterialTheme.colorScheme.primary
+                                                color = MaterialTheme.colorScheme.primary,
                                             ) { }
                                         }
                                     },
@@ -204,7 +204,7 @@ fun EpicGameManagerDialog(
                                 // Fallback gradient background when no hero image
                                 Surface(
                                     modifier = Modifier.fillMaxSize(),
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = MaterialTheme.colorScheme.primary,
                                 ) { }
                             }
 
@@ -216,10 +216,10 @@ fun EpicGameManagerDialog(
                                         brush = Brush.verticalGradient(
                                             colors = listOf(
                                                 Color.Transparent,
-                                                Color.Black.copy(alpha = 0.8f)
-                                            )
-                                        )
-                                    )
+                                                Color.Black.copy(alpha = 0.8f),
+                                            ),
+                                        ),
+                                    ),
                             )
 
                             // Back button (top left)
@@ -228,8 +228,8 @@ fun EpicGameManagerDialog(
                                     .padding(20.dp)
                                     .background(
                                         color = Color.Black.copy(alpha = 0.5f),
-                                        shape = RoundedCornerShape(12.dp)
-                                    )
+                                        shape = RoundedCornerShape(12.dp),
+                                    ),
                             ) {
                                 BackButton(onClick = onDismissRequest)
                             }
@@ -238,7 +238,7 @@ fun EpicGameManagerDialog(
                             Column(
                                 modifier = Modifier
                                     .align(Alignment.BottomStart)
-                                    .padding(20.dp)
+                                    .padding(20.dp),
                             ) {
                                 Text(
                                     text = displayInfo.name,
@@ -247,10 +247,10 @@ fun EpicGameManagerDialog(
                                         shadow = Shadow(
                                             color = Color.Black.copy(alpha = 0.5f),
                                             offset = Offset(0f, 2f),
-                                            blurRadius = 10f
-                                        )
+                                            blurRadius = 10f,
+                                        ),
                                     ),
-                                    color = Color.White
+                                    color = Color.White,
                                 )
 
                                 Text(
@@ -264,13 +264,13 @@ fun EpicGameManagerDialog(
                                         }
                                     }",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = Color.White.copy(alpha = 0.9f)
+                                    color = Color.White.copy(alpha = 0.9f),
                                 )
                             }
                         }
 
                         Column(
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
                             allDownloadableGames.forEach { game ->
                                 val gameIdValue = game.id ?: 0
@@ -281,7 +281,7 @@ fun EpicGameManagerDialog(
                                     headlineContent = {
                                         Column {
                                             Text(
-                                                text = game.title
+                                                text = game.title,
                                             )
                                             // Add size display
                                             val downloadSize = StringUtils.formatBytes(game.downloadSize)
@@ -289,14 +289,14 @@ fun EpicGameManagerDialog(
                                             Text(
                                                 text = "$downloadSize download • $installSize install",
                                                 style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                             )
                                             // Show if it's DLC
                                             if (game.isDLC) {
                                                 Text(
                                                     text = "DLC",
                                                     style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.primary
+                                                    color = MaterialTheme.colorScheme.primary,
                                                 )
                                             }
                                         }
@@ -309,37 +309,37 @@ fun EpicGameManagerDialog(
                                                 if (!isBaseGame) {
                                                     selectedGameIds[gameIdValue] = isChecked
                                                 }
-                                            }
+                                            },
                                         )
                                     },
                                     modifier = Modifier.clickable(enabled = !isBaseGame) {
                                         if (!isBaseGame) {
                                             selectedGameIds[gameIdValue] = !checked
                                         }
-                                    }
+                                    },
                                 )
 
                                 HorizontalDivider(
                                     modifier = Modifier.padding(horizontal = 16.dp),
                                     thickness = 0.5.dp,
-                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
                                 )
                             }
                         }
 
                         Column(
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(top = 8.dp, start = 8.dp, bottom = 8.dp, end = 8.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(
                                     modifier = Modifier.weight(0.5f),
-                                    text = installSizeDisplay()
+                                    text = installSizeDisplay(),
                                 )
 
                                 Button(
@@ -350,7 +350,7 @@ fun EpicGameManagerDialog(
                                             .keys
                                             .toList()
                                         onInstall(selectedIds)
-                                    }
+                                    },
                                 ) {
                                     Text(stringResource(R.string.install))
                                 }

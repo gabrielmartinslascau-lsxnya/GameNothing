@@ -2,10 +2,9 @@
 
 package app.gamenative.ui.screen.library
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.res.Configuration
-import app.gamenative.ui.screen.library.components.ambient.AmbientDownloadOverlay
-import android.content.ActivityNotFoundException
 import android.net.Uri
 import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
@@ -13,11 +12,12 @@ import androidx.compose.animation.core.*
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -31,9 +31,8 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -115,8 +114,8 @@ import app.gamenative.service.SteamService
 import app.gamenative.ui.component.GamepadAction
 import app.gamenative.ui.component.GamepadActionBar
 import app.gamenative.ui.component.GamepadButton
-import app.gamenative.ui.component.focusRing
 import app.gamenative.ui.component.LoadingScreen
+import app.gamenative.ui.component.focusRing
 import app.gamenative.ui.data.AppMenuOption
 import app.gamenative.ui.data.GameDisplayInfo
 import app.gamenative.ui.enums.AppOptionMenuType
@@ -127,8 +126,9 @@ import app.gamenative.ui.screen.library.appscreen.EpicAppScreen
 import app.gamenative.ui.screen.library.appscreen.GOGAppScreen
 import app.gamenative.ui.screen.library.appscreen.SteamAppScreen
 import app.gamenative.ui.screen.library.components.GameOptionsPanel
-import app.gamenative.utils.HltbService
+import app.gamenative.ui.screen.library.components.ambient.AmbientDownloadOverlay
 import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.utils.HltbService
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
 import java.text.SimpleDateFormat
@@ -600,7 +600,7 @@ internal fun AppScreenContent(
     // Calculate parallax offset based on scroll
     val parallaxOffset = scrollState.value * 0.5f
 
-    var downloadTimeLeftText by remember { mutableStateOf("")}
+    var downloadTimeLeftText by remember { mutableStateOf("") }
 
     val progressListener: (Float) -> Unit = {
         val downloadStatusMessage = downloadInfo?.getCurrentStatusMessage()
@@ -905,52 +905,128 @@ internal fun AppScreenContent(
                             .background(Color.Black.copy(alpha = 0.5f))
                             .padding(12.dp),
                     ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .focusGroup(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        // Primary action button (left-aligned)
-                        if (isDownloading || hasPartialDownload) {
-                            PrimaryActionButton(
-                                text = if (isDownloading) {
-                                    stringResource(R.string.pause_download)
-                                } else {
-                                    stringResource(R.string.resume_download)
-                                },
-                                onClick = onPauseResumeClick,
-                                enabled = pauseResumeEnabled,
-                                isInstalled = false,
-                                isDownloading = isDownloading,
-                                downloadProgress = downloadProgress,
-                                focusRequester = playButtonFocusRequester,
-                                onProgressBarPositioned = { progressBarBounds = it },
-                            )
-                        } else {
-                            val text = when {
-                                isInstalled -> stringResource(R.string.run_app)
-                                !hasInternet -> stringResource(R.string.library_need_internet)
-                                !hasWifiOrEthernet && PrefManager.downloadOnWifiOnly -> stringResource(R.string.library_wifi_only_enabled)
-                                else -> stringResource(R.string.install_app)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusGroup(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            // Primary action button (left-aligned)
+                            if (isDownloading || hasPartialDownload) {
+                                PrimaryActionButton(
+                                    text = if (isDownloading) {
+                                        stringResource(R.string.pause_download)
+                                    } else {
+                                        stringResource(R.string.resume_download)
+                                    },
+                                    onClick = onPauseResumeClick,
+                                    enabled = pauseResumeEnabled,
+                                    isInstalled = false,
+                                    isDownloading = isDownloading,
+                                    downloadProgress = downloadProgress,
+                                    focusRequester = playButtonFocusRequester,
+                                    onProgressBarPositioned = { progressBarBounds = it },
+                                )
+                            } else {
+                                val text = when {
+                                    isInstalled -> stringResource(R.string.run_app)
+                                    !hasInternet -> stringResource(R.string.library_need_internet)
+                                    !hasWifiOrEthernet && PrefManager.downloadOnWifiOnly -> stringResource(R.string.library_wifi_only_enabled)
+                                    else -> stringResource(R.string.install_app)
+                                }
+                                PrimaryActionButton(
+                                    text = text,
+                                    onClick = onDownloadInstallClick,
+                                    enabled = buttonEnabled,
+                                    isInstalled = isInstalled,
+                                    focusRequester = playButtonFocusRequester,
+                                )
                             }
-                            PrimaryActionButton(
-                                text = text,
-                                onClick = onDownloadInstallClick,
-                                enabled = buttonEnabled,
-                                isInstalled = isInstalled,
-                                focusRequester = playButtonFocusRequester,
+
+                            // Download size / ETA text — inline only in landscape
+                            if (isDownloading && !isPortrait) {
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(horizontal = 8.dp),
+                                    verticalArrangement = Arrangement.Center,
+                                ) {
+                                    if (downloadSizeText.isNotEmpty()) {
+                                        Text(
+                                            text = downloadSizeText,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color.White.copy(alpha = 0.9f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                    if (downloadTimeLeftText.isNotEmpty()) {
+                                        Text(
+                                            text = downloadTimeLeftText,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color.White.copy(alpha = 0.65f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                }
+                            } else {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+
+                            // Secondary action icons (right-aligned)
+                            ActionIconButton(
+                                icon = Icons.Default.Settings,
+                                contentDescription = stringResource(R.string.options),
+                                onClick = { optionsMenuVisible = true },
                             )
+
+                            if (isInstalled || hasPartialDownload || hasLeftoverInstall) {
+                                ActionIconButton(
+                                    icon = Icons.Default.Delete,
+                                    contentDescription = if (isInstalled ||
+                                        hasLeftoverInstall
+                                    ) {
+                                        stringResource(R.string.uninstall)
+                                    } else {
+                                        stringResource(R.string.delete_app)
+                                    },
+                                    onClick = onDeleteDownloadClick,
+                                )
+                            }
                         }
 
-                        // Download size / ETA text — inline only in landscape
-                        if (isDownloading && !isPortrait) {
-                            Column(
+                        if (immersiveMode.isSupported && isInstalled) {
+                            Row(
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 8.dp),
-                                verticalArrangement = Arrangement.Center,
+                                    .fillMaxWidth()
+                                    .padding(top = 4.dp)
+                                    .clickable { immersiveMode.onChange(!immersiveMode.isEnabled) },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Checkbox(
+                                    checked = immersiveMode.isEnabled,
+                                    onCheckedChange = immersiveMode.onChange,
+                                    colors = CheckboxDefaults.colors(
+                                        uncheckedColor = Color.White.copy(alpha = 0.7f),
+                                    ),
+                                )
+                                Text(
+                                    text = stringResource(R.string.launch_immersive_mode),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color.White,
+                                )
+                            }
+                        }
+
+                        if (isDownloading && isPortrait) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 if (downloadSizeText.isNotEmpty()) {
                                     Text(
@@ -958,7 +1034,6 @@ internal fun AppScreenContent(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = Color.White.copy(alpha = 0.9f),
                                         maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
                                     )
                                 }
                                 if (downloadTimeLeftText.isNotEmpty()) {
@@ -967,79 +1042,10 @@ internal fun AppScreenContent(
                                         style = MaterialTheme.typography.labelSmall,
                                         color = Color.White.copy(alpha = 0.65f),
                                         maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
                                     )
                                 }
                             }
-                        } else {
-                            Spacer(modifier = Modifier.weight(1f))
                         }
-
-                        // Secondary action icons (right-aligned)
-                        ActionIconButton(
-                            icon = Icons.Default.Settings,
-                            contentDescription = stringResource(R.string.options),
-                            onClick = { optionsMenuVisible = true },
-                        )
-
-                        if (isInstalled || hasPartialDownload || hasLeftoverInstall) {
-                            ActionIconButton(
-                                icon = Icons.Default.Delete,
-                                contentDescription = if (isInstalled || hasLeftoverInstall) stringResource(R.string.uninstall) else stringResource(R.string.delete_app),
-                                onClick = onDeleteDownloadClick,
-                            )
-                        }
-                    }
-
-                    if (immersiveMode.isSupported && isInstalled) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 4.dp)
-                                .clickable { immersiveMode.onChange(!immersiveMode.isEnabled) },
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Checkbox(
-                                checked = immersiveMode.isEnabled,
-                                onCheckedChange = immersiveMode.onChange,
-                                colors = CheckboxDefaults.colors(
-                                    uncheckedColor = Color.White.copy(alpha = 0.7f),
-                                ),
-                            )
-                            Text(
-                                text = stringResource(R.string.launch_immersive_mode),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White,
-                            )
-                        }
-                    }
-
-                    if (isDownloading && isPortrait) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            if (downloadSizeText.isNotEmpty()) {
-                                Text(
-                                    text = downloadSizeText,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.White.copy(alpha = 0.9f),
-                                    maxLines = 1,
-                                )
-                            }
-                            if (downloadTimeLeftText.isNotEmpty()) {
-                                Text(
-                                    text = downloadTimeLeftText,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White.copy(alpha = 0.65f),
-                                    maxLines = 1,
-                                )
-                            }
-                        }
-                    }
                     }
 
                     // Compatibility status (if applicable)
@@ -1215,7 +1221,6 @@ internal fun AppScreenContent(
                         }
                     }
                 }
-
             }
         }
 

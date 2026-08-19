@@ -2,10 +2,10 @@ package app.gamenative.mods
 
 import app.gamenative.data.ModInstall
 import app.gamenative.data.ModInstallStatus
-import org.json.JSONObject
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import org.json.JSONObject
 
 internal object NexusImportState {
     private const val WEBSITE_AUTHORIZATION_REQUIRED_KEY = "websiteAuthorizationRequired"
@@ -163,12 +163,13 @@ internal object NexusImportState {
         install: ModInstall?,
         transferredBytes: Long,
         allowEmpty: Boolean,
-    ): Boolean = install != null && runCatching {
-        val metadata = JSONObject(install.metadataJson)
-        metadata.optBoolean(DOWNLOAD_COMPLETE_KEY, false) &&
-            (allowEmpty || transferredBytes > 0L) &&
-            metadata.optLong(DOWNLOAD_COMPLETE_BYTES_KEY, -1L) == transferredBytes
-    }.getOrDefault(false)
+    ): Boolean = install != null &&
+        runCatching {
+            val metadata = JSONObject(install.metadataJson)
+            metadata.optBoolean(DOWNLOAD_COMPLETE_KEY, false) &&
+                (allowEmpty || transferredBytes > 0L) &&
+                metadata.optLong(DOWNLOAD_COMPLETE_BYTES_KEY, -1L) == transferredBytes
+        }.getOrDefault(false)
 
     fun userMessage(
         error: Throwable,
@@ -257,7 +258,7 @@ internal object NexusImportState {
             NexusApiErrorReason.DOWNLOAD_AUTHORIZATION_EXPIRED ->
                 expiredAuthorizationMessage
                     ?: error.message
-                    ?.takeUnless { it.trimEnd('.') == BARE_EXPIRED_AUTHORIZATION_MESSAGE }
+                        ?.takeUnless { it.trimEnd('.') == BARE_EXPIRED_AUTHORIZATION_MESSAGE }
                     ?: EXPIRED_AUTHORIZATION_MESSAGE
             NexusApiErrorReason.NOT_FOUND -> error.message ?: "Nexus could not find this mod, file, or collection revision."
             NexusApiErrorReason.RATE_LIMITED -> "Nexus API rate limit reached."

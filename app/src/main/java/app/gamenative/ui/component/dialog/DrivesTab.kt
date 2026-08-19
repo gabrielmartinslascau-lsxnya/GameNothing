@@ -10,14 +10,13 @@ import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import app.gamenative.ui.component.NoExtractOutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -26,9 +25,10 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.gamenative.R
-import app.gamenative.ui.util.SnackbarManager
+import app.gamenative.ui.component.NoExtractOutlinedTextField
 import app.gamenative.ui.component.settings.SettingsCenteredLabel
 import app.gamenative.ui.theme.settingsTileColors
+import app.gamenative.ui.util.SnackbarManager
 import com.alorma.compose.settings.ui.SettingsGroup
 import com.alorma.compose.settings.ui.SettingsMenuLink
 import com.winlator.container.Container
@@ -37,7 +37,7 @@ import com.winlator.container.Container
 fun DrivesTabContent(state: ContainerConfigState) {
     val context = LocalContext.current
     val config = state.config.value
-    SettingsGroup() {
+    SettingsGroup {
         if (config.drives.isNotEmpty()) {
             for (drive in Container.drivesIterator(config.drives)) {
                 val driveLetter = drive[0]

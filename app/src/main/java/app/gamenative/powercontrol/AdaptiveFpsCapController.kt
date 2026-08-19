@@ -273,5 +273,4 @@ object AdaptiveFpsCapController {
         )
         sessionLog.append(line)
     }
-
 }

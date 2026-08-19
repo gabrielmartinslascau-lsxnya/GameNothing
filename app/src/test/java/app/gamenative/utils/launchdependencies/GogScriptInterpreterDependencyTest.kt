@@ -14,24 +14,25 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.slot
 import io.mockk.unmockkAll
+import java.io.File
 import kotlinx.coroutines.runBlocking
 import org.junit.After
-import org.junit.Rule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 class GogScriptInterpreterDependencyTest {
     private lateinit var context: Context
     private lateinit var container: Container
+
     @get:Rule
     val tempFolder = TemporaryFolder()
 

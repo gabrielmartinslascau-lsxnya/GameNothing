@@ -44,8 +44,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -74,22 +74,21 @@ import app.gamenative.data.ModPlacementRecipe
 import app.gamenative.data.ModProfile
 import app.gamenative.data.ModProfileInstallState
 import app.gamenative.data.ModTargetRoot
-import app.gamenative.mods.BethesdaPlacementRecipeExpander
+import app.gamenative.mods.AuthorizedNexusWebsiteDownload
 import app.gamenative.mods.BethesdaGame
+import app.gamenative.mods.BethesdaPlacementRecipeExpander
 import app.gamenative.mods.BethesdaPlugin
 import app.gamenative.mods.BethesdaPluginAssetIssue
 import app.gamenative.mods.BethesdaPluginDependencyIssue
 import app.gamenative.mods.BethesdaPluginManager
-import app.gamenative.mods.AuthorizedNexusWebsiteDownload
-import app.gamenative.mods.FomodInstaller
+import app.gamenative.mods.DuplicateLocalModContentException
 import app.gamenative.mods.FomodAutoSelector
+import app.gamenative.mods.FomodInstaller
 import app.gamenative.mods.FomodInstallerDetector
 import app.gamenative.mods.FomodParser
-import app.gamenative.mods.DuplicateLocalModContentException
 import app.gamenative.mods.LocalModImporter
 import app.gamenative.mods.LocalModSourceSelection
 import app.gamenative.mods.LocalModSourceType
-import app.gamenative.mods.truncateAtCodePointBoundary
 import app.gamenative.mods.ModArchiveEntry
 import app.gamenative.mods.ModArchiveInstallAssessor
 import app.gamenative.mods.ModConflictAnalyzer
@@ -123,26 +122,27 @@ import app.gamenative.mods.NexusModInfo
 import app.gamenative.mods.NexusModManager
 import app.gamenative.mods.NexusModReference
 import app.gamenative.mods.NexusPendingDownloadStore
+import app.gamenative.mods.NexusUrlParser
 import app.gamenative.mods.NexusUserInfo
 import app.gamenative.mods.PendingNexusWebsiteDownload
-import app.gamenative.mods.NexusUrlParser
 import app.gamenative.mods.isPastPendingTtl
+import app.gamenative.mods.truncateAtCodePointBoundary
 import app.gamenative.service.NexusModImportService
 import app.gamenative.ui.util.LocalSnackbarHostController
 import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.utils.StorageUtils
-import kotlinx.coroutines.Dispatchers
+import java.io.File
+import java.io.IOException
+import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
-import java.io.File
-import java.io.IOException
-import java.util.UUID
 internal data class RecipeDraft(
     val sourceSubpath: String = "",
     val targetRoot: String = ModTargetRoot.GAME_DIR.name,
@@ -496,6 +496,7 @@ private fun StorageCleanupSection(
     onCleanRedundantBackups: () -> Unit,
 ) {
     fun size(bytes: Long) = StorageUtils.formatBinarySize(bytes)
+
     @Composable
     fun Line(label: String, bytes: Long) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -584,11 +585,23 @@ private fun InstallHealthSection(
             if (current.issues.isEmpty()) {
                 Text(stringResource(R.string.nexus_no_install_health_issues), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
             } else {
-                val summaryColor = if (current.errorCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                val summaryColor = if (current.errorCount >
+                    0
+                ) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
                 Text(stringResource(R.string.nexus_install_health_summary, current.errorCount, current.warningCount), style = MaterialTheme.typography.bodySmall, color = summaryColor)
                 current.issues.take(8).forEach { issue ->
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        val titleColor = if (issue.severity == ModHealthSeverity.ERROR) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                        val titleColor = if (issue.severity ==
+                            ModHealthSeverity.ERROR
+                        ) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        }
                         Text(listOf(issue.installName, issue.title).filter(String::isNotBlank).joinToString(": "), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = titleColor)
                         Text(issue.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -637,9 +650,11 @@ fun NexusModsDialog(
     val apiClient = remember { NexusApiClient() }
     val roots = remember(gameRootDir, winePrefix, context) {
         ModTargetResolver.roots(gameRootDir, winePrefix).ifEmpty {
-            listOfNotNull(gameRootDir?.takeIf { it.isDirectory }?.let {
-                app.gamenative.mods.ResolvedModTargetRoot(ModTargetRoot.GAME_DIR, context.getString(R.string.nexus_game_directory_root), it)
-            })
+            listOfNotNull(
+                gameRootDir?.takeIf { it.isDirectory }?.let {
+                    app.gamenative.mods.ResolvedModTargetRoot(ModTargetRoot.GAME_DIR, context.getString(R.string.nexus_game_directory_root), it)
+                },
+            )
         }
     }
     val fallbackDefaultDraft = remember(roots) {
@@ -770,7 +785,7 @@ fun NexusModsDialog(
                                 context.getString(R.string.local_mod_default_name),
                             )
                         }
-                    ).truncateAtCodePointBoundary(LocalModImporter.MAX_MOD_NAME_LENGTH),
+                        ).truncateAtCodePointBoundary(LocalModImporter.MAX_MOD_NAME_LENGTH),
                     version = retryTarget?.version.orEmpty(),
                     estimatedRequiredBytes = storage.estimatedRequiredBytes,
                     availableBytes = storage.availableBytes,
@@ -1223,7 +1238,13 @@ fun NexusModsDialog(
         if (targetIndex < 0) return
         reordered.addAll(
             targetIndex,
-            moving.sortedBy { masterNames.indexOfFirst { master -> master.equals(it.fileName, ignoreCase = true) }.takeIf { index -> index >= 0 } ?: Int.MAX_VALUE },
+            moving.sortedBy {
+                masterNames.indexOfFirst { master -> master.equals(it.fileName, ignoreCase = true) }.takeIf { index ->
+                    index >=
+                        0
+                }
+                    ?: Int.MAX_VALUE
+            },
         )
         writePluginState(reordered)
     }
@@ -1353,7 +1374,10 @@ fun NexusModsDialog(
                         ProfileOrderConflictCheck(
                             rawConflicts = rawConflicts,
                             conflicts = ModMaterializer.filterUnapprovedConflicts(rawConflicts, overwriteManifests),
-                            hasOverwriteRecipe = plan.recipesByInstallId.values.flatten().any { it.mode == ModPlacementMode.OVERWRITE_COPY.name },
+                            hasOverwriteRecipe = plan.recipesByInstallId.values.flatten().any {
+                                it.mode ==
+                                    ModPlacementMode.OVERWRITE_COPY.name
+                            },
                         )
                     }
                     if (check.conflicts.isNotEmpty() && check.hasOverwriteRecipe) {
@@ -1370,7 +1394,12 @@ fun NexusModsDialog(
                 val availableBytes = NexusModManager.cacheRoot(context, libraryItem.appId).usableSpace
                 if (availableBytes < MIN_APPLY_FREE_BYTES) {
                     SnackbarManager.show(
-                        context.getString(R.string.nexus_storage_low_apply_order, StorageUtils.formatBinarySize(MIN_APPLY_FREE_BYTES - availableBytes)),
+                        context.getString(
+                            R.string.nexus_storage_low_apply_order,
+                            StorageUtils.formatBinarySize(
+                                MIN_APPLY_FREE_BYTES - availableBytes,
+                            ),
+                        ),
                     )
                     return@launch
                 }
@@ -1504,7 +1533,15 @@ fun NexusModsDialog(
                         healthReport = refreshedHealth
                     }
                 }
-                SnackbarManager.show(if (result.errors == 0) context.getString(R.string.nexus_mod_order_applied, suffix, skippedSuffix) else context.getString(R.string.nexus_mod_order_applied_with_errors, result.errors, suffix, skippedSuffix))
+                SnackbarManager.show(
+                    if (result.errors ==
+                        0
+                    ) {
+                        context.getString(R.string.nexus_mod_order_applied, suffix, skippedSuffix)
+                    } else {
+                        context.getString(R.string.nexus_mod_order_applied_with_errors, result.errors, suffix, skippedSuffix)
+                    },
+                )
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -1978,7 +2015,9 @@ fun NexusModsDialog(
                     collectionFile = collectionFile,
                     modInfo = NexusModInfo(
                         modId = collectionFile.modId,
-                        name = collectionFile.modName.ifBlank { context.getString(R.string.nexus_collection_mod_fallback_name, collectionFile.modId) },
+                        name = collectionFile.modName.ifBlank {
+                            context.getString(R.string.nexus_collection_mod_fallback_name, collectionFile.modId)
+                        },
                         summary = "",
                         version = collectionFile.version,
                     ),
@@ -2051,10 +2090,12 @@ fun NexusModsDialog(
             ) {
                 val key = pendingMod.collectionKey()
                 val current = collectionQueue[key]
-                collectionQueue[key] = (current ?: pendingMod.toQueueItem(
-                    status = status,
-                    fallbackName = context.getString(R.string.nexus_collection_mod_fallback_name, pendingMod.collectionFile.modId),
-                )).copy(
+                collectionQueue[key] = (
+                    current ?: pendingMod.toQueueItem(
+                        status = status,
+                        fallbackName = context.getString(R.string.nexus_collection_mod_fallback_name, pendingMod.collectionFile.modId),
+                    )
+                    ).copy(
                     status = status,
                     progress = progress ?: current?.progress ?: 0f,
                     message = message,
@@ -2180,7 +2221,11 @@ fun NexusModsDialog(
                     if (reusedExisting && install.nexusFileId != (reference.fileId ?: file.fileId)) {
                         add(context.getString(R.string.nexus_collection_different_file_reused))
                     }
-                    if (existingRecipes.isNotEmpty() && reusedExisting) add(context.getString(R.string.nexus_collection_existing_placement_kept))
+                    if (existingRecipes.isNotEmpty() &&
+                        reusedExisting
+                    ) {
+                        add(context.getString(R.string.nexus_collection_existing_placement_kept))
+                    }
                     addAll(assessment.reasons)
                     addAll(fomodAutoSelection?.reasons.orEmpty())
                 }.distinct()
@@ -2273,7 +2318,8 @@ fun NexusModsDialog(
                             modId = reference.modId,
                             fileId = reference.fileId ?: file.fileId,
                         )
-                        loadingMessage = context.getString(R.string.nexus_preparing_collection_item, index + 1, collectionMods.size, modInfo.name)
+                        loadingMessage =
+                            context.getString(R.string.nexus_preparing_collection_item, index + 1, collectionMods.size, modInfo.name)
                         progress = 0f
                         importProgress = null
                         val suggestedPriority = collectionPriorityBase + (suggestedPriorities[pendingMod.collectionKey()] ?: index)
@@ -2357,7 +2403,8 @@ fun NexusModsDialog(
                             )
                             break
                         }
-                        loadingMessage = context.getString(R.string.nexus_starting_collection_item, index + 1, collectionMods.size, modInfo.name)
+                        loadingMessage =
+                            context.getString(R.string.nexus_starting_collection_item, index + 1, collectionMods.size, modInfo.name)
                         updateQueue(
                             pendingMod,
                             status = CollectionQueueStatus.IMPORTING,
@@ -2702,9 +2749,10 @@ fun NexusModsDialog(
             estimatedRequiredBytes = NexusModManager.estimateSequentialImportScratchBytes(selectedFiles),
             paused = collectionPaused,
             controlsEnabled = !collectionImportRunning,
-            cancelEnabled = activeCollectionInstallId != null || collectionQueue.values.any {
-                it.status == CollectionQueueStatus.QUEUED || it.status == CollectionQueueStatus.IMPORTING
-            },
+            cancelEnabled = activeCollectionInstallId != null ||
+                collectionQueue.values.any {
+                    it.status == CollectionQueueStatus.QUEUED || it.status == CollectionQueueStatus.IMPORTING
+                },
             onToggle = { key, selected ->
                 selectedCollectionKeys = if (selected) selectedCollectionKeys + key else selectedCollectionKeys - key
             },
@@ -2739,340 +2787,349 @@ fun NexusModsDialog(
                 color = MaterialTheme.colorScheme.background,
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Icon(Icons.Default.Extension, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.option_manage_mods), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                        Text(
-                            text = libraryItem.name,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    TextButton(onClick = ::requestDialogDismiss) {
-                        Text(stringResource(R.string.close))
-                    }
-                }
-
-                HorizontalDivider()
-
-                ManageModsSummaryBar(
-                    installs = installs,
-                    enabledByInstallId = profileEnabledByInstallId,
-                    activeProfile = activeProfile,
-                    activeDownload = activeDownload,
-                    issueCount = issueCount,
-                    diagnosticsLoading = diagnosticsLoading,
-                    busyText = loadingMessage,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
-                )
-
-                ManageModsTabs(
-                    selectedTab = selectedTab,
-                    onSelect = { selectedTab = it },
-                )
-
-                val importScrollState = rememberScrollState()
-                val modsScrollState = rememberScrollState()
-                val placementScrollState = rememberScrollState()
-                val issuesScrollState = rememberScrollState()
-                val selectedScrollState = when (selectedTab) {
-                    ManageModsTab.IMPORT -> importScrollState
-                    ManageModsTab.MODS -> modsScrollState
-                    ManageModsTab.PLACEMENT -> placementScrollState
-                    ManageModsTab.ISSUES -> issuesScrollState
-                }
-
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .verticalScroll(selectedScrollState)
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp),
-                ) {
-                    when (selectedTab) {
-                        ManageModsTab.IMPORT -> {
-                            LocalModImportSection(
-                                onChooseArchive = { launchLocalSourcePicker(LocalModSourceType.ARCHIVE) },
-                                onChooseFiles = { launchLocalSourcePicker(LocalModSourceType.FILES) },
-                                onChooseFolder = { launchLocalSourcePicker(LocalModSourceType.FOLDER) },
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Icon(Icons.Default.Extension, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.option_manage_mods), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = libraryItem.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
-                            if (!NexusIntegrationStatus.ONLINE_ACCESS_AVAILABLE) {
-                                NexusIntegrationUnavailableSection()
-                            } else {
-                                ImportSection(
-                                    nexusUrl = nexusUrl,
-                                    onUrlChange = { nexusUrl = it },
-                                    onImport = ::resolveUrlAndImport,
+                        }
+                        TextButton(onClick = ::requestDialogDismiss) {
+                            Text(stringResource(R.string.close))
+                        }
+                    }
+
+                    HorizontalDivider()
+
+                    ManageModsSummaryBar(
+                        installs = installs,
+                        enabledByInstallId = profileEnabledByInstallId,
+                        activeProfile = activeProfile,
+                        activeDownload = activeDownload,
+                        issueCount = issueCount,
+                        diagnosticsLoading = diagnosticsLoading,
+                        busyText = loadingMessage,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 8.dp),
+                    )
+
+                    ManageModsTabs(
+                        selectedTab = selectedTab,
+                        onSelect = { selectedTab = it },
+                    )
+
+                    val importScrollState = rememberScrollState()
+                    val modsScrollState = rememberScrollState()
+                    val placementScrollState = rememberScrollState()
+                    val issuesScrollState = rememberScrollState()
+                    val selectedScrollState = when (selectedTab) {
+                        ManageModsTab.IMPORT -> importScrollState
+                        ManageModsTab.MODS -> modsScrollState
+                        ManageModsTab.PLACEMENT -> placementScrollState
+                        ManageModsTab.ISSUES -> issuesScrollState
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .verticalScroll(selectedScrollState)
+                            .padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(18.dp),
+                    ) {
+                        when (selectedTab) {
+                            ManageModsTab.IMPORT -> {
+                                LocalModImportSection(
+                                    onChooseArchive = { launchLocalSourcePicker(LocalModSourceType.ARCHIVE) },
+                                    onChooseFiles = { launchLocalSourcePicker(LocalModSourceType.FILES) },
+                                    onChooseFolder = { launchLocalSourcePicker(LocalModSourceType.FOLDER) },
                                 )
-                                pendingFileSelection?.let { pending ->
-                                    FileSelectionSection(
-                                        pending = pending,
-                                        onImport = { file ->
-                                            val authorization = pending.reference.downloadAuthorization
-                                                ?.takeIf { pending.reference.fileId == file.fileId }
-                                            importFile(
-                                                reference = pending.reference.copy(
-                                                    fileId = file.fileId,
-                                                    downloadAuthorization = authorization,
-                                                ),
-                                                modInfo = pending.modInfo,
-                                                file = file,
+                                if (!NexusIntegrationStatus.ONLINE_ACCESS_AVAILABLE) {
+                                    NexusIntegrationUnavailableSection()
+                                } else {
+                                    ImportSection(
+                                        nexusUrl = nexusUrl,
+                                        onUrlChange = { nexusUrl = it },
+                                        onImport = ::resolveUrlAndImport,
+                                    )
+                                    pendingFileSelection?.let { pending ->
+                                        FileSelectionSection(
+                                            pending = pending,
+                                            onImport = { file ->
+                                                val authorization = pending.reference.downloadAuthorization
+                                                    ?.takeIf { pending.reference.fileId == file.fileId }
+                                                importFile(
+                                                    reference = pending.reference.copy(
+                                                        fileId = file.fileId,
+                                                        downloadAuthorization = authorization,
+                                                    ),
+                                                    modInfo = pending.modInfo,
+                                                    file = file,
+                                                )
+                                            },
+                                        )
+                                    }
+                                    pendingCollectionSelection?.let { pending -> CollectionSelectionContent(pending) }
+                                }
+                            }
+
+                            ManageModsTab.MODS -> {
+                                ProfilesSection(
+                                    profiles = profiles,
+                                    activeProfile = activeProfile,
+                                    onActivate = ::activateProfile,
+                                    onCreate = {
+                                        pendingProfileNameEdit =
+                                            PendingProfileNameEdit(null, nextProfileName(profiles, context.getString(R.string.nexus_profile_name_prefix)))
+                                    },
+                                    onRename = { profile -> pendingProfileNameEdit = PendingProfileNameEdit(profile, profile.name) },
+                                    onDelete = { profile -> pendingProfileDelete = profile },
+                                )
+                                InstalledModsSection(
+                                    installs = installs,
+                                    priorityByInstallId = priorityByInstallId,
+                                    enabledByInstallId = profileEnabledByInstallId,
+                                    selectedInstall = selectedInstall,
+                                    placementNeededInstallIds = placementNeededInstallIds,
+                                    activeInstallIds = activeDownloads.keys,
+                                    onSelect = ::selectInstallForPlacement,
+                                    onSetEnabled = ::setProfileInstallEnabled,
+                                    onDelete = { install ->
+                                        scope.launch {
+                                            val skipped = NexusModManager.deleteInstall(
+                                                context = context,
+                                                install = install,
+                                                restoreBackups = true,
+                                                gameRootDir = gameRootDir,
+                                                winePrefix = winePrefix,
+                                            )
+                                            if (selectedInstall?.installId == install.installId) selectedInstall = null
+                                            SnackbarManager.show(
+                                                if (skipped.isEmpty()) {
+                                                    context.getString(R.string.nexus_mod_deleted)
+                                                } else {
+                                                    context.getString(R.string.nexus_mod_deleted_with_skipped, skipped.size)
+                                                },
+                                            )
+                                        }
+                                    },
+                                    onRetry = ::retryInstall,
+                                    onMovePriority = ::moveInstallPriority,
+                                    onApplyOrder = { applyProfileOrder(allowOverwrite = false) },
+                                )
+                            }
+
+                            ManageModsTab.PLACEMENT -> {
+                                selectedInstall?.let { install ->
+                                    val presetOptions = placementPresetOptions(libraryItem.name, archiveEntries, defaultDraft)
+                                    PlacementSection(
+                                        install = install,
+                                        entries = archiveEntries,
+                                        fomodInstaller = selectedFomodInstaller,
+                                        roots = roots,
+                                        drafts = recipeDrafts,
+                                        presetOptions = presetOptions,
+                                        placementChoice = placementChoice,
+                                        canUseLastPlacement = lastPlacementDrafts.isNotEmpty(),
+                                        onPlacementChoiceChange = { choice ->
+                                            placementApplyStatusMessage = null
+                                            val currentDrafts = recipeDrafts.toList()
+                                            placementChoice = choice
+                                            recipeDrafts.clear()
+                                            recipeDrafts += when (choice) {
+                                                PlacementChoice.AUTOMATIC -> automaticDraftsFor(libraryItem.name, archiveEntries, defaultDraft)
+                                                PlacementChoice.PRESET -> presetOptions.firstOrNull()?.drafts
+                                                    ?: automaticDraftsFor(libraryItem.name, archiveEntries, defaultDraft)
+                                                PlacementChoice.LAST_USED -> compatibleLastPlacementDrafts(lastPlacementDrafts, archiveEntries, defaultDraft)
+                                                PlacementChoice.CUSTOM -> currentDrafts.ifEmpty {
+                                                    automaticDraftsFor(libraryItem.name, archiveEntries, defaultDraft)
+                                                }
+                                            }
+                                        },
+                                        onUseLastPlacement = {
+                                            placementApplyStatusMessage = null
+                                            placementChoice = PlacementChoice.LAST_USED
+                                            recipeDrafts.clear()
+                                            recipeDrafts += compatibleLastPlacementDrafts(lastPlacementDrafts, archiveEntries, defaultDraft)
+                                        },
+                                        onPresetSelected = { drafts ->
+                                            placementApplyStatusMessage = null
+                                            placementChoice = PlacementChoice.PRESET
+                                            recipeDrafts.clear()
+                                            recipeDrafts += drafts
+                                        },
+                                        onUpdateDraft = { index, draft ->
+                                            placementApplyStatusMessage = null
+                                            recipeDrafts[index] = draft
+                                        },
+                                        onAddDraft = {
+                                            placementApplyStatusMessage = null
+                                            recipeDrafts += defaultDraft
+                                        },
+                                        onRemoveDraft = { index ->
+                                            if (recipeDrafts.size > 1) {
+                                                placementApplyStatusMessage = null
+                                                recipeDrafts.removeAt(index)
+                                            }
+                                        },
+                                        onFomodRecipes = { drafts, unsupportedCount ->
+                                            placementApplyStatusMessage = null
+                                            placementChoice = PlacementChoice.CUSTOM
+                                            recipeDrafts.clear()
+                                            recipeDrafts += drafts
+                                            if (unsupportedCount > 0) {
+                                                SnackbarManager.show(context.getString(R.string.nexus_fomod_mappings_need_manual_placement, unsupportedCount))
+                                            } else {
+                                                SnackbarManager.show(context.getString(R.string.nexus_fomod_choices_added))
+                                            }
+                                        },
+                                        applyStatusMessage = placementApplyStatusMessage,
+                                        onSaveAndApply = ::saveAndApply,
+                                    )
+                                }
+                                    ?: EmptyWorkflowSection(stringResource(R.string.nexus_no_mod_selected), stringResource(R.string.nexus_select_mod_from_mods_tab))
+                            }
+
+                            ManageModsTab.ISSUES -> {
+                                InstallHealthSection(
+                                    report = healthReport,
+                                    loading = healthLoading,
+                                    onCheck = ::runInstallHealthCheck,
+                                )
+                                StorageCleanupSection(
+                                    breakdown = storageBreakdown,
+                                    loading = storageLoading,
+                                    onScan = ::refreshStorageBreakdown,
+                                    onCleanTemp = { runStorageCleanup(failedArchives = false) },
+                                    onDeleteFailedArchives = { runStorageCleanup(failedArchives = true) },
+                                    onCleanRedundantBackups = ::cleanRedundantBackups,
+                                )
+                                if (issueCount == 0 && bethesdaGame == null && bethesdaPlugins.isEmpty()) {
+                                    EmptyWorkflowSection(stringResource(R.string.nexus_no_issues_found), stringResource(R.string.nexus_no_issues_description))
+                                }
+                                if (conflictReports.isNotEmpty()) {
+                                    ConflictSummarySection(
+                                        conflicts = conflictReports,
+                                        onSelectInstall = { installId ->
+                                            installs.firstOrNull { it.installId == installId }?.let(::selectInstallForPlacement)
+                                        },
+                                        onMovePriority = ::moveInstallPriority,
+                                        onMakeWinner = ::makeInstallHighestPriority,
+                                    )
+                                }
+                                if (bethesdaPluginIssues.isNotEmpty() || bethesdaPluginAssetIssues.isNotEmpty()) {
+                                    BethesdaPluginDiagnosticsSection(
+                                        issues = bethesdaPluginIssues,
+                                        assetIssues = bethesdaPluginAssetIssues,
+                                    )
+                                }
+                                if (bethesdaGame != null || bethesdaPlugins.isNotEmpty()) {
+                                    BethesdaPluginsSection(
+                                        game = bethesdaGame,
+                                        plugins = bethesdaPlugins,
+                                        issues = bethesdaPluginIssues,
+                                        assetIssues = bethesdaPluginAssetIssues,
+                                        onToggle = { plugin ->
+                                            writePluginState(
+                                                bethesdaPlugins.map {
+                                                    if (it.fileName == plugin.fileName) it.copy(enabled = !it.enabled) else it
+                                                },
                                             )
                                         },
-                                    )
-                                }
-                                pendingCollectionSelection?.let { pending -> CollectionSelectionContent(pending) }
-                            }
-                        }
-
-                        ManageModsTab.MODS -> {
-                            ProfilesSection(
-                                profiles = profiles,
-                                activeProfile = activeProfile,
-                                onActivate = ::activateProfile,
-                                onCreate = { pendingProfileNameEdit = PendingProfileNameEdit(null, nextProfileName(profiles, context.getString(R.string.nexus_profile_name_prefix))) },
-                                onRename = { profile -> pendingProfileNameEdit = PendingProfileNameEdit(profile, profile.name) },
-                                onDelete = { profile -> pendingProfileDelete = profile },
-                            )
-                            InstalledModsSection(
-                                installs = installs,
-                                priorityByInstallId = priorityByInstallId,
-                                enabledByInstallId = profileEnabledByInstallId,
-                                selectedInstall = selectedInstall,
-                                placementNeededInstallIds = placementNeededInstallIds,
-                                activeInstallIds = activeDownloads.keys,
-                                onSelect = ::selectInstallForPlacement,
-                                onSetEnabled = ::setProfileInstallEnabled,
-                                onDelete = { install ->
-                                    scope.launch {
-                                        val skipped = NexusModManager.deleteInstall(
-                                            context = context,
-                                            install = install,
-                                            restoreBackups = true,
-                                            gameRootDir = gameRootDir,
-                                            winePrefix = winePrefix,
-                                        )
-                                        if (selectedInstall?.installId == install.installId) selectedInstall = null
-                                        SnackbarManager.show(
-                                            if (skipped.isEmpty()) {
-                                                context.getString(R.string.nexus_mod_deleted)
-                                            } else {
-                                                context.getString(R.string.nexus_mod_deleted_with_skipped, skipped.size)
-                                            },
-                                        )
-                                    }
-                                },
-                                onRetry = ::retryInstall,
-                                onMovePriority = ::moveInstallPriority,
-                                onApplyOrder = { applyProfileOrder(allowOverwrite = false) },
-                            )
-                        }
-
-                        ManageModsTab.PLACEMENT -> {
-                            selectedInstall?.let { install ->
-                                val presetOptions = placementPresetOptions(libraryItem.name, archiveEntries, defaultDraft)
-                                PlacementSection(
-                                    install = install,
-                                    entries = archiveEntries,
-                                    fomodInstaller = selectedFomodInstaller,
-                                    roots = roots,
-                                    drafts = recipeDrafts,
-                                    presetOptions = presetOptions,
-                                    placementChoice = placementChoice,
-                                    canUseLastPlacement = lastPlacementDrafts.isNotEmpty(),
-                                    onPlacementChoiceChange = { choice ->
-                                        placementApplyStatusMessage = null
-                                        val currentDrafts = recipeDrafts.toList()
-                                        placementChoice = choice
-                                        recipeDrafts.clear()
-                                        recipeDrafts += when (choice) {
-                                            PlacementChoice.AUTOMATIC -> automaticDraftsFor(libraryItem.name, archiveEntries, defaultDraft)
-                                            PlacementChoice.PRESET -> presetOptions.firstOrNull()?.drafts
-                                                ?: automaticDraftsFor(libraryItem.name, archiveEntries, defaultDraft)
-                                            PlacementChoice.LAST_USED -> compatibleLastPlacementDrafts(lastPlacementDrafts, archiveEntries, defaultDraft)
-                                            PlacementChoice.CUSTOM -> currentDrafts.ifEmpty { automaticDraftsFor(libraryItem.name, archiveEntries, defaultDraft) }
-                                        }
-                                    },
-                                    onUseLastPlacement = {
-                                        placementApplyStatusMessage = null
-                                        placementChoice = PlacementChoice.LAST_USED
-                                        recipeDrafts.clear()
-                                        recipeDrafts += compatibleLastPlacementDrafts(lastPlacementDrafts, archiveEntries, defaultDraft)
-                                    },
-                                    onPresetSelected = { drafts ->
-                                        placementApplyStatusMessage = null
-                                        placementChoice = PlacementChoice.PRESET
-                                        recipeDrafts.clear()
-                                        recipeDrafts += drafts
-                                    },
-                                    onUpdateDraft = { index, draft ->
-                                        placementApplyStatusMessage = null
-                                        recipeDrafts[index] = draft
-                                    },
-                                    onAddDraft = {
-                                        placementApplyStatusMessage = null
-                                        recipeDrafts += defaultDraft
-                                    },
-                                    onRemoveDraft = { index ->
-                                        if (recipeDrafts.size > 1) {
-                                            placementApplyStatusMessage = null
-                                            recipeDrafts.removeAt(index)
-                                        }
-                                    },
-                                    onFomodRecipes = { drafts, unsupportedCount ->
-                                        placementApplyStatusMessage = null
-                                        placementChoice = PlacementChoice.CUSTOM
-                                        recipeDrafts.clear()
-                                        recipeDrafts += drafts
-                                        if (unsupportedCount > 0) {
-                                            SnackbarManager.show(context.getString(R.string.nexus_fomod_mappings_need_manual_placement, unsupportedCount))
-                                        } else {
-                                            SnackbarManager.show(context.getString(R.string.nexus_fomod_choices_added))
-                                        }
-                                    },
-                                    applyStatusMessage = placementApplyStatusMessage,
-                                    onSaveAndApply = ::saveAndApply,
-                                )
-                            } ?: EmptyWorkflowSection(stringResource(R.string.nexus_no_mod_selected), stringResource(R.string.nexus_select_mod_from_mods_tab))
-                        }
-
-                        ManageModsTab.ISSUES -> {
-                            InstallHealthSection(
-                                report = healthReport,
-                                loading = healthLoading,
-                                onCheck = ::runInstallHealthCheck,
-                            )
-                            StorageCleanupSection(
-                                breakdown = storageBreakdown,
-                                loading = storageLoading,
-                                onScan = ::refreshStorageBreakdown,
-                                onCleanTemp = { runStorageCleanup(failedArchives = false) },
-                                onDeleteFailedArchives = { runStorageCleanup(failedArchives = true) },
-                                onCleanRedundantBackups = ::cleanRedundantBackups,
-                            )
-                            if (issueCount == 0 && bethesdaGame == null && bethesdaPlugins.isEmpty()) {
-                                EmptyWorkflowSection(stringResource(R.string.nexus_no_issues_found), stringResource(R.string.nexus_no_issues_description))
-                            }
-                            if (conflictReports.isNotEmpty()) {
-                                ConflictSummarySection(
-                                    conflicts = conflictReports,
-                                    onSelectInstall = { installId ->
-                                        installs.firstOrNull { it.installId == installId }?.let(::selectInstallForPlacement)
-                                    },
-                                    onMovePriority = ::moveInstallPriority,
-                                    onMakeWinner = ::makeInstallHighestPriority,
-                                )
-                            }
-                            if (bethesdaPluginIssues.isNotEmpty() || bethesdaPluginAssetIssues.isNotEmpty()) {
-                                BethesdaPluginDiagnosticsSection(
-                                    issues = bethesdaPluginIssues,
-                                    assetIssues = bethesdaPluginAssetIssues,
-                                )
-                            }
-                            if (bethesdaGame != null || bethesdaPlugins.isNotEmpty()) {
-                                BethesdaPluginsSection(
-                                    game = bethesdaGame,
-                                    plugins = bethesdaPlugins,
-                                    issues = bethesdaPluginIssues,
-                                    assetIssues = bethesdaPluginAssetIssues,
-                                    onToggle = { plugin ->
-                                        writePluginState(
-                                            bethesdaPlugins.map {
-                                                if (it.fileName == plugin.fileName) it.copy(enabled = !it.enabled) else it
-                                            },
-                                        )
-                                    },
-                                    onMove = { plugin, direction ->
-                                        val index = bethesdaPlugins.indexOfFirst { it.fileName == plugin.fileName }
-                                        val otherIndex = index + direction
-                                        if (index >= 0 && otherIndex in bethesdaPlugins.indices) {
-                                            writePluginState(bethesdaPlugins.toMutableList().apply {
-                                                val moved = removeAt(index)
-                                                add(otherIndex, moved)
-                                            })
-                                        }
-                                    },
-                                    onFixOrder = ::movePluginMastersBefore,
-                                )
-                            }
-                        }
-                    }
-                }
-
-                val displayedImportProgress = activeImportProgress ?: importProgress
-                val displayedLoadingMessage = activeDownload?.let { "${it.displayName}: ${localizedImportStatus(it.status)}" } ?: loadingMessage
-                displayedLoadingMessage?.let { message ->
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                    ) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                                Text(message, style = MaterialTheme.typography.bodyMedium)
-                            }
-                            displayedImportProgress?.let { detail ->
-                                val reportsByteProgress =
-                                    detail.status == "Downloading" || detail.status == "Copying"
-                                if (reportsByteProgress && detail.downloadedBytes > 0L) {
-                                    val totalText = if (detail.totalBytes > 0L) {
-                                        StorageUtils.formatBinarySize(detail.totalBytes)
-                                    } else {
-                                        stringResource(R.string.nexus_progress_unknown)
-                                    }
-                                    val progressString = if (detail.status == "Copying") {
-                                        R.string.local_mod_copied_progress
-                                    } else {
-                                        R.string.nexus_downloaded_progress
-                                    }
-                                    Text(
-                                        text = stringResource(
-                                            progressString,
-                                            StorageUtils.formatBinarySize(detail.downloadedBytes),
-                                            totalText,
-                                        ),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                } else if (detail.status == "Unpacking") {
-                                    Text(
-                                        text = when {
-                                            detail.totalBytes > 0L && detail.downloadedBytes > 0L ->
-                                                stringResource(
-                                                    R.string.nexus_unpacked_progress,
-                                                    StorageUtils.formatBinarySize(detail.downloadedBytes),
-                                                    StorageUtils.formatBinarySize(detail.totalBytes),
+                                        onMove = { plugin, direction ->
+                                            val index = bethesdaPlugins.indexOfFirst { it.fileName == plugin.fileName }
+                                            val otherIndex = index + direction
+                                            if (index >= 0 && otherIndex in bethesdaPlugins.indices) {
+                                                writePluginState(
+                                                    bethesdaPlugins.toMutableList().apply {
+                                                        val moved = removeAt(index)
+                                                        add(otherIndex, moved)
+                                                    },
                                                 )
-                                            detail.downloadedBytes > 0L ->
-                                                stringResource(R.string.nexus_unpacked_size, StorageUtils.formatBinarySize(detail.downloadedBytes))
-                                            else -> stringResource(R.string.nexus_unpacking_archive)
+                                            }
                                         },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        onFixOrder = ::movePluginMastersBefore,
                                     )
                                 }
                             }
-                            val displayedProgress = displayedImportProgress?.progress ?: progress
-                            if (displayedProgress > 0f && displayedProgress < 1f) {
-                                LinearProgressIndicator(progress = { displayedProgress }, modifier = Modifier.fillMaxWidth())
-                            } else if (displayedImportProgress?.status == "Unpacking") {
-                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+
+                    val displayedImportProgress = activeImportProgress ?: importProgress
+                    val displayedLoadingMessage =
+                        activeDownload?.let { "${it.displayName}: ${localizedImportStatus(it.status)}" } ?: loadingMessage
+                    displayedLoadingMessage?.let { message ->
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                        ) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                    Text(message, style = MaterialTheme.typography.bodyMedium)
+                                }
+                                displayedImportProgress?.let { detail ->
+                                    val reportsByteProgress =
+                                        detail.status == "Downloading" || detail.status == "Copying"
+                                    if (reportsByteProgress && detail.downloadedBytes > 0L) {
+                                        val totalText = if (detail.totalBytes > 0L) {
+                                            StorageUtils.formatBinarySize(detail.totalBytes)
+                                        } else {
+                                            stringResource(R.string.nexus_progress_unknown)
+                                        }
+                                        val progressString = if (detail.status == "Copying") {
+                                            R.string.local_mod_copied_progress
+                                        } else {
+                                            R.string.nexus_downloaded_progress
+                                        }
+                                        Text(
+                                            text = stringResource(
+                                                progressString,
+                                                StorageUtils.formatBinarySize(detail.downloadedBytes),
+                                                totalText,
+                                            ),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    } else if (detail.status == "Unpacking") {
+                                        Text(
+                                            text = when {
+                                                detail.totalBytes > 0L && detail.downloadedBytes > 0L ->
+                                                    stringResource(
+                                                        R.string.nexus_unpacked_progress,
+                                                        StorageUtils.formatBinarySize(detail.downloadedBytes),
+                                                        StorageUtils.formatBinarySize(detail.totalBytes),
+                                                    )
+                                                detail.downloadedBytes > 0L ->
+                                                    stringResource(R.string.nexus_unpacked_size, StorageUtils.formatBinarySize(detail.downloadedBytes))
+                                                else -> stringResource(R.string.nexus_unpacking_archive)
+                                            },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                                val displayedProgress = displayedImportProgress?.progress ?: progress
+                                if (displayedProgress > 0f && displayedProgress < 1f) {
+                                    LinearProgressIndicator(progress = { displayedProgress }, modifier = Modifier.fillMaxWidth())
+                                } else if (displayedImportProgress?.status == "Unpacking") {
+                                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                }
                             }
                         }
                     }
-                }
                 }
             }
             if (snackbarController.ownsHost(snackbarOwner)) {
@@ -3126,14 +3183,20 @@ fun NexusModsDialog(
 
     pendingProfileNameEdit?.let { edit ->
         ProfileNameDialog(
-            title = if (edit.profile == null) stringResource(R.string.nexus_profile_new_title) else stringResource(R.string.nexus_profile_rename_title),
+            title = if (edit.profile ==
+                null
+            ) {
+                stringResource(R.string.nexus_profile_new_title)
+            } else {
+                stringResource(R.string.nexus_profile_rename_title)
+            },
             initialName = edit.initialName,
             onConfirm = { name ->
                 val existing = profiles.any { profile ->
                     profile.profileId != edit.profile?.profileId && profile.name.equals(name.trim(), ignoreCase = true)
                 }
                 if (existing) {
-                            SnackbarManager.show(context.getString(R.string.nexus_profile_name_duplicate))
+                    SnackbarManager.show(context.getString(R.string.nexus_profile_name_duplicate))
                 } else if (edit.profile == null) {
                     createProfile(name)
                 } else {

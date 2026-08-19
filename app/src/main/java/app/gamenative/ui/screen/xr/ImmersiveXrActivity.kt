@@ -16,12 +16,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
@@ -46,7 +45,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.delay
 import app.gamenative.PluviaApp
 import app.gamenative.R
 import app.gamenative.service.SteamService
@@ -62,8 +60,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 /** Dedicated entry point for launching a game directly in Meta Quest immersive mode. */
@@ -165,6 +163,7 @@ class ImmersiveXrActivity : androidx.activity.ComponentActivity() {
     private var overlayLayerBitmap: Bitmap? = null
     private var finalFrameBitmap: Bitmap? = null
     private var overlayCaptureLogCounter = 0
+
     @Volatile
     private var bootingSplashVisible = false
     private var overlayContentLastVisibleAt = 0L
@@ -173,6 +172,7 @@ class ImmersiveXrActivity : androidx.activity.ComponentActivity() {
 
     private var directGLBridge: DirectGLBridge? = null
     private var directVulkanBridge: DirectVulkanBridge? = null
+
     @Volatile
     private var directRenderActive = false
     private var directRenderProbeLogged = false
@@ -187,8 +187,11 @@ class ImmersiveXrActivity : androidx.activity.ComponentActivity() {
 
     private var xrPointerModeActive by mutableStateOf(false)
     private var resizeHandlesEnabled by mutableStateOf(false)
+
     @Volatile private var lastLeftActionPressed = false
+
     @Volatile private var lastRightActionPressed = false
+
     @Volatile private var pointerGrabHand: Int? = null // 0 = left, 1 = right
     private var pointerGrabIsResize = false
     private val pointerGrabStartHandPos = FloatArray(3)
@@ -198,10 +201,15 @@ class ImmersiveXrActivity : androidx.activity.ComponentActivity() {
     private var pointerGrabStartScale = 0f
 
     @Volatile private var pointerCursorLeftValid = false
+
     @Volatile private var pointerCursorLeftX = 0f
+
     @Volatile private var pointerCursorLeftY = 0f
+
     @Volatile private var pointerCursorRightValid = false
+
     @Volatile private var pointerCursorRightX = 0f
+
     @Volatile private var pointerCursorRightY = 0f
 
     private var pointerTouchDownTimeLeft = 0L
@@ -261,92 +269,93 @@ class ImmersiveXrActivity : androidx.activity.ComponentActivity() {
                 }
 
                 Box(modifier = Modifier.fillMaxSize()) {
-                XServerScreen(
-                    appId = appId,
-                    bootToContainer = false,
-                    isOffline = isOffline,
-                    registerBackAction = { cb -> backAction = cb },
-                    navigateBack = { finish() },
-                    onExit = { onComplete ->
-                        viewModel.exitSteamApp(context, appId) {
-                            onComplete?.invoke()
+                    XServerScreen(
+                        appId = appId,
+                        bootToContainer = false,
+                        isOffline = isOffline,
+                        registerBackAction = { cb -> backAction = cb },
+                        navigateBack = { finish() },
+                        onExit = { onComplete ->
+                            viewModel.exitSteamApp(context, appId) {
+                                onComplete?.invoke()
+                                finish()
+                            }
+                        },
+                        onWindowMapped = { ctx, window ->
+                            mappedWindowCount++
+                            viewModel.onWindowMapped(ctx, window, appId)
+                            showControlsOnboarding = true
+                        },
+                        onWindowUnmapped = {
+                            mappedWindowCount = (mappedWindowCount - 1).coerceAtLeast(0)
+                        },
+                        onGameLaunchError = { error ->
+                            viewModel.onGameLaunchError(error)
                             finish()
-                        }
-                    },
-                    onWindowMapped = { ctx, window ->
-                        mappedWindowCount++
-                        viewModel.onWindowMapped(ctx, window, appId)
-                        showControlsOnboarding = true
-                    },
-                    onWindowUnmapped = {
-                        mappedWindowCount = (mappedWindowCount - 1).coerceAtLeast(0)
-                    },
-                    onGameLaunchError = { error ->
-                        viewModel.onGameLaunchError(error)
-                        finish()
-                    },
-                    immersiveHooks = ImmersiveSessionHooks(
-                    onQuickMenuVisibilityChanged = { visible ->
-                        Timber.i("Immersive: quick menu visibility changed to %b", visible)
-                        quickMenuVisible = visible
-                        if (visible) {
-                            directRenderBlockedByEffects = (PluviaApp.xServerView?.renderer as? com.winlator.renderer.VulkanRenderer)
-                                ?.isEffectsRequireCompositor()
-                        }
-                    },
-                    registerToggle = { toggle -> quickMenuToggle = toggle },
-                    registerStartHeld = { setter -> quickMenuSetStartHeld = setter },
-                    registerFocusManager = { fm -> quickMenuFocusManager = fm },
-                    registerCycleTab = { cycle -> quickMenuCycleTab = cycle },
-                    registerAdjustmentControl = { control -> quickMenuAdjustmentControl = control },
-                    registerFocusTabRail = { action -> quickMenuFocusTabRail = action },
-                    registerFocusedActivate = { getter -> quickMenuFocusedActivate = getter },
-                    controls = ImmersiveControls(
-                        passthroughEnabled = passthroughEnabled,
-                        onPassthroughToggle = { enabled ->
-                            passthroughEnabled = enabled
-                            if (xrSessionHandle != 0L) {
-                                XrNative.nativeSetPassthroughEnabled(xrSessionHandle, enabled)
-                            }
-                            persistImmersiveSettings(appId)
                         },
-                        directRenderBlockedByEffects = directRenderBlockedByEffects,
-                        onResetScreenEffects = {
-                            val vulkanRenderer = PluviaApp.xServerView?.renderer as? com.winlator.renderer.VulkanRenderer
-                            vulkanRenderer?.resetScreenEffects()
-                            directRenderBlockedByEffects = vulkanRenderer?.isEffectsRequireCompositor()
-                            Timber.i("Immersive: screen effects reset from quick menu, blocked=%s", directRenderBlockedByEffects)
-                        },
-                        resizeModeEnabled = resizeHandlesEnabled,
-                        onResizeModeToggle = { enabled ->
-                            resizeHandlesEnabled = enabled
-                            xrPointerModeActive = enabled
-                            lastLeftActionPressed = false
-                            lastRightActionPressed = false
-                            if (!enabled) {
-                                pointerGrabHand = null
-                                pointerCursorLeftValid = false
-                                pointerCursorRightValid = false
-                            }
-                            Timber.i("Immersive: resize handles toggled %s from quick menu, pointer mode now %s", enabled, enabled)
-                        },
-                    ),
-                    ),
-                )
+                        immersiveHooks = ImmersiveSessionHooks(
+                            onQuickMenuVisibilityChanged = { visible ->
+                                Timber.i("Immersive: quick menu visibility changed to %b", visible)
+                                quickMenuVisible = visible
+                                if (visible) {
+                                    directRenderBlockedByEffects =
+                                        (PluviaApp.xServerView?.renderer as? com.winlator.renderer.VulkanRenderer)
+                                            ?.isEffectsRequireCompositor()
+                                }
+                            },
+                            registerToggle = { toggle -> quickMenuToggle = toggle },
+                            registerStartHeld = { setter -> quickMenuSetStartHeld = setter },
+                            registerFocusManager = { fm -> quickMenuFocusManager = fm },
+                            registerCycleTab = { cycle -> quickMenuCycleTab = cycle },
+                            registerAdjustmentControl = { control -> quickMenuAdjustmentControl = control },
+                            registerFocusTabRail = { action -> quickMenuFocusTabRail = action },
+                            registerFocusedActivate = { getter -> quickMenuFocusedActivate = getter },
+                            controls = ImmersiveControls(
+                                passthroughEnabled = passthroughEnabled,
+                                onPassthroughToggle = { enabled ->
+                                    passthroughEnabled = enabled
+                                    if (xrSessionHandle != 0L) {
+                                        XrNative.nativeSetPassthroughEnabled(xrSessionHandle, enabled)
+                                    }
+                                    persistImmersiveSettings(appId)
+                                },
+                                directRenderBlockedByEffects = directRenderBlockedByEffects,
+                                onResetScreenEffects = {
+                                    val vulkanRenderer = PluviaApp.xServerView?.renderer as? com.winlator.renderer.VulkanRenderer
+                                    vulkanRenderer?.resetScreenEffects()
+                                    directRenderBlockedByEffects = vulkanRenderer?.isEffectsRequireCompositor()
+                                    Timber.i("Immersive: screen effects reset from quick menu, blocked=%s", directRenderBlockedByEffects)
+                                },
+                                resizeModeEnabled = resizeHandlesEnabled,
+                                onResizeModeToggle = { enabled ->
+                                    resizeHandlesEnabled = enabled
+                                    xrPointerModeActive = enabled
+                                    lastLeftActionPressed = false
+                                    lastRightActionPressed = false
+                                    if (!enabled) {
+                                        pointerGrabHand = null
+                                        pointerCursorLeftValid = false
+                                        pointerCursorRightValid = false
+                                    }
+                                    Timber.i("Immersive: resize handles toggled %s from quick menu, pointer mode now %s", enabled, enabled)
+                                },
+                            ),
+                        ),
+                    )
 
-                val splashVisible = mainState.showBootingSplash && mappedWindowCount == 0 && !overlayPausedUi
-                LaunchedEffect(splashVisible) { bootingSplashVisible = splashVisible }
-                app.gamenative.ui.components.BootingSplash(
-                    visible = splashVisible,
-                    text = mainState.bootingSplashText,
-                    heroImageUrl = mainState.bootingSplashHeroImageUrl,
-                )
+                    val splashVisible = mainState.showBootingSplash && mappedWindowCount == 0 && !overlayPausedUi
+                    LaunchedEffect(splashVisible) { bootingSplashVisible = splashVisible }
+                    app.gamenative.ui.components.BootingSplash(
+                        visible = splashVisible,
+                        text = mainState.bootingSplashText,
+                        heroImageUrl = mainState.bootingSplashHeroImageUrl,
+                    )
 
-                ImmersiveControlsOnboarding(
-                    visible = showControlsOnboarding,
-                    onDismiss = { showControlsOnboarding = false },
-                )
-                ImmersiveModeChangeIndicator(pointerModeActive = xrPointerModeActive)
+                    ImmersiveControlsOnboarding(
+                        visible = showControlsOnboarding,
+                        onDismiss = { showControlsOnboarding = false },
+                    )
+                    ImmersiveModeChangeIndicator(pointerModeActive = xrPointerModeActive)
                 }
             }
         }
@@ -435,8 +444,10 @@ class ImmersiveXrActivity : androidx.activity.ComponentActivity() {
         )
         if (isFinishing && !isChangingConfigurations) {
             PluviaApp.shutdownEnvironment()
-        } else if (SteamService.keepAlive && PluviaApp.hasValidSuspendPolicyState() &&
-            PluviaApp.xEnvironment != null && !PluviaApp.isNeverSuspendMode()
+        } else if (SteamService.keepAlive &&
+            PluviaApp.hasValidSuspendPolicyState() &&
+            PluviaApp.xEnvironment != null &&
+            !PluviaApp.isNeverSuspendMode()
         ) {
             PluviaApp.xEnvironment?.onPause()
         }
@@ -1200,8 +1211,11 @@ class ImmersiveXrActivity : androidx.activity.ComponentActivity() {
                 return@runOnUiThread
             }
 
-            val hasOverlayContent = quickMenuVisible || overlayPausedUi || showControlsOnboarding ||
-                xrPointerModeActive || bootingSplashVisible
+            val hasOverlayContent = quickMenuVisible ||
+                overlayPausedUi ||
+                showControlsOnboarding ||
+                xrPointerModeActive ||
+                bootingSplashVisible
             val now = android.os.SystemClock.uptimeMillis()
             if (hasOverlayContent) {
                 overlayContentLastVisibleAt = now
@@ -1309,35 +1323,35 @@ private fun ImmersiveControlsOnboarding(visible: Boolean, onDismiss: () -> Unit)
         }
     }
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-    androidx.compose.animation.AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn(),
-        exit = fadeOut(),
-    ) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.65f),
+        androidx.compose.animation.AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(),
+            exit = fadeOut(),
         ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 28.dp, vertical = 18.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.65f),
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Icon(Icons.Default.VisibilityOff, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(28.dp))
-                    Text(stringResource(R.string.immersive_onboarding_disable_passthrough), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge)
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Icon(Icons.Default.Menu, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(28.dp))
-                    Text(stringResource(R.string.immersive_onboarding_quick_menu), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge)
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Icon(Icons.Default.SportsEsports, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(28.dp))
-                    Text(stringResource(R.string.immersive_onboarding_pointer_toggle), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge)
+                Column(
+                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Icon(Icons.Default.VisibilityOff, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(28.dp))
+                        Text(stringResource(R.string.immersive_onboarding_disable_passthrough), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge)
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Icon(Icons.Default.Menu, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(28.dp))
+                        Text(stringResource(R.string.immersive_onboarding_quick_menu), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Icon(Icons.Default.SportsEsports, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(28.dp))
+                        Text(stringResource(R.string.immersive_onboarding_pointer_toggle), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge)
+                    }
                 }
             }
         }
-    }
     }
 }
 

@@ -12,30 +12,31 @@ import app.gamenative.BuildConfig
 import app.gamenative.PluviaApp
 import app.gamenative.PrefManager
 import app.gamenative.R
+import app.gamenative.data.AmazonGame
+import app.gamenative.data.EpicGame
+import app.gamenative.data.GOGGame
 import app.gamenative.data.GameCompatibilityStatus
 import app.gamenative.data.GameSource
 import app.gamenative.data.LibraryItem
-import app.gamenative.data.gog.GogRecommendationsRepository
-import app.gamenative.data.gog.GogSeedCollector
-import app.gamenative.service.gog.GOGAuthManager
-import app.gamenative.data.LibraryPlayHistory
+import app.gamenative.data.RecommendationRepository
+import app.gamenative.data.RecommendedGame
 import app.gamenative.data.SteamApp
 import app.gamenative.data.SteamCollection
 import app.gamenative.data.SteamCollectionRepository
-import app.gamenative.events.AndroidEvent
-import app.gamenative.data.GOGGame
-import app.gamenative.data.EpicGame
-import app.gamenative.data.AmazonGame
+import app.gamenative.data.gog.GogRecommendationsRepository
+import app.gamenative.data.gog.GogSeedCollector
+import app.gamenative.db.dao.AmazonGameDao
+import app.gamenative.db.dao.EpicGameDao
+import app.gamenative.db.dao.GOGGameDao
 import app.gamenative.db.dao.LibraryPlayHistoryDao
 import app.gamenative.db.dao.SteamAppDao
-import app.gamenative.db.dao.GOGGameDao
-import app.gamenative.db.dao.EpicGameDao
-import app.gamenative.db.dao.AmazonGameDao
+import app.gamenative.events.AndroidEvent
 import app.gamenative.service.DownloadService
 import app.gamenative.service.SteamService
 import app.gamenative.service.amazon.AmazonArtwork
 import app.gamenative.service.amazon.AmazonService
 import app.gamenative.service.epic.EpicService
+import app.gamenative.service.gog.GOGAuthManager
 import app.gamenative.service.gog.GOGService
 import app.gamenative.steam.SteamCollectionFilter
 import app.gamenative.ui.data.LibraryState
@@ -48,12 +49,10 @@ import app.gamenative.ui.enums.SortOption
 import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.utils.CustomGameImporter
 import app.gamenative.utils.CustomGameScanner
-import app.gamenative.data.RecommendationRepository
-import app.gamenative.data.RecommendedGame
 import app.gamenative.utils.DeviceGameStatsCache
-import app.gamenative.utils.GpuGameStatsCache
 import app.gamenative.utils.GameCompatibilityCache
 import app.gamenative.utils.GameCompatibilityService
+import app.gamenative.utils.GpuGameStatsCache
 import app.gamenative.utils.HardwareUtils
 import app.gamenative.utils.unaccent
 import com.winlator.core.GPUInformation
@@ -119,6 +118,7 @@ class LibraryViewModel @Inject constructor(
 
     // How many items loaded on one page of results
     @Volatile private var paginationCurrentPage: Int = 0
+
     @Volatile private var lastPageInCurrentFilter: Int = 0
 
     // Complete and unfiltered app list
@@ -135,8 +135,11 @@ class LibraryViewModel @Inject constructor(
 
     // Cached recommendation (fetched once at startup)
     @Volatile private var cachedRecommendation: RecommendedGame? = null
+
     @Volatile private var cachedFeatured: app.gamenative.data.FeaturedItem? = null
+
     @Volatile private var cachedRecTeaser: Boolean = false
+
     @Volatile private var cachedRecLoading: Boolean = false
 
     // Track debounce job for search
@@ -587,8 +590,10 @@ class LibraryViewModel @Inject constructor(
         )
         if (state.currentSortOption in statSorts) return true
         return state.appInfoSortType.any {
-            it == AppFilter.PLAYABLE || it == AppFilter.FIVE_STAR ||
-                it == AppFilter.FIVE_STAR_GPU || it == AppFilter.PROVEN_GPU
+            it == AppFilter.PLAYABLE ||
+                it == AppFilter.FIVE_STAR ||
+                it == AppFilter.FIVE_STAR_GPU ||
+                it == AppFilter.PROVEN_GPU
         }
     }
 
@@ -697,7 +702,7 @@ class LibraryViewModel @Inject constructor(
                     } else {
                         steamOwnerTypeFiltered.filter { it.id in allowedSteamAppIds }
                     }
-                )
+                    )
 
             // Filter Steam apps first (no pagination yet)
             // Note: Don't sort individual lists - we'll sort the combined list for consistent ordering
@@ -935,23 +940,32 @@ class LibraryViewModel @Inject constructor(
                 currentTab.showCustom
             }
 
-            val includeGOG = (if (currentTab == app.gamenative.ui.enums.LibraryTab.ALL) {
-                currentState.showGOGInLibrary
-            } else {
-                currentTab.showGoG
-            }) && GOGService.hasStoredCredentials(context)
+            val includeGOG = (
+                if (currentTab == app.gamenative.ui.enums.LibraryTab.ALL) {
+                    currentState.showGOGInLibrary
+                } else {
+                    currentTab.showGoG
+                }
+                ) &&
+                GOGService.hasStoredCredentials(context)
 
-            val includeEpic = (if (currentTab == app.gamenative.ui.enums.LibraryTab.ALL) {
-                currentState.showEpicInLibrary
-            } else {
-                currentTab.showEpic
-            }) && EpicService.hasStoredCredentials(context)
+            val includeEpic = (
+                if (currentTab == app.gamenative.ui.enums.LibraryTab.ALL) {
+                    currentState.showEpicInLibrary
+                } else {
+                    currentTab.showEpic
+                }
+                ) &&
+                EpicService.hasStoredCredentials(context)
 
-            val includeAmazon = (if (currentTab == app.gamenative.ui.enums.LibraryTab.ALL) {
-                currentState.showAmazonInLibrary
-            } else {
-                currentTab.showAmazon
-            }) && AmazonService.hasStoredCredentials(context)
+            val includeAmazon = (
+                if (currentTab == app.gamenative.ui.enums.LibraryTab.ALL) {
+                    currentState.showAmazonInLibrary
+                } else {
+                    currentTab.showAmazon
+                }
+                ) &&
+                AmazonService.hasStoredCredentials(context)
 
             // Combine both lists and apply sort option
             val sortComparator: Comparator<LibraryEntry> = when (currentState.currentSortOption) {
@@ -1022,9 +1036,9 @@ class LibraryViewModel @Inject constructor(
             // enabled and not searching.
             val featured = cachedFeatured
             val rec = cachedRecommendation
-            if (PrefManager.showRecommendations
-                && currentTab == LibraryTab.ALL
-                && currentState.searchQuery.isEmpty()
+            if (PrefManager.showRecommendations &&
+                currentTab == LibraryTab.ALL &&
+                currentState.searchQuery.isEmpty()
             ) {
                 val heroItem = when {
                     featured != null -> LibraryItem(
@@ -1088,7 +1102,13 @@ class LibraryViewModel @Inject constructor(
                     steamCount = if (currentState.showSteamInLibrary) steamEntries.size else 0,
                     gogCount = if (currentState.showGOGInLibrary && GOGService.hasStoredCredentials(context)) gogEntries.size else 0,
                     epicCount = if (currentState.showEpicInLibrary && EpicService.hasStoredCredentials(context)) epicEntries.size else 0,
-                    amazonCount = if (currentState.showAmazonInLibrary && AmazonService.hasStoredCredentials(context)) amazonEntries.size else 0,
+                    amazonCount = if (currentState.showAmazonInLibrary &&
+                        AmazonService.hasStoredCredentials(context)
+                    ) {
+                        amazonEntries.size
+                    } else {
+                        0
+                    },
                     localCount = if (currentState.showCustomGamesInLibrary) customEntries.size else 0,
                     steamCollectionCounts = steamCollectionCounts,
                 )
@@ -1100,7 +1120,7 @@ class LibraryViewModel @Inject constructor(
      * Compares the game name against the search query using an exact match
      * and then again using a normalized form with diacritics removed.
      */
-    private fun matches(gameName: String, searchQuery:String): Boolean {
+    private fun matches(gameName: String, searchQuery: String): Boolean {
         return gameName.contains(searchQuery, ignoreCase = true) || gameName.unaccent().contains(searchQuery, ignoreCase = true)
     }
 
@@ -1189,7 +1209,7 @@ class LibraryViewModel @Inject constructor(
      * Updates the state with compatibility results.
      */
     private fun updateCompatibilityState(
-        results: Map<String, GameCompatibilityService.GameCompatibilityResponse>
+        results: Map<String, GameCompatibilityService.GameCompatibilityResponse>,
     ) {
         val compatibilityMap = results.mapValues { (gameName, response) ->
             compatibilityStatusFor(response)

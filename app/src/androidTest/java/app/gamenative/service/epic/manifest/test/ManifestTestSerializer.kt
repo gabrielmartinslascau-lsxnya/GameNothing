@@ -66,11 +66,14 @@ object ManifestTestSerializer {
         return JSONObject().apply {
             put("version", cdl.version.toInt())
             put("count", cdl.count)
-            put("chunks", JSONArray().apply {
-                cdl.elements.forEach { chunk ->
-                    put(serializeChunkInfo(chunk))
-                }
-            })
+            put(
+                "chunks",
+                JSONArray().apply {
+                    cdl.elements.forEach { chunk ->
+                        put(serializeChunkInfo(chunk))
+                    }
+                },
+            )
         }
     }
 
@@ -96,11 +99,14 @@ object ManifestTestSerializer {
         return JSONObject().apply {
             put("version", fml.version.toInt())
             put("count", fml.count)
-            put("files", JSONArray().apply {
-                fml.elements.forEach { file ->
-                    put(serializeFileManifest(file))
-                }
-            })
+            put(
+                "files",
+                JSONArray().apply {
+                    fml.elements.forEach { file ->
+                        put(serializeFileManifest(file))
+                    }
+                },
+            )
         }
     }
 
@@ -121,11 +127,14 @@ object ManifestTestSerializer {
             put("hashMd5", bytesToHex(fm.hashMd5))
             put("mimeType", fm.mimeType)
             put("hashSha256", bytesToHex(fm.hashSha256))
-            put("chunkParts", JSONArray().apply {
-                fm.chunkParts.forEach { part ->
-                    put(serializeChunkPart(part))
-                }
-            })
+            put(
+                "chunkParts",
+                JSONArray().apply {
+                    fm.chunkParts.forEach { part ->
+                        put(serializeChunkPart(part))
+                    }
+                },
+            )
         }
     }
 
@@ -173,28 +182,38 @@ object ManifestTestSerializer {
             put("installedSize", ManifestUtils.getTotalInstalledSize(manifest))
 
             // First 5 files as sample
-            put("sampleFiles", JSONArray().apply {
-                manifest.fileManifestList?.elements?.take(5)?.forEach { file ->
-                    put(JSONObject().apply {
-                        put("filename", file.filename)
-                        put("size", file.fileSize)
-                        put("hash", bytesToHex(file.hash))
-                        put("chunkParts", file.chunkParts.size)
-                    })
-                }
-            })
+            put(
+                "sampleFiles",
+                JSONArray().apply {
+                    manifest.fileManifestList?.elements?.take(5)?.forEach { file ->
+                        put(
+                            JSONObject().apply {
+                                put("filename", file.filename)
+                                put("size", file.fileSize)
+                                put("hash", bytesToHex(file.hash))
+                                put("chunkParts", file.chunkParts.size)
+                            },
+                        )
+                    }
+                },
+            )
 
             // First 5 chunks as sample
-            put("sampleChunks", JSONArray().apply {
-                manifest.chunkDataList?.elements?.take(5)?.forEach { chunk ->
-                    put(JSONObject().apply {
-                        put("guid", chunk.guidStr)
-                        put("hash", chunk.hash.toString())
-                        put("size", chunk.fileSize)
-                        put("groupNum", chunk.groupNum)
-                    })
-                }
-            })
+            put(
+                "sampleChunks",
+                JSONArray().apply {
+                    manifest.chunkDataList?.elements?.take(5)?.forEach { chunk ->
+                        put(
+                            JSONObject().apply {
+                                put("guid", chunk.guidStr)
+                                put("hash", chunk.hash.toString())
+                                put("size", chunk.fileSize)
+                                put("groupNum", chunk.groupNum)
+                            },
+                        )
+                    }
+                },
+            )
         }
     }
 }

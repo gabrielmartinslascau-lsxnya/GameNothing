@@ -5,8 +5,8 @@ import app.gamenative.data.GameSource
 import com.winlator.container.Container
 import com.winlator.core.WineRegistryEditor
 import com.winlator.xenvironment.ImageFs
-import timber.log.Timber
 import java.io.File
+import timber.log.Timber
 
 const val INSTALL_PATH_PLACEHOLDER = "<InstallPath>"
 

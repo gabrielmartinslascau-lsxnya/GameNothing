@@ -4,9 +4,9 @@ import android.content.Context
 import app.gamenative.data.EpicCredentials
 import app.gamenative.data.EpicGameToken
 import app.gamenative.utils.sanitizeForFilename
+import java.io.File
 import org.json.JSONObject
 import timber.log.Timber
-import java.io.File
 
 /**
  * Manages Epic Games authentication and account operations.
@@ -50,29 +50,28 @@ object EpicAuthManager {
         }.onFailure { Timber.tag("Epic").w(it, "Failed clearing ownership token cache") }
     }
 
-
     fun hasStoredCredentials(context: Context): Boolean {
         val credentialsFile = File(getCredentialsFilePath(context))
         return credentialsFile.exists()
     }
 
-        /**
-         * Clear stored credentials (logout)
-         */
-        fun clearStoredCredentials(context: Context): Boolean {
-            return try {
-                clearOwnershipTokenCache(context)
-                val authFile = File(getCredentialsFilePath(context))
-                if (authFile.exists()) {
-                    authFile.delete()
-                } else {
-                    true
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to clear Epic credentials")
-                false
+    /**
+     * Clear stored credentials (logout)
+     */
+    fun clearStoredCredentials(context: Context): Boolean {
+        return try {
+            clearOwnershipTokenCache(context)
+            val authFile = File(getCredentialsFilePath(context))
+            if (authFile.exists()) {
+                authFile.delete()
+            } else {
+                true
             }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to clear Epic credentials")
+            false
         }
+    }
 
     /**
      * Extract authorization code from various input formats:
@@ -127,7 +126,7 @@ object EpicAuthManager {
                 refreshToken = authResponse.refreshToken,
                 accountId = authResponse.accountId,
                 displayName = authResponse.displayName,
-                expiresAt = authResponse.expiresAt
+                expiresAt = authResponse.expiresAt,
             )
 
             saveCredentials(context, credentials)
@@ -172,7 +171,7 @@ object EpicAuthManager {
                     refreshToken = authResponse.refreshToken,
                     accountId = authResponse.accountId,
                     displayName = authResponse.displayName,
-                    expiresAt = authResponse.expiresAt
+                    expiresAt = authResponse.expiresAt,
                 )
 
                 saveCredentials(context, refreshedCredentials)
@@ -197,7 +196,7 @@ object EpicAuthManager {
         context: Context,
         namespace: String? = null,
         catalogItemId: String? = null,
-        requiresOwnershipToken: Boolean = false
+        requiresOwnershipToken: Boolean = false,
     ): Result<EpicGameToken> {
         return try {
             // Get current valid credentials (will refresh if expired)
@@ -233,14 +232,14 @@ object EpicAuthManager {
                         accessToken = credentials.accessToken,
                         accountId = credentials.accountId,
                         namespace = namespace,
-                        catalogItemId = catalogItemId
+                        catalogItemId = catalogItemId,
                     )
 
                     if (ownershipResult.isFailure) {
                         val error = ownershipResult.exceptionOrNull()?.message ?: "Unknown error"
                         Timber.e("Failed to get required ownership token: $error")
                         return Result.failure(
-                            Exception("Failed to get ownership token for DRM-protected game: $error")
+                            Exception("Failed to get ownership token for DRM-protected game: $error"),
                         )
                     } else {
                         // Convert binary token to hex string for easier handling
@@ -257,7 +256,7 @@ object EpicAuthManager {
                 authCode = exchangeCode,
                 accountId = credentials.accountId,
                 displayName = credentials.displayName,
-                ownershipToken = ownershipTokenHex
+                ownershipToken = ownershipTokenHex,
             )
 
             Timber.i("Successfully obtained game launch token")
@@ -312,7 +311,7 @@ object EpicAuthManager {
                 refreshToken = json.getString("refresh_token"),
                 accountId = json.getString("account_id"),
                 displayName = json.getString("display_name"),
-                expiresAt = json.getLong("expires_at")
+                expiresAt = json.getLong("expires_at"),
             )
         } catch (e: Exception) {
             Timber.e(e, "Failed to load credentials")

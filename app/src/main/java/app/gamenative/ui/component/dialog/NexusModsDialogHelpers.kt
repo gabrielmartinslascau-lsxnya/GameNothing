@@ -6,7 +6,6 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Gamepad
 import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SnippetFolder
 import androidx.compose.material.icons.filled.SportsEsports
@@ -17,12 +16,11 @@ import app.gamenative.data.ModPlacementMode
 import app.gamenative.data.ModPlacementRecipe
 import app.gamenative.data.ModProfile
 import app.gamenative.data.ModTargetRoot
-import app.gamenative.mods.BethesdaPluginManager
 import app.gamenative.mods.BethesdaPluginDependencyIssue
+import app.gamenative.mods.BethesdaPluginManager
 import app.gamenative.mods.ModArchiveEntry
 import app.gamenative.mods.ModDownloadInfo
 import app.gamenative.mods.ModImportProgress
-import app.gamenative.mods.ModPlacementPreset
 import app.gamenative.mods.ModPlacementPresetDetector
 import app.gamenative.mods.ModPlacementSources
 import app.gamenative.mods.ModTargetResolver

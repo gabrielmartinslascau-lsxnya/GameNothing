@@ -49,17 +49,17 @@ import app.gamenative.utils.GameCompatibilityCache
 import app.gamenative.utils.GameCompatibilityService
 import app.gamenative.utils.ManifestInstaller
 import app.gamenative.utils.createPinnedShortcut
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.channels.Channel
 import com.winlator.container.ContainerData
 import com.winlator.core.GPUInformation
 import java.io.File
 import kotlin.text.Charsets
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -1166,12 +1166,15 @@ abstract class BaseAppScreen {
             mutableStateOf<app.gamenative.utils.HltbService.Stats?>(null)
         }
         LaunchedEffect(displayInfoBase.name) {
-            if (displayInfoBase.name.isNotBlank())
+            if (displayInfoBase.name.isNotBlank()) {
                 hltbStats = try {
                     app.gamenative.utils.HltbService.getStats(displayInfoBase.name)
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
-                } catch (_: Exception) { null }
+                } catch (_: Exception) {
+                    null
+                }
+            }
         }
         val displayInfo = displayInfoBase.copy(hltbStats = hltbStats)
 
@@ -1485,7 +1488,8 @@ abstract class BaseAppScreen {
                 }
         }
 
-        val optionsMenu = getOptionsMenu(context, libraryItem, onEditContainer, onBack, onClickPlay, onTestGraphics, onPlayWithDiagnostics, exportFrontendLauncher)
+        val optionsMenu =
+            getOptionsMenu(context, libraryItem, onEditContainer, onBack, onClickPlay, onTestGraphics, onPlayWithDiagnostics, exportFrontendLauncher)
 
         // Get download info based on game source for progress tracking
         val downloadInfo = when (libraryItem.gameSource) {

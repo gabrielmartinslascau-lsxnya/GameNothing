@@ -2,10 +2,10 @@ package app.gamenative.mods
 
 import app.gamenative.data.ModInstall
 import app.gamenative.data.ModPlacementRecipe
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
-import java.io.File
 
 data class ModConflictParticipant(
     val installId: String,

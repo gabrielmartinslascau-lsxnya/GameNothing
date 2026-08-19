@@ -4,7 +4,6 @@ import androidx.room.withTransaction
 import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.data.PostSyncInfo
-import app.gamenative.data.SaveFilePattern
 import app.gamenative.data.SteamApp
 import app.gamenative.data.SteamFileHashCache
 import app.gamenative.data.UserFileInfo
@@ -15,7 +14,6 @@ import app.gamenative.enums.PathType
 import app.gamenative.enums.SaveLocation
 import app.gamenative.enums.SyncResult
 import app.gamenative.service.SteamService.Companion.FileChanges
-import app.gamenative.service.SteamService.Companion.getAppDirPath
 import app.gamenative.utils.CURRENT_UFS_PARSE_VERSION
 import app.gamenative.utils.FileUtils
 import app.gamenative.utils.Net
@@ -28,15 +26,20 @@ import `in`.dragonbra.javasteam.steam.handlers.steamcloud.SteamCloud
 import `in`.dragonbra.javasteam.types.KeyValue
 import java.io.BufferedInputStream
 import java.io.FileOutputStream
+import java.io.IOException
 import java.io.InputStream
+import java.io.OutputStream
 import java.io.RandomAccessFile
-import java.security.MessageDigest
-import java.nio.file.Files
+import java.net.SocketTimeoutException
 import java.nio.file.FileSystemException
+import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.nio.file.attribute.FileTime
+import java.security.MessageDigest
 import java.util.Date
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import java.util.stream.Collectors
 import java.util.zip.ZipInputStream
 import kotlin.io.path.name
@@ -45,24 +48,19 @@ import kotlin.time.measureTime
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 import okhttp3.Headers
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import timber.log.Timber
-import java.io.IOException
-import java.io.OutputStream
-import java.net.SocketTimeoutException
-import java.nio.file.attribute.FileTime
-import java.util.concurrent.atomic.AtomicLong
 
 /**
  * [Steam Auto Cloud](https://partner.steamgames.com/doc/features/cloud#steam_auto-cloud)
@@ -383,15 +381,17 @@ object SteamAutoCloud {
 
                             val relativePath = basePath.relativize(path).pathString
 
-                            add(UserFileInfo(
-                                root = userFile.root,
-                                path = userFile.substitutedPath,
-                                filename = relativePath,
-                                timestamp = Files.getLastModifiedTime(path).toMillis(),
-                                sha = sha,
-                                cloudRoot = userFile.uploadRoot,
-                                cloudPath = userFile.uploadPath
-                            ))
+                            add(
+                                UserFileInfo(
+                                    root = userFile.root,
+                                    path = userFile.substitutedPath,
+                                    filename = relativePath,
+                                    timestamp = Files.getLastModifiedTime(path).toMillis(),
+                                    sha = sha,
+                                    cloudRoot = userFile.uploadRoot,
+                                    cloudPath = userFile.uploadPath,
+                                ),
+                            )
                         }
                     }
 
@@ -432,15 +432,17 @@ object SteamAutoCloud {
                     Timber.i("Found ${path.pathString}\n\tin %${rootType.name}%\n\twith sha [${sha.joinToString(", ")}]")
 
                     // Store relative path in filename; empty path component
-                    add(UserFileInfo(
-                        root = rootType,
-                        path = "",
-                        filename = relativePath,
-                        timestamp = Files.getLastModifiedTime(path).toMillis(),
-                        sha = sha,
-                        cloudRoot = rootType,
-                        cloudPath = ""
-                    ))
+                    add(
+                        UserFileInfo(
+                            root = rootType,
+                            path = "",
+                            filename = relativePath,
+                            timestamp = Files.getLastModifiedTime(path).toMillis(),
+                            sha = sha,
+                            cloudRoot = rootType,
+                            cloudPath = "",
+                        ),
+                    )
                 }
             }
 
@@ -488,7 +490,11 @@ object SteamAutoCloud {
             "$scheme${urlHost}$urlPath"
         }
 
-        val downloadFiles: (List<AppFileInfo>, AppFileChangeList, CoroutineScope) -> Deferred<UserFilesDownloadResult> = { filesToDownload, fileList, parentScope ->
+        val downloadFiles: (List<AppFileInfo>, AppFileChangeList, CoroutineScope) -> Deferred<UserFilesDownloadResult> = {
+                filesToDownload,
+                fileList,
+                parentScope,
+            ->
             parentScope.async {
                 val filesDownloaded = AtomicInteger(0)
                 val bytesDownloaded = AtomicLong(0L)
@@ -670,7 +676,9 @@ object SteamAutoCloud {
                             Timber.i("Read $bytesRead byte(s) for block")
 
                             val mediaType = if (blockRequest.requestHeaders.any { it.name.equals("Content-Type", ignoreCase = true) }) {
-                                blockRequest.requestHeaders.first { it.name.equals("Content-Type", ignoreCase = true) }.value.toMediaTypeOrNull()
+                                blockRequest.requestHeaders.first {
+                                    it.name.equals("Content-Type", ignoreCase = true)
+                                }.value.toMediaTypeOrNull()
                             } else {
                                 "application/octet-stream".toMediaTypeOrNull()
                             }
@@ -799,7 +807,8 @@ object SteamAutoCloud {
         var lastCloudAppChangeNumber = -1L
 
         microsecTotal = measureTime {
-            val localAppChangeNumber = overrideLocalChangeNumber ?: steamInstance.changeNumbersDao.getByAppId(appInfo.id)?.changeNumber ?: -1
+            val localAppChangeNumber =
+                overrideLocalChangeNumber ?: steamInstance.changeNumbersDao.getByAppId(appInfo.id)?.changeNumber ?: -1
 
             val cachedFileList = steamInstance.fileChangeListsDao.getByAppId(appInfo.id)
             val cacheIsAbsentOrEmpty = cachedFileList == null || cachedFileList.userFileInfo.isEmpty()

@@ -4,13 +4,13 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.gamenative.PluviaApp
+import app.gamenative.PrefManager
 import app.gamenative.enums.LoginResult
 import app.gamenative.enums.LoginScreen
 import app.gamenative.events.AndroidEvent
 import app.gamenative.events.SteamEvent
 import app.gamenative.service.SteamService
 import app.gamenative.ui.data.UserLoginState
-import app.gamenative.PrefManager
 import com.posthog.PostHog
 import `in`.dragonbra.javasteam.steam.authentication.IAuthenticator
 import java.util.concurrent.CompletableFuture
@@ -106,7 +106,7 @@ class UserLoginViewModel : ViewModel() {
         // Only handle auto-login state, connection state is managed by MainViewModel
         if (it.isAutoLoggingIn) {
             _loginState.update { currentState ->
-                currentState.copy(isLoggingIn = true, isSteamConnected = true,)
+                currentState.copy(isLoggingIn = true, isSteamConnected = true)
             }
         }
     }
@@ -351,7 +351,7 @@ class UserLoginViewModel : ViewModel() {
                 loginResult = LoginResult.Failed,
                 isSteamConnected = false,
                 isQrFailed = false,
-                qrCode = null
+                qrCode = null,
             )
         }
         // Restart the SteamService

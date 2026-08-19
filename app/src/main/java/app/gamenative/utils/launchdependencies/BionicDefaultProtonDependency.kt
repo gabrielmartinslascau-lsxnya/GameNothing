@@ -7,11 +7,11 @@ import app.gamenative.utils.LOADING_PROGRESS_UNKNOWN
 import com.winlator.container.Container
 import com.winlator.core.TarCompressorUtils
 import com.winlator.xenvironment.ImageFs
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import timber.log.Timber
-import java.io.File
 
 /**
  * Ensures Proton (arm64ec or x86_64) is downloaded and extracted into opt/<wineVersion> for Bionic.

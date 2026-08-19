@@ -51,6 +51,7 @@ typealias NavChangedListener = NavController.OnDestinationChangedListener
 class PluviaApp : SplitCompatApplication() {
 
     @Inject lateinit var gogGameDao: GOGGameDao
+
     @Inject lateinit var amazonGameDao: AmazonGameDao
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -95,7 +96,7 @@ class PluviaApp : SplitCompatApplication() {
             ContainerMigrator.migrateLegacyContainersIfNeeded(
                 context = applicationContext,
                 onProgressUpdate = null,
-                onComplete = null
+                onComplete = null,
             )
         }
 
@@ -220,6 +221,7 @@ class PluviaApp : SplitCompatApplication() {
         var achievementWatcher: app.gamenative.service.AchievementWatcher? = null
 
         var isOverlayPaused by mutableStateOf(false)
+
         @Volatile
         var isActivityInForeground: Boolean = true
 
@@ -287,8 +289,8 @@ class PluviaApp : SplitCompatApplication() {
                 val displayManager = instance.getSystemService(DISPLAY_SERVICE) as? DisplayManager
                 val display = displayManager?.getDisplay(Display.DEFAULT_DISPLAY)
                 if (display != null) {
-                    val width : Int
-                    val height : Int
+                    val width: Int
+                    val height: Int
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                         val mode = display.mode
@@ -312,20 +314,20 @@ class PluviaApp : SplitCompatApplication() {
                     // 16:9 = 1.77
 
                     val result = when {
-                        aspectRatio < 1.5f -> Container.DEFAULT_SCREEN_SIZE_4_3  // 4:3 aspect ratio devices
-                        aspectRatio < 1.7f -> Container.DEFAULT_SCREEN_SIZE_16_10  // 16:10 aspect ratio devices
-                        else -> Container.DEFAULT_SCREEN_SIZE_16_9  // 16:9 and wider aspect ratio devices
+                        aspectRatio < 1.5f -> Container.DEFAULT_SCREEN_SIZE_4_3 // 4:3 aspect ratio devices
+                        aspectRatio < 1.7f -> Container.DEFAULT_SCREEN_SIZE_16_10 // 16:10 aspect ratio devices
+                        else -> Container.DEFAULT_SCREEN_SIZE_16_9 // 16:9 and wider aspect ratio devices
                     }
                     cachedDefaultScreenSize = result
                     result
                 } else {
-                    val fallback = Container.DEFAULT_SCREEN_SIZE_16_9  // Fallback to default
+                    val fallback = Container.DEFAULT_SCREEN_SIZE_16_9 // Fallback to default
                     cachedDefaultScreenSize = fallback
                     fallback
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to get device screen size")
-                val fallback = Container.DEFAULT_SCREEN_SIZE_16_9  // Fallback to default
+                val fallback = Container.DEFAULT_SCREEN_SIZE_16_9 // Fallback to default
                 cachedDefaultScreenSize = fallback
                 fallback
             }

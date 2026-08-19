@@ -80,7 +80,8 @@ enum class LibraryTab(
         showEpic = false,
         showAmazon = false,
         installedOnly = false,
-    );
+    ),
+    ;
 
     companion object {
         /**

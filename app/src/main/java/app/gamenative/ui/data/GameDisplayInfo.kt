@@ -24,4 +24,3 @@ data class GameDisplayInfo(
     val compatibilityColor: ULong? = null, // Compatibility message color (ARGB)
     val hltbStats: app.gamenative.utils.HltbService.Stats? = null, // How Long To Beat stats
 )
-

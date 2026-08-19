@@ -215,7 +215,12 @@ internal object NexusCollectionManifestParser {
             val type = firstNamedString(value, setOf("type", "rule", "action")).lowercase()
             val source = firstNamedString(value, setOf("source", "from", "mod", "modname", "winner", "before")).let(::clean)
             val target = firstNamedString(value, setOf("target", "to", "other", "loser", "after")).let(::clean)
-            if (listOf(type, source, target).any { "conflict" in it.lowercase() || "before" in it.lowercase() || "after" in it.lowercase() || "load" in it.lowercase() } ||
+            if (listOf(type, source, target).any {
+                    "conflict" in it.lowercase() ||
+                        "before" in it.lowercase() ||
+                        "after" in it.lowercase() ||
+                        "load" in it.lowercase()
+                } ||
                 (source.isNotBlank() && target.isNotBlank())
             ) {
                 add(listOf(source, target).filter { it.isNotBlank() }.joinToString(" over ").ifBlank { clean(type) })

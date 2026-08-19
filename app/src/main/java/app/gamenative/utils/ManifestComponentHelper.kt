@@ -7,10 +7,10 @@ import com.winlator.contents.ContentProfile
 import com.winlator.contents.ContentsManager
 import com.winlator.core.GPUHelper
 import com.winlator.core.StringUtils
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 object ManifestComponentHelper {
     fun parseSemVerTriplet(value: String): Triple<Int, Int, Int>? {
@@ -181,11 +181,11 @@ object ManifestComponentHelper {
         }
     }
 
-    fun buildAvailableVersions(base: List<String>, installed: List<String>, manifest: List<ManifestEntry>, ): List<String> {
+    fun buildAvailableVersions(base: List<String>, installed: List<String>, manifest: List<ManifestEntry>): List<String> {
         return (base + installed + manifest.map { it.id }).distinct()
     }
 
-    fun buildVersionOptionList(base: List<String>, installed: List<String>, manifest: List<ManifestEntry>, ): VersionOptionList {
+    fun buildVersionOptionList(base: List<String>, installed: List<String>, manifest: List<ManifestEntry>): VersionOptionList {
         val options = LinkedHashMap<String, VersionOption>()
 
         (base + installed).forEach { label ->
@@ -247,21 +247,34 @@ object ManifestComponentHelper {
         val constrainedLabels = listOf("1.10.3", "1.10.9-sarek", "1.9.2", "async-1.10.3")
         val constrainedIds = constrainedLabels.map { StringUtils.parseIdentifier(it) }
         val useConstrained =
-            !inspectionMode && isVortekLike &&
+            !inspectionMode &&
+                isVortekLike &&
                 GPUHelper.vkGetApiVersionSafe() < GPUHelper.vkMakeVersion(1, 3, 0)
 
         val labels =
-            if (useConstrained) constrainedLabels
-            else if (isBionicVariant) dxvkOptions.labels
-            else dxvkVersionsBase
+            if (useConstrained) {
+                constrainedLabels
+            } else if (isBionicVariant) {
+                dxvkOptions.labels
+            } else {
+                dxvkVersionsBase
+            }
         val ids =
-            if (useConstrained) constrainedIds
-            else if (isBionicVariant) dxvkOptions.ids
-            else dxvkVersionsBase.map { StringUtils.parseIdentifier(it) }
+            if (useConstrained) {
+                constrainedIds
+            } else if (isBionicVariant) {
+                dxvkOptions.ids
+            } else {
+                dxvkVersionsBase.map { StringUtils.parseIdentifier(it) }
+            }
         val muted =
-            if (useConstrained) List(labels.size) { false }
-            else if (isBionicVariant) dxvkOptions.muted
-            else emptyList()
+            if (useConstrained) {
+                List(labels.size) { false }
+            } else if (isBionicVariant) {
+                dxvkOptions.muted
+            } else {
+                emptyList()
+            }
 
         val (finalLabels, finalIds, finalMuted) = if (isVKD3D) {
             val allowedIndices = ids.mapIndexedNotNull { index, id ->

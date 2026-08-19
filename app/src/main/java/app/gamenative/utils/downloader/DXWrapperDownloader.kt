@@ -3,12 +3,12 @@ package app.gamenative.utils.downloader
 import android.content.Context
 import app.gamenative.BuildConfig
 import app.gamenative.service.SteamService
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import timber.log.Timber
-import java.io.File
 
 /**
  * Utility for downloading DXWrapper components (DXVK, VKD3D, D8VK) from the manifest server.
@@ -25,14 +25,14 @@ object DXWrapperDownloader {
     data class DXWrapperManifest(
         val version: Int,
         val updatedAt: String,
-        val components: List<DXWrapperComponent>
+        val components: List<DXWrapperComponent>,
     )
 
     @Serializable
     data class DXWrapperComponent(
         val id: String,
         val name: String,
-        val url: String
+        val url: String,
     )
 
     /**
@@ -46,7 +46,7 @@ object DXWrapperDownloader {
     suspend fun ensureDXWrapperAvailable(
         context: Context,
         componentId: String,
-        onProgress: (Float) -> Unit = {}
+        onProgress: (Float) -> Unit = {},
     ): File? = withContext(Dispatchers.IO) {
         // Validate component exists in manifest first (for both legacy and modern variants)
         val manifest = loadDXWrapperManifest(context)
@@ -83,7 +83,7 @@ object DXWrapperDownloader {
                 fileName = "dxwrapper/${component.name}",
                 dest = destFile,
                 context = context,
-                onProgress = onProgress
+                onProgress = onProgress,
             )
             Timber.i("Successfully downloaded dxwrapper: $componentId")
         } catch (e: Exception) {

@@ -14,8 +14,8 @@ import androidx.compose.runtime.remember
 import app.gamenative.service.amazon.AmazonAuthManager
 import app.gamenative.ui.component.dialog.AuthWebViewDialog
 import app.gamenative.ui.theme.PluviaTheme
-import timber.log.Timber
 import java.util.concurrent.atomic.AtomicBoolean
+import timber.log.Timber
 
 /**
  * Amazon OAuth Activity — hosts a WebView for the PKCE sign-in flow.
@@ -48,7 +48,7 @@ class AmazonOAuthActivity : ComponentActivity() {
                     onDismiss = {
                         setResult(Activity.RESULT_CANCELED)
                         finish()
-                    }
+                    },
                 )
             }
         }
@@ -75,7 +75,7 @@ class AmazonOAuthActivity : ComponentActivity() {
 private fun AmazonAuthWebView(
     authUrl: String,
     onCodeCaptured: (String) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     val codeCaptured = remember { AtomicBoolean(false) }
 
@@ -126,7 +126,7 @@ private fun AmazonAuthWebView(
         isVisible = true,
         url = authUrl,
         onDismissRequest = onDismiss,
-        customWebViewClient = webViewClient
+        customWebViewClient = webViewClient,
     )
 }
 

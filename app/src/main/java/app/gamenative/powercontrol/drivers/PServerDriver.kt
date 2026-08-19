@@ -13,11 +13,11 @@ import app.gamenative.powercontrol.PowerProfile
 import app.gamenative.powercontrol.autotuning.DeviceGate
 import app.gamenative.powercontrol.profiles.CpuGovernor
 import app.gamenative.powercontrol.profiles.PerformancePreset
-import kotlinx.serialization.json.Json
-import timber.log.Timber
 import java.io.File
 import java.nio.charset.Charset
 import java.util.concurrent.Executors
+import kotlinx.serialization.json.Json
+import timber.log.Timber
 
 /**
  * Performance driver implementation for devices with PServer support
@@ -48,14 +48,14 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
         val minFreqPath: String,
         val maxFreqPath: String,
         val cpuCores: List<Int>,
-        val maxFrequency: Long = 0L
+        val maxFrequency: Long = 0L,
     )
 
     // CPU cluster types based on frequency
     enum class CpuCluster {
-        EFFICIENCY,    // Lowest frequency cores
-        PERFORMANCE,   // Mid-high frequency cores
-        PRIME          // Highest frequency core(s)
+        EFFICIENCY, // Lowest frequency cores
+        PERFORMANCE, // Mid-high frequency cores
+        PRIME, // Highest frequency core(s)
     }
 
     // PServer binder interface
@@ -87,12 +87,15 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
     private var tasksetMaskFormat: TasksetMaskFormat? = null
 
     enum class TasksetMaskFormat {
-        PLAIN_HEX,  // e.g., "f8"
-        HEX_PREFIX  // e.g., "0xf8"
+        PLAIN_HEX, // e.g., "f8"
+        HEX_PREFIX, // e.g., "0xf8"
     }
 
     // Pre-session sysfs snapshot, persisted so a crashed session can still be undone
-    private val baselineJson = Json { encodeDefaults = true; ignoreUnknownKeys = true }
+    private val baselineJson = Json {
+        encodeDefaults = true
+        ignoreUnknownKeys = true
+    }
     private var sessionBaseline: PowerBaseline? = null
     private var rootRestoreScriptPath: String = ""
     private var rootCleanupPaths: List<String> = emptyList()
@@ -462,7 +465,7 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
             val baseline = PowerBaseline(
                 capturedAtMillis = System.currentTimeMillis(),
                 appPid = android.os.Process.myPid(),
-                entries = entries
+                entries = entries,
             )
             Timber.tag(POWER_TAG).i("Baseline captured: ${PowerBaselineScripts.describe(baseline)}")
 
@@ -535,7 +538,7 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
 
         val cleanupPaths = mutableListOf(
             PowerBaselineScripts.toRootVisiblePath(jsonFile.absolutePath),
-            PowerBaselineScripts.toRootVisiblePath(scriptFile.absolutePath)
+            PowerBaselineScripts.toRootVisiblePath(scriptFile.absolutePath),
         )
         var rootScript = PowerBaselineScripts.toRootVisiblePath(scriptFile.absolutePath)
 
@@ -561,7 +564,7 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
         for (dir in baselineDirectories()) {
             listOf(
                 PowerBaselineScripts.BASELINE_FILE_NAME,
-                PowerBaselineScripts.RESTORE_SCRIPT_FILE_NAME
+                PowerBaselineScripts.RESTORE_SCRIPT_FILE_NAME,
             ).forEach { name ->
                 try {
                     File(dir, name).delete()
@@ -598,7 +601,7 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
         babysitterPid = result.getOrNull()?.lines()?.lastOrNull()?.trim()?.toIntOrNull()
         babysitterActive = true
         Timber.tag(POWER_TAG).i(
-            "Babysitter spawned (appPid=$appPid, babysitterPid=${babysitterPid ?: "unknown"}, script=$scriptPath)"
+            "Babysitter spawned (appPid=$appPid, babysitterPid=${babysitterPid ?: "unknown"}, script=$scriptPath)",
         )
     }
 
@@ -608,8 +611,8 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
         val result = executeAsRoot(
             PowerBaselineScripts.buildKillBabysitterCommand(
                 babysitterPid,
-                PowerBaselineScripts.RESTORE_SCRIPT_FILE_NAME
-            )
+                PowerBaselineScripts.RESTORE_SCRIPT_FILE_NAME,
+            ),
         )
         Timber.tag(POWER_TAG).i("Babysitter killed (pid=${babysitterPid ?: "unknown"}, success=${result.isSuccess})")
         babysitterPid = null
@@ -645,7 +648,7 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
         val success = commitInternal(true)
         Timber.tag(POWER_TAG).i(
             "Clean restore executed: ${if (success) "success" else "failure"} " +
-                "(entries=${sessionBaseline?.entries?.size ?: 0}, extraFiles=${modifiedSysfsFiles.size}, script=$scriptPath)"
+                "(entries=${sessionBaseline?.entries?.size ?: 0}, extraFiles=${modifiedSysfsFiles.size}, script=$scriptPath)",
         )
         return success
     }
@@ -683,7 +686,7 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
 
         Timber.tag(POWER_TAG).i(
             "Dirty restore executed: ${if (success) "success" else "failure"} " +
-                "(pid=${baseline.appPid}, entries=${baseline.entries.size}) ${PowerBaselineScripts.describe(baseline)}"
+                "(pid=${baseline.appPid}, entries=${baseline.entries.size}) ${PowerBaselineScripts.describe(baseline)}",
         )
 
         baseline.fanRestoreCommand?.let {
@@ -693,7 +696,7 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
         // A babysitter from the dead session may still be sleeping; it would otherwise
         // fire mid-session and delete the new baseline files.
         executeAsRoot(
-            PowerBaselineScripts.buildKillBabysitterCommand(null, PowerBaselineScripts.RESTORE_SCRIPT_FILE_NAME)
+            PowerBaselineScripts.buildKillBabysitterCommand(null, PowerBaselineScripts.RESTORE_SCRIPT_FILE_NAME),
         )
 
         deleteBaselineArtifacts()
@@ -814,12 +817,12 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
                         success = false
                         Timber.tag(TAG).e(
                             "Failed to set governor for policy ${policy.policyId} " +
-                            "(CPUs: ${policy.cpuCores.joinToString()})"
+                                "(CPUs: ${policy.cpuCores.joinToString()})",
                         )
                     } else {
                         Timber.tag(TAG).d(
                             "Set governor to '$governor' for policy ${policy.policyId} " +
-                            "(CPUs: ${policy.cpuCores.joinToString()})"
+                                "(CPUs: ${policy.cpuCores.joinToString()})",
                         )
                     }
                 }
@@ -898,12 +901,12 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
                         if (cappedValue != value) {
                             Timber.tag(TAG).d(
                                 "Set min freq to $cappedValue (capped from $value) for policy ${policy.policyId} " +
-                                "(CPUs: ${policy.cpuCores.joinToString()}, max: ${policy.maxFrequency})"
+                                    "(CPUs: ${policy.cpuCores.joinToString()}, max: ${policy.maxFrequency})",
                             )
                         } else {
                             Timber.tag(TAG).d(
                                 "Set min freq to $value for policy ${policy.policyId} " +
-                                "(CPUs: ${policy.cpuCores.joinToString()})"
+                                    "(CPUs: ${policy.cpuCores.joinToString()})",
                             )
                         }
                     }
@@ -983,12 +986,12 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
                         if (cappedValue != value) {
                             Timber.tag(TAG).d(
                                 "Set max freq to $cappedValue (capped from $value) for policy ${policy.policyId} " +
-                                "(CPUs: ${policy.cpuCores.joinToString()}, max: ${policy.maxFrequency})"
+                                    "(CPUs: ${policy.cpuCores.joinToString()}, max: ${policy.maxFrequency})",
                             )
                         } else {
                             Timber.tag(TAG).d(
                                 "Set max freq to $value for policy ${policy.policyId} " +
-                                "(CPUs: ${policy.cpuCores.joinToString()})"
+                                    "(CPUs: ${policy.cpuCores.joinToString()})",
                             )
                         }
                     }
@@ -1237,7 +1240,7 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
             minCpuFreq = getCurrentMinCpuValue(),
             maxCpuFreq = getCurrentMaxCpuValue(),
             minGpuPowerLevel = 0,
-            maxGpuPowerLevel = 0
+            maxGpuPowerLevel = 0,
         )
 
         if (availableFrequencies.isEmpty()) {
@@ -1269,7 +1272,7 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
             minCpuFreq = midFreq,
             maxCpuFreq = maxFreq,
             minGpuPowerLevel = midGpuLevel,
-            maxGpuPowerLevel = maxGpuPowerLevel
+            maxGpuPowerLevel = maxGpuPowerLevel,
         )
     }
 
@@ -1338,7 +1341,6 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
                     policies[policyDir] = mutableListOf()
                 }
                 policies[policyDir]?.add(cpu)
-
             } catch (e: Exception) {
                 // Fallback: treat as individual policy
                 val policyDir = "$CPU_BASE_PATH/cpu$cpu/cpufreq"
@@ -1363,7 +1365,7 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
                 minFreqPath = "$policyDir/scaling_min_freq",
                 maxFreqPath = "$policyDir/scaling_max_freq",
                 cpuCores = cpuList.sorted(),
-                maxFrequency = maxFreq
+                maxFrequency = maxFreq,
             )
         }
 
@@ -1386,7 +1388,7 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
             "CPU base directory" to CPU_BASE_PATH,
             "CPUFreq directory" to CPUFREQ_PATH,
             "Policy0 directory" to POLICY0_PATH,
-            "Policy0 governor" to "$POLICY0_PATH/scaling_governor"
+            "Policy0 governor" to "$POLICY0_PATH/scaling_governor",
         )
 
         var allValid = true
@@ -1407,7 +1409,7 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
             results.forEach { Timber.tag(TAG).w(it) }
             Timber.tag(TAG).w(
                 "CPU frequency scaling may be disabled. " +
-                "Check kernel config or device settings."
+                    "Check kernel config or device settings.",
             )
         } else {
             Timber.tag(TAG).d("CPU frequency scaling validation: All checks passed")
@@ -1571,7 +1573,7 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
 
         // Detect format by testing with a simple command
         try {
-            val testMask = "0x1"  // Test with 0x prefix
+            val testMask = "0x1" // Test with 0x prefix
             val command = arrayOf("sh", "-c", "taskset $testMask echo test 2>&1")
             val process = Runtime.getRuntime().exec(command)
             val output = process.inputStream.bufferedReader().use { it.readText() }
@@ -1682,7 +1684,7 @@ class PServerDriver(private val context: Context? = null) : PerformanceDriver() 
     /**
      * Device Temperature
      */
-    fun deviceTempC(cpuTempC: Int?, gpuTempC: Int?) : Int? {
+    fun deviceTempC(cpuTempC: Int?, gpuTempC: Int?): Int? {
         // On Odin 3, cpuTempC is not precise, can only use gpuTemp for the device temperature
         return if (DeviceGate.normalizedModel().contains(DeviceGate.MODEL_ODIN_3)) {
             gpuTempC

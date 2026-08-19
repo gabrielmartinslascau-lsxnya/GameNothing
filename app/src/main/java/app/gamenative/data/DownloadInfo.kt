@@ -1,21 +1,21 @@
 package app.gamenative.data
 
+import java.io.File
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
+import kotlin.concurrent.Volatile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
-import java.io.File
-import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicLong
-import kotlin.concurrent.Volatile
 
 data class DownloadInfo(
     val jobCount: Int = 1,
@@ -32,8 +32,8 @@ data class DownloadInfo(
     private var persistenceJob: Job? = null
     private val persistenceGeneration = AtomicInteger(0)
 
-    private val weights    = FloatArray(jobCount) { 1f }     // ⇐ new
-    private var weightSum  = jobCount.toFloat()
+    private val weights = FloatArray(jobCount) { 1f } // ⇐ new
+    private var weightSum = jobCount.toFloat()
 
     // === Bytes / speed tracking for more stable ETA ===
     private var totalExpectedBytes: Long = 0L
@@ -46,6 +46,7 @@ data class DownloadInfo(
     private var emaSpeedBytesPerSec: Double = 0.0
     private var hasEmaSpeed: Boolean = false
     private var isActive: Boolean = true
+
     @Volatile
     private var currentStatusMessage: String = ""
     private val postInstallSyncing = MutableStateFlow(false)
@@ -94,18 +95,17 @@ data class DownloadInfo(
         // Fallback to depot-based progress only if we don't have byte tracking
         var total = 0f
         for (i in progresses.indices) {
-            total += progresses[i] * weights[i]   // weight each depot
+            total += progresses[i] * weights[i] // weight each depot
         }
         return if (weightSum == 0f) 0f else total / weightSum
     }
-
 
     fun setProgress(amount: Float, jobIndex: Int = 0) {
         progresses[jobIndex] = amount
         emitProgressChange()
     }
 
-    fun setWeight(jobIndex: Int, weightBytes: Long) {        // tiny helper
+    fun setWeight(jobIndex: Int, weightBytes: Long) { // tiny helper
         weights[jobIndex] = weightBytes.toFloat()
         weightSum = weights.sum()
     }

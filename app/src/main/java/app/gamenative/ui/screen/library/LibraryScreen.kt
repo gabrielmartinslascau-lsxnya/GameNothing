@@ -3,37 +3,35 @@ package app.gamenative.ui.screen.library
 import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
+import android.os.SystemClock
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
-import app.gamenative.ui.util.SnackbarManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.displayCutout
-import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.union
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -55,8 +53,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.foundation.focusGroup
-import androidx.compose.foundation.focusable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -75,13 +71,16 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import app.gamenative.BuildConfig
-import app.gamenative.PrefManager
 import app.gamenative.PluviaApp
+import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.data.GameCompatibilityStatus
 import app.gamenative.data.GameSource
 import app.gamenative.data.LibraryItem
 import app.gamenative.events.AndroidEvent
+import app.gamenative.service.amazon.AmazonService
+import app.gamenative.service.epic.EpicService
+import app.gamenative.service.gog.GOGService
 import app.gamenative.ui.component.GamepadAction
 import app.gamenative.ui.component.GamepadActionBar
 import app.gamenative.ui.component.GamepadButton
@@ -95,31 +94,27 @@ import app.gamenative.ui.enums.PaneType
 import app.gamenative.ui.enums.SortOption
 import app.gamenative.ui.internal.fakeAppInfo
 import app.gamenative.ui.model.LibraryViewModel
-import app.gamenative.service.SteamService
+import app.gamenative.ui.screen.auth.AmazonOAuthActivity
+import app.gamenative.ui.screen.auth.EpicOAuthActivity
+import app.gamenative.ui.screen.auth.GOGOAuthActivity
 import app.gamenative.ui.screen.library.components.LibraryCarouselPane
 import app.gamenative.ui.screen.library.components.LibraryDetailPane
 import app.gamenative.ui.screen.library.components.LibraryListPane
-import app.gamenative.ui.screen.library.components.RecommendationDisclosureDialog
 import app.gamenative.ui.screen.library.components.LibraryOptionsPanel
 import app.gamenative.ui.screen.library.components.LibrarySearchBar
 import app.gamenative.ui.screen.library.components.LibrarySourceNotLoggedInSplash
 import app.gamenative.ui.screen.library.components.LibraryTabBar
-import app.gamenative.ui.screen.auth.AmazonOAuthActivity
-import app.gamenative.ui.screen.auth.EpicOAuthActivity
-import app.gamenative.ui.screen.auth.GOGOAuthActivity
+import app.gamenative.ui.screen.library.components.RecommendationDisclosureDialog
 import app.gamenative.ui.screen.library.components.SystemMenu
 import app.gamenative.ui.theme.PluviaTheme
 import app.gamenative.ui.util.PlatformAuthUiHelpers
 import app.gamenative.ui.util.PlatformLogoutCallbacks
-import app.gamenative.service.amazon.AmazonService
-import app.gamenative.service.epic.EpicService
-import app.gamenative.service.gog.GOGService
+import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.utils.CustomGameScanner
 import app.gamenative.utils.PlatformOAuthHandlers
 import app.gamenative.utils.SteamUtils
 import com.posthog.PostHog
 import kotlinx.coroutines.launch
-import android.os.SystemClock
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -553,7 +548,6 @@ private fun LibraryScreenContent(
         }
     }
 
-
     // Padding for the library *list* view (tab bar, grid, search bar) so content
     // never draws behind the display cutout. The window now opts in to
     // LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES via Theme.Pluvia, so:
@@ -661,10 +655,22 @@ private fun LibraryScreenContent(
         val listBecameNonEmpty = previousAppCount == 0 && currentCount > 0
         val listBecameEmpty = previousAppCount > 0 && currentCount == 0
 
-        if (listBecameNonEmpty && selectedAppId == null && !isSystemMenuOpen && !state.isOptionsPanelOpen && !state.isSearching && !tabBarHasFocus) {
+        if (listBecameNonEmpty &&
+            selectedAppId == null &&
+            !isSystemMenuOpen &&
+            !state.isOptionsPanelOpen &&
+            !state.isSearching &&
+            !tabBarHasFocus
+        ) {
             requestContentFocusOrDefer()
         }
-        if (listBecameEmpty && selectedAppId == null && !isSystemMenuOpen && !state.isOptionsPanelOpen && !state.isSearching && !tabBarHasFocus) {
+        if (listBecameEmpty &&
+            selectedAppId == null &&
+            !isSystemMenuOpen &&
+            !state.isOptionsPanelOpen &&
+            !state.isSearching &&
+            !tabBarHasFocus
+        ) {
             // Empty tabs can drop focused children; re-anchor focus at the root so bumper nav keeps working.
             requestRootFocusSafe()
         }
@@ -945,7 +951,7 @@ private fun LibraryScreenContent(
                 } else {
                     false
                 }
-            }
+            },
     ) {
         if (selectedAppId == null) {
             // Use Box to allow content to scroll behind the tab bar
@@ -977,7 +983,13 @@ private fun LibraryScreenContent(
                             modifier = Modifier.fillMaxSize(),
                             firstCarouselItemFocusRequester = carouselFocusRequester,
                             firstGridItemFocusRequester = gridFirstItemFocusRequester,
-                            focusTargetListIndex = if (currentPaneType == PaneType.CAROUSEL) currentCarouselFocusTargetIndex() else gridFocusTargetListIndex,
+                            focusTargetListIndex = if (currentPaneType ==
+                                PaneType.CAROUSEL
+                            ) {
+                                currentCarouselFocusTargetIndex()
+                            } else {
+                                gridFocusTargetListIndex
+                            },
                             onFocusedIndexChanged = { carouselFocusTargetListIndex = it },
                             onItemCountChanged = { recommendationItemCount = it },
                         )
@@ -993,97 +1005,97 @@ private fun LibraryScreenContent(
                         )
                     }
                 } else {
-                val showEmptyStateSplash = when (state.currentTab) {
-                    LibraryTab.STEAM -> !SteamUtils.hasStoredCredentials() && !state.isLoading
-                    LibraryTab.GOG -> !GOGService.hasStoredCredentials(context)
-                    LibraryTab.EPIC -> !EpicService.hasStoredCredentials(context)
-                    LibraryTab.AMAZON -> !AmazonService.hasStoredCredentials(context)
-                    LibraryTab.LOCAL -> PrefManager.customGamesCount == 0
-                    else -> false
-                }
-                if (showEmptyStateSplash) {
-                    val (messageResId, buttonResId, onAction) = when (state.currentTab) {
-                        LibraryTab.STEAM -> Triple(
-                            R.string.library_source_not_logged_in_steam,
-                            R.string.steam_sign_in,
-                            onGoOnline,
-                        )
-                        LibraryTab.GOG -> Triple(
-                            R.string.library_source_not_logged_in_gog,
-                            R.string.gog_settings_login_title,
-                            { gogOAuthLauncher.launch(Intent(context, GOGOAuthActivity::class.java)) },
-                        )
-                        LibraryTab.EPIC -> Triple(
-                            R.string.library_source_not_logged_in_epic,
-                            R.string.epic_settings_login_title,
-                            { epicOAuthLauncher.launch(Intent(context, EpicOAuthActivity::class.java)) },
-                        )
-                        LibraryTab.AMAZON -> Triple(
-                            R.string.library_source_not_logged_in_amazon,
-                            R.string.amazon_settings_login_title,
-                            { amazonOAuthLauncher.launch(Intent(context, AmazonOAuthActivity::class.java)) },
-                        )
-                        LibraryTab.LOCAL -> Triple(
-                            R.string.library_source_no_custom_games,
-                            R.string.add_custom_game_dialog_title,
-                            onAddCustomGameClick,
-                        )
-                        else -> throw IllegalStateException("showEmptyStateSplash is true only for Steam/GOG/Epic/Amazon/LOCAL")
+                    val showEmptyStateSplash = when (state.currentTab) {
+                        LibraryTab.STEAM -> !SteamUtils.hasStoredCredentials() && !state.isLoading
+                        LibraryTab.GOG -> !GOGService.hasStoredCredentials(context)
+                        LibraryTab.EPIC -> !EpicService.hasStoredCredentials(context)
+                        LibraryTab.AMAZON -> !AmazonService.hasStoredCredentials(context)
+                        LibraryTab.LOCAL -> PrefManager.customGamesCount == 0
+                        else -> false
                     }
-                    LibrarySourceNotLoggedInSplash(
-                        messageResId = messageResId,
-                        signInButtonLabelResId = buttonResId,
-                        onSignInClick = onAction,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                } else {
-                    // Library list (content scrolls behind tab bar)
-                    if (currentPaneType == PaneType.CAROUSEL) {
-                        LibraryCarouselPane(
-                            state = state,
-                            listState = carouselListState,
-                            onPageChange = onPageChange,
-                            onNavigate = { appId ->
-                                val item = state.appInfoList.find { it.appId == appId }
-                                if (item?.isRecTeaser == true) {
-                                    if (!item.isRecLoading && !recDisclosureShown) {
-                                        onRecTeaserTapped()
-                                    }
-                                } else {
-                                    selectedAppId = appId
-                                    selectedLibraryItem = item
-                                }
-                            },
-                            onRefresh = onRefresh,
+                    if (showEmptyStateSplash) {
+                        val (messageResId, buttonResId, onAction) = when (state.currentTab) {
+                            LibraryTab.STEAM -> Triple(
+                                R.string.library_source_not_logged_in_steam,
+                                R.string.steam_sign_in,
+                                onGoOnline,
+                            )
+                            LibraryTab.GOG -> Triple(
+                                R.string.library_source_not_logged_in_gog,
+                                R.string.gog_settings_login_title,
+                                { gogOAuthLauncher.launch(Intent(context, GOGOAuthActivity::class.java)) },
+                            )
+                            LibraryTab.EPIC -> Triple(
+                                R.string.library_source_not_logged_in_epic,
+                                R.string.epic_settings_login_title,
+                                { epicOAuthLauncher.launch(Intent(context, EpicOAuthActivity::class.java)) },
+                            )
+                            LibraryTab.AMAZON -> Triple(
+                                R.string.library_source_not_logged_in_amazon,
+                                R.string.amazon_settings_login_title,
+                                { amazonOAuthLauncher.launch(Intent(context, AmazonOAuthActivity::class.java)) },
+                            )
+                            LibraryTab.LOCAL -> Triple(
+                                R.string.library_source_no_custom_games,
+                                R.string.add_custom_game_dialog_title,
+                                onAddCustomGameClick,
+                            )
+                            else -> throw IllegalStateException("showEmptyStateSplash is true only for Steam/GOG/Epic/Amazon/LOCAL")
+                        }
+                        LibrarySourceNotLoggedInSplash(
+                            messageResId = messageResId,
+                            signInButtonLabelResId = buttonResId,
+                            onSignInClick = onAction,
                             modifier = Modifier.fillMaxSize(),
-                            firstCarouselItemFocusRequester = carouselFocusRequester,
-                            focusTargetListIndex = currentCarouselFocusTargetIndex(),
-                            onFocusedIndexChanged = { carouselFocusTargetListIndex = it },
                         )
                     } else {
-                        LibraryListPane(
-                            state = state,
-                            listState = listState,
-                            currentLayout = currentPaneType,
-                            firstGridItemFocusRequester = gridFirstItemFocusRequester,
-                            focusTargetListIndex = gridFocusTargetListIndex,
-                            onPageChange = onPageChange,
-                            onNavigate = { appId ->
-                                val item = state.appInfoList.find { it.appId == appId }
-                                if (item?.isRecTeaser == true) {
-                                    if (!item.isRecLoading && !recDisclosureShown) {
-                                        onRecTeaserTapped()
+                        // Library list (content scrolls behind tab bar)
+                        if (currentPaneType == PaneType.CAROUSEL) {
+                            LibraryCarouselPane(
+                                state = state,
+                                listState = carouselListState,
+                                onPageChange = onPageChange,
+                                onNavigate = { appId ->
+                                    val item = state.appInfoList.find { it.appId == appId }
+                                    if (item?.isRecTeaser == true) {
+                                        if (!item.isRecLoading && !recDisclosureShown) {
+                                            onRecTeaserTapped()
+                                        }
+                                    } else {
+                                        selectedAppId = appId
+                                        selectedLibraryItem = item
                                     }
-                                } else {
-                                    selectedAppId = appId
-                                    selectedLibraryItem = item
-                                }
-                            },
-                            onRefresh = onRefresh,
-                            modifier = Modifier.fillMaxSize(),
-                        )
+                                },
+                                onRefresh = onRefresh,
+                                modifier = Modifier.fillMaxSize(),
+                                firstCarouselItemFocusRequester = carouselFocusRequester,
+                                focusTargetListIndex = currentCarouselFocusTargetIndex(),
+                                onFocusedIndexChanged = { carouselFocusTargetListIndex = it },
+                            )
+                        } else {
+                            LibraryListPane(
+                                state = state,
+                                listState = listState,
+                                currentLayout = currentPaneType,
+                                firstGridItemFocusRequester = gridFirstItemFocusRequester,
+                                focusTargetListIndex = gridFocusTargetListIndex,
+                                onPageChange = onPageChange,
+                                onNavigate = { appId ->
+                                    val item = state.appInfoList.find { it.appId == appId }
+                                    if (item?.isRecTeaser == true) {
+                                        if (!item.isRecLoading && !recDisclosureShown) {
+                                            onRecTeaserTapped()
+                                        }
+                                    } else {
+                                        selectedAppId = appId
+                                        selectedLibraryItem = item
+                                    }
+                                },
+                                onRefresh = onRefresh,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
                     }
-                }
                 }
 
                 // Top overlay: Tab bar OR Search bar

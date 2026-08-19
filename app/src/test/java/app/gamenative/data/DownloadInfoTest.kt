@@ -9,8 +9,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
-import org.junit.Test
 import org.junit.Rule
+import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 class DownloadInfoTest {
@@ -28,6 +28,7 @@ class DownloadInfoTest {
     fun cleanup() {
         testDir.deleteRecursively()
     }
+
     @Test
     fun `post install sync state is tracked independently`() {
         val info = DownloadInfo(

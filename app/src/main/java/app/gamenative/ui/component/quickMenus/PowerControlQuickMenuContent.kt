@@ -131,27 +131,27 @@ private fun SectionHeader(title: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 16.dp, bottom = 8.dp)
+            .padding(top = 16.dp, bottom = 8.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             HorizontalDivider(
                 modifier = Modifier.weight(1f),
                 thickness = 1.dp,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
             )
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(horizontal = 12.dp)
+                modifier = Modifier.padding(horizontal = 12.dp),
             )
             HorizontalDivider(
                 modifier = Modifier.weight(1f),
                 thickness = 1.dp,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
             )
         }
     }
@@ -163,7 +163,7 @@ private fun LoadingView() {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 32.dp),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Text(
             text = stringResource(R.string.main_loading),
@@ -347,16 +347,16 @@ private fun FlowRowScope.SuccessView(
                             },
                             text = {
                                 Column(
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
                                 ) {
                                     Text(
                                         text = stringResource(strategy.displayNameRes),
-                                        style = MaterialTheme.typography.bodyMedium
+                                        style = MaterialTheme.typography.bodyMedium,
                                     )
                                     Text(
                                         text = stringResource(strategy.descriptionRes),
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
                             },
@@ -430,12 +430,12 @@ private fun FlowRowScope.SuccessView(
                                 Column {
                                     Text(
                                         text = profile.name,
-                                        style = MaterialTheme.typography.bodyMedium
+                                        style = MaterialTheme.typography.bodyMedium,
                                     )
                                     Text(
                                         text = "${formatFrequency(profile.minCpuFreq)} - ${formatFrequency(profile.maxCpuFreq)}",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
                             },
@@ -474,7 +474,7 @@ private fun FlowRowScope.SuccessView(
                         text = {
                             Text(
                                 text = governor.replaceFirstChar { it.uppercase() },
-                                style = MaterialTheme.typography.bodyMedium
+                                style = MaterialTheme.typography.bodyMedium,
                             )
                         },
                     )
@@ -553,7 +553,7 @@ private fun FlowRowScope.SuccessView(
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Slider(
                                 value = gpuInfo.currentFreqIndex.toFloat(),
@@ -561,13 +561,13 @@ private fun FlowRowScope.SuccessView(
                                 enabled = false,
                                 valueRange = 0f..(gpuInfo.availableFrequencies.size - 1).toFloat(),
                                 steps = gpuInfo.availableFrequencies.size - 2,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
                             )
                             Text(
                                 text = formatFrequency(gpuInfo.availableFrequencies[gpuInfo.currentFreqIndex]),
                                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.width(80.dp)
+                                modifier = Modifier.width(80.dp),
                             )
                         }
                     }
@@ -750,14 +750,14 @@ private fun SelectorRow(
                         )
                     } else {
                         Modifier
-                    }
+                    },
                 )
                 .then(
                     if (focusRequester != null) {
                         Modifier.focusRequester(focusRequester)
                     } else {
                         Modifier
-                    }
+                    },
                 )
                 .focusable(interactionSource = interactionSource)
                 .onPreviewKeyEvent { keyEvent ->
@@ -765,7 +765,8 @@ private fun SelectorRow(
                         when (keyEvent.nativeKeyEvent.keyCode) {
                             KeyEvent.KEYCODE_BUTTON_A,
                             KeyEvent.KEYCODE_DPAD_CENTER,
-                            KeyEvent.KEYCODE_ENTER -> {
+                            KeyEvent.KEYCODE_ENTER,
+                            -> {
                                 onExpandedChange(true)
                                 true
                             }
@@ -846,7 +847,7 @@ private fun SelectorMenuItem(
                     Modifier.focusRequester(focusRequester)
                 } else {
                     Modifier
-                }
+                },
             ),
     )
 }

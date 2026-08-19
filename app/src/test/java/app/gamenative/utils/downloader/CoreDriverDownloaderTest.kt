@@ -3,6 +3,7 @@ package app.gamenative.utils.downloader
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.gamenative.PrefManager
+import java.io.File
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.junit.After
@@ -14,7 +15,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import timber.log.Timber
-import java.io.File
 
 /**
  * Test suite for CoreDriverDownloader functionality.
@@ -68,7 +68,7 @@ class CoreDriverDownloaderTest {
 
         val adrenoDrivers = listOf(
             "Adreno_805_adpkg",
-            "Adreno_819.2_adpkg"
+            "Adreno_819.2_adpkg",
         )
 
         adrenoDrivers.forEach { componentId ->
@@ -89,7 +89,7 @@ class CoreDriverDownloaderTest {
         val sd8EliteDrivers = listOf(
             "SD8Elite_2-842.6",
             "SD8Elite_800.35",
-            "SD8Elite_800.51"
+            "SD8Elite_800.51",
         )
 
         sd8EliteDrivers.forEach { componentId ->
@@ -109,16 +109,16 @@ class CoreDriverDownloaderTest {
         manifest.components.forEach { component ->
             assertTrue(
                 "Component ${component.id} URL should contain 'core_drivers/'",
-                component.url.contains("core_drivers/")
+                component.url.contains("core_drivers/"),
             )
             assertTrue(
                 "Component ${component.id} URL should end with .zip",
-                component.url.endsWith(".zip")
+                component.url.endsWith(".zip"),
             )
             assertEquals(
                 "Component ${component.id} name should match ID.zip",
                 "${component.id}.zip",
-                component.name
+                component.name,
             )
         }
     }
@@ -169,7 +169,7 @@ class CoreDriverDownloaderTest {
             var progressCalled = false
             val downloadedFile = CoreDriverDownloader.ensureCoreDriverAvailable(
                 context,
-                componentName
+                componentName,
             ) { progress ->
                 progressCalled = true
                 println("Download progress: ${(progress * 100).toInt()}%")
@@ -202,7 +202,7 @@ class CoreDriverDownloaderTest {
 
         val retrievedFile = CoreDriverDownloader.ensureCoreDriverAvailable(
             context,
-            componentName
+            componentName,
         ) { progress ->
             // Progress should not be called for cached files
             throw AssertionError("Progress callback should not be called for cached files")
@@ -219,13 +219,13 @@ class CoreDriverDownloaderTest {
         try {
             CoreDriverDownloader.ensureCoreDriverAvailable(
                 context,
-                "nonexistent_driver_xyz.zip"
+                "nonexistent_driver_xyz.zip",
             )
             throw AssertionError("Should have thrown exception for invalid component")
         } catch (e: Exception) {
             assertTrue(
                 "Exception message should mention component not found",
-                e.message?.contains("not found") == true
+                e.message?.contains("not found") == true,
             )
         }
     }
@@ -238,7 +238,7 @@ class CoreDriverDownloaderTest {
 
         val validDomains = listOf(
             "downloads.gamenative.app",
-            "pub-9fcd5294bd0d4b85a9d73615bf98f3b5.r2.dev"
+            "pub-9fcd5294bd0d4b85a9d73615bf98f3b5.r2.dev",
         )
 
         manifest.components.forEach { component ->
@@ -247,7 +247,7 @@ class CoreDriverDownloaderTest {
             }
             assertTrue(
                 "Component ${component.id} should use a valid download domain",
-                hasValidDomain
+                hasValidDomain,
             )
         }
     }
@@ -262,14 +262,14 @@ class CoreDriverDownloaderTest {
             // URL should contain the component name
             assertTrue(
                 "Component ${component.id} URL should contain its name",
-                component.url.contains(component.name)
+                component.url.contains(component.name),
             )
 
             // Name should match ID with .zip extension
             assertEquals(
                 "Component ${component.id} name should match ID.zip",
                 "${component.id}.zip",
-                component.name
+                component.name,
             )
         }
     }
@@ -280,7 +280,9 @@ class CoreDriverDownloaderTest {
         val coreDriverManifest = Json { ignoreUnknownKeys = true }
             .decodeFromString<CoreDriverDownloader.CoreDriverManifest>(coreDriverJson)
 
-        val graphicsDriverJson = context.assets.open(GraphicsDriverDownloader.GRAPHICS_DRIVER_MANIFEST_FILE).bufferedReader().use { it.readText() }
+        val graphicsDriverJson = context.assets.open(GraphicsDriverDownloader.GRAPHICS_DRIVER_MANIFEST_FILE).bufferedReader().use {
+            it.readText()
+        }
         val graphicsDriverManifest = Json { ignoreUnknownKeys = true }
             .decodeFromString<GraphicsDriverDownloader.GraphicsDriverManifest>(graphicsDriverJson)
 
@@ -288,7 +290,9 @@ class CoreDriverDownloaderTest {
         val dxwrapperManifest = Json { ignoreUnknownKeys = true }
             .decodeFromString<DXWrapperDownloader.DXWrapperManifest>(dxwrapperJson)
 
-        val wincomponentJson = context.assets.open(WinComponentDownloader.WINCOMPONENTS_MANIFEST_FILE).bufferedReader().use { it.readText() }
+        val wincomponentJson = context.assets.open(WinComponentDownloader.WINCOMPONENTS_MANIFEST_FILE).bufferedReader().use {
+            it.readText()
+        }
         val wincomponentManifest = Json { ignoreUnknownKeys = true }
             .decodeFromString<WinComponentDownloader.WinComponentManifest>(wincomponentJson)
 
@@ -303,15 +307,15 @@ class CoreDriverDownloaderTest {
 
         assertTrue(
             "Core driver and Graphics driver manifests should not have overlapping IDs",
-            overlapWithGraphics.isEmpty()
+            overlapWithGraphics.isEmpty(),
         )
         assertTrue(
             "Core driver and DXWrapper manifests should not have overlapping IDs",
-            overlapWithDxwrapper.isEmpty()
+            overlapWithDxwrapper.isEmpty(),
         )
         assertTrue(
             "Core driver and WinComponent manifests should not have overlapping IDs",
-            overlapWithWincomponent.isEmpty()
+            overlapWithWincomponent.isEmpty(),
         )
     }
 
@@ -324,7 +328,7 @@ class CoreDriverDownloaderTest {
         manifest.components.forEach { component ->
             assertTrue(
                 "Component ${component.id} should be a zip file",
-                component.name.endsWith(".zip")
+                component.name.endsWith(".zip"),
             )
         }
     }

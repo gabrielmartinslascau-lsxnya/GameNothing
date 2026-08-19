@@ -5,8 +5,8 @@ import app.gamenative.data.GameSource
 import app.gamenative.service.gog.GOGManifestUtils
 import app.gamenative.service.gog.GOGService
 import com.winlator.container.Container
-import timber.log.Timber
 import java.io.File
+import timber.log.Timber
 
 object GogScriptInterpreterDependency : LaunchDependency {
     override fun appliesTo(container: Container, gameSource: GameSource, gameId: Int): Boolean {

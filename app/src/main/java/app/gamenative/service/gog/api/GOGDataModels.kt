@@ -8,7 +8,7 @@ import org.json.JSONObject
 data class BuildsResponse(
     val totalCount: Int,
     val count: Int,
-    val items: List<GOGBuild>
+    val items: List<GOGBuild>,
 ) {
     companion object {
         fun fromJson(json: JSONObject): BuildsResponse {
@@ -24,18 +24,18 @@ data class BuildsResponse(
             return BuildsResponse(
                 totalCount = json.optInt("total_count", 0),
                 count = json.optInt("count", 0),
-                items = items
+                items = items,
             )
         }
     }
 }
 
-
 data class DependencyRepository(
     val repositoryManifest: String,
     val generation: Int,
-    val buildId: String
-)   { companion object {
+    val buildId: String,
+) {
+    companion object {
         fun fromJson(json: JSONObject): DependencyRepository {
             return DependencyRepository(
                 repositoryManifest = json.optString("repository_manifest", ""),
@@ -53,11 +53,11 @@ data class GOGBuild(
     val buildId: String,
     val productId: String,
     val platform: String,
-    val generation: Int,  // 1 = legacy, 2 = modern
+    val generation: Int, // 1 = legacy, 2 = modern
     val versionName: String,
     val branch: String?,
-    val link: String,  // Manifest download URL
-    val legacyBuildId: String?
+    val link: String, // Manifest download URL
+    val legacyBuildId: String?,
 ) {
     companion object {
         fun fromJson(json: JSONObject): GOGBuild {
@@ -69,7 +69,13 @@ data class GOGBuild(
                 versionName = json.optString("version_name", ""),
                 branch = if (json.has("branch") && !json.isNull("branch")) json.getString("branch") else null,
                 link = json.optString("link", ""),
-                legacyBuildId = if (json.has("legacy_build_id") && !json.isNull("legacy_build_id")) json.getString("legacy_build_id") else null
+                legacyBuildId = if (json.has("legacy_build_id") &&
+                    !json.isNull("legacy_build_id")
+                ) {
+                    json.getString("legacy_build_id")
+                } else {
+                    null
+                },
             )
         }
     }
@@ -77,7 +83,7 @@ data class GOGBuild(
 
 data class Executable(
     val arguments: String?,
-    val path: String
+    val path: String,
 )
 
 data class DependencyDepot(
@@ -92,6 +98,7 @@ data class DependencyDepot(
     val signature: String,
     val size: Long,
 )
+
 // repository Manifest is a URL that will give back a compressed zlib JSON
 // generation is always 2 since we always use Generation 2 in the URL
 data class GOGDependencyManifestMeta(
@@ -102,7 +109,7 @@ data class GOGDependencyManifestMeta(
             val depotsArray = json.optJSONArray("depots")
             val depots = mutableListOf<DependencyDepot>()
 
-            if(depotsArray != null) {
+            if (depotsArray != null) {
                 for (i in 0 until depotsArray.length()) {
                     val depotObj = depotsArray.getJSONObject(i)
 
@@ -123,19 +130,26 @@ data class GOGDependencyManifestMeta(
                             list.add(bitnessArray.getString(j))
                         }
                         list
-                    } else null
+                    } else {
+                        null
+                    }
 
                     // Parse executable for this depot
                     val executableObj = depotObj.optJSONObject("executable")
                     val executable = if (executableObj != null) {
                         Executable(
-                            arguments = if (executableObj.has("arguments") && !executableObj.isNull("arguments"))
-                                executableObj.getString("arguments") else null,
-                            path = executableObj.optString("path", "")
+                            arguments = if (executableObj.has("arguments") && !executableObj.isNull("arguments")) {
+                                executableObj.getString("arguments")
+                            } else {
+                                null
+                            },
+                            path = executableObj.optString("path", ""),
                         )
-                    } else null
+                    } else {
+                        null
+                    }
 
-                    val depot = DependencyDepot (
+                    val depot = DependencyDepot(
                         compressedSize = depotObj.optLong("compressedSize", 0),
                         dependencyId = depotObj.optString("dependencyId", ""),
                         executable = executable,
@@ -221,7 +235,7 @@ data class V1DepotFile(
     val hash: String,
     val url: String?,
     val offset: Long?,
-    val isSupport: Boolean = false
+    val isSupport: Boolean = false,
 )
 
 /**
@@ -240,10 +254,10 @@ private val GOG_LANGUAGE_DEPRECATED: Map<String, Set<String>> = mapOf(
 data class Depot(
     val productId: String,
     val languages: List<String>,
-    val manifest: String,  // Hash pointing to depot manifest
+    val manifest: String, // Hash pointing to depot manifest
     val compressedSize: Long,
     val size: Long,
-    val osBitness: List<String>?
+    val osBitness: List<String>?,
 ) {
     companion object {
         fun fromJson(json: JSONObject): Depot {
@@ -263,7 +277,9 @@ data class Depot(
                     list.add(bitnessArray.getString(i))
                 }
                 list
-            } else null
+            } else {
+                null
+            }
 
             return Depot(
                 productId = json.optString("productId", ""),
@@ -271,7 +287,7 @@ data class Depot(
                 manifest = json.optString("manifest", ""),
                 compressedSize = json.optLong("compressedSize", 0),
                 size = json.optLong("size", 0),
-                osBitness = osBitness
+                osBitness = osBitness,
             )
         }
     }
@@ -312,7 +328,7 @@ data class Product(
 data class DepotManifest(
     val files: List<DepotFile>,
     val directories: List<DepotDirectory>,
-    val links: List<DepotLink>
+    val links: List<DepotLink>,
 ) {
     companion object {
         fun fromJson(json: JSONObject): DepotManifest {
@@ -337,7 +353,7 @@ data class DepotManifest(
             return DepotManifest(
                 files = files,
                 directories = directories,
-                links = links
+                links = links,
             )
         }
     }
@@ -352,7 +368,7 @@ data class DepotFile(
     val md5: String?,
     val sha256: String?,
     val flags: List<String>,
-    val productId: String?
+    val productId: String?,
 ) {
     companion object {
         fun fromJson(json: JSONObject): DepotFile {
@@ -380,7 +396,7 @@ data class DepotFile(
                 md5 = if (json.has("md5") && !json.isNull("md5")) json.getString("md5") else null,
                 sha256 = if (json.has("sha256") && !json.isNull("sha256")) json.getString("sha256") else null,
                 flags = flags,
-                productId = if (json.has("productId") && !json.isNull("productId")) json.getString("productId") else null
+                productId = if (json.has("productId") && !json.isNull("productId")) json.getString("productId") else null,
             )
         }
     }
@@ -398,7 +414,7 @@ data class FileChunk(
     val compressedMd5: String,
     val md5: String,
     val size: Long,
-    val compressedSize: Long?
+    val compressedSize: Long?,
 ) {
     companion object {
         fun fromJson(json: JSONObject): FileChunk {
@@ -410,7 +426,7 @@ data class FileChunk(
                     json.optLong("compressedSize", 0)
                 } else {
                     null
-                }
+                },
             )
         }
     }
@@ -420,12 +436,12 @@ data class FileChunk(
  * Directory in depot
  */
 data class DepotDirectory(
-    val path: String
+    val path: String,
 ) {
     companion object {
         fun fromJson(json: JSONObject): DepotDirectory {
             return DepotDirectory(
-                path = json.optString("path", "").replace("\\", "/").removeSuffix("/")
+                path = json.optString("path", "").replace("\\", "/").removeSuffix("/"),
             )
         }
     }
@@ -436,13 +452,13 @@ data class DepotDirectory(
  */
 data class DepotLink(
     val path: String,
-    val target: String
+    val target: String,
 ) {
     companion object {
         fun fromJson(json: JSONObject): DepotLink {
             return DepotLink(
                 path = json.optString("path", ""),
-                target = json.optString("target", "")
+                target = json.optString("target", ""),
             )
         }
     }
@@ -452,7 +468,7 @@ data class DepotLink(
  * Secure download links response
  */
 data class SecureLinksResponse(
-    val urls: List<String>
+    val urls: List<String>,
 ) {
     companion object {
         fun fromJson(json: JSONObject): SecureLinksResponse {

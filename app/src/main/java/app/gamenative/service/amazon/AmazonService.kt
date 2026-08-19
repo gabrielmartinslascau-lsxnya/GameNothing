@@ -6,7 +6,6 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
 import app.gamenative.PluviaApp
-import app.gamenative.R
 import app.gamenative.data.AmazonCredentials
 import app.gamenative.data.AmazonGame
 import app.gamenative.data.DownloadInfo
@@ -15,6 +14,7 @@ import app.gamenative.db.dao.AmazonGameDao
 import app.gamenative.enums.Marker
 import app.gamenative.events.AndroidEvent
 import app.gamenative.service.NotificationHelper
+import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.utils.ContainerUtils
 import app.gamenative.utils.ExecutableSelectionUtils
 import app.gamenative.utils.MarkerUtils
@@ -35,7 +35,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import app.gamenative.ui.util.SnackbarManager
 import timber.log.Timber
 
 /** Amazon Games foreground service. */
@@ -276,7 +275,8 @@ class AmazonService : Service() {
                 when (child.name) {
                     Marker.DOWNLOAD_COMPLETE_MARKER.fileName,
                     Marker.DOWNLOAD_IN_PROGRESS_MARKER.fileName,
-                    ".DownloadInfo" -> {
+                    ".DownloadInfo",
+                    -> {
                         child.isDirectory && (child.listFiles()?.any { it.isFile && it.length() > 0L } == true)
                     }
                     else -> true
@@ -285,7 +285,7 @@ class AmazonService : Service() {
 
             val childNames = children.joinToString(limit = 8) { it.name }
             Timber.tag("Amazon").d(
-                "[PARTIAL] appId=$appId partial=$hasPartialPayload reason=dir_scan path=$expectedPath children=$childNames"
+                "[PARTIAL] appId=$appId partial=$hasPartialPayload reason=dir_scan path=$expectedPath children=$childNames",
             )
             return hasPartialPayload
         }
@@ -465,7 +465,7 @@ class AmazonService : Service() {
             MarkerUtils.removeMarker(installPath, Marker.DOWNLOAD_COMPLETE_MARKER)
 
             PluviaApp.events.emitJava(
-                AndroidEvent.DownloadStatusChanged(game.appId, true)
+                AndroidEvent.DownloadStatusChanged(game.appId, true),
             )
 
             val job = instance.serviceScope.launch {
@@ -483,7 +483,7 @@ class AmazonService : Service() {
                         downloadInfo.clearPersistedBytesDownloaded(installPath)
                         SnackbarManager.show("Download completed: ${game.title}")
                         PluviaApp.events.emitJava(
-                            AndroidEvent.LibraryInstallStatusChanged(game.appId, GameSource.AMAZON)
+                            AndroidEvent.LibraryInstallStatusChanged(game.appId, GameSource.AMAZON),
                         )
                     } else {
                         val error = result.exceptionOrNull()
@@ -504,7 +504,7 @@ class AmazonService : Service() {
                     instance.activeDownloads.remove(productId)
                     instance.activeDownloadPaths.remove(productId)
                     PluviaApp.events.emitJava(
-                        AndroidEvent.DownloadStatusChanged(game.appId, false)
+                        AndroidEvent.DownloadStatusChanged(game.appId, false),
                     )
                 }
             }
@@ -578,14 +578,15 @@ class AmazonService : Service() {
                                 }
 
                                 // Remove the install dir itself if it's now empty
-                                if (installDir.exists() && installDir.isDirectory &&
+                                if (installDir.exists() &&
+                                    installDir.isDirectory &&
                                     (installDir.listFiles()?.isEmpty() == true)
                                 ) {
                                     installDir.delete()
                                 }
 
                                 Timber.tag("Amazon").i(
-                                    "Manifest-based uninstall complete: $deletedFiles deleted, $failedFiles failed"
+                                    "Manifest-based uninstall complete: $deletedFiles deleted, $failedFiles failed",
                                 )
                             } catch (e: Exception) {
                                 Timber.tag("Amazon").w(e, "Manifest parse failed — falling back to recursive delete")
@@ -616,12 +617,12 @@ class AmazonService : Service() {
                                 installCanonical.deleteRecursively()
                             } else {
                                 Timber.tag("Amazon").w(
-                                    "Skipping final recursive uninstall cleanup outside Amazon root: ${installCanonical.path}"
+                                    "Skipping final recursive uninstall cleanup outside Amazon root: ${installCanonical.path}",
                                 )
                             }
 
                             Timber.tag("Amazon").i(
-                                "[UNINSTALL] cleanup productId=$productId installDirExists=${installCanonical.exists()} path=${installCanonical.path}"
+                                "[UNINSTALL] cleanup productId=$productId installDirExists=${installCanonical.exists()} path=${installCanonical.path}",
                             )
                         }
                     }
@@ -649,11 +650,11 @@ class AmazonService : Service() {
                     val inProgressMarkerExists = MarkerUtils.hasMarker(postUninstallPath, Marker.DOWNLOAD_IN_PROGRESS_MARKER)
 
                     Timber.tag("Amazon").i(
-                        "[UNINSTALL] final_state productId=$productId appId=${game.appId} installDirExists=$postInstallDirExists completeMarker=$completeMarkerExists inProgressMarker=$inProgressMarkerExists"
+                        "[UNINSTALL] final_state productId=$productId appId=${game.appId} installDirExists=$postInstallDirExists completeMarker=$completeMarkerExists inProgressMarker=$inProgressMarkerExists",
                     )
 
                     PluviaApp.events.emitJava(
-                        AndroidEvent.LibraryInstallStatusChanged(game.appId, GameSource.AMAZON)
+                        AndroidEvent.LibraryInstallStatusChanged(game.appId, GameSource.AMAZON),
                     )
 
                     Timber.tag("Amazon").i("Game uninstalled: $productId")
@@ -728,7 +729,7 @@ class AmazonService : Service() {
                             sizeMismatch++
                             failedFiles.add(mf.unixPath)
                             Timber.tag("Amazon").d(
-                                "Verify SIZE MISMATCH: ${mf.unixPath} (expected=${mf.size}, actual=${file.length()})"
+                                "Verify SIZE MISMATCH: ${mf.unixPath} (expected=${mf.size}, actual=${file.length()})",
                             )
                             continue
                         }
@@ -770,7 +771,7 @@ class AmazonService : Service() {
                         Timber.tag("Amazon").w(
                             "Verification FAILED: ${result.verifiedOk}/${result.totalFiles} OK, " +
                                 "${result.missingFiles} missing, ${result.sizeMismatch} size mismatch, " +
-                                "${result.hashMismatch} hash mismatch"
+                                "${result.hashMismatch} hash mismatch",
                         )
                     }
 
@@ -919,5 +920,4 @@ class AmazonService : Service() {
             setSyncInProgress(false)
         }
     }
-
 }

@@ -11,7 +11,7 @@ data class Achievement(
     val progress: Map<String, Any>? = null,
     val unlocked: Boolean? = null,
     val unlockTimestamp: Int? = null,
-    val formattedUnlockTime: String? = null
+    val formattedUnlockTime: String? = null,
 )
 
 data class Stat(
@@ -20,7 +20,7 @@ data class Stat(
     val type: String,
     val default: String = "0",
     val global: String = "0",
-    val min: String? = null
+    val min: String? = null,
 )
 
 data class ProcessingResult(

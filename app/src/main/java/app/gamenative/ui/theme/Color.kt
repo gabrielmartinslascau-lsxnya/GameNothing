@@ -1,8 +1,6 @@
 package app.gamenative.ui.theme
 
 import androidx.compose.ui.graphics.Color
-import com.alorma.compose.settings.ui.base.internal.SettingsTileColors
-import com.alorma.compose.settings.ui.base.internal.SettingsTileDefaults
 
 // Your custom color scheme
 val customBackground = Color(0xFF09090B)

@@ -60,13 +60,13 @@ fun ConnectionStatusBanner(
     modifier: Modifier = Modifier,
 ) {
     val isVisible = connectionState == ConnectionState.CONNECTING ||
-                    connectionState == ConnectionState.DISCONNECTED
+        connectionState == ConnectionState.DISCONNECTED
 
     AnimatedVisibility(
         visible = isVisible,
         enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
         exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
-        modifier = modifier
+        modifier = modifier,
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -81,17 +81,17 @@ fun ConnectionStatusBanner(
                             colors = listOf(
                                 MaterialTheme.colorScheme.surfaceVariant,
                                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
-                            )
-                        )
+                            ),
+                        ),
                     )
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusGroup(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     ConnectionIcon(connectionState)
 
@@ -108,14 +108,14 @@ fun ConnectionStatusBanner(
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
                     )
 
                     if (connectionState == ConnectionState.CONNECTING && timeoutSeconds >= TIMEOUT_SHOW_OFFLINE_OPTION_SECONDS) {
                         Text(
                             text = "${timeoutSeconds}s",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         )
                     }
 
@@ -124,13 +124,13 @@ fun ConnectionStatusBanner(
                             if (timeoutSeconds >= TIMEOUT_SHOW_OFFLINE_OPTION_SECONDS) {
                                 TextButton(
                                     onClick = onContinueOffline,
-                                    modifier = Modifier.padding(start = 8.dp)
+                                    modifier = Modifier.padding(start = 8.dp),
                                 ) {
                                     Text(
                                         text = stringResource(R.string.continue_offline),
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.primary
+                                        color = MaterialTheme.colorScheme.primary,
                                     )
                                 }
                             }
@@ -138,13 +138,13 @@ fun ConnectionStatusBanner(
                         ConnectionState.DISCONNECTED -> {
                             TextButton(
                                 onClick = onRetry,
-                                modifier = Modifier.padding(start = 8.dp)
+                                modifier = Modifier.padding(start = 8.dp),
                             ) {
                                 Text(
                                     text = stringResource(R.string.connection_retry),
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = MaterialTheme.colorScheme.primary,
                                 )
                             }
                         }
@@ -154,13 +154,13 @@ fun ConnectionStatusBanner(
                     // Dismiss button
                     IconButton(
                         onClick = onDismiss,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(32.dp),
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = stringResource(R.string.close),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(18.dp),
                         )
                     }
                 }
@@ -180,9 +180,9 @@ private fun ConnectionIcon(connectionState: ConnectionState) {
                 targetValue = 360f,
                 animationSpec = infiniteRepeatable(
                     animation = tween(1000, easing = LinearEasing),
-                    repeatMode = RepeatMode.Restart
+                    repeatMode = RepeatMode.Restart,
                 ),
-                label = "rotation"
+                label = "rotation",
             )
 
             Box(
@@ -190,7 +190,7 @@ private fun ConnectionIcon(connectionState: ConnectionState) {
                     .size(32.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Default.Refresh,
@@ -198,7 +198,7 @@ private fun ConnectionIcon(connectionState: ConnectionState) {
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
                         .size(18.dp)
-                        .rotate(rotation)
+                        .rotate(rotation),
                 )
             }
         }
@@ -208,13 +208,13 @@ private fun ConnectionIcon(connectionState: ConnectionState) {
                     .size(32.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Default.CloudOff,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(18.dp),
                 )
             }
         }

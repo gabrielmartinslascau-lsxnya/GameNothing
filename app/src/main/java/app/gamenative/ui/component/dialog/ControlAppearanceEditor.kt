@@ -74,7 +74,7 @@ internal fun closestStrokeWidthIndex(strokeScale: Float): Int {
 
 private val controlColorPresets = listOf(
     0xffffff, 0xf44336, 0xff9800, 0xffeb3b,
-    0x4caf50, 0x03a9f4, 0x3f51b5, 0x9c27b0
+    0x4caf50, 0x03a9f4, 0x3f51b5, 0x9c27b0,
 )
 
 internal fun rgbToHex(color: Int): String = ControlElement.formatRgbColor(color)
@@ -91,7 +91,7 @@ private fun rgbToComposeColor(color: Int, opacity: Float = 1.0f): Color {
         red = ((rgb shr 16) and 0xff) / 255f,
         green = ((rgb shr 8) and 0xff) / 255f,
         blue = (rgb and 0xff) / 255f,
-        alpha = opacity.coerceIn(0f, 1f)
+        alpha = opacity.coerceIn(0f, 1f),
     )
 }
 
@@ -105,19 +105,19 @@ internal fun ControlAppearancePreview(
     color: Int,
     activeColor: Int,
     opacity: Float,
-    strokeScale: Float
+    strokeScale: Float,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = stringResource(R.string.preview),
             style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.width(88.dp)
+            modifier = Modifier.width(88.dp),
         )
         ControlPreviewPill(
             type = type,
@@ -130,7 +130,7 @@ internal fun ControlAppearancePreview(
             opacity = opacity,
             strokeScale = strokeScale,
             active = false,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         )
         ControlPreviewPill(
             type = type,
@@ -144,7 +144,7 @@ internal fun ControlAppearancePreview(
             strokeScale = strokeScale,
             active = true,
             modifier = Modifier.weight(1f),
-            label = stringResource(R.string.active)
+            label = stringResource(R.string.active),
         )
     }
 }
@@ -162,7 +162,7 @@ private fun ControlPreviewPill(
     strokeScale: Float,
     active: Boolean,
     modifier: Modifier = Modifier,
-    label: String? = null
+    label: String? = null,
 ) {
     val normalDrawColor = rgbToComposeColor(normalColor, opacity)
     val activeDrawColor = rgbToComposeColor(activeColor, opacity)
@@ -170,7 +170,7 @@ private fun ControlPreviewPill(
         Text(
             text = label ?: " ",
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         when (type) {
             ControlElement.Type.D_PAD -> DPadPreview(normalDrawColor, activeDrawColor, active, strokeScale)
@@ -184,7 +184,7 @@ private fun ControlPreviewPill(
                 normalColor = normalDrawColor,
                 activeColor = activeDrawColor,
                 active = active,
-                strokeScale = strokeScale
+                strokeScale = strokeScale,
             )
         }
     }
@@ -197,23 +197,31 @@ private fun ButtonPreview(
     normalColor: Color,
     activeColor: Color,
     active: Boolean,
-    strokeScale: Float
+    strokeScale: Float,
 ) {
     val composeShape = buttonPreviewShape(shape)
     val drawColor = if (active) activeColor else normalColor
     val strokeWidth = 2.dp * strokeScale
     Box(
         modifier = Modifier
-            .then(if (shape == ControlElement.Shape.CIRCLE || shape == ControlElement.Shape.SQUARE) Modifier.size(56.dp) else Modifier.width(96.dp).height(48.dp))
+            .then(
+                if (shape == ControlElement.Shape.CIRCLE ||
+                    shape == ControlElement.Shape.SQUARE
+                ) {
+                    Modifier.size(56.dp)
+                } else {
+                    Modifier.width(96.dp).height(48.dp)
+                },
+            )
             .clip(composeShape)
             .border(strokeWidth, drawColor, composeShape),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Text(
             text = text.take(8),
             color = drawColor,
             style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
         )
     }
 }
@@ -278,7 +286,7 @@ private fun RangeButtonPreview(
     active: Boolean,
     orientation: Int,
     segmentCount: Int,
-    strokeScale: Float
+    strokeScale: Float,
 ) {
     val count = segmentCount.coerceIn(2, 5)
     val activeIndex = if (count > 1) 1 else 0
@@ -330,7 +338,7 @@ private fun RangeButtonPreview(
                         topLeft = Offset(left, top),
                         size = Size(size.width - strokeWidth, size.height - strokeWidth),
                         cornerRadius = CornerRadius(radius, radius),
-                        style = Stroke(width = strokeWidth)
+                        style = Stroke(width = strokeWidth),
                     )
                 }
 
@@ -400,7 +408,7 @@ private fun RangeButtonPreview(
                         topLeft = Offset(left, top),
                         size = Size(size.width - strokeWidth, size.height - strokeWidth),
                         cornerRadius = CornerRadius(radius, radius),
-                        style = Stroke(width = strokeWidth)
+                        style = Stroke(width = strokeWidth),
                     )
                 }
 
@@ -462,13 +470,13 @@ private fun RangeButtonPreview(
 private fun RangeSegment(index: Int, normalColor: Color, activeColor: Color, active: Boolean, modifier: Modifier) {
     Box(
         modifier = modifier,
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Text(
             text = "${index + 1}",
             color = if (active) activeColor else normalColor,
             style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
         )
     }
 }
@@ -500,7 +508,7 @@ private fun TrackpadPreview(normalColor: Color, activeColor: Color, active: Bool
             topLeft = Offset(halfStroke, halfStroke),
             size = Size(size.width - strokeWidth, size.height - strokeWidth),
             cornerRadius = corner,
-            style = stroke
+            style = stroke,
         )
         val inset = strokeWidth * 4f
         drawRoundRect(
@@ -508,7 +516,7 @@ private fun TrackpadPreview(normalColor: Color, activeColor: Color, active: Bool
             topLeft = Offset(inset, inset),
             size = Size(size.width - inset * 2f, size.height - inset * 2f),
             cornerRadius = CornerRadius(size.height * 0.08f, size.height * 0.08f),
-            style = Stroke(width = strokeWidth * 1.5f)
+            style = Stroke(width = strokeWidth * 1.5f),
         )
     }
 }
@@ -523,13 +531,13 @@ private fun ShooterModePreview(normalColor: Color, activeColor: Color, active: B
             .clip(CircleShape)
             .background(if (active) activeFillColor(activeColor) else Color.Transparent)
             .border(strokeWidth, drawColor, CircleShape),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Text(
             text = "DJ",
             color = drawColor,
             style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
         )
     }
 }
@@ -550,7 +558,7 @@ internal fun ControlColorField(
     value: String,
     selectedColor: Int,
     onValueChange: (String) -> Unit,
-    onPresetSelected: (Int) -> Unit
+    onPresetSelected: (Int) -> Unit,
 ) {
     SettingsTextField(
         colors = settingsTileColors(),
@@ -563,15 +571,15 @@ internal fun ControlColorField(
                 modifier = Modifier
                     .size(24.dp)
                     .background(rgbToComposeColor(selectedColor), CircleShape)
-                    .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
             )
-        }
+        },
     )
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         controlColorPresets.forEach { preset ->
             Box(
@@ -580,10 +588,16 @@ internal fun ControlColorField(
                     .background(rgbToComposeColor(preset), CircleShape)
                     .border(
                         width = if ((preset and 0x00ffffff) == (selectedColor and 0x00ffffff)) 3.dp else 1.dp,
-                        color = if ((preset and 0x00ffffff) == (selectedColor and 0x00ffffff)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                        shape = CircleShape
+                        color = if ((preset and 0x00ffffff) ==
+                            (selectedColor and 0x00ffffff)
+                        ) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.outline
+                        },
+                        shape = CircleShape,
                     )
-                    .clickable { onPresetSelected(preset) }
+                    .clickable { onPresetSelected(preset) },
             )
         }
     }
@@ -593,7 +607,7 @@ internal fun showCopyAppearanceDialog(
     context: android.content.Context,
     currentElement: ControlElement,
     view: InputControlsView,
-    onAppearanceCopied: (ControlAppearance) -> Unit
+    onAppearanceCopied: (ControlAppearance) -> Unit,
 ) {
     val controls = view.profile?.elements
         ?.filter { it != currentElement }
@@ -610,7 +624,13 @@ internal fun showCopyAppearanceDialog(
             element.text
         } else {
             val binding = element.getBindingAt(0)
-            if (binding != null && binding != com.winlator.inputcontrols.Binding.NONE) binding.toString().take(15) else context.getString(R.string.binding_none)
+            if (binding != null &&
+                binding != com.winlator.inputcontrols.Binding.NONE
+            ) {
+                binding.toString().take(15)
+            } else {
+                context.getString(R.string.binding_none)
+            }
         }
         "${element.type.name.replace("_", " ")} - $scale - ${rgbToHex(element.buttonColor)} - $label"
     }.toTypedArray()

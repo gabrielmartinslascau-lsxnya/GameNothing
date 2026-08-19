@@ -6,9 +6,9 @@ import app.gamenative.enums.OS
 import app.gamenative.enums.OSArch
 import app.gamenative.enums.SteamRealm
 import app.gamenative.service.SteamService
+import java.util.EnumSet
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import java.util.EnumSet
 
 class SteamUtilsDepotLanguageTest {
 

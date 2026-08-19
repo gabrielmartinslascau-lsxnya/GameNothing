@@ -8,7 +8,7 @@ import com.winlator.widget.InputControlsView
 internal fun copyInputControlsProfileElements(
     sourceProfile: ControlsProfile,
     targetProfile: ControlsProfile,
-    view: InputControlsView
+    view: InputControlsView,
 ) {
     sourceProfile.loadElements(view)
     targetProfile.elements.toList().forEach(targetProfile::removeElement)

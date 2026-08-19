@@ -1092,10 +1092,10 @@ object EpicCloudSavesManager {
         val buffer = java.nio.ByteBuffer.allocate(headerSize + compressedData.size)
             .order(java.nio.ByteOrder.LITTLE_ENDIAN)
 
-        buffer.putInt(0xB1FE3AA2.toInt())   // magic
-        buffer.putInt(3)                     // header_version (we always write v3)
-        buffer.putInt(headerSize)            // header_size = 66 (hardcoded, not back-filled)
-        buffer.putInt(compressedData.size)   // compressed_size
+        buffer.putInt(0xB1FE3AA2.toInt()) // magic
+        buffer.putInt(3) // header_version (we always write v3)
+        buffer.putInt(headerSize) // header_size = 66 (hardcoded, not back-filled)
+        buffer.putInt(compressedData.size) // compressed_size
 
         // GUID — must match ChunkInfo.guid and every ChunkPart.guid referencing this chunk
         guid.forEach { buffer.putInt(it) }
@@ -1103,12 +1103,12 @@ object EpicCloudSavesManager {
         // Rolling hash — must match ChunkInfo.hash
         buffer.putLong(rollingHash.toLong())
 
-        buffer.put(0x1.toByte())             // stored_as = compressed
+        buffer.put(0x1.toByte()) // stored_as = compressed
         // Header version 2: sha_hash + hash_type
-        buffer.put(shaHash)                  // SHA-1 of uncompressed data (20 bytes)
-        buffer.put(0x3.toByte())             // hash_type = 0x3 (both rolling + sha)
+        buffer.put(shaHash) // SHA-1 of uncompressed data (20 bytes)
+        buffer.put(0x3.toByte()) // hash_type = 0x3 (both rolling + sha)
         // Header version 3: uncompressed_size
-        buffer.putInt(data.size)             // uncompressed_size (1 MiB for full chunks)
+        buffer.putInt(data.size) // uncompressed_size (1 MiB for full chunks)
 
         buffer.put(compressedData)
 
@@ -1221,7 +1221,7 @@ object EpicCloudSavesManager {
         val savedGamesPath = File(winePrefix, "drive_c/users/$user/Saved Games").absolutePath
 
         pathVars["{appdata}"] = appDataPath
-        pathVars["{localappdata}"] = appDataPath       // Windows %LocalAppData% — same as AppData/Local
+        pathVars["{localappdata}"] = appDataPath // Windows %LocalAppData% — same as AppData/Local
         pathVars["{roamingappdata}"] = appDataRoamingPath // Windows %AppData% (Roaming)
         pathVars["{userdir}"] = documentsPath
         pathVars["{usersavedgames}"] = savedGamesPath
@@ -1267,7 +1267,8 @@ object EpicCloudSavesManager {
         val resolved = FileUtils.resolveCaseInsensitive(File("/"), joinedPath)
         // guard against path traversal escaping the wine prefix
         val absPath = resolved.absolutePath
-        val withinPrefix = absPath.startsWith("$winePrefix/") || absPath == winePrefix ||
+        val withinPrefix = absPath.startsWith("$winePrefix/") ||
+            absPath == winePrefix ||
             (installDir.isNotEmpty() && (absPath.startsWith("$installDir/") || absPath == installDir))
         val finalPath = if (withinPrefix) {
             resolved
@@ -1376,7 +1377,7 @@ object EpicCloudSavesManager {
             }
 
             val headerVersion = buffer.int
-            val headerSize = buffer.int       // payload starts at this offset from file start
+            val headerSize = buffer.int // payload starts at this offset from file start
             val compressedSize = buffer.int
 
             // guid(16) + hash(8)
@@ -1413,5 +1414,4 @@ object EpicCloudSavesManager {
             decompressIfNeeded(chunkBytes)
         }
     }
-
 }

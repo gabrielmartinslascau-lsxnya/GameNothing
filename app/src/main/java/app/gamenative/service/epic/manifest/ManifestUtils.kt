@@ -1,9 +1,5 @@
 package app.gamenative.service.epic.manifest
 
-import java.io.File
-import java.io.InputStream
-import java.security.MessageDigest
-
 /**
  * Utilities for working with Epic Games manifests
  */
@@ -15,6 +11,7 @@ object ManifestUtils {
     fun loadFromBytes(data: ByteArray): EpicManifest {
         return EpicManifest.readAll(data)
     }
+
     /**
      * Get list of files that are part of the default/required install.
      * Epic manifests list all files including optional (e.g. language packs). Files with
@@ -161,7 +158,7 @@ object ManifestUtils {
             added = added,
             removed = removed,
             modified = modified,
-            unchanged = unchanged
+            unchanged = unchanged,
         )
     }
 
@@ -189,7 +186,7 @@ data class ManifestComparison(
     val added: List<FileManifest>,
     val removed: List<FileManifest>,
     val modified: List<Pair<FileManifest, FileManifest>>,
-    val unchanged: List<FileManifest>
+    val unchanged: List<FileManifest>,
 ) {
     val hasChanges: Boolean
         get() = added.isNotEmpty() || removed.isNotEmpty() || modified.isNotEmpty()
@@ -220,7 +217,7 @@ data class FileDownloadInfo(
     val file: FileManifest,
     val chunks: List<Pair<ChunkInfo, ChunkPart>>,
     val downloadSize: Long,
-    val installedSize: Long
+    val installedSize: Long,
 )
 
 /**
@@ -253,8 +250,8 @@ class DownloadPlanBuilder(private val manifest: EpicManifest) {
                         file = file,
                         chunks = chunksForFile,
                         downloadSize = chunksForFile.sumOf { it.first.fileSize },
-                        installedSize = file.fileSize
-                    )
+                        installedSize = file.fileSize,
+                    ),
                 )
             }
         }
@@ -263,7 +260,7 @@ class DownloadPlanBuilder(private val manifest: EpicManifest) {
             files = fileInfos,
             uniqueChunks = chunkMap.values.toList(),
             totalDownloadSize = chunkMap.values.sumOf { it.fileSize },
-            totalInstalledSize = fileInfos.sumOf { it.installedSize }
+            totalInstalledSize = fileInfos.sumOf { it.installedSize },
         )
     }
 }
@@ -275,7 +272,7 @@ data class DownloadPlan(
     val files: List<FileDownloadInfo>,
     val uniqueChunks: List<ChunkInfo>,
     val totalDownloadSize: Long,
-    val totalInstalledSize: Long
+    val totalInstalledSize: Long,
 ) {
     val fileCount: Int get() = files.size
     val chunkCount: Int get() = uniqueChunks.size

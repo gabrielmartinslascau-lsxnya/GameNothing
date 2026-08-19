@@ -28,6 +28,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,7 +37,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.State
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -62,11 +62,11 @@ import app.gamenative.ui.enums.PaneType
 import app.gamenative.ui.util.AdaptivePadding
 import app.gamenative.ui.util.shouldShowGamepadUI
 import kotlin.math.abs
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val CAROUSEL_TILT_ANGLE = 30.061367f
@@ -78,7 +78,6 @@ private const val CAROUSEL_ITEM_OVERSCAN_RATIO = 0.4f
 private const val CAROUSEL_CARD_ASPECT_RATIO = 2f / 3f
 private const val CAROUSEL_MOUSE_WHEEL_SCROLL_MULTIPLIER = 72f
 private const val CAROUSEL_MOUSE_DRAG_SLOP_PX = 8f
-
 
 private fun Modifier.carouselMouseInput(listState: LazyListState): Modifier =
     pointerInput(listState) {
@@ -442,7 +441,7 @@ internal fun LibraryCarouselPane(
                                         Modifier.focusRequester(firstCarouselItemFocusRequester)
                                     } else {
                                         Modifier
-                                    }
+                                    },
                                 )
 
                             CarouselItemSlot(
@@ -492,7 +491,8 @@ internal fun LibraryCarouselPane(
                                                 0f
                                             } else {
                                                 val tiltInfluence = if (CAROUSEL_TILT_ANGLE > 0.1f) tiltAngle / CAROUSEL_TILT_ANGLE else 1f
-                                                val baseOffsetRatio = CAROUSEL_SIDE_OFFSET_RATIO + (distanceInSteps * CAROUSEL_STEP_OFFSET_RATIO)
+                                                val baseOffsetRatio =
+                                                    CAROUSEL_SIDE_OFFSET_RATIO + (distanceInSteps * CAROUSEL_STEP_OFFSET_RATIO)
                                                 val baseShift = direction * cardWidthPx * baseOffsetRatio * tiltInfluence
                                                 val edgeOffset = if (tiltInput.isFirstItemAtStart) {
                                                     firstTileOffsetPx

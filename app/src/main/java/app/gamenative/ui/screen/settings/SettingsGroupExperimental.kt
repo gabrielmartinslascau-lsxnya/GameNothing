@@ -1,0 +1,130 @@
+package app.gamenative.ui.screen.settings
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.gamenative.PrefManager
+import app.gamenative.ui.model.MainViewModel
+import app.gamenative.ui.theme.glassContentColor
+import app.gamenative.ui.theme.settingsTileColors
+import app.gamenative.ui.theme.settingsTileColorsAlt
+import com.alorma.compose.settings.ui.SettingsGroup
+import com.alorma.compose.settings.ui.SettingsSwitch
+import kotlin.math.roundToInt
+
+@Composable
+fun SettingsGroupExperimental(viewModel: MainViewModel) {
+    SettingsGroup {
+        val contentColor = glassContentColor()
+        val state by viewModel.state.collectAsStateWithLifecycle()
+
+        var aggressiveCaching by remember { mutableStateOf(PrefManager.aggressiveCaching) }
+        var ramViewerEnabled by remember { mutableStateOf(PrefManager.ramViewerEnabled) }
+
+        SettingsSwitch(
+            colors = settingsTileColors(),
+            state = aggressiveCaching,
+            title = { Text(text = "Aggressive Caching") },
+            subtitle = { Text(text = "Speed up loading times by caching more aggressively.") },
+            onCheckedChange = {
+                aggressiveCaching = it
+                PrefManager.aggressiveCaching = it
+            },
+        )
+
+        SettingsSwitch(
+            colors = settingsTileColorsAlt(),
+            state = ramViewerEnabled,
+            title = { Text(text = "RAM Viewer") },
+            subtitle = { Text(text = "Show real-time RAM usage in a small overlay.") },
+            onCheckedChange = {
+                ramViewerEnabled = it
+                PrefManager.ramViewerEnabled = it
+            },
+        )
+
+        Column {
+            var refreshRateEnabled by remember { mutableStateOf(PrefManager.refreshRateEnabled) }
+
+            SettingsSwitch(
+                colors = settingsTileColors(),
+                state = refreshRateEnabled,
+                title = { Text(text = "More Hz!") },
+                subtitle = { Text(text = "More, more, more! Extra fluidity on everything, but at the cost of some battery life.") },
+                onCheckedChange = {
+                    refreshRateEnabled = it
+                    PrefManager.refreshRateEnabled = it
+                    // Reset to 60 if disabled
+                    if (!it) {
+                        viewModel.setMaxRefreshRate(60)
+                    }
+                },
+            )
+
+            AnimatedVisibility(
+                visible = refreshRateEnabled,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                // Discrete Hz Options: 30, 60, 90, 120, 144
+                val hzOptions = listOf(30, 60, 90, 120, 144)
+                val currentHz = state.maxRefreshRate
+                val initialIndex = hzOptions.indexOf(currentHz).coerceAtLeast(0).toFloat()
+
+                var sliderIndex by remember(currentHz) { mutableFloatStateOf(initialIndex) }
+                val animatedIndex by animateFloatAsState(
+                    targetValue = sliderIndex,
+                    label = "hzSliderAnimation"
+                )
+
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Slider(
+                        value = animatedIndex,
+                        onValueChange = {
+                            sliderIndex = it
+                        },
+                        onValueChangeFinished = {
+                            val finalIndex = sliderIndex.roundToInt()
+                            sliderIndex = finalIndex.toFloat()
+                            viewModel.setMaxRefreshRate(hzOptions[finalIndex])
+                        },
+                        valueRange = 0f..(hzOptions.size - 1).toFloat(),
+                        steps = hzOptions.size - 2,
+                        colors = SliderDefaults.colors(
+                            activeTickColor = Color.White.copy(alpha = 0.5f),
+                            inactiveTickColor = Color.Black.copy(alpha = 0.2f),
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                            thumbColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+
+                    Text(
+                        text = "${hzOptions[sliderIndex.roundToInt()]} Hz",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+        }
+    }
+}

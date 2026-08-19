@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.webkit.WebView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import app.gamenative.service.epic.EpicConstants
@@ -89,7 +88,7 @@ class EpicOAuthActivity : ComponentActivity() {
                             return@AuthWebViewDialog
                         }
                         webView.evaluateJavascript(
-                            "(function(){ try { var j = JSON.parse(document.body && document.body.innerText || '{}'); return j.authorizationCode || null; } catch(e){ return null; } })();"
+                            "(function(){ try { var j = JSON.parse(document.body && document.body.innerText || '{}'); return j.authorizationCode || null; } catch(e){ return null; } })();",
                         ) { result ->
                             val code = unquoteJsonString(result)
                             if (!code.isNullOrBlank()) {

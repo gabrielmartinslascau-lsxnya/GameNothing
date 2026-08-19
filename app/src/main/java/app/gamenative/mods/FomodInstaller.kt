@@ -3,12 +3,12 @@ package app.gamenative.mods
 import app.gamenative.data.ModPlacementMode
 import app.gamenative.data.ModPlacementRecipe
 import app.gamenative.data.ModTargetRoot
-import org.w3c.dom.Element
-import org.w3c.dom.Node
-import timber.log.Timber
 import java.io.File
 import java.io.IOException
 import javax.xml.parsers.DocumentBuilderFactory
+import org.w3c.dom.Element
+import org.w3c.dom.Node
+import timber.log.Timber
 
 data class FomodInstaller(
     val moduleName: String,
@@ -117,13 +117,19 @@ object FomodInstallerDetector {
         extractedRoot.childIgnoreCase("fomod")?.childIgnoreCase("ModuleConfig.xml")?.takeIf { it.isFile }
             ?: extractedRoot.walkTopDown()
                 .maxDepth(8)
-                .firstOrNull { it.isFile && it.name.equals("ModuleConfig.xml", ignoreCase = true) && it.parentFile?.name.equals("fomod", ignoreCase = true) }
+                .firstOrNull {
+                    it.isFile &&
+                        it.name.equals("ModuleConfig.xml", ignoreCase = true) &&
+                        it.parentFile?.name.equals("fomod", ignoreCase = true)
+                }
 
     fun hasCSharpInstaller(extractedRoot: File): Boolean =
         extractedRoot.childIgnoreCase("fomod")?.childIgnoreCase("script.cs")?.isFile == true ||
             extractedRoot.walkTopDown()
                 .maxDepth(8)
-                .any { it.isFile && it.name.equals("script.cs", ignoreCase = true) && it.parentFile?.name.equals("fomod", ignoreCase = true) }
+                .any {
+                    it.isFile && it.name.equals("script.cs", ignoreCase = true) && it.parentFile?.name.equals("fomod", ignoreCase = true)
+                }
 
     private fun File.childIgnoreCase(name: String): File? =
         listFiles()?.firstOrNull { it.name.equals(name, ignoreCase = true) }

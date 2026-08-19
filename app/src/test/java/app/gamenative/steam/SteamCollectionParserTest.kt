@@ -11,7 +11,7 @@ class SteamCollectionParserTest {
     @Test
     fun parsesStaticCollectionWithAddedApps() {
         val result = SteamCollectionParser.parse(
-            listOf(entry("abc", """{"id":"abc","name":"Favorites","added":[440,570]}"""))
+            listOf(entry("abc", """{"id":"abc","name":"Favorites","added":[440,570]}""")),
         )
         assertEquals(1, result.collections.size)
         val c = result.collections.first()
@@ -24,7 +24,7 @@ class SteamCollectionParserTest {
     @Test
     fun skipsDeletedEntries() {
         val result = SteamCollectionParser.parse(
-            listOf(entry("abc", """{"id":"abc","name":"X","added":[1]}""", deleted = true))
+            listOf(entry("abc", """{"id":"abc","name":"X","added":[1]}""", deleted = true)),
         )
         assertEquals(0, result.collections.size)
     }
@@ -32,7 +32,7 @@ class SteamCollectionParserTest {
     @Test
     fun skipsDynamicCollectionsAndCountsThem() {
         val result = SteamCollectionParser.parse(
-            listOf(entry("dyn", """{"id":"dyn","name":"Smart","filterSpec":{"x":1}}"""))
+            listOf(entry("dyn", """{"id":"dyn","name":"Smart","filterSpec":{"x":1}}""")),
         )
         assertEquals(0, result.collections.size)
         assertEquals(1, result.skippedDynamicCount)
@@ -41,7 +41,7 @@ class SteamCollectionParserTest {
     @Test
     fun ignoresNonCollectionKeys() {
         val result = SteamCollectionParser.parse(
-            listOf(RawEntry(key = "other.key", value = "{}", isDeleted = false))
+            listOf(RawEntry(key = "other.key", value = "{}", isDeleted = false)),
         )
         assertEquals(0, result.collections.size)
         assertEquals(0, result.skippedDynamicCount)
@@ -50,7 +50,7 @@ class SteamCollectionParserTest {
     @Test
     fun treatsStaticWithEmptyAddedAsStatic() {
         val result = SteamCollectionParser.parse(
-            listOf(entry("e", """{"id":"e","name":"Empty","added":[]}"""))
+            listOf(entry("e", """{"id":"e","name":"Empty","added":[]}""")),
         )
         assertEquals(1, result.collections.size)
         assertEquals(emptySet<Int>(), result.collections.first().appIds)
@@ -59,7 +59,7 @@ class SteamCollectionParserTest {
     @Test
     fun toleratesMalformedJson() {
         val result = SteamCollectionParser.parse(
-            listOf(entry("bad", "not json"))
+            listOf(entry("bad", "not json")),
         )
         assertEquals(0, result.collections.size)
     }
@@ -68,7 +68,7 @@ class SteamCollectionParserTest {
     fun fallsBackToKeyAndIdWhenIdNameAreJsonNull() {
         // optString returns the literal "null" for a JSON-null value; it must be treated as absent.
         val result = SteamCollectionParser.parse(
-            listOf(entry("xyz", """{"id":null,"name":null,"added":[1]}"""))
+            listOf(entry("xyz", """{"id":null,"name":null,"added":[1]}""")),
         )
         assertEquals(1, result.collections.size)
         val c = result.collections.first()
@@ -80,7 +80,7 @@ class SteamCollectionParserTest {
     fun nonArrayAddedIsDroppedAndNotCountedDynamic() {
         // "added" present but not an array (optJSONArray -> null) and no filterSpec: drop, don't count.
         val result = SteamCollectionParser.parse(
-            listOf(entry("x", """{"id":"x","name":"X","added":"440"}"""))
+            listOf(entry("x", """{"id":"x","name":"X","added":"440"}""")),
         )
         assertEquals(0, result.collections.size)
         assertEquals(0, result.skippedDynamicCount)
@@ -90,7 +90,7 @@ class SteamCollectionParserTest {
     fun nonIntegerAddedElementDropsWholeCollection() {
         // A non-coercible element makes getInt throw; the whole entry is skipped (all-or-nothing).
         val result = SteamCollectionParser.parse(
-            listOf(entry("x", """{"id":"x","name":"X","added":[440,null]}"""))
+            listOf(entry("x", """{"id":"x","name":"X","added":[440,null]}""")),
         )
         assertEquals(0, result.collections.size)
     }

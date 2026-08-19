@@ -2,8 +2,6 @@ package app.gamenative.ui.component.dialog
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -16,24 +14,19 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOff
 import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.Gamepad
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SnippetFolder
-import androidx.compose.material.icons.filled.SportsEsports
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -70,15 +63,14 @@ import app.gamenative.data.ModPlacementMode
 import app.gamenative.data.ModTargetRoot
 import app.gamenative.mods.FomodInstaller
 import app.gamenative.mods.ModArchiveEntry
-import app.gamenative.mods.ModPlacementPreset
 import app.gamenative.mods.ModPlacementSources
 import app.gamenative.mods.ModTargetResolver
 import app.gamenative.mods.ResolvedModTargetRoot
 import app.gamenative.ui.component.NoExtractOutlinedTextField
 import app.gamenative.utils.StorageUtils
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.File
 @Composable
 internal fun StatusChip(status: String) {
     val (label, color, contentColor) = when (status) {
@@ -93,7 +85,12 @@ internal fun StatusChip(status: String) {
         "NEEDS_PLACEMENT" -> Triple(stringResource(R.string.nexus_status_needs_placement), MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
         "ENABLED" -> Triple(stringResource(R.string.nexus_status_enabled), MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
         "WINS" -> Triple(stringResource(R.string.nexus_status_wins), MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
-        else -> Triple(status.lowercase().replaceFirstChar { it.uppercase() }, MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.onSurfaceVariant)
+        else -> Triple(
+            status.lowercase().replaceFirstChar {
+                it.uppercase()
+            },
+            MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
     Surface(shape = RoundedCornerShape(999.dp), color = color) {
         Text(
@@ -104,6 +101,7 @@ internal fun StatusChip(status: String) {
         )
     }
 }
+
 @Composable
 internal fun PlacementSection(
     install: ModInstall,
@@ -326,6 +324,7 @@ private fun PresetSelectionSection(
         }
     }
 }
+
 @Composable
 private fun PlacementChoiceSelector(
     selected: PlacementChoice,
@@ -366,6 +365,7 @@ private fun PlacementChoiceSelector(
         }
     }
 }
+
 @Composable
 private fun PlacementChoiceButton(
     text: String,
@@ -403,7 +403,7 @@ private fun PlacementSummaryCard(
                 color = MaterialTheme.colorScheme.primary,
             )
             Text(
-                    text = stringResource(R.string.nexus_destination_folder_value, placementSummary(draft, roots, stringResource(R.string.nexus_base_folder))),
+                text = stringResource(R.string.nexus_destination_folder_value, placementSummary(draft, roots, stringResource(R.string.nexus_base_folder))),
                 style = MaterialTheme.typography.bodyMedium,
             )
             val selectedSources = ModPlacementSources.decode(draft.sourceSubpath).filter { it.isNotBlank() }

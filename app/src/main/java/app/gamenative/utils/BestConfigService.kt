@@ -74,7 +74,7 @@ object BestConfigService {
         gpuName: String,
         gameStore: String,
     ): BestConfigResponse? = withContext(Dispatchers.IO) {
-        val cacheKey = "${gameName}_${gpuName}_${gameStore}"
+        val cacheKey = "${gameName}_${gpuName}_$gameStore"
 
         // Check cache first
         cache[cacheKey]?.let {
@@ -155,19 +155,19 @@ object BestConfigService {
         return when (matchType) {
             "exact_gpu_match" -> CompatibilityMessage(
                 text = context.getString(R.string.best_config_exact_gpu_match),
-                color = Color.Green
+                color = Color.Green,
             )
             "gpu_family_match" -> CompatibilityMessage(
                 text = context.getString(R.string.best_config_gpu_family_match),
-                color = Color.Green
+                color = Color.Green,
             )
             "fallback_match" -> CompatibilityMessage(
                 text = context.getString(R.string.best_config_fallback_match),
-                color = Color.Yellow
+                color = Color.Yellow,
             )
             else -> CompatibilityMessage(
                 text = context.getString(R.string.best_config_compatibility_unknown),
-                color = Color.Gray
+                color = Color.Gray,
             )
         }
     }
@@ -436,7 +436,10 @@ object BestConfigService {
 
         // Validate WoWBox64 version (if wineVersion contains arm64ec)
         if (wineVersion.contains("arm64ec", ignoreCase = true)) {
-            if (box64Version.isNotEmpty() && !ManifestComponentHelper.versionExists(box64Version, availableWowBox64) && emulator != "FEXCore") {
+            if (box64Version.isNotEmpty() &&
+                !ManifestComponentHelper.versionExists(box64Version, availableWowBox64) &&
+                emulator != "FEXCore"
+            ) {
                 Timber.tag("BestConfigService").w("WoWBox64 version $box64Version not found")
                 missing.add("WoWBox64 $box64Version")
             }
@@ -700,7 +703,9 @@ object BestConfigService {
                 val wineEntry = ManifestComponentHelper.findManifestEntryForVersion(wineVersion, manifestWine)
                 val protonEntry = if (wineEntry == null) {
                     ManifestComponentHelper.findManifestEntryForVersion(wineVersion, manifestProton)
-                } else null
+                } else {
+                    null
+                }
                 when {
                     wineEntry != null -> addRequest(wineEntry, ContentProfile.ContentType.CONTENT_TYPE_WINE)
                     protonEntry != null -> addRequest(protonEntry, ContentProfile.ContentType.CONTENT_TYPE_PROTON)
@@ -807,7 +812,7 @@ object BestConfigService {
         try {
             val originalJson = JSONObject(configJson.toString())
 
-            if (!applyKnownConfig){
+            if (!applyKnownConfig) {
                 val resultMap = mutableMapOf<String, Any?>()
                 if (originalJson.has("executablePath") && !originalJson.isNull("executablePath")) {
                     resultMap["executablePath"] = originalJson.optString("executablePath", "")
@@ -816,9 +821,7 @@ object BestConfigService {
                     resultMap["useLegacyDRM"] = originalJson.optBoolean("useLegacyDRM", PrefManager.useLegacyDRM)
                 }
                 return ParsedConfigResult(resultMap)
-            }
-
-            else {
+            } else {
                 if (!originalJson.has("containerVariant") || originalJson.isNull("containerVariant")) {
                     Timber.tag("BestConfigService").w("containerVariant is missing or null in original config, returning empty map")
                     return ParsedConfigResult(emptyMap())
@@ -836,8 +839,7 @@ object BestConfigService {
                 if (!originalJson.has("wineVersion") || originalJson.isNull("wineVersion")) {
                     if (containerVariant.equals(Container.GLIBC, ignoreCase = true)) {
                         originalJson.put("wineVersion", "wine-9.2-x86_64")
-                    }
-                    else {
+                    } else {
                         Timber.tag("BestConfigService").w("wineVersion is missing or null in original config, returning empty map")
                         return ParsedConfigResult(emptyMap())
                     }
@@ -993,4 +995,3 @@ object BestConfigService {
         }
     }
 }
-

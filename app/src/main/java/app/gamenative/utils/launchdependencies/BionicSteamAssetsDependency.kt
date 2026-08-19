@@ -10,11 +10,11 @@ import com.winlator.core.FileUtils
 import com.winlator.core.TarCompressorUtils
 import com.winlator.core.WineInfo
 import com.winlator.xenvironment.ImageFs
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import timber.log.Timber
-import java.io.File
 
 /**
  * Pre-downloads and extracts assets required for the experimental bionic-Steam

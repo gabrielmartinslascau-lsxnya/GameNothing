@@ -1,10 +1,10 @@
 package app.gamenative.utils
 
-import timber.log.Timber
 import java.io.File
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import timber.log.Timber
 
 /**
  * Minimal PE resource parser to extract icon(s) from a Windows EXE/DLL.
@@ -40,7 +40,9 @@ object ExeIconExtractor {
                     hb.get(peHeaderOff + 1).toInt() != 'E'.code ||
                     hb.get(peHeaderOff + 2).toInt() != 0 ||
                     hb.get(peHeaderOff + 3).toInt() != 0
-                ) return false
+                ) {
+                    return false
+                }
 
                 val coffStart = peHeaderOff + 4
                 val numberOfSections = hb.getShort(coffStart + 2).toInt() and 0xFFFF
@@ -48,7 +50,7 @@ object ExeIconExtractor {
                 val optionalHeaderStart = coffStart + 20
                 val magic = hb.getShort(optionalHeaderStart).toInt() and 0xFFFF
                 val dataDirectoriesStart = optionalHeaderStart + when (magic) {
-                    0x10B -> 96  // PE32
+                    0x10B -> 96 // PE32
                     0x20B -> 112 // PE32+
                     else -> return false
                 }
@@ -64,8 +66,10 @@ object ExeIconExtractor {
                     val bigHdr = ByteArray(needed)
                     raf.seek(0)
                     raf.readFully(bigHdr)
-                    return extractFromHeaders(raf, fileSize, ByteBuffer.wrap(bigHdr).order(ByteOrder.LITTLE_ENDIAN),
-                        numberOfSections, secTable, resourceDirRva, outIcoFile)
+                    return extractFromHeaders(
+                        raf, fileSize, ByteBuffer.wrap(bigHdr).order(ByteOrder.LITTLE_ENDIAN),
+                        numberOfSections, secTable, resourceDirRva, outIcoFile,
+                    )
                 }
 
                 extractFromHeaders(raf, fileSize, hb, numberOfSections, secTable, resourceDirRva, outIcoFile)
@@ -181,23 +185,30 @@ object ExeIconExtractor {
         if (reserved != 0 || type != 1 || count <= 0 || count > 64) return false
 
         data class GroupEntry(
-            val width: Int, val height: Int, val colorCount: Int,
-            val planes: Int, val bitCount: Int, val bytesInRes: Int, val id: Int,
+            val width: Int,
+            val height: Int,
+            val colorCount: Int,
+            val planes: Int,
+            val bitCount: Int,
+            val bytesInRes: Int,
+            val id: Int,
         )
 
         val groupEntries = ArrayList<GroupEntry>(count)
         var ptr = groupDataOff + 6
         repeat(count) {
             if (ptr + 14 > groupDataOff + groupSize) return false
-            groupEntries.add(GroupEntry(
-                width = bb.get(ptr).toInt() and 0xFF,
-                height = bb.get(ptr + 1).toInt() and 0xFF,
-                colorCount = bb.get(ptr + 2).toInt() and 0xFF,
-                planes = bb.getShort(ptr + 4).toInt() and 0xFFFF,
-                bitCount = bb.getShort(ptr + 6).toInt() and 0xFFFF,
-                bytesInRes = bb.getInt(ptr + 8),
-                id = bb.getShort(ptr + 12).toInt() and 0xFFFF,
-            ))
+            groupEntries.add(
+                GroupEntry(
+                    width = bb.get(ptr).toInt() and 0xFF,
+                    height = bb.get(ptr + 1).toInt() and 0xFF,
+                    colorCount = bb.get(ptr + 2).toInt() and 0xFF,
+                    planes = bb.getShort(ptr + 4).toInt() and 0xFFFF,
+                    bitCount = bb.getShort(ptr + 6).toInt() and 0xFFFF,
+                    bytesInRes = bb.getInt(ptr + 8),
+                    id = bb.getShort(ptr + 12).toInt() and 0xFFFF,
+                ),
+            )
             ptr += 14
         }
 

@@ -19,10 +19,10 @@ internal object CustomGameCache {
      */
     fun buildCache(
         getManualFolders: () -> Set<String>,
-        readGameIdFromFile: (File) -> Int?
+        readGameIdFromFile: (File) -> Int?,
     ): Map<Int, String> {
         val cache = mutableMapOf<Int, String>()
-        
+
         val manualFolders = getManualFolders()
         for (path in manualFolders) {
             val folder = File(path)
@@ -44,17 +44,17 @@ internal object CustomGameCache {
      */
     fun getOrRebuildCache(
         getManualFolders: () -> Set<String>,
-        readGameIdFromFile: (File) -> Int?
+        readGameIdFromFile: (File) -> Int?,
     ): Map<Int, String> {
         val currentManualFolders = getManualFolders()
         val cachedManual = cacheManualFolders
-        
+
         // Rebuild if manual folders changed or cache is null
         if (appIdCache == null || cachedManual != currentManualFolders) {
             appIdCache = buildCache(getManualFolders, readGameIdFromFile)
             cacheManualFolders = currentManualFolders
         }
-        
+
         return appIdCache!!
     }
 
@@ -79,7 +79,7 @@ internal object CustomGameCache {
                 // Remove any stale entries with the same path but different appId
                 val staleEntries = filter { it.value == folderPath && it.key != appId }.keys
                 staleEntries.forEach { remove(it) }
-                
+
                 // Add or update the entry with the correct appId
                 put(appId, folderPath)
             }
@@ -92,4 +92,3 @@ internal object CustomGameCache {
      */
     fun getCache(): Map<Int, String>? = appIdCache
 }
-

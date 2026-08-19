@@ -1,12 +1,11 @@
 package app.gamenative.utils
 
+import java.io.File
 import okio.Path.Companion.toOkioPath
-import okio.Path.Companion.toPath
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
-import java.io.File
 
 /**
  * Simulates a depot download where manifests reference the same directory tree

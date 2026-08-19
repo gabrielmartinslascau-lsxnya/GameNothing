@@ -2,8 +2,8 @@ package app.gamenative.data
 
 import app.gamenative.enums.PathType
 import app.gamenative.utils.SteamUtils
-import kotlinx.serialization.Serializable
 import java.io.File
+import kotlinx.serialization.Serializable
 
 @Serializable
 data class SaveFilePattern(

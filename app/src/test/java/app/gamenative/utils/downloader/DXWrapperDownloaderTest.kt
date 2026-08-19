@@ -3,6 +3,7 @@ package app.gamenative.utils.downloader
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.gamenative.PrefManager
+import java.io.File
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.junit.After
@@ -14,7 +15,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import timber.log.Timber
-import java.io.File
 
 /**
  * Test suite for DXWrapperDownloader functionality.
@@ -72,7 +72,7 @@ class DXWrapperDownloaderTest {
             "dxvk-1.10.3",
             "dxvk-2.4.1",
             "dxvk-2.6.1-gplasync",
-            "dxvk-2.7.1"
+            "dxvk-2.7.1",
         )
 
         dxvkComponents.forEach { componentId ->
@@ -94,7 +94,7 @@ class DXWrapperDownloaderTest {
             "vkd3d-2.12",
             "vkd3d-2.13",
             "vkd3d-2.14.1",
-            "vkd3d-3.0b"
+            "vkd3d-3.0b",
         )
 
         vkd3dComponents.forEach { componentId ->
@@ -123,16 +123,16 @@ class DXWrapperDownloaderTest {
         manifest.components.forEach { component ->
             assertTrue(
                 "Component ${component.id} URL should contain 'dxwrapper/'",
-                component.url.contains("dxwrapper/")
+                component.url.contains("dxwrapper/"),
             )
             assertTrue(
                 "Component ${component.id} URL should end with .tzst",
-                component.url.endsWith(".tzst")
+                component.url.endsWith(".tzst"),
             )
             assertEquals(
                 "Component ${component.id} name should match ID.tzst",
                 "${component.id}.tzst",
-                component.name
+                component.name,
             )
         }
     }
@@ -183,7 +183,7 @@ class DXWrapperDownloaderTest {
             var progressCalled = false
             val downloadedFile = DXWrapperDownloader.ensureDXWrapperAvailable(
                 context,
-                componentId
+                componentId,
             ) { progress ->
                 progressCalled = true
                 println("Download progress: ${(progress * 100).toInt()}%")
@@ -221,7 +221,7 @@ class DXWrapperDownloaderTest {
 
         val retrievedFile = DXWrapperDownloader.ensureDXWrapperAvailable(
             context,
-            componentId
+            componentId,
         ) { progress ->
             // Progress should not be called for cached files
             throw AssertionError("Progress callback should not be called for cached files")
@@ -237,12 +237,12 @@ class DXWrapperDownloaderTest {
     fun testInvalidComponentReturnsNull() = runBlocking {
         val result = DXWrapperDownloader.ensureDXWrapperAvailable(
             context,
-            "nonexistent_dxvk_xyz"
+            "nonexistent_dxvk_xyz",
         )
         assertEquals(
             "Invalid component should return null",
             null,
-            result
+            result,
         )
     }
 
@@ -254,7 +254,7 @@ class DXWrapperDownloaderTest {
 
         val validDomains = listOf(
             "downloads.gamenative.app",
-            "pub-9fcd5294bd0d4b85a9d73615bf98f3b5.r2.dev"
+            "pub-9fcd5294bd0d4b85a9d73615bf98f3b5.r2.dev",
         )
 
         manifest.components.forEach { component ->
@@ -263,7 +263,7 @@ class DXWrapperDownloaderTest {
             }
             assertTrue(
                 "Component ${component.id} should use a valid download domain",
-                hasValidDomain
+                hasValidDomain,
             )
         }
     }
@@ -278,14 +278,14 @@ class DXWrapperDownloaderTest {
             // URL should contain the component ID
             assertTrue(
                 "Component ${component.id} URL should contain its ID",
-                component.url.contains(component.id)
+                component.url.contains(component.id),
             )
 
             // Name should match ID with .tzst extension
             assertEquals(
                 "Component ${component.id} name should match ID.tzst",
                 "${component.id}.tzst",
-                component.name
+                component.name,
             )
         }
     }
@@ -296,7 +296,9 @@ class DXWrapperDownloaderTest {
         val dxwrapperManifest = Json { ignoreUnknownKeys = true }
             .decodeFromString<DXWrapperDownloader.DXWrapperManifest>(dxwrapperJson)
 
-        val wincomponentJson = context.assets.open(WinComponentDownloader.WINCOMPONENTS_MANIFEST_FILE).bufferedReader().use { it.readText() }
+        val wincomponentJson = context.assets.open(WinComponentDownloader.WINCOMPONENTS_MANIFEST_FILE).bufferedReader().use {
+            it.readText()
+        }
         val wincomponentManifest = Json { ignoreUnknownKeys = true }
             .decodeFromString<WinComponentDownloader.WinComponentManifest>(wincomponentJson)
 
@@ -306,7 +308,7 @@ class DXWrapperDownloaderTest {
         val overlap = dxwrapperIds.intersect(wincomponentIds)
         assertTrue(
             "DXWrapper and WinComponent manifests should not have overlapping IDs",
-            overlap.isEmpty()
+            overlap.isEmpty(),
         )
     }
 }

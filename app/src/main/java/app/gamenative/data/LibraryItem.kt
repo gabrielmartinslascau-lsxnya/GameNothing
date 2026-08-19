@@ -8,7 +8,7 @@ enum class GameSource {
     CUSTOM_GAME,
     GOG,
     EPIC,
-    AMAZON
+    AMAZON,
     // Add other platforms here..
 }
 
@@ -52,7 +52,7 @@ data class LibraryItem(
     val clientIconUrl: String
         get() = when (gameSource) {
             GameSource.STEAM -> if (iconHash.isNotEmpty()) {
-                Constants.Library.ICON_URL + "${gameId}/$iconHash.ico"
+                Constants.Library.ICON_URL + "$gameId/$iconHash.ico"
             } else {
                 ""
             }

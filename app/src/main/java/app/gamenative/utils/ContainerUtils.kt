@@ -15,11 +15,11 @@ import com.winlator.container.ContainerData
 import com.winlator.container.ContainerManager
 import com.winlator.core.DefaultVersion
 import com.winlator.core.FileUtils
-import com.winlator.core.KeyValueSet
 import com.winlator.core.GPUInformation
-import com.winlator.core.envvars.EnvVars
+import com.winlator.core.KeyValueSet
 import com.winlator.core.WineRegistryEditor
 import com.winlator.core.WineThemeManager
+import com.winlator.core.envvars.EnvVars
 import com.winlator.winhandler.WinHandler.PreferredInputApi
 import com.winlator.xenvironment.ImageFs
 import java.io.File
@@ -165,8 +165,8 @@ object ContainerUtils {
             useDRI3 = PrefManager.useDRI3,
             useSteamInput = PrefManager.useSteamInput,
             enableXInput = PrefManager.xinputEnabled,
-			enableDInput = PrefManager.dinputEnabled,
-			dinputMapperType = PrefManager.dinputMapperType.toByte(),
+            enableDInput = PrefManager.dinputEnabled,
+            dinputMapperType = PrefManager.dinputMapperType.toByte(),
             disableMouseInput = PrefManager.disableMouseInput,
             portraitMode = PrefManager.portraitMode,
             externalDisplayMode = PrefManager.externalDisplayInputMode,
@@ -224,12 +224,12 @@ object ContainerUtils {
         PrefManager.fexcoreX87Mode = containerData.fexcoreX87Mode
         PrefManager.fexcoreMultiBlock = containerData.fexcoreMultiBlock
         PrefManager.fexcorePreset = containerData.fexcorePreset
-		// Persist renderer and controller defaults
-		PrefManager.renderer = containerData.renderer
+        // Persist renderer and controller defaults
+        PrefManager.renderer = containerData.renderer
         PrefManager.useSteamInput = containerData.useSteamInput
         PrefManager.xinputEnabled = containerData.enableXInput
-		PrefManager.dinputEnabled = containerData.enableDInput
-		PrefManager.dinputMapperType = containerData.dinputMapperType.toInt()
+        PrefManager.dinputEnabled = containerData.enableDInput
+        PrefManager.dinputMapperType = containerData.dinputMapperType.toInt()
         PrefManager.forceDlc = containerData.forceDlc
         PrefManager.localSavesOnly = containerData.localSavesOnly
         PrefManager.steamOfflineMode = containerData.steamOfflineMode
@@ -388,14 +388,14 @@ object ContainerUtils {
                 "graphicsDriverVersion" -> value?.let {
                     updatedData.copy(
                         graphicsDriverVersion =
-                            it as? String ?: updatedData.graphicsDriverVersion,
+                        it as? String ?: updatedData.graphicsDriverVersion,
                     )
                 }
                     ?: updatedData
                 "graphicsDriverConfig" -> value?.let {
                     updatedData.copy(
                         graphicsDriverConfig =
-                            it as? String ?: updatedData.graphicsDriverConfig,
+                        it as? String ?: updatedData.graphicsDriverConfig,
                     )
                 }
                     ?: updatedData
@@ -406,7 +406,7 @@ object ContainerUtils {
                 "startupSelection" -> value?.let {
                     updatedData.copy(
                         startupSelection =
-                            (it as? Int)?.toByte() ?: updatedData.startupSelection,
+                        (it as? Int)?.toByte() ?: updatedData.startupSelection,
                     )
                 }
                     ?: updatedData
@@ -427,16 +427,21 @@ object ContainerUtils {
                 "fexcorePreset" -> value?.let { updatedData.copy(fexcorePreset = it as? String ?: updatedData.fexcorePreset) }
                     ?: updatedData
                 "useLegacyDRM" -> value?.let { updatedData.copy(useLegacyDRM = it as? Boolean ?: updatedData.useLegacyDRM) } ?: updatedData
-                "steamOfflineMode" -> value?.let { updatedData.copy(steamOfflineMode = it as? Boolean ?: updatedData.steamOfflineMode) } ?: updatedData
-                "epicOfflineMode" -> value?.let { updatedData.copy(epicOfflineMode = it as? Boolean ?: updatedData.epicOfflineMode) } ?: updatedData
+                "steamOfflineMode" -> value?.let { updatedData.copy(steamOfflineMode = it as? Boolean ?: updatedData.steamOfflineMode) }
+                    ?: updatedData
+                "epicOfflineMode" -> value?.let { updatedData.copy(epicOfflineMode = it as? Boolean ?: updatedData.epicOfflineMode) }
+                    ?: updatedData
                 "unpackFiles" -> value?.let { updatedData.copy(unpackFiles = it as? Boolean ?: updatedData.unpackFiles) } ?: updatedData
-                "suspendPolicy" -> value?.let { updatedData.copy(suspendPolicy = it as? String ?: updatedData.suspendPolicy) } ?: updatedData
+                "suspendPolicy" -> value?.let { updatedData.copy(suspendPolicy = it as? String ?: updatedData.suspendPolicy) }
+                    ?: updatedData
                 "envVars" -> value?.let { updatedData.copy(envVars = it as? String ?: updatedData.envVars) } ?: updatedData
                 "cpuList" -> value?.let { updatedData.copy(cpuList = it as? String ?: updatedData.cpuList) } ?: updatedData
                 "cpuListWoW64" -> value?.let { updatedData.copy(cpuListWoW64 = it as? String ?: updatedData.cpuListWoW64) } ?: updatedData
                 "audioDriver" -> value?.let { updatedData.copy(audioDriver = it as? String ?: updatedData.audioDriver) } ?: updatedData
-                "wincomponents" -> value?.let { updatedData.copy(wincomponents = it as? String ?: updatedData.wincomponents) } ?: updatedData
-                "videoMemorySize" -> value?.let { updatedData.copy(videoMemorySize = it as? String ?: updatedData.videoMemorySize) } ?: updatedData
+                "wincomponents" -> value?.let { updatedData.copy(wincomponents = it as? String ?: updatedData.wincomponents) }
+                    ?: updatedData
+                "videoMemorySize" -> value?.let { updatedData.copy(videoMemorySize = it as? String ?: updatedData.videoMemorySize) }
+                    ?: updatedData
                 else -> updatedData
             }
         }
@@ -503,7 +508,8 @@ object ContainerUtils {
         container.isLaunchRealSteam = containerData.launchRealSteam
         container.isLaunchBionicSteam = containerData.launchBionicSteam
         if (previousLaunchBionicSteam != containerData.launchBionicSteam ||
-            previousLaunchRealSteam != containerData.launchRealSteam) {
+            previousLaunchRealSteam != containerData.launchRealSteam
+        ) {
             container.setNeedsUnpacking(true)
         }
         container.isAllowSteamUpdates = containerData.allowSteamUpdates
@@ -659,7 +665,7 @@ object ContainerUtils {
         containerManager: ContainerManager,
         customConfig: ContainerData? = null,
     ): Container {
-         // Determine game source
+        // Determine game source
         val gameSource = extractGameSourceFromContainerId(appId)
 
         // Set up container drives to include app
@@ -739,7 +745,9 @@ object ContainerUtils {
                 val appIdInt = runCatching { extractGameIdFromContainerId(appId) }.getOrNull()
                 val installPath = if (appIdInt != null) {
                     AmazonService.getInstallPathByAppId(appIdInt)
-                } else null
+                } else {
+                    null
+                }
 
                 if (installPath != null && installPath.isNotEmpty()) {
                     val drive: Char = if (defaultDrives.contains("A:")) {

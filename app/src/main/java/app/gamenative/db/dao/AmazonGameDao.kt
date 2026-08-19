@@ -76,7 +76,7 @@ interface AmazonGameDao {
             if (existing != null) {
                 // Preserve appId and install-related fields from DB
                 newGame.copy(
-                    appId = existing.appId,  // Keep the existing appId
+                    appId = existing.appId, // Keep the existing appId
                     isInstalled = existing.isInstalled,
                     installPath = existing.installPath,
                     installSize = existing.installSize,

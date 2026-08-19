@@ -13,7 +13,7 @@ import com.alorma.compose.settings.ui.SettingsGroup
 fun AdvancedTabContent(state: ContainerConfigState) {
     val config = state.config.value
 
-    SettingsGroup() {
+    SettingsGroup {
         SettingsListDropdown(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.startup_selection)) },

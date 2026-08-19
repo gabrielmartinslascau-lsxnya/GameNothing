@@ -25,7 +25,6 @@ class GOGManifestParserTest {
         parser = GOGManifestParser()
     }
 
-
     // Functions to create dependency items
     private fun createTestChunk(
         md5: String = "aabbccdd11223344",
@@ -82,8 +81,6 @@ class GOGManifestParserTest {
         link = "https://cdn.gog.com/manifest",
         legacyBuildId = null,
     )
-
-
 
     // Tests here
 
@@ -342,11 +339,11 @@ class GOGManifestParserTest {
         val chunks = listOf("aabbccdd11223344", "11223344aabbccdd")
         val chunkToProductMap = mapOf(
             "aabbccdd11223344" to "12345",
-            "11223344aabbccdd" to "67890"
+            "11223344aabbccdd" to "67890",
         )
         val productUrlMap = mapOf(
             "12345" to listOf("https://cdn1.gog.com/product1"),
-            "67890" to listOf("https://cdn2.gog.com/product2")
+            "67890" to listOf("https://cdn2.gog.com/product2"),
         )
 
         val result = parser.buildChunkUrlMapWithProducts(chunks, chunkToProductMap, productUrlMap)
@@ -372,7 +369,7 @@ class GOGManifestParserTest {
         val chunks = listOf("aabbccdd11223344")
         val chunkToProductMap = mapOf("aabbccdd11223344" to "12345")
         val productUrlMap = mapOf(
-            "12345" to listOf("https://cdn.gog.com/store/1451150270?__token__=exp=123~acl=*")
+            "12345" to listOf("https://cdn.gog.com/store/1451150270?__token__=exp=123~acl=*"),
         )
 
         val result = parser.buildChunkUrlMapWithProducts(chunks, chunkToProductMap, productUrlMap)
@@ -588,29 +585,44 @@ class GOGManifestParserTest {
     @Test
     fun testParseManifestV1_handlesGen1AndLanguageNormalization() {
         val json = JSONObject().apply {
-            put("product", JSONObject().apply {
-                put("installDirectory", "Beyond Good and Evil")
-                put("rootGameID", "1207658746")
-                put("timestamp", "27565470")
-                put("depots", JSONArray().apply {
-                    put(JSONObject().apply {
-                        put("gameIDs", JSONArray().put("1207658746"))
-                        put("languages", JSONArray().put("Neutral"))
-                        put("manifest", "b974058a-6dc2-41a3-b886-295a7b82a251")
-                        put("size", 12345L)
-                    })
-                    put(JSONObject().apply {
-                        put("gameIDs", JSONArray().put("1207658746"))
-                        put("languages", JSONArray().put("en-US"))
-                        put("manifest", "494a4547-48ea-40c0-ad21-b96ab8fa8cba")
-                        put("size", 67890L)
-                    })
-                })
-                put("gameIDs", JSONArray().put(JSONObject().apply {
-                    put("gameID", "1207658746")
-                    put("name", JSONObject().put("en", "Beyond Good and Evil"))
-                }))
-            })
+            put(
+                "product",
+                JSONObject().apply {
+                    put("installDirectory", "Beyond Good and Evil")
+                    put("rootGameID", "1207658746")
+                    put("timestamp", "27565470")
+                    put(
+                        "depots",
+                        JSONArray().apply {
+                            put(
+                                JSONObject().apply {
+                                    put("gameIDs", JSONArray().put("1207658746"))
+                                    put("languages", JSONArray().put("Neutral"))
+                                    put("manifest", "b974058a-6dc2-41a3-b886-295a7b82a251")
+                                    put("size", 12345L)
+                                },
+                            )
+                            put(
+                                JSONObject().apply {
+                                    put("gameIDs", JSONArray().put("1207658746"))
+                                    put("languages", JSONArray().put("en-US"))
+                                    put("manifest", "494a4547-48ea-40c0-ad21-b96ab8fa8cba")
+                                    put("size", 67890L)
+                                },
+                            )
+                        },
+                    )
+                    put(
+                        "gameIDs",
+                        JSONArray().put(
+                            JSONObject().apply {
+                                put("gameID", "1207658746")
+                                put("name", JSONObject().put("en", "Beyond Good and Evil"))
+                            },
+                        ),
+                    )
+                },
+            )
         }
         val result = parser.parseManifestV1(json)
         assertEquals("Beyond Good and Evil", result.installDirectory)
@@ -626,17 +638,25 @@ class GOGManifestParserTest {
     @Test
     fun testParseManifestV1_emptyLanguagesBecomesWildcard() {
         val json = JSONObject().apply {
-            put("product", JSONObject().apply {
-                put("installDirectory", "Game")
-                put("rootGameID", "1")
-                put("timestamp", "1")
-                put("depots", JSONArray().put(JSONObject().apply {
-                    put("gameIDs", JSONArray().put("1"))
-                    put("manifest", "abc")
-                    put("size", 0L)
-                }))
-                put("gameIDs", JSONArray())
-            })
+            put(
+                "product",
+                JSONObject().apply {
+                    put("installDirectory", "Game")
+                    put("rootGameID", "1")
+                    put("timestamp", "1")
+                    put(
+                        "depots",
+                        JSONArray().put(
+                            JSONObject().apply {
+                                put("gameIDs", JSONArray().put("1"))
+                                put("manifest", "abc")
+                                put("size", 0L)
+                            },
+                        ),
+                    )
+                    put("gameIDs", JSONArray())
+                },
+            )
         }
         val result = parser.parseManifestV1(json)
         assertEquals(1, result.depots.size)

@@ -1,23 +1,19 @@
 package app.gamenative.utils
 
 import android.annotation.SuppressLint
-import android.content.Context
 import com.auth0.android.jwt.JWT
-import com.winlator.container.Container
-import com.winlator.contents.ContentProfile
-import com.winlator.contents.ContentsManager
 import com.winlator.core.FileUtils
 import com.winlator.core.TarCompressorUtils
 import com.winlator.xenvironment.ImageFs
 import com.winlator.xenvironment.components.GuestProgramLauncherComponent
 import `in`.dragonbra.javasteam.types.KeyValue
-import timber.log.Timber
 import java.io.File
 import java.nio.file.Files
 import java.util.zip.CRC32
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
+import timber.log.Timber
 
 // This is the key to make config.vdf work
 const val NULL_CHAR = '\u0000'
@@ -36,13 +32,13 @@ class SteamTokenLogin(
         phase1SteamConfig()
     }
 
-    private fun hdr() : String {
+    private fun hdr(): String {
         val crc = CRC32()
         crc.update(login.toByteArray())
         return "${crc.value.toString(16)}1"
     }
 
-    private fun execCommand(command: String) : String {
+    private fun execCommand(command: String): String {
         return guestProgramLauncherComponent?.execShellCommand(command, false)
             ?: throw IllegalStateException("GuestProgramLauncherComponent is required for command execution")
     }
@@ -55,23 +51,23 @@ class SteamTokenLogin(
         }
     }
 
-    private fun encryptToken(token: String) : String {
+    private fun encryptToken(token: String): String {
         // Simple encoding (not as secure as Windows CryptProtectData, but cross-platform)
         // run steam-token.exe from extractDir and return the result
         return execCommand("wine ${imageFs.rootDir}/opt/apps/steam-token.exe encrypt $login $token")
     }
 
-    private fun decryptToken(vdfValue: String) : String {
+    private fun decryptToken(vdfValue: String): String {
         // Simple decoding (not as secure as Windows CryptProtectData, but cross-platform)
         // run steam-token.exe from extractDir and return the result
         return execCommand("wine ${imageFs.rootDir}/opt/apps/steam-token.exe decrypt $login $vdfValue")
     }
 
-    private fun obfuscateToken(value: String, mtbf: Long) : String {
+    private fun obfuscateToken(value: String, mtbf: Long): String {
         return SteamTokenHelper.obfuscate(value.toByteArray(), mtbf)
     }
 
-    private fun deobfuscateToken(value: String, mtbf: Long) : String {
+    private fun deobfuscateToken(value: String, mtbf: Long): String {
         return SteamTokenHelper.deobfuscate(value, mtbf)
     }
 

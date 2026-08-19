@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,15 +14,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -66,7 +60,8 @@ internal fun FomodSummarySection(
                 Text(stringResource(R.string.nexus_fomod_installer), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
                 OutlinedButton(
                     onClick = onConfigure,
-                    enabled = installer.steps.isNotEmpty() && installer.unsupportedWarnings.none { it.contains("C# FOMOD", ignoreCase = true) },
+                    enabled =
+                    installer.steps.isNotEmpty() && installer.unsupportedWarnings.none { it.contains("C# FOMOD", ignoreCase = true) },
                 ) {
                     Text(stringResource(R.string.nexus_configure))
                 }
@@ -78,7 +73,12 @@ internal fun FomodSummarySection(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = stringResource(R.string.nexus_fomod_step_option_count, installer.steps.size, installer.steps.sumOf { it.groups.sumOf { group -> group.plugins.size } }),
+                text = stringResource(
+                    R.string.nexus_fomod_step_option_count, installer.steps.size,
+                    installer.steps.sumOf {
+                        it.groups.sumOf { group -> group.plugins.size }
+                    },
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -210,7 +210,12 @@ internal fun FomodWizardDialog(
                     }
                     installer.steps.forEachIndexed { stepIndex, step ->
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text(step.name.ifBlank { stringResource(R.string.nexus_fomod_step, stepIndex + 1) }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                step.name.ifBlank {
+                                    stringResource(R.string.nexus_fomod_step, stepIndex + 1)
+                                },
+                                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
+                            )
                             step.groups.forEachIndexed { groupIndex, group ->
                                 val groupKey = "$stepIndex:$groupIndex"
                                 Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
@@ -220,13 +225,22 @@ internal fun FomodWizardDialog(
                                             val pluginKey = FomodRecipeGenerator.pluginKey(stepIndex, groupIndex, pluginIndex)
                                             val selected = selectedByGroup[groupKey].orEmpty()
                                             val effectiveType = plugin.effectiveType(selectedFlags)
-                                            val checked = effectiveType == FomodPluginType.REQUIRED || (effectiveType != FomodPluginType.NOT_USABLE && pluginKey in selected)
-                                            val enabled = effectiveType != FomodPluginType.REQUIRED && effectiveType != FomodPluginType.NOT_USABLE
+                                            val checked =
+                                                effectiveType == FomodPluginType.REQUIRED ||
+                                                    (effectiveType != FomodPluginType.NOT_USABLE && pluginKey in selected)
+                                            val enabled =
+                                                effectiveType != FomodPluginType.REQUIRED && effectiveType != FomodPluginType.NOT_USABLE
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .clickable(enabled = enabled) {
-                                                        updateFomodSelection(selectedByGroup, groupKey, group.type, group.plugins.indices.map { FomodRecipeGenerator.pluginKey(stepIndex, groupIndex, it) }.toSet(), pluginKey, !checked)
+                                                        updateFomodSelection(
+                                                            selectedByGroup, groupKey, group.type,
+                                                            group.plugins.indices.map {
+                                                                FomodRecipeGenerator.pluginKey(stepIndex, groupIndex, it)
+                                                            }.toSet(),
+                                                            pluginKey, !checked,
+                                                        )
                                                     }
                                                     .padding(vertical = 6.dp),
                                                 verticalAlignment = Alignment.CenterVertically,
@@ -236,7 +250,13 @@ internal fun FomodWizardDialog(
                                                     checked = checked,
                                                     enabled = enabled,
                                                     onCheckedChange = {
-                                                        updateFomodSelection(selectedByGroup, groupKey, group.type, group.plugins.indices.map { index -> FomodRecipeGenerator.pluginKey(stepIndex, groupIndex, index) }.toSet(), pluginKey, it)
+                                                        updateFomodSelection(
+                                                            selectedByGroup, groupKey, group.type,
+                                                            group.plugins.indices.map { index ->
+                                                                FomodRecipeGenerator.pluginKey(stepIndex, groupIndex, index)
+                                                            }.toSet(),
+                                                            pluginKey, it,
+                                                        )
                                                     },
                                                 )
                                                 FomodPluginImage(
@@ -254,10 +274,16 @@ internal fun FomodWizardDialog(
                                                         )
                                                     }
                                                 }
-                                                    Text(
+                                                Text(
                                                     fomodPluginTypeLabel(effectiveType),
                                                     style = MaterialTheme.typography.labelSmall,
-                                                    color = if (effectiveType == FomodPluginType.NOT_USABLE) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    color = if (effectiveType ==
+                                                        FomodPluginType.NOT_USABLE
+                                                    ) {
+                                                        MaterialTheme.colorScheme.error
+                                                    } else {
+                                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                                    },
                                                 )
                                             }
                                         }
@@ -434,14 +460,21 @@ private fun fomodInvalidGroups(
             step.groups.forEachIndexed { groupIndex, group ->
                 val selected = selectedByGroup["$stepIndex:$groupIndex"].orEmpty()
                 val selectable = group.plugins.mapIndexedNotNull { pluginIndex, plugin ->
-                    if (plugin.effectiveType(flags) == FomodPluginType.NOT_USABLE) null else FomodRecipeGenerator.pluginKey(stepIndex, groupIndex, pluginIndex)
+                    if (plugin.effectiveType(flags) ==
+                        FomodPluginType.NOT_USABLE
+                    ) {
+                        null
+                    } else {
+                        FomodRecipeGenerator.pluginKey(stepIndex, groupIndex, pluginIndex)
+                    }
                 }.toSet()
                 val selectedUsable = selected.intersect(selectable)
                 val invalid = when (group.type) {
                     FomodGroupType.SELECT_EXACTLY_ONE -> selectedUsable.size != 1
                     FomodGroupType.SELECT_AT_LEAST_ONE -> selectedUsable.isEmpty()
                     FomodGroupType.SELECT_AT_MOST_ONE,
-                    FomodGroupType.SELECT_ANY -> false
+                    FomodGroupType.SELECT_ANY,
+                    -> false
                 }
                 if (invalid) {
                     add("${step.name.ifBlank { fallbackStepNames.getOrElse(stepIndex) { "" } }} / ${group.name}")

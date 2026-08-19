@@ -31,7 +31,7 @@ object LocaleHelper {
         "ru" to "Русский",
         "uk" to "Українська",
         "zh-CN" to "简体中文",
-        "zh-TW" to "正體中文"
+        "zh-TW" to "正體中文",
     )
 
     /**

@@ -18,19 +18,17 @@ import app.gamenative.enums.LoginResult
 import app.gamenative.enums.PathType
 import app.gamenative.events.AndroidEvent
 import app.gamenative.events.SteamEvent
-import app.gamenative.ui.enums.Orientation
-import java.util.EnumSet
 import app.gamenative.service.ActiveGameRegistry
 import app.gamenative.service.SteamService
 import app.gamenative.service.amazon.AmazonService
 import app.gamenative.service.epic.EpicCloudSavesManager
 import app.gamenative.service.epic.EpicService
 import app.gamenative.service.gog.GOGService
-import app.gamenative.utils.CustomGameScanner
 import app.gamenative.ui.data.MainState
 import app.gamenative.ui.enums.ConnectionState
 import app.gamenative.ui.screen.PluviaScreen
 import app.gamenative.utils.ContainerUtils
+import app.gamenative.utils.CustomGameScanner
 import app.gamenative.utils.IntentLaunchManager
 import app.gamenative.utils.SteamUtils
 import app.gamenative.utils.UpdateInfo
@@ -311,6 +309,24 @@ class MainViewModel @Inject constructor(
                 _state.update { it.copy(paletteStyle = value) }
             }
         }
+
+        viewModelScope.launch {
+            appTheme.mainColorFlow.collect { value ->
+                _state.update { it.copy(mainColor = value) }
+            }
+        }
+
+        viewModelScope.launch {
+            appTheme.wallpaperColorFlow.collect { value ->
+                _state.update { it.copy(wallpaperColor = value) }
+            }
+        }
+
+        viewModelScope.launch {
+            appTheme.maxRefreshRateFlow.collect { value ->
+                _state.update { it.copy(maxRefreshRate = value) }
+            }
+        }
     }
 
     override fun onCleared() {
@@ -334,6 +350,18 @@ class MainViewModel @Inject constructor(
 
     fun setPalette(value: PaletteStyle) {
         appTheme.currentPalette = value
+    }
+
+    fun setMainColor(value: String) {
+        appTheme.mainColor = value
+    }
+
+    fun setWallpaperColor(value: String) {
+        appTheme.wallpaperColor = value
+    }
+
+    fun setMaxRefreshRate(value: Int) {
+        appTheme.maxRefreshRate = value
     }
 
     fun setAnnoyingDialogShown(value: Boolean) {
@@ -544,9 +572,11 @@ class MainViewModel @Inject constructor(
                             file.isFile &&
                                 file.name.startsWith("steamgriddb_hero", ignoreCase = true) &&
                                 !file.name.contains("grid_", ignoreCase = true) &&
-                                (file.name.endsWith(".png", ignoreCase = true) ||
-                                    file.name.endsWith(".jpg", ignoreCase = true) ||
-                                    file.name.endsWith(".webp", ignoreCase = true))
+                                (
+                                    file.name.endsWith(".png", ignoreCase = true) ||
+                                        file.name.endsWith(".jpg", ignoreCase = true) ||
+                                        file.name.endsWith(".webp", ignoreCase = true)
+                                    )
                         }
                         heroFile?.let { android.net.Uri.fromFile(it).toString() } ?: ""
                     }
@@ -818,5 +848,4 @@ class MainViewModel @Inject constructor(
             Timber.tag("MainViewModel").e("Game launch error: $error")
         }
     }
-
 }

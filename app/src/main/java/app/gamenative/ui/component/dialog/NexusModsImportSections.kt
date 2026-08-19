@@ -349,7 +349,10 @@ internal fun CollectionSelectionSection(
     val failed = pending.mods.size - importable
     val selectedCount = pending.mods.count { it.canImport && it.collectionKey() in selectedKeys }
     val failedQueueCount = queueItems.values.count { it.status == CollectionQueueStatus.FAILED }
-    val autoCount = pending.mods.count { it.collectionFile.classification == NexusCollectionInstallClassification.AUTO_INSTALLABLE && it.canImport }
+    val autoCount = pending.mods.count {
+        it.collectionFile.classification == NexusCollectionInstallClassification.AUTO_INSTALLABLE &&
+            it.canImport
+    }
     val placementCount = pending.mods.count { it.collectionFile.classification == NexusCollectionInstallClassification.NEEDS_PLACEMENT }
     val manualCount = pending.mods.count { it.collectionFile.classification == NexusCollectionInstallClassification.EXTERNAL_MANUAL }
     val unsupportedOrUnresolvedCount = pending.mods.count {
@@ -370,10 +373,16 @@ internal fun CollectionSelectionSection(
         pending.mods.filter { mod ->
             when (activeFilter) {
                 CollectionDisplayFilter.ALL -> true
-                CollectionDisplayFilter.AUTO -> mod.collectionFile.classification == NexusCollectionInstallClassification.AUTO_INSTALLABLE && mod.canImport
-                CollectionDisplayFilter.PLACEMENT -> mod.collectionFile.classification == NexusCollectionInstallClassification.NEEDS_PLACEMENT
+                CollectionDisplayFilter.AUTO ->
+                    mod.collectionFile.classification == NexusCollectionInstallClassification.AUTO_INSTALLABLE &&
+                        mod.canImport
+                CollectionDisplayFilter.PLACEMENT ->
+                    mod.collectionFile.classification ==
+                        NexusCollectionInstallClassification.NEEDS_PLACEMENT
                 CollectionDisplayFilter.MANUAL -> mod.collectionFile.classification == NexusCollectionInstallClassification.EXTERNAL_MANUAL
-                CollectionDisplayFilter.UNSUPPORTED -> mod.collectionFile.classification == NexusCollectionInstallClassification.UNSUPPORTED || !mod.canImport
+                CollectionDisplayFilter.UNSUPPORTED ->
+                    mod.collectionFile.classification == NexusCollectionInstallClassification.UNSUPPORTED ||
+                        !mod.canImport
             }
         }
     }
@@ -412,7 +421,13 @@ internal fun CollectionSelectionSection(
                     StorageUtils.formatBinarySize(availableBytes),
                 ),
                 style = MaterialTheme.typography.bodySmall,
-                color = if (availableBytes < estimatedRequiredBytes) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (availableBytes <
+                    estimatedRequiredBytes
+                ) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
             )
             Text(
                 text = stringResource(R.string.nexus_import_space_cache_note),
@@ -614,14 +629,15 @@ private fun CollectionChecklist(
     val placementLabel = stringResource(R.string.nexus_filter_placement)
     val manualLabel = stringResource(R.string.nexus_filter_manual)
     val unsupportedLabel = stringResource(R.string.nexus_filter_unsupported)
-    val summary = remember(autoCount, placementCount, manualCount, unsupportedCount, downloadableLabel, placementLabel, manualLabel, unsupportedLabel) {
-        buildList {
-            if (autoCount > 0) add("$autoCount $downloadableLabel")
-            if (placementCount > 0) add("$placementCount $placementLabel")
-            if (manualCount > 0) add("$manualCount $manualLabel")
-            if (unsupportedCount > 0) add("$unsupportedCount $unsupportedLabel")
-        }.joinToString(" | ")
-    }
+    val summary =
+        remember(autoCount, placementCount, manualCount, unsupportedCount, downloadableLabel, placementLabel, manualLabel, unsupportedLabel) {
+            buildList {
+                if (autoCount > 0) add("$autoCount $downloadableLabel")
+                if (placementCount > 0) add("$placementCount $placementLabel")
+                if (manualCount > 0) add("$manualCount $manualLabel")
+                if (unsupportedCount > 0) add("$unsupportedCount $unsupportedLabel")
+            }.joinToString(" | ")
+        }
     if (summary.isBlank()) return
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -720,7 +736,8 @@ private fun CollectionClassificationText(mod: PendingCollectionMod) {
         NexusCollectionInstallClassification.AUTO_INSTALLABLE -> MaterialTheme.colorScheme.onSurfaceVariant
         NexusCollectionInstallClassification.NEEDS_PLACEMENT -> MaterialTheme.colorScheme.primary
         NexusCollectionInstallClassification.EXTERNAL_MANUAL,
-        NexusCollectionInstallClassification.UNSUPPORTED -> MaterialTheme.colorScheme.error
+        NexusCollectionInstallClassification.UNSUPPORTED,
+        -> MaterialTheme.colorScheme.error
     }
     Text(label, style = MaterialTheme.typography.labelSmall, color = color)
     if (mod.collectionFile.expectedDestination.isNotBlank()) {

@@ -4,6 +4,8 @@ import app.gamenative.data.GameSource
 import app.gamenative.enums.Marker
 import com.winlator.container.Container
 import io.mockk.mockk
+import java.io.File
+import kotlin.io.path.createTempDirectory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -11,8 +13,6 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import java.io.File
-import kotlin.io.path.createTempDirectory
 
 @RunWith(RobolectricTestRunner::class)
 class XnaFrameworkStepTest {

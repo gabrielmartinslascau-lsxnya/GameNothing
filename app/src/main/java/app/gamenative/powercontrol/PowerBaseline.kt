@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class PowerBaselineEntry(
     val path: String,
-    val value: String
+    val value: String,
 )
 
 /**
@@ -25,7 +25,7 @@ data class PowerBaseline(
      * session never took the fan over. Optional so baselines written before fan control
      * still parse.
      */
-    val fanRestoreCommand: String? = null
+    val fanRestoreCommand: String? = null,
 )
 
 /**
@@ -82,7 +82,7 @@ object PowerBaselineScripts {
     fun buildBabysitterCommand(
         appPid: Int,
         restoreScriptPath: String,
-        cleanupPaths: List<String>
+        cleanupPaths: List<String>,
     ): String {
         val removals = cleanupPaths.distinct().joinToString(" ") { "\"$it\"" }
         val cleanup = if (removals.isEmpty()) "" else "; rm -f $removals"

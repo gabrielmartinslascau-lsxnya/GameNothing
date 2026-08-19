@@ -42,8 +42,10 @@ object OpenALStep : PreInstallStep {
             dir.walkTopDown()
                 .filter { file ->
                     file.isFile &&
-                        (file.name.equals("oalinst.exe", ignoreCase = true) ||
-                            file.name.startsWith("OpenAL", ignoreCase = true)) &&
+                        (
+                            file.name.equals("oalinst.exe", ignoreCase = true) ||
+                                file.name.startsWith("OpenAL", ignoreCase = true)
+                            ) &&
                         file.name.endsWith(".exe", ignoreCase = true)
                 }
                 .forEach { exeFile ->
@@ -62,4 +64,3 @@ object OpenALStep : PreInstallStep {
         return if (parts.isEmpty()) null else parts.joinToString(" & ")
     }
 }
-

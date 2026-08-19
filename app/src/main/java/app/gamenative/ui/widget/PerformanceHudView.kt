@@ -323,12 +323,12 @@ class PerformanceHudView(
                 String.format(Locale.US, "PWR %.1fW", watts)
             },
             runtime = batterySnapshot.runtimeText,
-            batteryTemp = batterySnapshot.temperatureC?.let { "BAT TEMP ${it}°C" },
+            batteryTemp = batterySnapshot.temperatureC?.let { "BAT TEMP $it°C" },
             clock = readClockText(),
             cpuTemp = SystemMetricsSources.readTemperatureC(SystemMetricsSources.cpuTempPaths())
-                ?.let { "CPU TEMP ${it}°C" },
+                ?.let { "CPU TEMP $it°C" },
             gpuTemp = SystemMetricsSources.readTemperatureC(SystemMetricsSources.gpuTempPaths())
-                ?.let { "GPU TEMP ${it}°C" },
+                ?.let { "GPU TEMP $it°C" },
             fan = readFanText(),
             tune = readTuneText(),
         )

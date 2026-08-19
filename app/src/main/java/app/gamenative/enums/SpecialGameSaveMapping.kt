@@ -21,7 +21,7 @@ data class SpecialGameSaveMapping(
     val pathType: PathType,
     val sourceRelativePath: String,
     val targetRelativePath: String,
-    val description: String
+    val description: String,
 ) {
     companion object {
         /**
@@ -34,8 +34,8 @@ data class SpecialGameSaveMapping(
                 pathType = PathType.WinAppDataLocal,
                 sourceRelativePath = "The First Berserker Khazan/Saved/SaveGames/{64BitSteamID}",
                 targetRelativePath = "BBQ/Saved/SaveGames",
-                description = "The First Berserker Khazan"
-            )
+                description = "The First Berserker Khazan",
+            ),
             // Add more game mappings here as needed
         )
     }

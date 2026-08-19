@@ -43,8 +43,10 @@ object PhysXStep : PreInstallStep {
                 .filter { file ->
                     file.isFile &&
                         file.name.startsWith("PhysX", ignoreCase = true) &&
-                        (file.name.endsWith(".msi", ignoreCase = true) ||
-                            file.name.endsWith(".exe", ignoreCase = true))
+                        (
+                            file.name.endsWith(".msi", ignoreCase = true) ||
+                                file.name.endsWith(".exe", ignoreCase = true)
+                            )
                 }
                 .forEach { installerFile ->
                     val relativePath = installerFile

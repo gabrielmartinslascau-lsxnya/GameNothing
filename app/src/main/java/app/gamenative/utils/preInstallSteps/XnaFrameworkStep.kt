@@ -65,4 +65,3 @@ object XnaFrameworkStep : PreInstallStep {
         return if (parts.isEmpty()) null else parts.joinToString(" & ")
     }
 }
-

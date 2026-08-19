@@ -12,7 +12,8 @@ enum class PerformancePreset(val displayName: String) {
     PERFORMANCE("Performance"),
     ON_DEMAND("On Demand"),
     WALT("WALT"),
-    CUSTOM("Custom");
+    CUSTOM("Custom"),
+    ;
 
     companion object {
         fun fromString(name: String): PerformancePreset? {

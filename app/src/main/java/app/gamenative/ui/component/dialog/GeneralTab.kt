@@ -12,10 +12,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -31,17 +30,15 @@ import androidx.compose.ui.unit.sp
 import app.gamenative.R
 import app.gamenative.ui.component.NoExtractOutlinedTextField
 import app.gamenative.ui.component.settings.SettingsListDropdown
-import com.alorma.compose.settings.ui.SettingsSwitch
 import app.gamenative.ui.theme.settingsTileColors
 import app.gamenative.ui.theme.settingsTileColorsAlt
 import com.alorma.compose.settings.ui.SettingsGroup
+import com.alorma.compose.settings.ui.SettingsSwitch
 import com.winlator.container.Container
-import com.winlator.container.ContainerData
+import com.winlator.contents.ContentProfile
 import com.winlator.core.DefaultVersion
 import com.winlator.core.KeyValueSet
 import com.winlator.core.StringUtils
-import com.winlator.contents.ContentProfile
-import com.winlator.xenvironment.components.PulseAudioComponent
 import java.util.Locale
 
 @Composable
@@ -103,7 +100,7 @@ fun GeneralTabContent(
                             text = state.customResolutionValidationError.value!!,
                             color = androidx.compose.material3.MaterialTheme.colorScheme.error,
                             style = TextStyle(fontSize = 16.sp),
-                            modifier = Modifier.padding(top = 8.dp)
+                            modifier = Modifier.padding(top = 8.dp),
                         )
                     }
                 }
@@ -133,15 +130,15 @@ fun GeneralTabContent(
                 ) {
                     Text(text = stringResource(R.string.cancel))
                 }
-            }
+            },
         )
     }
 
-    SettingsGroup() {
+    SettingsGroup {
         run {
             val variantIndex = rememberSaveable {
                 mutableIntStateOf(
-                    state.containerVariants.indexOfFirst { it.equals(config.containerVariant, true) }.coerceAtLeast(0)
+                    state.containerVariants.indexOfFirst { it.equals(config.containerVariant, true) }.coerceAtLeast(0),
                 )
             }
             SettingsListDropdown(
@@ -184,9 +181,11 @@ fun GeneralTabContent(
                         )
                     } else {
                         val defaultBionicDriver = StringUtils.parseIdentifier(state.bionicGraphicsDrivers.first())
-                        val newWine = if (config.wineVersion == (glibcWineEntries.firstOrNull() ?: Container.DEFAULT_WINE_VERSION))
+                        val newWine = if (config.wineVersion == (glibcWineEntries.firstOrNull() ?: Container.DEFAULT_WINE_VERSION)) {
                             bionicWineEntries.firstOrNull() ?: config.wineVersion
-                        else config.wineVersion
+                        } else {
+                            config.wineVersion
+                        }
                         val newCfg = KeyValueSet(config.graphicsDriverConfig).apply {
                             put("version", DefaultVersion.WRAPPER)
                             put("syncFrame", "0")

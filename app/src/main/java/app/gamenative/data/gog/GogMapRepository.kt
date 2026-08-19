@@ -51,14 +51,23 @@ object GogMapRepository {
         val file = File(context.filesDir, CACHE_FILE)
         val fresh = file.exists() && (System.currentTimeMillis() - file.lastModified()) in 0..CACHE_TTL_MS
         if (fresh) {
-            parse(file.readText())?.let { cached = it; return@withContext it }
+            parse(file.readText())?.let {
+                cached = it
+                return@withContext it
+            }
         }
 
-        download(file)?.let { cached = it; return@withContext it }
+        download(file)?.let {
+            cached = it
+            return@withContext it
+        }
 
         // Stale cache is better than nothing if the network is down.
         if (file.exists()) {
-            parse(file.readText())?.let { cached = it; return@withContext it }
+            parse(file.readText())?.let {
+                cached = it
+                return@withContext it
+            }
         }
         null
     }

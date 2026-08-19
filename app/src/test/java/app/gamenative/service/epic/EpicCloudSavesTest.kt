@@ -335,7 +335,10 @@ class EpicCloudSavesTest {
 
         val buf = ByteBuffer.wrap(result).order(ByteOrder.LITTLE_ENDIAN)
         buf.position(16) // skip magic(4) + version(4) + headerSize(4) + compressedSize(4)
-        val g0 = buf.int; val g1 = buf.int; val g2 = buf.int; val g3 = buf.int
+        val g0 = buf.int
+        val g1 = buf.int
+        val g2 = buf.int
+        val g3 = buf.int
 
         assertArrayEquals(guid, intArrayOf(g0, g1, g2, g3))
     }

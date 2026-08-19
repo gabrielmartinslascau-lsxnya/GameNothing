@@ -2,12 +2,12 @@ package app.gamenative.data
 
 import app.gamenative.enums.PathType
 import app.gamenative.utils.SteamUtils
+import java.io.File
 import java.nio.file.Path
 import java.nio.file.Paths
 import kotlin.io.path.pathString
-import kotlinx.serialization.Serializable
-import java.io.File
 import kotlin.text.replace
+import kotlinx.serialization.Serializable
 
 /**
  * @param timestamp the value in milliseconds, since the epoch (1970-01-01T00:00:00Z)

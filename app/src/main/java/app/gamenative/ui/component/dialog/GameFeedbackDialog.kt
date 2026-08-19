@@ -24,7 +24,7 @@ import timber.log.Timber
 
 @OptIn(
     ExperimentalLayoutApi::class,
-    ExperimentalMaterial3Api::class
+    ExperimentalMaterial3Api::class,
 )
 @Composable
 fun GameFeedbackDialog(
@@ -37,34 +37,34 @@ fun GameFeedbackDialog(
     if (state.visible) {
         Dialog(
             onDismissRequest = onDismiss,
-            properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true)
+            properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true),
         ) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .wrapContentHeight(),
                 shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surface
+                color = MaterialTheme.colorScheme.surface,
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f, fill = false)
                             .verticalScroll(rememberScrollState()),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         // Title
                         Text(
                             text = stringResource(R.string.game_feedback_game_run),
                             style = MaterialTheme.typography.headlineSmall,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(bottom = 16.dp)
+                            modifier = Modifier.padding(bottom = 16.dp),
                         )
 
                         // Rating Stars
@@ -72,19 +72,25 @@ fun GameFeedbackDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(bottom = 16.dp),
-                            horizontalArrangement = Arrangement.Center
+                            horizontalArrangement = Arrangement.Center,
                         ) {
                             for (i in 1..5) {
                                 Icon(
                                     imageVector = if (i <= state.rating) Icons.Filled.Star else Icons.Filled.StarOutline,
                                     contentDescription = "Star $i",
-                                    tint = if (i <= state.rating) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                    tint = if (i <=
+                                        state.rating
+                                    ) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                    },
                                     modifier = Modifier
                                         .size(48.dp)
                                         .clickable {
                                             onStateChange(state.copy(rating = i))
                                         }
-                                        .padding(4.dp)
+                                        .padding(4.dp),
                                 )
                             }
                         }
@@ -95,13 +101,13 @@ fun GameFeedbackDialog(
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier
                                 .align(Alignment.Start)
-                                .padding(bottom = 8.dp)
+                                .padding(bottom = 8.dp),
                         )
 
                         FlowRow(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(bottom = 16.dp)
+                                .padding(bottom = 16.dp),
                         ) {
                             for (tag in GameFeedbackDialogState.AVAILABLE_TAGS) {
                                 val isSelected = tag in state.selectedTags
@@ -118,10 +124,10 @@ fun GameFeedbackDialog(
                                     label = {
                                         Text(
                                             text = tag.replace("_", " ").capitalize(),
-                                            style = MaterialTheme.typography.bodySmall
+                                            style = MaterialTheme.typography.bodySmall,
                                         )
                                     },
-                                    modifier = Modifier.padding(end = 8.dp, bottom = 8.dp)
+                                    modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
                                 )
                             }
                         }
@@ -141,7 +147,7 @@ fun GameFeedbackDialog(
                         // Discord support link
                         TextButton(
                             onClick = onDiscordSupport,
-                            modifier = Modifier.padding(bottom = 16.dp)
+                            modifier = Modifier.padding(bottom = 16.dp),
                         ) {
                             Text(stringResource(R.string.get_support_on_discord))
                         }
@@ -150,7 +156,7 @@ fun GameFeedbackDialog(
                     // Dialog action buttons
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
+                        horizontalArrangement = Arrangement.End,
                     ) {
                         TextButton(onClick = onDismiss) {
                             Text(state.dismissBtnText)
@@ -162,7 +168,7 @@ fun GameFeedbackDialog(
                                 onSubmit(state)
                             },
                             modifier = Modifier.padding(start = 8.dp),
-                            enabled = state.rating > 0 // Require at least a rating
+                            enabled = state.rating > 0, // Require at least a rating
                         ) {
                             Text(state.confirmBtnText)
                         }

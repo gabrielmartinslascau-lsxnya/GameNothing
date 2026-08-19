@@ -46,12 +46,12 @@ import app.gamenative.data.TouchGestureConfig.Companion.ZOOM_PAGE_UP_DOWN
 import app.gamenative.data.TouchGestureConfig.Companion.ZOOM_PLUS_MINUS
 import app.gamenative.data.TouchGestureConfig.Companion.ZOOM_SCROLL_WHEEL
 import app.gamenative.ui.component.settings.SettingsListDropdown
-import app.gamenative.ui.theme.settingsTileColors
-import app.gamenative.ui.theme.settingsTileColorsAlt
 import app.gamenative.ui.theme.PluviaBackground
 import app.gamenative.ui.theme.PluviaBorder
 import app.gamenative.ui.theme.PluviaSurface
 import app.gamenative.ui.theme.PluviaSurfaceElevated
+import app.gamenative.ui.theme.settingsTileColors
+import app.gamenative.ui.theme.settingsTileColorsAlt
 import com.alorma.compose.settings.ui.SettingsSwitch
 import com.winlator.inputcontrols.Binding
 
@@ -564,7 +564,7 @@ private fun buildActionCategories(): List<SettingsActionCategory> {
         actions = listOf(
             ACTION_SHOW_KEYBOARD to stringResource(R.string.gesture_action_show_keyboard),
             ACTION_OPEN_RADIAL_MENU to stringResource(R.string.gesture_action_open_radial_menu),
-        )
+        ),
     )
     val mouse = SettingsActionCategory(
         header = stringResource(R.string.gesture_header_mouse),
@@ -572,7 +572,7 @@ private fun buildActionCategories(): List<SettingsActionCategory> {
             ACTION_LEFT_CLICK to stringResource(R.string.gesture_action_left_click),
             ACTION_RIGHT_CLICK to stringResource(R.string.gesture_action_right_click),
             ACTION_MIDDLE_CLICK to stringResource(R.string.gesture_action_middle_click),
-        )
+        ),
     )
     val commonGame = SettingsActionCategory(
         header = stringResource(R.string.gesture_header_common_game),
@@ -580,7 +580,7 @@ private fun buildActionCategories(): List<SettingsActionCategory> {
             "key_ESC" to "ESC", "key_SPACE" to "SPACE", "key_E" to "E", "key_Q" to "Q",
             "key_F" to "F", "key_TAB" to "TAB", "key_ENTER" to "ENTER",
             "key_I" to "I", "key_M" to "M", "key_R" to "R",
-        )
+        ),
     )
     val navigationEditing = SettingsActionCategory(
         header = stringResource(R.string.gesture_header_navigation_editing),
@@ -597,7 +597,7 @@ private fun buildActionCategories(): List<SettingsActionCategory> {
             Binding.KEY_PG_UP,
             Binding.KEY_PG_DOWN,
             Binding.KEY_PRTSCN,
-        )
+        ),
     )
     val symbols = SettingsActionCategory(
         header = stringResource(R.string.gesture_header_symbols),
@@ -614,15 +614,15 @@ private fun buildActionCategories(): List<SettingsActionCategory> {
             Binding.KEY_TILDE,
             Binding.KEY_MINUS,
             Binding.KEY_EQUAL,
-        )
+        ),
     )
     val letters = SettingsActionCategory(
         header = stringResource(R.string.gesture_header_letters),
-        actions = ('A'..'Z').map { "key_$it" to it.toString() }
+        actions = ('A'..'Z').map { "key_$it" to it.toString() },
     )
     val numbers = SettingsActionCategory(
         header = stringResource(R.string.gesture_header_numbers),
-        actions = (0..9).map { "key_$it" to it.toString() }
+        actions = (0..9).map { "key_$it" to it.toString() },
     )
     val numpad = SettingsActionCategory(
         header = stringResource(R.string.gesture_header_numpad),
@@ -642,11 +642,11 @@ private fun buildActionCategories(): List<SettingsActionCategory> {
             Binding.KEY_KP_7,
             Binding.KEY_KP_8,
             Binding.KEY_KP_9,
-        )
+        ),
     )
     val functionKeys = SettingsActionCategory(
         header = stringResource(R.string.gesture_header_function_keys),
-        actions = (1..12).map { "key_F$it" to "F$it" }
+        actions = (1..12).map { "key_F$it" to "F$it" },
     )
     val modifiersLocks = SettingsActionCategory(
         header = stringResource(R.string.gesture_header_modifiers_locks),
@@ -659,7 +659,7 @@ private fun buildActionCategories(): List<SettingsActionCategory> {
             Binding.KEY_ALT_R,
             Binding.KEY_CAPS_LOCK,
             Binding.KEY_NUM_LOCK,
-        )
+        ),
     )
     return listOf(
         special,

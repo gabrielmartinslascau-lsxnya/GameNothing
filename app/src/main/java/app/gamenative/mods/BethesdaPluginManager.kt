@@ -3,10 +3,10 @@ package app.gamenative.mods
 import app.gamenative.data.ModInstall
 import app.gamenative.data.ModInstallStatus
 import app.gamenative.data.ModPlacementRecipe
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
-import java.io.File
 
 enum class BethesdaGame(
     val displayName: String,
@@ -155,7 +155,8 @@ object BethesdaPluginManager {
                     val key = master.lowercase()
                     key in availableNames && key !in enabledNames
                 }
-                val pluginOrder = orderByName[plugin.fileName.lowercase()] ?: fallbackOrderByName[plugin.fileName.lowercase()] ?: Int.MAX_VALUE
+                val pluginOrder =
+                    orderByName[plugin.fileName.lowercase()] ?: fallbackOrderByName[plugin.fileName.lowercase()] ?: Int.MAX_VALUE
                 val late = masters.filter { master ->
                     val masterOrder = orderByName[master.lowercase()] ?: fallbackOrderByName[master.lowercase()] ?: return@filter false
                     masterOrder > pluginOrder

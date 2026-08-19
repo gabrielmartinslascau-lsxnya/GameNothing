@@ -1,7 +1,6 @@
 package app.gamenative.service.gog.api
 
 import app.gamenative.service.gog.GOGConstants
-import timber.log.Timber
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPInputStream
@@ -9,6 +8,7 @@ import java.util.zip.Inflater
 import javax.inject.Inject
 import javax.inject.Singleton
 import org.json.JSONObject
+import timber.log.Timber
 
 /**
  * Handles parsing of GOG manifest data
@@ -32,7 +32,7 @@ class GOGManifestParser @Inject constructor() {
     fun selectBuild(
         builds: List<GOGBuild>,
         preferredGeneration: Int = 2,
-        platform: String = "windows"
+        platform: String = "windows",
     ): GOGBuild? {
         if (builds.isEmpty()) {
             Timber.tag(TAG).w("No builds available")
@@ -240,7 +240,7 @@ class GOGManifestParser @Inject constructor() {
     fun buildChunkUrlCandidatesWithProducts(
         chunks: List<String>,
         chunkToProductMap: Map<String, String>,
-        productUrlMap: Map<String, List<String>>
+        productUrlMap: Map<String, List<String>>,
     ): Map<String, List<String>> {
         val chunkUrlCandidates = mutableMapOf<String, List<String>>()
 
@@ -270,7 +270,7 @@ class GOGManifestParser @Inject constructor() {
     fun buildChunkUrlMapWithProducts(
         chunks: List<String>,
         chunkToProductMap: Map<String, String>,
-        productUrlMap: Map<String, List<String>>
+        productUrlMap: Map<String, List<String>>,
     ): Map<String, String> {
         return buildChunkUrlCandidatesWithProducts(chunks, chunkToProductMap, productUrlMap)
             .mapNotNull { (chunk, urls) -> urls.firstOrNull()?.let { chunk to it } }
@@ -401,8 +401,8 @@ class GOGManifestParser @Inject constructor() {
                         manifest = d.optString("manifest", ""),
                         compressedSize = d.optLong("size", 0),
                         size = d.optLong("size", 0),
-                        osBitness = null
-                    )
+                        osBitness = null,
+                    ),
                 )
             }
         }
@@ -426,7 +426,7 @@ class GOGManifestParser @Inject constructor() {
             depots = depots,
             dependencies = dependencies,
             products = products,
-            productTimestamp = timestamp
+            productTimestamp = timestamp,
         )
     }
 
@@ -454,8 +454,8 @@ class GOGManifestParser @Inject constructor() {
                     hash = hash,
                     url = url,
                     offset = offset,
-                    isSupport = isSupport
-                )
+                    isSupport = isSupport,
+                ),
             )
         }
         return list

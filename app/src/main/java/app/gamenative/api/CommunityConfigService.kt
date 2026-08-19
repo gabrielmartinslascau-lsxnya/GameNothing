@@ -727,8 +727,10 @@ internal fun communityConfigMatchType(currentGpu: String, configGpu: String): St
     return when {
         current.isNotEmpty() && current == candidate -> "exact_gpu_match"
         currentCompatibility == candidateCompatibility &&
-            (currentCompatibility == CommunityGpuCompatibility.ADRENO_STANDARD ||
-                currentCompatibility == CommunityGpuCompatibility.ADRENO_ELITE) -> "gpu_family_match"
+            (
+                currentCompatibility == CommunityGpuCompatibility.ADRENO_STANDARD ||
+                    currentCompatibility == CommunityGpuCompatibility.ADRENO_ELITE
+                ) -> "gpu_family_match"
         else -> "fallback_match"
     }
 }
@@ -892,14 +894,15 @@ internal fun sanitizeCommunityConfig(config: JsonObject): JsonObject = JsonObjec
             if (content.length > MAX_CONFIG_VALUE_CHARS) return@forEach
 
             when (key) {
-                "execArgs" -> content
-                    .takeIf {
-                        it.length <= MAX_LAUNCH_ARGUMENT_CHARS &&
-                            it.none { char -> char == '\u0000' || char == '\r' || char == '\n' }
-                    }
-                    ?.trim()
-                    ?.takeIf { it.isNotEmpty() }
-                    ?.let { put(key, JsonPrimitive(it)) }
+                "execArgs" ->
+                    content
+                        .takeIf {
+                            it.length <= MAX_LAUNCH_ARGUMENT_CHARS &&
+                                it.none { char -> char == '\u0000' || char == '\r' || char == '\n' }
+                        }
+                        ?.trim()
+                        ?.takeIf { it.isNotEmpty() }
+                        ?.let { put(key, JsonPrimitive(it)) }
                 "envVars" -> sanitizeCommunityEnvironmentVariables(content)
                     .takeIf { it.isNotEmpty() }
                     ?.let { put(key, JsonPrimitive(it)) }

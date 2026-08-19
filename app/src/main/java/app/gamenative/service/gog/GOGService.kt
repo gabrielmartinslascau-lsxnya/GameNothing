@@ -5,15 +5,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
+import app.gamenative.PluviaApp
 import app.gamenative.data.DownloadInfo
 import app.gamenative.data.GOGCredentials
 import app.gamenative.data.GOGGame
 import app.gamenative.data.LaunchInfo
 import app.gamenative.data.LibraryItem
 import app.gamenative.events.AndroidEvent
-import app.gamenative.PluviaApp
-import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.service.NotificationHelper
+import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.utils.ContainerUtils
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
@@ -22,7 +22,6 @@ import java.util.concurrent.CopyOnWriteArrayList
 import javax.inject.Inject
 import kotlinx.coroutines.*
 import timber.log.Timber
-
 
 /**
  * GOG Service - thin abstraction layer that delegates to managers.
@@ -173,8 +172,11 @@ class GOGService : Service() {
 
         private fun setSyncInProgress(inProgress: Boolean) {
             syncInProgress = inProgress
-            if (inProgress) getInstance()?.notifierOrNull?.showSyncing(NotificationHelper.NOTIFICATION_ID_GOG)
-            else getInstance()?.notifierOrNull?.showIdle(NotificationHelper.NOTIFICATION_ID_GOG)
+            if (inProgress) {
+                getInstance()?.notifierOrNull?.showSyncing(NotificationHelper.NOTIFICATION_ID_GOG)
+            } else {
+                getInstance()?.notifierOrNull?.showIdle(NotificationHelper.NOTIFICATION_ID_GOG)
+            }
         }
 
         fun isSyncInProgress(): Boolean = syncInProgress
@@ -390,7 +392,13 @@ class GOGService : Service() {
                         val numericGameId = gameId.toIntOrNull()
                         try {
                             val gogGame = instance.gogManager.getGameFromDbById(gameId)
-                            val locations = if (gogGame != null) instance.gogManager.getSaveDirectoryPath(context, appId, gogGame.title) else null
+                            val locations = if (gogGame !=
+                                null
+                            ) {
+                                instance.gogManager.getSaveDirectoryPath(context, appId, gogGame.title)
+                            } else {
+                                null
+                            }
                             if (numericGameId != null && !locations.isNullOrEmpty() && !ContainerUtils.isLocalSavesOnly(context, appId)) {
                                 try {
                                     downloadInfo.setPostInstallSyncing(true)

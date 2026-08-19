@@ -11,6 +11,8 @@ import app.gamenative.service.SteamService.Companion.INVALID_PKG_ID
 import `in`.dragonbra.javasteam.enums.ELicenseFlags
 import `in`.dragonbra.javasteam.enums.ELicenseType
 import `in`.dragonbra.javasteam.enums.EPaymentMethod
+import java.util.Date
+import java.util.EnumSet
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -20,8 +22,6 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import java.util.Date
-import java.util.EnumSet
 
 @RunWith(RobolectricTestRunner::class)
 class SteamAppDaoTest {
@@ -82,11 +82,15 @@ class SteamAppDaoTest {
 
     @Test
     fun `expired license - app excluded from library`() = runBlocking {
-        licenseDao.insertAll(listOf(makeLicense(
-            packageId = 100,
-            flags = EnumSet.of(ELicenseFlags.Expired),
-            appIds = listOf(1),
-        )))
+        licenseDao.insertAll(
+            listOf(
+                makeLicense(
+                    packageId = 100,
+                    flags = EnumSet.of(ELicenseFlags.Expired),
+                    appIds = listOf(1),
+                ),
+            ),
+        )
         appDao.insert(makeApp(id = 1, packageId = 100))
 
         val apps = appDao.getAllOwnedApps().first()
@@ -141,10 +145,12 @@ class SteamAppDaoTest {
 
     @Test
     fun `mixed valid and expired licenses - only valid appear`() = runBlocking {
-        licenseDao.insertAll(listOf(
-            makeLicense(packageId = 100, appIds = listOf(1)),
-            makeLicense(packageId = 200, flags = EnumSet.of(ELicenseFlags.Expired), appIds = listOf(2)),
-        ))
+        licenseDao.insertAll(
+            listOf(
+                makeLicense(packageId = 100, appIds = listOf(1)),
+                makeLicense(packageId = 200, flags = EnumSet.of(ELicenseFlags.Expired), appIds = listOf(2)),
+            ),
+        )
         appDao.insert(makeApp(id = 1, packageId = 100))
         appDao.insert(makeApp(id = 2, packageId = 200))
 
@@ -156,11 +162,15 @@ class SteamAppDaoTest {
     @Test
     fun `expired combined with other flags - still excluded`() = runBlocking {
         // expired + renew flags together
-        licenseDao.insertAll(listOf(makeLicense(
-            packageId = 100,
-            flags = EnumSet.of(ELicenseFlags.Expired, ELicenseFlags.Renew),
-            appIds = listOf(1),
-        )))
+        licenseDao.insertAll(
+            listOf(
+                makeLicense(
+                    packageId = 100,
+                    flags = EnumSet.of(ELicenseFlags.Expired, ELicenseFlags.Renew),
+                    appIds = listOf(1),
+                ),
+            ),
+        )
         appDao.insert(makeApp(id = 1, packageId = 100))
 
         val apps = appDao.getAllOwnedApps().first()
@@ -170,11 +180,15 @@ class SteamAppDaoTest {
     @Test
     fun `non-expired flags - app appears`() = runBlocking {
         // renew flag without expired
-        licenseDao.insertAll(listOf(makeLicense(
-            packageId = 100,
-            flags = EnumSet.of(ELicenseFlags.Renew),
-            appIds = listOf(1),
-        )))
+        licenseDao.insertAll(
+            listOf(
+                makeLicense(
+                    packageId = 100,
+                    flags = EnumSet.of(ELicenseFlags.Renew),
+                    appIds = listOf(1),
+                ),
+            ),
+        )
         appDao.insert(makeApp(id = 1, packageId = 100))
 
         val apps = appDao.getAllOwnedApps().first()

@@ -19,7 +19,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import app.gamenative.ui.component.NoExtractOutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import app.gamenative.R
 import app.gamenative.enums.LoginResult
 import app.gamenative.ui.component.LoadingScreen
+import app.gamenative.ui.component.NoExtractOutlinedTextField
 import app.gamenative.ui.data.UserLoginState
 import app.gamenative.ui.theme.PluviaTheme
 
@@ -73,14 +73,14 @@ fun TwoFactorAuthScreenContent(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(bottom = 24.dp)
+            modifier = Modifier.padding(bottom = 24.dp),
         )
 
         if (userLoginState.loginResult == LoginResult.DeviceConfirm) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(16.dp))
             TextButton(
-                onClick = onUseGuardTotp
+                onClick = onUseGuardTotp,
             ) {
                 Text(stringResource(R.string.steam_2fa_use_guard_totp))
             }
@@ -139,7 +139,7 @@ private fun TwoFactorTextField(
             text = stringResource(R.string.two_factor_verification_code),
             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
             color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 8.dp),
         )
 
         NoExtractOutlinedTextField(
@@ -153,7 +153,7 @@ private fun TwoFactorTextField(
                 .border(
                     width = 1.dp,
                     color = MaterialTheme.colorScheme.outline,
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(8.dp),
                 ),
             value = twoFactorText,
             onValueChange = { value ->
@@ -164,7 +164,7 @@ private fun TwoFactorTextField(
             placeholder = {
                 Text(
                     stringResource(R.string.two_factor_enter_code),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
             },
             keyboardOptions = KeyboardOptions(
@@ -184,8 +184,8 @@ private fun TwoFactorTextField(
                 focusedContainerColor = MaterialTheme.colorScheme.surface,
                 unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                 focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-            )
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+            ),
         )
     }
 }

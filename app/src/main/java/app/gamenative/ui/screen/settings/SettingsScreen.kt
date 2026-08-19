@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -30,7 +31,9 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Gamepad
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -54,14 +57,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.enums.AppTheme
+import app.gamenative.ui.model.MainViewModel
 import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.ui.theme.glassContentColor
+import app.gamenative.ui.theme.pluviaGlass
 import com.materialkolor.PaletteStyle
 
 @Composable
 fun SettingsScreen(
+    viewModel: MainViewModel = hiltViewModel(),
     appTheme: AppTheme,
     paletteStyle: PaletteStyle,
     onAppTheme: (AppTheme) -> Unit,
@@ -69,6 +77,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
 ) {
     SettingsScreenContent(
+        viewModel = viewModel,
         appTheme = appTheme,
         paletteStyle = paletteStyle,
         onAppTheme = onAppTheme,
@@ -79,6 +88,7 @@ fun SettingsScreen(
 
 @Composable
 private fun SettingsScreenContent(
+    viewModel: MainViewModel? = null,
     appTheme: AppTheme,
     paletteStyle: PaletteStyle,
     onAppTheme: (AppTheme) -> Unit,
@@ -144,6 +154,15 @@ private fun SettingsScreenContent(
                     )
                 }
 
+                // Looks section
+                SettingsSection(
+                    title = stringResource(R.string.settings_looks_title),
+                    icon = Icons.Default.AutoFixHigh,
+                    iconTint = PluviaTheme.colors.accentCyan,
+                ) {
+                    viewModel?.let { SettingsGroupLooks(viewModel = it) }
+                }
+
                 // Info section
                 SettingsSection(
                     title = stringResource(R.string.settings_info_title),
@@ -151,6 +170,15 @@ private fun SettingsScreenContent(
                     iconTint = PluviaTheme.colors.accentSuccess,
                 ) {
                     SettingsGroupInfo()
+                }
+
+                // Experimental section
+                SettingsSection(
+                    title = stringResource(R.string.settings_experimental_title),
+                    icon = Icons.Default.Science,
+                    iconTint = Color(0xFFE91E63), // Pink accent
+                ) {
+                    viewModel?.let { SettingsGroupExperimental(viewModel = it) }
                 }
 
                 // Debug section
@@ -293,56 +321,70 @@ private fun SettingsSection(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = PluviaTheme.colors.surfaceElevated,
-        tonalElevation = 0.dp,
+    val isGlass = PrefManager.glassPanels
+    val contentColor = glassContentColor()
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .pluviaGlass()
+            .then(if (!isGlass) Modifier.background(PluviaTheme.colors.surfaceElevated, RoundedCornerShape(16.dp)).border(1.dp, PluviaTheme.colors.borderDefault.copy(alpha = 0.1f), RoundedCornerShape(16.dp)) else Modifier)
     ) {
-        Column(
-            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
+        // Force the settings library components to use transparent surfaces and correct content color
+        MaterialTheme(
+            colorScheme = MaterialTheme.colorScheme.copy(
+                surface = Color.Transparent,
+                onSurface = contentColor,
+                onSurfaceVariant = contentColor.copy(alpha = 0.7f),
+                surfaceVariant = if (isGlass) Color.White.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surfaceVariant,
+                primary = iconTint // Use the section's icon tint as primary for switches inside
+            )
         ) {
-            // Section header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            Column(
+                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
             ) {
-                // Icon with glow background
-                Box(
+                // Section header
+                Row(
                     modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(iconTint.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center,
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = iconTint,
-                        modifier = Modifier.size(20.dp),
+                    // Icon with glow background
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(iconTint.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = iconTint,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.3.sp,
+                        ),
+                        color = contentColor,
                     )
                 }
 
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 0.3.sp,
-                    ),
-                    color = Color.White,
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                    color = if (isGlass) Color.White.copy(alpha = 0.1f) else PluviaTheme.colors.borderDefault.copy(alpha = 0.2f),
                 )
+
+                // Section content
+                content()
             }
-
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                color = PluviaTheme.colors.borderDefault.copy(alpha = 0.2f),
-            )
-
-            // Section content
-            content()
         }
     }
 }

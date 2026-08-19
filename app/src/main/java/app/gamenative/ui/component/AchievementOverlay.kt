@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,12 +28,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.ui.theme.PluviaTheme
 import app.gamenative.ui.util.AchievementNotification
@@ -40,8 +40,6 @@ import app.gamenative.ui.util.AchievementNotificationManager
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
 import kotlinx.coroutines.delay
-import app.gamenative.PrefManager
-
 
 internal val ACHIEVEMENT_NOTIFICATION_POSITION: Map<String, Int> = mapOf(
     "top_left" to R.string.achievement_position_top_left,
@@ -78,10 +76,12 @@ fun BoxScope.AchievementOverlay() {
                     "bottom_left" -> Alignment.BottomStart
                     "bottom_right" -> Alignment.BottomEnd
                     else -> Alignment.BottomEnd
-                }
+                },
             )
             .padding(16.dp),
-        enter = slideInHorizontally(initialOffsetX = { if (isLeftAligned) -it else it }) + fadeIn(), // Slide in from left if left aligned, otherwise from right
+        enter = slideInHorizontally(initialOffsetX = {
+            if (isLeftAligned) -it else it
+        }) + fadeIn(), // Slide in from left if left aligned, otherwise from right
         exit = slideOutHorizontally(targetOffsetX = { if (isLeftAligned) -it else it }) + fadeOut(),
     ) {
         current?.let { notification ->
@@ -140,7 +140,7 @@ private fun Preview_AchievementOverlay() {
                 AchievementNotification(
                     name = "Real boy : They all lived happily ever after",
                     iconUrl = "https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/12345/abc.jpg",
-                )
+                ),
             )
         }
     }
@@ -155,7 +155,7 @@ private fun Preview_AchievementOverlay_NoIcon() {
                 AchievementNotification(
                     name = "First Blood",
                     iconUrl = null,
-                )
+                ),
             )
         }
     }

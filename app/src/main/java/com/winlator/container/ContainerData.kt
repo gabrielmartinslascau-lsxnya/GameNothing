@@ -7,7 +7,6 @@ import com.winlator.core.DefaultVersion
 import com.winlator.core.WineInfo
 import com.winlator.core.WineThemeManager
 import com.winlator.fexcore.FEXCorePreset
-import com.winlator.xenvironment.components.PulseAudioComponent
 import kotlin.String
 
 data class ContainerData(

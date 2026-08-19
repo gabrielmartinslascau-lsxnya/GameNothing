@@ -4,56 +4,52 @@ import android.content.Context
 import android.util.Log
 import app.gamenative.PrefManager
 import app.gamenative.data.DownloadInfo
+import app.gamenative.data.EpicGame
 import app.gamenative.data.GameSource
 import app.gamenative.enums.Marker
-import app.gamenative.utils.CdnRankingUtils
-import app.gamenative.utils.MarkerUtils
-import app.gamenative.data.EpicGame
 import app.gamenative.service.StreamingAssembly
 import app.gamenative.service.epic.manifest.ChunkPart
 import app.gamenative.service.epic.manifest.EpicManifest
 import app.gamenative.service.epic.manifest.ManifestUtils
 import app.gamenative.service.gog.HttpStatusException
+import app.gamenative.utils.CdnRankingUtils
 import app.gamenative.utils.ContainerStorageManager
 import app.gamenative.utils.DownloadSpeedConfig
+import app.gamenative.utils.MarkerUtils
 import app.gamenative.utils.Net
 import app.gamenative.utils.StorageUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CoroutineScope
-import java.io.ByteArrayInputStream
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
+import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
 import java.nio.file.StandardOpenOption
 import java.security.MessageDigest
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentHashMap.newKeySet
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.Inflater
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flatMapMerge
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.Request
-import org.json.JSONObject
 import timber.log.Timber
-import java.io.IOException
-import java.io.RandomAccessFile
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentHashMap.newKeySet
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * EpicDownloadManager handles downloading Epic games
@@ -108,7 +104,6 @@ class EpicDownloadManager @Inject constructor(
         commonRedistDir: File? = null,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-
             Timber.tag("Epic").i("Starting download for ${game.title} to $installPath")
 
             File(installPath).mkdirs()
@@ -750,19 +745,19 @@ class EpicDownloadManager @Inject constructor(
                 throw Exception("Buffer underflow: only ${buffer.remaining()} bytes available, need at least 50")
             }
 
-            val compressedSize = buffer.int  // Read compressed size
-            buffer.position(buffer.position() + 16)  // Skip GUID (16 bytes)
-            buffer.position(buffer.position() + 8)   // Skip hash (8 bytes)
-            val storedAs = buffer.get().toInt() and 0xFF  // Read storedAs flag
+            val compressedSize = buffer.int // Read compressed size
+            buffer.position(buffer.position() + 16) // Skip GUID (16 bytes)
+            buffer.position(buffer.position() + 8) // Skip hash (8 bytes)
+            val storedAs = buffer.get().toInt() and 0xFF // Read storedAs flag
             val isCompressed = (storedAs and 0x1) == 0x1
 
             // Version Check to understand header spacing
             // Header version 2: includes sha_hash (20 bytes) + hash_type (1 byte) = 62 total bytes
             // Header version 3: adds uncompressed_size (4 bytes) = 66 total bytes
             if (headerVersion >= 2) {
-                buffer.position(buffer.position() + 20)  // Skip SHA hash (20 bytes)
+                buffer.position(buffer.position() + 20) // Skip SHA hash (20 bytes)
                 if (buffer.remaining() >= 1) {
-                    buffer.position(buffer.position() + 1)   // Skip hash type (1 byte)
+                    buffer.position(buffer.position() + 1) // Skip hash type (1 byte)
                 }
             }
 
@@ -802,7 +797,12 @@ class EpicDownloadManager @Inject constructor(
                                         lastProgressEmitAt = now
                                     }
                                     if (firstRead) {
-                                        Log.d("Epic", "First compressed data bytes: ${inputBuffer.take(16).joinToString(" ") { "%02x".format(it) }}")
+                                        Log.d(
+                                            "Epic",
+                                            "First compressed data bytes: ${inputBuffer.take(16).joinToString(" ") {
+                                                "%02x".format(it)
+                                            }}",
+                                        )
                                         firstRead = false
                                     }
                                     inflater.setInput(inputBuffer, 0, bytesRead)
@@ -972,7 +972,7 @@ class EpicDownloadManager @Inject constructor(
 
             chunkQueue.forEach { chunkInfo ->
                 chunkUsageCounts[chunkInfo.guidStr] = AtomicInteger(
-                    files.sumOf { file -> file.chunkParts.count { chunk -> chunk.guidStr == chunkInfo.guidStr } }
+                    files.sumOf { file -> file.chunkParts.count { chunk -> chunk.guidStr == chunkInfo.guidStr } },
                 )
             }
 
@@ -1051,7 +1051,9 @@ class EpicDownloadManager @Inject constructor(
 
             val assembleJob: Job = scope.launch {
                 assembleFlow
-                    .flatMapMerge<Pair<app.gamenative.service.epic.manifest.ChunkInfo, Result<File>>, Unit>(concurrency = parallelAssemble) { (chunk, result) ->
+                    .flatMapMerge<Pair<app.gamenative.service.epic.manifest.ChunkInfo, Result<File>>, Unit>(concurrency = parallelAssemble) {
+                            (chunk, result),
+                        ->
                         flow<Unit> {
                             if (!downloadInfo.isActive()) {
                                 return@flow
@@ -1187,7 +1189,7 @@ class EpicDownloadManager @Inject constructor(
                     |  Cache: ${chunkCacheSize / 1_000_000}MB
                     |  Game files: ${totalExpectedSize / 1_000_000}MB
                     |  Total disk: ${(chunkCacheSize + totalExpectedSize) / 1_000_000}MB
-                    """.trimMargin()
+                    """.trimMargin(),
                 )
 
                 if (currentPendingChunks == lastPendingChunks) {
@@ -1202,7 +1204,7 @@ class EpicDownloadManager @Inject constructor(
                     if (missingChunks.isNotEmpty()) {
                         Timber.tag("EPIC").w(
                             "Pending chunks stuck at $currentPendingChunks for $samePendingChunksAttempts checks; " +
-                                    "re-emitting ${missingChunks.size} missing chunk(s) for retry",
+                                "re-emitting ${missingChunks.size} missing chunk(s) for retry",
                         )
                         missingChunks.forEach { networkChunkFlow.tryEmit(it) }
                     }
@@ -1310,7 +1312,7 @@ class EpicDownloadManager @Inject constructor(
                 FileChannel.open(
                     outputFile.toPath(),
                     StandardOpenOption.WRITE,
-                    StandardOpenOption.CREATE
+                    StandardOpenOption.CREATE,
                 ).use { channel ->
                     channel.position(chunk.fileOffset)
 

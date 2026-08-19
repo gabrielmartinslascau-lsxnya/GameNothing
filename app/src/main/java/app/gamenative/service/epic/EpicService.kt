@@ -5,18 +5,17 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
+import app.gamenative.PluviaApp
 import app.gamenative.data.DownloadInfo
 import app.gamenative.data.EpicCredentials
 import app.gamenative.data.EpicGame
-import app.gamenative.data.LaunchInfo
-import app.gamenative.data.LibraryItem
 import app.gamenative.data.EpicGameToken
-import app.gamenative.utils.MarkerUtils
 import app.gamenative.enums.Marker
 import app.gamenative.events.AndroidEvent
-import app.gamenative.PluviaApp
-import app.gamenative.utils.ContainerUtils
 import app.gamenative.service.NotificationHelper
+import app.gamenative.ui.util.SnackbarManager
+import app.gamenative.utils.ContainerUtils
+import app.gamenative.utils.MarkerUtils
 import com.winlator.container.Container
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
@@ -24,7 +23,6 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import javax.inject.Inject
 import kotlinx.coroutines.*
-import app.gamenative.ui.util.SnackbarManager
 import timber.log.Timber
 
 /**
@@ -50,7 +48,6 @@ class EpicService : Service() {
             get() = instance != null
 
         fun start(context: Context) {
-
             Timber.tag("EPIC").d("Starting service...")
             // If already running, do nothing
             if (isRunning) {
@@ -159,8 +156,11 @@ class EpicService : Service() {
 
         private fun setSyncInProgress(inProgress: Boolean) {
             syncInProgress = inProgress
-            if (inProgress) getInstance()?.notifierOrNull?.showSyncing(NotificationHelper.NOTIFICATION_ID_EPIC)
-            else getInstance()?.notifierOrNull?.showIdle(NotificationHelper.NOTIFICATION_ID_EPIC)
+            if (inProgress) {
+                getInstance()?.notifierOrNull?.showSyncing(NotificationHelper.NOTIFICATION_ID_EPIC)
+            } else {
+                getInstance()?.notifierOrNull?.showIdle(NotificationHelper.NOTIFICATION_ID_EPIC)
+            }
         }
 
         fun isSyncInProgress(): Boolean = syncInProgress
@@ -267,7 +267,7 @@ class EpicService : Service() {
 
                 // Trigger library refresh event
                 app.gamenative.PluviaApp.events.emitJava(
-                    app.gamenative.events.AndroidEvent.LibraryInstallStatusChanged(appId, app.gamenative.data.GameSource.EPIC)
+                    app.gamenative.events.AndroidEvent.LibraryInstallStatusChanged(appId, app.gamenative.data.GameSource.EPIC),
                 )
 
                 Timber.tag("Epic").i("Game uninstalled: $appId")
@@ -329,7 +329,6 @@ class EpicService : Service() {
         suspend fun updateEpicGame(game: EpicGame) {
             getInstance()?.epicManager?.updateGame(game)
         }
-
 
         fun isGameInstalled(context: Context, appId: Int): Boolean {
             val game = getEpicGameOf(appId) ?: return false
@@ -537,7 +536,7 @@ class EpicService : Service() {
             context: Context,
             namespace: String? = null,
             catalogItemId: String? = null,
-            requiresOwnershipToken: Boolean = false
+            requiresOwnershipToken: Boolean = false,
         ): Result<EpicGameToken> {
             return EpicAuthManager.getGameLaunchToken(context, namespace, catalogItemId, requiresOwnershipToken)
         }
@@ -547,7 +546,7 @@ class EpicService : Service() {
             container: Container,
             game: EpicGame,
             offline: Boolean = false,
-            languageCode: String = "en-US"
+            languageCode: String = "en-US",
         ): Result<List<String>> {
             return EpicGameLauncher.buildLaunchParameters(context, container, game, offline, languageCode)
         }

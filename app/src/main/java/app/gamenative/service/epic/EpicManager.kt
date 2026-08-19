@@ -3,8 +3,6 @@ package app.gamenative.service.epic
 import android.content.Context
 import app.gamenative.PrefManager
 import app.gamenative.data.EpicGame
-import app.gamenative.data.LaunchInfo
-import app.gamenative.data.LibraryItem
 import app.gamenative.db.dao.EpicGameDao
 import app.gamenative.utils.Net
 import app.gamenative.utils.sanitizeForFilename
@@ -13,7 +11,6 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import org.json.JSONArray
@@ -33,7 +30,7 @@ class EpicManager @Inject constructor(
     // Deployment ID cache TTL — deployment IDs rarely change, but a periodic re-probe
     // gives automatic recovery from any poisoned cache entry (stale negative, truncated
     // value, etc.) without requiring manual intervention.
-    private val DEPLOYMENT_ID_CACHE_TTL_MS = 30L * 24 * 60 * 60 * 1000  // 30 days
+    private val DEPLOYMENT_ID_CACHE_TTL_MS = 30L * 24 * 60 * 60 * 1000 // 30 days
 
     private val httpClient = Net.http
 
@@ -344,7 +341,7 @@ class EpicManager @Inject constructor(
                     }
 
                     // Skip invalid platform (such as Android versions)
-                    if(platforms.isNotEmpty() && !platforms.contains("Win32") && !platforms.contains("Windows")){
+                    if (platforms.isNotEmpty() && !platforms.contains("Win32") && !platforms.contains("Windows")) {
                         Timber.tag("Epic").d("Skipping due to invalid platform: $appName (namespace=$namespace, sandbox=$sandboxType)")
                         continue
                     }
@@ -658,7 +655,6 @@ class EpicManager @Inject constructor(
             epicGameDao.deleteAllNonInstalledGames()
         }
     }
-
 
     /**
      * Get a single game by ID

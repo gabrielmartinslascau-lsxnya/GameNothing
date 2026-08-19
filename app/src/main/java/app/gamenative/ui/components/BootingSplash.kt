@@ -435,7 +435,6 @@ private fun ProgressBar(
     }
 }
 
-
 @Preview(name = "BootingSplash - Indeterminate")
 @Composable
 fun BootingSplashPreview() {

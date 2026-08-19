@@ -33,26 +33,44 @@ object AmazonAuthClient {
     ): Result<AmazonAuthResponse> = withContext(Dispatchers.IO) {
         try {
             val body = JSONObject().apply {
-                put("auth_data", JSONObject().apply {
-                    put("authorization_code", authorizationCode)
-                    put("client_domain", "DeviceLegacy")
-                    put("client_id", clientId)
-                    put("code_algorithm", "SHA-256")
-                    put("code_verifier", codeVerifier)
-                    put("use_global_authentication", false)
-                })
-                put("registration_data", JSONObject().apply {
-                    put("app_name", AmazonConstants.APP_NAME)
-                    put("app_version", AmazonConstants.APP_VERSION)
-                    put("device_model", "Windows")
-                    put("device_name", JSONObject.NULL)
-                    put("device_serial", deviceSerial)
-                    put("device_type", AmazonConstants.DEVICE_TYPE)
-                    put("domain", "Device")
-                    put("os_version", "10.0.19044.0")
-                })
-                put("requested_extensions", JSONArray().apply { put("customer_info"); put("device_info") })
-                put("requested_token_type", JSONArray().apply { put("bearer"); put("mac_dms") })
+                put(
+                    "auth_data",
+                    JSONObject().apply {
+                        put("authorization_code", authorizationCode)
+                        put("client_domain", "DeviceLegacy")
+                        put("client_id", clientId)
+                        put("code_algorithm", "SHA-256")
+                        put("code_verifier", codeVerifier)
+                        put("use_global_authentication", false)
+                    },
+                )
+                put(
+                    "registration_data",
+                    JSONObject().apply {
+                        put("app_name", AmazonConstants.APP_NAME)
+                        put("app_version", AmazonConstants.APP_VERSION)
+                        put("device_model", "Windows")
+                        put("device_name", JSONObject.NULL)
+                        put("device_serial", deviceSerial)
+                        put("device_type", AmazonConstants.DEVICE_TYPE)
+                        put("domain", "Device")
+                        put("os_version", "10.0.19044.0")
+                    },
+                )
+                put(
+                    "requested_extensions",
+                    JSONArray().apply {
+                        put("customer_info")
+                        put("device_info")
+                    },
+                )
+                put(
+                    "requested_token_type",
+                    JSONArray().apply {
+                        put("bearer")
+                        put("mac_dms")
+                    },
+                )
                 put("user_context_map", JSONObject())
             }
 
@@ -152,7 +170,13 @@ object AmazonAuthClient {
     ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val body = JSONObject().apply {
-                put("requested_extensions", JSONArray().apply { put("device_info"); put("customer_info") })
+                put(
+                    "requested_extensions",
+                    JSONArray().apply {
+                        put("device_info")
+                        put("customer_info")
+                    },
+                )
             }
 
             val request = Request.Builder()

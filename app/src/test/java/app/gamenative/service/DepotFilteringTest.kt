@@ -4,9 +4,9 @@ import app.gamenative.data.DepotInfo
 import app.gamenative.data.ManifestInfo
 import app.gamenative.enums.OS
 import app.gamenative.enums.OSArch
+import java.util.EnumSet
 import org.junit.Assert.*
 import org.junit.Test
-import java.util.EnumSet
 
 class DepotFilteringTest {
 
@@ -64,10 +64,12 @@ class DepotFilteringTest {
 
     @Test
     fun `depot with mix of 0 and nonzero manifests passes`() {
-        val d = depot(manifests = mapOf(
-            "public" to manifest(size = 1000L, download = 800L),
-            "beta" to manifest(size = 0L, download = 0L),
-        ))
+        val d = depot(
+            manifests = mapOf(
+                "public" to manifest(size = 1000L, download = 800L),
+                "beta" to manifest(size = 0L, download = 0L),
+            ),
+        )
         assertTrue(SteamService.filterForDownloadableDepots(d, true, false, "english", null))
     }
 

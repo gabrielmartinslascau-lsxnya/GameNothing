@@ -53,10 +53,10 @@ class StreamingAssemblyTest {
             listOf("shared", "c"),
         )
         val map = StreamingAssembly.buildChunkLastFileMap(files)
-        assertEquals(0, map["a"])      // only in file 0
+        assertEquals(0, map["a"]) // only in file 0
         assertEquals(2, map["shared"]) // last in file 2
-        assertEquals(1, map["b"])      // only in file 1
-        assertEquals(2, map["c"])      // only in file 2
+        assertEquals(1, map["b"]) // only in file 1
+        assertEquals(2, map["c"]) // only in file 2
     }
 
     @Test

@@ -16,8 +16,10 @@ data class SteamFileHashCache(
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is SteamFileHashCache) return false
-        return appId == other.appId && absPath == other.absPath &&
-            sizeBytes == other.sizeBytes && mtimeMillis == other.mtimeMillis &&
+        return appId == other.appId &&
+            absPath == other.absPath &&
+            sizeBytes == other.sizeBytes &&
+            mtimeMillis == other.mtimeMillis &&
             sha.contentEquals(other.sha)
     }
 

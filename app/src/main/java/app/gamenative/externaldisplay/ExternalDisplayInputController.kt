@@ -20,7 +20,6 @@ import com.winlator.container.Container
 import com.winlator.widget.TouchpadView
 import com.winlator.xserver.XServer
 
-
 class ExternalDisplayInputController(
     private val context: Context,
     private val xServer: XServer,

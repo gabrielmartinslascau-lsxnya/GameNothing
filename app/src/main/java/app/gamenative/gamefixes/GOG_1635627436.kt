@@ -10,4 +10,3 @@ val GOG_Fix_1635627436: KeyedGameFix = KeyedLaunchArgFix(
     gameId = "1635627436",
     launchArgs = "--rendering-driver vulkan",
 )
-

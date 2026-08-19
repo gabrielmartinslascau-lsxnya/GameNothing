@@ -12,8 +12,8 @@ import app.gamenative.PrefManager
  * https://m3.material.io/foundations/layout/applying-layout/window-size-classes
  */
 enum class WindowWidthClass {
-    COMPACT,  // < 600dp
-    MEDIUM,   // 600-840dp
+    COMPACT, // < 600dp
+    MEDIUM, // 600-840dp
     EXPANDED, // > 840dp
 }
 

@@ -29,7 +29,7 @@ enum class DialogType(val icon: ImageVector? = null) {
     INSTALL_IMAGEFS,
     UPDATE_VERIFY_CONFIRM,
     RESET_CONTAINER_CONFIRM,
-    
+
     GAME_FEEDBACK,
     SAVE_CONTAINER_CONFIG,
     APP_UPDATE,

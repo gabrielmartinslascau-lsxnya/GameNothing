@@ -1,9 +1,9 @@
 package app.gamenative.service.epic.manifest
 
-import org.json.JSONArray
-import org.json.JSONObject
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * Parser for JSON format Epic Games manifests (older format)
@@ -54,7 +54,7 @@ class JsonManifestParser {
                 prereqIds = jsonArrayToStringList(json.optJSONArray("PrereqIds")),
                 prereqName = json.optString("PrereqName", ""),
                 prereqPath = json.optString("PrereqPath", ""),
-                prereqArgs = json.optString("PrereqArgs", "")
+                prereqArgs = json.optString("PrereqArgs", ""),
             )
         }
 
@@ -126,7 +126,7 @@ class JsonManifestParser {
                         guid = guidFromJson(partJson.getString("Guid")),
                         offset = blobToNum(partJson.getString("Offset")),
                         size = blobToNum(partJson.getString("Size")),
-                        fileOffset = fileOffset
+                        fileOffset = fileOffset,
                     )
 
                     fm.chunkParts.add(part)

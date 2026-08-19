@@ -3,7 +3,10 @@ package app.gamenative.service
 import android.content.Context
 import android.media.MediaPlayer
 import android.os.FileObserver
+import app.gamenative.PrefManager
+import app.gamenative.R
 import app.gamenative.ui.util.AchievementNotificationManager
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -11,11 +14,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import app.gamenative.PrefManager
-import app.gamenative.R
 import org.json.JSONObject
 import timber.log.Timber
-import java.io.File
 
 class AchievementWatcher(
     private val appId: Int,
@@ -23,7 +23,7 @@ class AchievementWatcher(
     private val displayNameMap: Map<String, String>,
     private val iconUrlMap: Map<String, String?>,
     private val configDirectory: String?,
-    context: Context
+    context: Context,
 ) {
     private val observers = mutableListOf<FileObserver>()
     private val notifiedNames = mutableSetOf<String>()
@@ -160,7 +160,10 @@ class AchievementWatcher(
         val newToUpload = allUnlocked - uploadedNames
 
         Timber.tag("achievements").d("Real-time uploading ${newToUpload.size} new achievements (${allUnlocked.size} total) for appId=$appId")
-        val result = SteamService.storeAchievementUnlocks(appId, configDirectory, allUnlocked, gseStatsDir ?: watchDirs.first().resolve("stats"))
+        val result = SteamService.storeAchievementUnlocks(
+            appId, configDirectory, allUnlocked,
+            gseStatsDir ?: watchDirs.first().resolve("stats"),
+        )
         result.onSuccess {
             uploadedNames.addAll(allUnlocked)
             Timber.tag("achievements").i("Real-time achievement upload succeeded for appId=$appId")

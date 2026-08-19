@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import app.gamenative.ui.component.dialog.LoadingDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -18,17 +17,18 @@ import androidx.compose.ui.res.stringResource
 import app.gamenative.R
 import app.gamenative.data.GOGGame
 import app.gamenative.data.LibraryItem
-import app.gamenative.enums.Marker
 import app.gamenative.service.DownloadService
 import app.gamenative.service.gog.GOGConstants
 import app.gamenative.service.gog.GOGService
-import app.gamenative.utils.MarkerUtils
-import java.io.File
+import app.gamenative.ui.component.dialog.LoadingDialog
 import app.gamenative.ui.data.AppMenuOption
 import app.gamenative.ui.data.GameDisplayInfo
 import app.gamenative.ui.enums.AppOptionMenuType
+import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.utils.ContainerUtils.getContainer
+import app.gamenative.utils.MarkerUtils
 import com.winlator.container.ContainerData
+import java.io.File
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +36,6 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import app.gamenative.ui.util.SnackbarManager
 import timber.log.Timber
 
 /**
@@ -300,13 +299,13 @@ class GOGAppScreen : BaseAppScreen() {
                 // Calculate sizes
                 val downloadSize = app.gamenative.utils.StorageUtils.formatBinarySize(game?.downloadSize ?: 0L)
                 val availableSpace = app.gamenative.utils.StorageUtils.formatBinarySize(
-                    app.gamenative.utils.StorageUtils.getAvailableSpace(app.gamenative.service.gog.GOGConstants.defaultGOGGamesPath)
+                    app.gamenative.utils.StorageUtils.getAvailableSpace(app.gamenative.service.gog.GOGConstants.defaultGOGGamesPath),
                 )
 
                 val message = context.getString(
                     R.string.gog_install_confirmation_message,
                     downloadSize,
-                    availableSpace
+                    availableSpace,
                 )
                 val state = app.gamenative.ui.component.dialog.state.MessageDialogState(
                     visible = true,
@@ -314,7 +313,7 @@ class GOGAppScreen : BaseAppScreen() {
                     title = context.getString(R.string.gog_install_game_title),
                     message = message,
                     confirmBtnText = context.getString(R.string.download),
-                    dismissBtnText = context.getString(R.string.cancel)
+                    dismissBtnText = context.getString(R.string.cancel),
                 )
                 BaseAppScreen.showInstallDialog(libraryItem.appId, state)
             } catch (e: Exception) {
@@ -390,7 +389,7 @@ class GOGAppScreen : BaseAppScreen() {
                     message = context.getString(R.string.library_delete_download_message),
                     confirmBtnText = context.getString(R.string.yes),
                     dismissBtnText = context.getString(R.string.no),
-                )
+                ),
             )
         } else if (isInstalledFlag) {
             Timber.tag(TAG).i("Showing uninstall dialog for: ${libraryItem.appId}")
@@ -642,7 +641,9 @@ class GOGAppScreen : BaseAppScreen() {
         }
         app.gamenative.PluviaApp.events.on<app.gamenative.events.AndroidEvent.PostInstallSyncStatusChanged, Unit>(postInstallSyncListener)
         disposables +=
-            { app.gamenative.PluviaApp.events.off<app.gamenative.events.AndroidEvent.PostInstallSyncStatusChanged, Unit>(postInstallSyncListener) }
+            {
+                app.gamenative.PluviaApp.events.off<app.gamenative.events.AndroidEvent.PostInstallSyncStatusChanged, Unit>(postInstallSyncListener)
+            }
 
         // Return cleanup function
         return {
@@ -662,7 +663,6 @@ class GOGAppScreen : BaseAppScreen() {
     ) {
         Timber.tag(TAG).d("AdditionalDialogs: composing for appId=${libraryItem.appId}")
         val context = LocalContext.current
-
 
         // Monitor uninstall dialog state
         var showUninstallDialog by remember { mutableStateOf(shouldShowUninstallDialog(libraryItem.appId)) }

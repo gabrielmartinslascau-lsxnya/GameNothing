@@ -6,10 +6,10 @@ import app.gamenative.PrefManager
 import com.google.android.play.core.integrity.IntegrityManagerFactory
 import com.google.android.play.core.integrity.StandardIntegrityManager
 import com.google.android.play.core.integrity.StandardIntegrityManager.StandardIntegrityTokenProvider
-import kotlinx.coroutines.suspendCancellableCoroutine
-import timber.log.Timber
 import java.security.MessageDigest
 import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
+import timber.log.Timber
 
 object PlayIntegrity {
 

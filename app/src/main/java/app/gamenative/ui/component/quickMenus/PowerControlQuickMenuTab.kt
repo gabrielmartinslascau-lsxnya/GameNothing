@@ -80,7 +80,7 @@ fun PowerControlQuickMenuTab(
                 PowerManager.currentProfile?.let { profile ->
                     val updatedProfile = profile.copy(
                         enableAutoTuning = enabled,
-                        name = PerformancePreset.CUSTOM.displayName
+                        name = PerformancePreset.CUSTOM.displayName,
                     )
                     PowerManager.setCurrentProfile(updatedProfile)
                 }
@@ -94,7 +94,7 @@ fun PowerControlQuickMenuTab(
                 PowerManager.currentProfile?.let { profile ->
                     val updatedProfile = profile.copy(
                         tuningStrategy = strategy,
-                        name = PerformancePreset.CUSTOM.displayName
+                        name = PerformancePreset.CUSTOM.displayName,
                     )
                     PowerManager.setCurrentProfile(updatedProfile)
                 }
@@ -231,36 +231,36 @@ fun PowerControlSuccessCpuOnlyPreview() {
                     currentMinValue = 300000,
                     currentMaxValue = 2800000,
                     selectedMinFreqIndex = 0,
-                    selectedMaxFreqIndex = 5
+                    selectedMaxFreqIndex = 5,
                 ),
                 gpuInfo = null,
                 selectedProfile = PowerProfile(
                     name = PerformancePreset.PERFORMANCE.displayName,
                     governor = CpuGovernor.PERFORMANCE,
                     minCpuFreq = 300000,
-                    maxCpuFreq = 2800000
+                    maxCpuFreq = 2800000,
                 ),
                 availableProfiles = listOf(
                     PowerProfile(
                         name = PerformancePreset.PERFORMANCE.displayName,
                         governor = CpuGovernor.PERFORMANCE,
                         minCpuFreq = 300000,
-                        maxCpuFreq = 2800000
+                        maxCpuFreq = 2800000,
                     ),
                     PowerProfile(
                         name = PerformancePreset.BALANCED.displayName,
                         governor = CpuGovernor.SCHEDUTIL,
                         minCpuFreq = 300000,
-                        maxCpuFreq = 2200000
+                        maxCpuFreq = 2200000,
                     ),
                     PowerProfile(
                         name = PerformancePreset.POWER_SAVE.displayName,
                         governor = CpuGovernor.POWERSAVE,
                         minCpuFreq = 300000,
-                        maxCpuFreq = 1400000
-                    )
+                        maxCpuFreq = 1400000,
+                    ),
                 ),
-                ramInfo = null
+                ramInfo = null,
             ),
             isDriverSupported = true,
             onAutoTuningToggled = {},
@@ -290,39 +290,39 @@ fun PowerControlSuccessWithGpuPreview() {
                     currentMinValue = 300000,
                     currentMaxValue = 2200000,
                     selectedMinFreqIndex = 0,
-                    selectedMaxFreqIndex = 4
+                    selectedMaxFreqIndex = 4,
                 ),
                 gpuInfo = GpuDisplayInfo(
                     availableFrequencies = listOf(180000000, 305000000, 427000000, 587000000, 710000000),
                     currentFreqIndex = 3,
                     minPowerLevel = 0,
                     maxPowerLevel = 4,
-                    maxAvailablePowerLevel = 4
+                    maxAvailablePowerLevel = 4,
                 ),
                 selectedProfile = PowerProfile(
                     name = PerformancePreset.BALANCED.displayName,
                     governor = CpuGovernor.SCHEDUTIL,
                     minCpuFreq = 300000,
-                    maxCpuFreq = 2200000
+                    maxCpuFreq = 2200000,
                 ),
                 availableProfiles = listOf(
                     PowerProfile(
                         name = PerformancePreset.PERFORMANCE.displayName,
                         governor = CpuGovernor.PERFORMANCE,
                         minCpuFreq = 300000,
-                        maxCpuFreq = 2800000
+                        maxCpuFreq = 2800000,
                     ),
                     PowerProfile(
                         name = PerformancePreset.BALANCED.displayName,
                         governor = CpuGovernor.SCHEDUTIL,
                         minCpuFreq = 300000,
-                        maxCpuFreq = 2200000
-                    )
+                        maxCpuFreq = 2200000,
+                    ),
                 ),
                 ramInfo = RamDisplayInfo(
                     minBusLevel = 0,
                     maxBusLevel = 4,
-                    maxAvailableBusLevel = 4
+                    maxAvailableBusLevel = 4,
                 ),
             ),
             isDriverSupported = true,

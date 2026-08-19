@@ -6,9 +6,12 @@ import android.os.Environment
 import android.os.StatFs
 import android.os.storage.StorageManager
 import java.io.File
+import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.file.FileVisitResult
+import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.SimpleFileVisitor
 import java.nio.file.StandardCopyOption
@@ -18,9 +21,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import timber.log.Timber
-import java.io.IOException
-import java.nio.file.Files
-import java.nio.file.Path
 
 object StorageUtils {
 

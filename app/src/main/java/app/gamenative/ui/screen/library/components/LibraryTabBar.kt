@@ -27,7 +27,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
@@ -42,8 +41,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -60,6 +59,8 @@ import app.gamenative.R
 import app.gamenative.ui.component.focusRing
 import app.gamenative.ui.enums.LibraryTab
 import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.ui.theme.glassContentColor
+import app.gamenative.ui.theme.pluviaGlass
 import app.gamenative.ui.util.WindowWidthClass
 import app.gamenative.ui.util.rememberWindowWidthClass
 
@@ -146,18 +147,23 @@ private fun CompactLibraryTabBar(
         scrollState.animateScrollTo((targetCenter - viewportCenter).coerceAtLeast(0))
     }
 
+    val isGlass = app.gamenative.PrefManager.glassPanels
+    val contentColor = glassContentColor()
+
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                        Color.Transparent,
+            .then(if (isGlass) Modifier.padding(horizontal = 8.dp, vertical = 4.dp).pluviaGlass() else {
+                Modifier.background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                            Color.Transparent,
+                        ),
                     ),
-                ),
-            )
+                )
+            })
             .padding(top = 8.dp, bottom = 12.dp, start = 8.dp, end = 8.dp),
     ) {
         Row(
@@ -198,7 +204,7 @@ private fun CompactLibraryTabBar(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(20.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                    .then(if (!isGlass) Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)) else Modifier.background(Color.White.copy(alpha = 0.05f)))
                     .horizontalScroll(scrollState)
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.Center,
@@ -236,7 +242,7 @@ private fun CompactLibraryTabBar(
                         val tabColor = when {
                             isSelected -> MaterialTheme.colorScheme.onPrimary
                             isTabFocused -> MaterialTheme.colorScheme.primary
-                            else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            else -> contentColor.copy(alpha = 0.8f)
                         }
                         if (tab.icon != null) {
                             Icon(
@@ -322,7 +328,7 @@ private fun CompactIconButton(
             tint = if (isFocused) {
                 MaterialTheme.colorScheme.primary
             } else {
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                glassContentColor().copy(alpha = 0.8f)
             },
             modifier = Modifier.size(20.dp),
         )
@@ -381,17 +387,23 @@ private fun ExpandedLibraryTabBar(
         scrollState.animateScrollTo((targetCenter - viewportCenter).coerceAtLeast(0))
     }
 
+    val isGlass = app.gamenative.PrefManager.glassPanels
+    val contentColor = glassContentColor()
+
     Box(
         modifier = modifier
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                        Color.Transparent,
+            .fillMaxWidth()
+            .then(if (isGlass) Modifier.padding(horizontal = 12.dp, vertical = 6.dp).pluviaGlass() else {
+                Modifier.background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                            Color.Transparent,
+                        ),
                     ),
-                ),
-            )
+                )
+            })
             .padding(top = 8.dp, bottom = 20.dp),
     ) {
         Row(
@@ -433,15 +445,19 @@ private fun ExpandedLibraryTabBar(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(24.dp))
-                    .background(
-                        brush = Brush.horizontalGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    .then(if (!isGlass) {
+                        Modifier.background(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                ),
                             ),
-                        ),
-                    )
+                        )
+                    } else {
+                        Modifier.background(Color.White.copy(alpha = 0.05f))
+                    })
                     .horizontalScroll(scrollState)
                     .padding(4.dp),
                 contentAlignment = Alignment.CenterStart,
@@ -573,7 +589,7 @@ private fun IconActionButton(
             tint = if (isFocused) {
                 MaterialTheme.colorScheme.primary
             } else {
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                glassContentColor().copy(alpha = 0.8f)
             },
             modifier = Modifier.size(22.dp),
         )
@@ -637,7 +653,7 @@ private fun TabItem(
                 contentDescription = stringResource(tab.labelResId),
                 tint = when {
                     isSelected -> MaterialTheme.colorScheme.onPrimary
-                    else -> MaterialTheme.colorScheme.onSurface.copy(alpha = textAlpha)
+                    else -> glassContentColor().copy(alpha = textAlpha)
                 },
                 modifier = Modifier.size(20.dp),
             )
@@ -650,7 +666,7 @@ private fun TabItem(
                 overflow = TextOverflow.Ellipsis,
                 color = when {
                     isSelected -> MaterialTheme.colorScheme.onPrimary
-                    else -> MaterialTheme.colorScheme.onSurface.copy(alpha = textAlpha)
+                    else -> glassContentColor().copy(alpha = textAlpha)
                 },
                 textAlign = TextAlign.Center,
             )

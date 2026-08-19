@@ -20,6 +20,7 @@ object GOGConstants {
     fun init(context: Context) {
         appContext = context.applicationContext
     }
+
     // GOG API URLs
     const val GOG_BASE_API_URL = "https://api.gog.com"
     const val GOG_AUTH_URL = "https://auth.gog.com"
@@ -86,7 +87,8 @@ object GOGConstants {
      * Returns English codes (CONTAINER_LANGUAGE_TO_GOG_CODES.getValue(GOG_FALLBACK_DOWNLOAD_LANGUAGE)) for unknown languages.
      */
     fun containerLanguageToGogCodes(containerLanguage: String): List<String> =
-        CONTAINER_LANGUAGE_TO_GOG_CODES[containerLanguage.lowercase()] ?: CONTAINER_LANGUAGE_TO_GOG_CODES.getValue(GOG_FALLBACK_DOWNLOAD_LANGUAGE)
+        CONTAINER_LANGUAGE_TO_GOG_CODES[containerLanguage.lowercase()]
+            ?: CONTAINER_LANGUAGE_TO_GOG_CODES.getValue(GOG_FALLBACK_DOWNLOAD_LANGUAGE)
 
     /** Path under _CommonRedist to a file that indicates this dependency is installed. */
     val GOG_DEPENDENCY_INSTALLED_PATH: Map<String, String> = mapOf(

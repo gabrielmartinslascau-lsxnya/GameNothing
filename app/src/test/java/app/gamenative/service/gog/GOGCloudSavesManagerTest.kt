@@ -1,13 +1,13 @@
 package app.gamenative.service.gog
 
 import android.content.Context
+import java.lang.reflect.Method
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.kotlin.mock
-import java.lang.reflect.Method
 
 class GOGCloudSavesManagerTest {
     private val context: Context = mock()
@@ -88,13 +88,13 @@ class GOGCloudSavesManagerTest {
     private fun classifyFiles(
         localFiles: List<GOGCloudSavesManager.SyncFile>,
         cloudFiles: List<GOGCloudSavesManager.CloudFile>,
-        timestamp: Long
+        timestamp: Long,
     ): GOGCloudSavesManager.SyncClassifier {
         val method: Method = GOGCloudSavesManager::class.java.getDeclaredMethod(
             "classifyFiles",
             List::class.java,
             List::class.java,
-            Long::class.java
+            Long::class.java,
         )
         method.isAccessible = true
         @Suppress("UNCHECKED_CAST")
@@ -110,19 +110,19 @@ class GOGCloudSavesManagerTest {
                 absolutePath = "/path/save1.sav",
                 md5Hash = "hash1",
                 updateTime = "2026-01-01T00:00:00Z",
-                updateTimestamp = 1500L // Modified after last sync
+                updateTimestamp = 1500L, // Modified after last sync
             ),
             GOGCloudSavesManager.SyncFile(
                 relativePath = "save2.sav",
                 absolutePath = "/path/save2.sav",
                 md5Hash = "hash2",
                 updateTime = "2026-01-01T00:00:00Z",
-                updateTimestamp = 500L // Modified before last sync
-            )
+                updateTimestamp = 500L, // Modified before last sync
+            ),
         )
         val cloudFiles = listOf(
             GOGCloudSavesManager.CloudFile("save1.sav", "hash1", "2026-01-01T00:00:00Z", 800L),
-            GOGCloudSavesManager.CloudFile("save2.sav", "hash2", "2026-01-01T00:00:00Z", 500L)
+            GOGCloudSavesManager.CloudFile("save2.sav", "hash2", "2026-01-01T00:00:00Z", 500L),
         )
 
         val classifier = classifyFiles(localFiles, cloudFiles, lastSyncTime)
@@ -136,10 +136,10 @@ class GOGCloudSavesManagerTest {
     fun classifyFiles_identifies_files_not_existing_remotely() {
         val localFiles = listOf(
             GOGCloudSavesManager.SyncFile("save1.sav", "/path/save1.sav", "hash1", "2026-01-01T00:00:00Z", 1000L),
-            GOGCloudSavesManager.SyncFile("save2.sav", "/path/save2.sav", "hash2", "2026-01-01T00:00:00Z", 1000L)
+            GOGCloudSavesManager.SyncFile("save2.sav", "/path/save2.sav", "hash2", "2026-01-01T00:00:00Z", 1000L),
         )
         val cloudFiles = listOf(
-            GOGCloudSavesManager.CloudFile("save1.sav", "hash1", "2026-01-01T00:00:00Z", 1000L)
+            GOGCloudSavesManager.CloudFile("save1.sav", "hash1", "2026-01-01T00:00:00Z", 1000L),
         )
 
         val classifier = classifyFiles(localFiles, cloudFiles, 0L)
@@ -152,10 +152,10 @@ class GOGCloudSavesManagerTest {
     fun classifyFiles_identifies_files_updated_in_cloud_after_last_sync() {
         val lastSyncTime = 1000L
         val localFiles = listOf(
-            GOGCloudSavesManager.SyncFile("save1.sav", "/path/save1.sav", "hash1", "2026-01-01T00:00:00Z", 500L)
+            GOGCloudSavesManager.SyncFile("save1.sav", "/path/save1.sav", "hash1", "2026-01-01T00:00:00Z", 500L),
         )
         val cloudFiles = listOf(
-            GOGCloudSavesManager.CloudFile("save1.sav", "hash1", "2026-01-01T00:00:00Z", 1500L) // Modified after last sync
+            GOGCloudSavesManager.CloudFile("save1.sav", "hash1", "2026-01-01T00:00:00Z", 1500L), // Modified after last sync
         )
 
         val classifier = classifyFiles(localFiles, cloudFiles, lastSyncTime)
@@ -167,11 +167,11 @@ class GOGCloudSavesManagerTest {
     @Test
     fun classifyFiles_identifies_files_not_existing_locally() {
         val localFiles = listOf(
-            GOGCloudSavesManager.SyncFile("save1.sav", "/path/save1.sav", "hash1", "2026-01-01T00:00:00Z", 1000L)
+            GOGCloudSavesManager.SyncFile("save1.sav", "/path/save1.sav", "hash1", "2026-01-01T00:00:00Z", 1000L),
         )
         val cloudFiles = listOf(
             GOGCloudSavesManager.CloudFile("save1.sav", "hash1", "2026-01-01T00:00:00Z", 1000L),
-            GOGCloudSavesManager.CloudFile("save2.sav", "hash2", "2026-01-01T00:00:00Z", 1000L)
+            GOGCloudSavesManager.CloudFile("save2.sav", "hash2", "2026-01-01T00:00:00Z", 1000L),
         )
 
         val classifier = classifyFiles(localFiles, cloudFiles, 0L)
@@ -184,7 +184,7 @@ class GOGCloudSavesManagerTest {
     fun classifyFiles_skips_deleted_cloud_files() {
         val localFiles = emptyList<GOGCloudSavesManager.SyncFile>()
         val cloudFiles = listOf(
-            GOGCloudSavesManager.CloudFile("save1.sav", "aadd86936a80ee8a369579c3926f1b3c", "2026-01-01T00:00:00Z", 1000L) // Deletion marker
+            GOGCloudSavesManager.CloudFile("save1.sav", "aadd86936a80ee8a369579c3926f1b3c", "2026-01-01T00:00:00Z", 1000L), // Deletion marker
         )
 
         val classifier = classifyFiles(localFiles, cloudFiles, 0L)
@@ -197,10 +197,10 @@ class GOGCloudSavesManagerTest {
     fun syncClassifier_determineAction_returns_upload_when_only_local_updated() {
         val lastSyncTime = 1000L
         val localFiles = listOf(
-            GOGCloudSavesManager.SyncFile("save1.sav", "/path/save1.sav", "hash1", "2026-01-01T00:00:00Z", 1500L)
+            GOGCloudSavesManager.SyncFile("save1.sav", "/path/save1.sav", "hash1", "2026-01-01T00:00:00Z", 1500L),
         )
         val cloudFiles = listOf(
-            GOGCloudSavesManager.CloudFile("save1.sav", "hash1", "2026-01-01T00:00:00Z", 500L)
+            GOGCloudSavesManager.CloudFile("save1.sav", "hash1", "2026-01-01T00:00:00Z", 500L),
         )
 
         val classifier = classifyFiles(localFiles, cloudFiles, lastSyncTime)
@@ -213,10 +213,10 @@ class GOGCloudSavesManagerTest {
     fun syncClassifier_determineAction_returns_download_when_only_cloud_updated() {
         val lastSyncTime = 1000L
         val localFiles = listOf(
-            GOGCloudSavesManager.SyncFile("save1.sav", "/path/save1.sav", "hash1", "2026-01-01T00:00:00Z", 500L)
+            GOGCloudSavesManager.SyncFile("save1.sav", "/path/save1.sav", "hash1", "2026-01-01T00:00:00Z", 500L),
         )
         val cloudFiles = listOf(
-            GOGCloudSavesManager.CloudFile("save1.sav", "hash1", "2026-01-01T00:00:00Z", 1500L)
+            GOGCloudSavesManager.CloudFile("save1.sav", "hash1", "2026-01-01T00:00:00Z", 1500L),
         )
 
         val classifier = classifyFiles(localFiles, cloudFiles, lastSyncTime)
@@ -229,10 +229,10 @@ class GOGCloudSavesManagerTest {
     fun syncClassifier_determineAction_returns_conflict_when_both_updated() {
         val lastSyncTime = 1000L
         val localFiles = listOf(
-            GOGCloudSavesManager.SyncFile("save1.sav", "/path/save1.sav", "hash1", "2026-01-01T00:00:00Z", 1500L)
+            GOGCloudSavesManager.SyncFile("save1.sav", "/path/save1.sav", "hash1", "2026-01-01T00:00:00Z", 1500L),
         )
         val cloudFiles = listOf(
-            GOGCloudSavesManager.CloudFile("save1.sav", "hash1", "2026-01-01T00:00:00Z", 1500L)
+            GOGCloudSavesManager.CloudFile("save1.sav", "hash1", "2026-01-01T00:00:00Z", 1500L),
         )
 
         val classifier = classifyFiles(localFiles, cloudFiles, lastSyncTime)
@@ -245,10 +245,10 @@ class GOGCloudSavesManagerTest {
     fun syncClassifier_determineAction_returns_none_when_nothing_updated() {
         val lastSyncTime = 1000L
         val localFiles = listOf(
-            GOGCloudSavesManager.SyncFile("save1.sav", "/path/save1.sav", "hash1", "2026-01-01T00:00:00Z", 500L)
+            GOGCloudSavesManager.SyncFile("save1.sav", "/path/save1.sav", "hash1", "2026-01-01T00:00:00Z", 500L),
         )
         val cloudFiles = listOf(
-            GOGCloudSavesManager.CloudFile("save1.sav", "hash1", "2026-01-01T00:00:00Z", 500L)
+            GOGCloudSavesManager.CloudFile("save1.sav", "hash1", "2026-01-01T00:00:00Z", 500L),
         )
 
         val classifier = classifyFiles(localFiles, cloudFiles, lastSyncTime)
@@ -264,11 +264,11 @@ class GOGCloudSavesManagerTest {
         val localFiles = listOf(
             GOGCloudSavesManager.SyncFile("unchanged.sav", "/path/unchanged.sav", "hash1", "2026-01-01T00:00:00Z", 500L),
             GOGCloudSavesManager.SyncFile("modified.sav", "/path/modified.sav", "hash2", "2026-01-01T00:00:00Z", 1500L),
-            GOGCloudSavesManager.SyncFile("new.sav", "/path/new.sav", "hash3", "2026-01-01T00:00:00Z", 1200L)
+            GOGCloudSavesManager.SyncFile("new.sav", "/path/new.sav", "hash3", "2026-01-01T00:00:00Z", 1200L),
         )
         val cloudFiles = listOf(
             GOGCloudSavesManager.CloudFile("unchanged.sav", "hash1", "2026-01-01T00:00:00Z", 500L),
-            GOGCloudSavesManager.CloudFile("modified.sav", "hash2_old", "2026-01-01T00:00:00Z", 800L)
+            GOGCloudSavesManager.CloudFile("modified.sav", "hash2_old", "2026-01-01T00:00:00Z", 800L),
         )
 
         val classifier = classifyFiles(localFiles, cloudFiles, lastSyncTime)
@@ -291,7 +291,7 @@ class GOGCloudSavesManagerTest {
         // This test verifies they are only uploaded once
         val lastSyncTime = 1000L
         val localFiles = listOf(
-            GOGCloudSavesManager.SyncFile("new.sav", "/path/new.sav", "hash1", "2026-01-01T00:00:00Z", 1500L)
+            GOGCloudSavesManager.SyncFile("new.sav", "/path/new.sav", "hash1", "2026-01-01T00:00:00Z", 1500L),
         )
         val cloudFiles = emptyList<GOGCloudSavesManager.CloudFile>()
 
@@ -321,11 +321,11 @@ class GOGCloudSavesManagerTest {
         val lastSyncTime = 1000L
         val localFiles = listOf(
             GOGCloudSavesManager.SyncFile("save1.sav", "/path/save1.sav", "hash1", "2026-01-01T00:00:00Z", 500L),
-            GOGCloudSavesManager.SyncFile("save2.sav", "/path/save2.sav", "hash2", "2026-01-01T00:00:00Z", 800L)
+            GOGCloudSavesManager.SyncFile("save2.sav", "/path/save2.sav", "hash2", "2026-01-01T00:00:00Z", 800L),
         )
         val cloudFiles = listOf(
             GOGCloudSavesManager.CloudFile("save1.sav", "hash1", "2026-01-01T00:00:00Z", 500L),
-            GOGCloudSavesManager.CloudFile("save2.sav", "hash2", "2026-01-01T00:00:00Z", 800L)
+            GOGCloudSavesManager.CloudFile("save2.sav", "hash2", "2026-01-01T00:00:00Z", 800L),
         )
 
         val classifier = classifyFiles(localFiles, cloudFiles, lastSyncTime)
@@ -354,7 +354,7 @@ class GOGCloudSavesManagerTest {
             relativePath = "save.sav",
             md5Hash = "abc123",
             updateTime = "2026-01-01T00:00:00Z",
-            updateTimestamp = 1500L // seconds (UTC epoch)
+            updateTimestamp = 1500L, // seconds (UTC epoch)
         )
 
         // After download, the local file's lastModified() should be set to:
@@ -367,7 +367,7 @@ class GOGCloudSavesManagerTest {
             absolutePath = "/path/save.sav",
             md5Hash = cloudFile.md5Hash,
             updateTime = cloudFile.updateTime,
-            updateTimestamp = cloudFile.updateTimestamp // Should match cloud timestamp
+            updateTimestamp = cloudFile.updateTimestamp, // Should match cloud timestamp
         )
 
         // Verify timestamps match (both in seconds)

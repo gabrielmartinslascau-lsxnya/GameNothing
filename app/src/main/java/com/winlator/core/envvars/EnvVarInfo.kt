@@ -1,7 +1,5 @@
 package com.winlator.core.envvars
 
-import org.intellij.lang.annotations.Identifier
-
 data class EnvVarInfo(
     val identifier: String,
     val selectionType: EnvVarSelectionType = EnvVarSelectionType.NONE,
@@ -200,7 +198,7 @@ data class EnvVarInfo(
                 possibleValues = listOf(
                     "startup", "nir", "nobin", "sysmem", "gmem", "forcebin", "layout", "noubwc", "nomultipos",
                     "nolrz", "nolrzfc", "perf", "perfc", "flushall", "syncdraw", "push_consts_per_stage", "rast_order",
-                    "unaligned_store", "log_skip_gmem_ops", "dynamic", "bos", "3d_load", "fdm", "noconform", "rd", "deck_emu"
+                    "unaligned_store", "log_skip_gmem_ops", "dynamic", "bos", "3d_load", "fdm", "noconform", "rd", "deck_emu",
                 ),
             ),
             "DXVK_HUD" to EnvVarInfo(
@@ -272,9 +270,9 @@ data class EnvVarInfo(
                 identifier = "VKD3D_CONFIG",
                 selectionType = EnvVarSelectionType.SUGGESTIONS,
                 possibleValues = listOf(
-                    "no_upload_hvv,nodxr", //prevents free use of vram as memory, disables Ray Tracing
-                    "skip_application_workarounds", //disables x86 fixes that are mostly not in android
-                    "no_upload_hvv,nodxr,skip_application_workarounds", //combination of the above two
+                    "no_upload_hvv,nodxr", // prevents free use of vram as memory, disables Ray Tracing
+                    "skip_application_workarounds", // disables x86 fixes that are mostly not in android
+                    "no_upload_hvv,nodxr,skip_application_workarounds", // combination of the above two
                 ),
             ),
             "DXVK_CONFIG" to EnvVarInfo(
@@ -284,7 +282,7 @@ data class EnvVarInfo(
             "DXVK_DISABLE_TIMELINE_SEMAPHORES" to EnvVarInfo(
                 identifier = "DXVK_DISABLE_TIMELINE_SEMAPHORES",
                 selectionType = EnvVarSelectionType.TOGGLE,
-                possibleValues = listOf("0", "1")
+                possibleValues = listOf("0", "1"),
             ),
             "MESA_VK_PRESENT_MODE" to EnvVarInfo(
                 identifier = "MESA_VK_PRESENT_MODE",

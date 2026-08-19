@@ -66,8 +66,11 @@ fun NoExtractOutlinedTextField(
     }
 
     val resolvedActions = keyboardActions
-        ?: if (singleLine) KeyboardActions(onDone = { focusManager.clearFocus() })
-        else KeyboardActions.Default
+        ?: if (singleLine) {
+            KeyboardActions(onDone = { focusManager.clearFocus() })
+        } else {
+            KeyboardActions.Default
+        }
 
     // A focused Compose text field swallows D-pad up/down (for cursor movement),
     // which traps controller focus on the field. In a single-line field up/down are

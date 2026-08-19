@@ -20,11 +20,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.gamenative.R
-import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.ui.component.settings.SettingsListDropdown
 import app.gamenative.ui.component.settings.SettingsTextField
 import app.gamenative.ui.theme.settingsTileColors
 import app.gamenative.ui.theme.settingsTileColorsAlt
+import app.gamenative.ui.util.SnackbarManager
 import com.alorma.compose.settings.ui.SettingsGroup
 import com.alorma.compose.settings.ui.SettingsMenuLink
 import com.alorma.compose.settings.ui.SettingsSwitch
@@ -61,7 +61,7 @@ fun ElementEditorDialog(
     element: ControlElement,
     view: InputControlsView,
     onDismiss: () -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
 ) {
     val context = LocalContext.current
 
@@ -74,7 +74,7 @@ fun ElementEditorDialog(
     // Store original bindings for restore on cancel
     val originalBindings by remember {
         mutableStateOf(
-            (0 until element.bindingCount).map { element.getBindingAt(it) }
+            (0 until element.bindingCount).map { element.getBindingAt(it) },
         )
     }
 
@@ -130,12 +130,12 @@ fun ElementEditorDialog(
     val movementTypeLabels = listOf(
         stringResource(R.string.movement_wasd),
         stringResource(R.string.movement_arrow_keys),
-        stringResource(R.string.movement_gamepad_left_stick)
+        stringResource(R.string.movement_gamepad_left_stick),
     )
     val lookTypeOptions = listOf("mouse", "gamepad_right_stick")
     val lookTypeLabels = listOf(
         stringResource(R.string.look_type_mouse),
-        stringResource(R.string.look_type_gamepad_right_stick)
+        stringResource(R.string.look_type_gamepad_right_stick),
     )
     var currentMovementTypeIndex by remember {
         mutableIntStateOf(movementTypeOptions.indexOf(element.shooterMovementType).coerceAtLeast(0))
@@ -155,12 +155,12 @@ fun ElementEditorDialog(
     val rangeTypes = listOf(
         ControlElement.Range.FROM_A_TO_Z,
         ControlElement.Range.FROM_0_TO_9,
-        ControlElement.Range.FROM_F1_TO_F12
+        ControlElement.Range.FROM_F1_TO_F12,
     )
     val rangeTypeLabels = listOf(
         stringResource(R.string.range_a_to_z),
         stringResource(R.string.range_1_to_0),
-        stringResource(R.string.range_f1_to_f12)
+        stringResource(R.string.range_f1_to_f12),
     )
     var currentRangeTypeIndex by remember {
         mutableIntStateOf(rangeTypes.indexOf(element.range).coerceAtLeast(0))
@@ -203,7 +203,7 @@ fun ElementEditorDialog(
         mutableStateOf(
             view.profile?.elements
                 ?.associateWith { ControlAppearance.capture(it) }
-                .orEmpty()
+                .orEmpty(),
         )
     }
 
@@ -214,7 +214,7 @@ fun ElementEditorDialog(
         element.setButtonColor(currentButtonColor)
         element.setButtonActiveColor(currentButtonActiveColor, currentButtonActiveColorCustom)
         element.setButtonOpacity(
-            if (currentButtonOpacityInherited) ControlElement.INHERIT_BUTTON_OPACITY else currentButtonOpacity
+            if (currentButtonOpacityInherited) ControlElement.INHERIT_BUTTON_OPACITY else currentButtonOpacity,
         )
         element.setButtonStrokeScale(currentButtonStrokeScale)
         element.setShooterLookThrough(currentLegacyShooterLookThrough)
@@ -292,7 +292,7 @@ fun ElementEditorDialog(
         currentButtonStrokeScale,
         currentLookThrough,
         currentLegacyShooterLookThrough,
-        currentTypeIndex
+        currentTypeIndex,
     ) {
         applyCurrentControlAppearance()
         view.invalidate()
@@ -314,8 +314,8 @@ fun ElementEditorDialog(
         properties = DialogProperties(
             usePlatformDefaultWidth = false,
             dismissOnBackPress = true,
-            dismissOnClickOutside = false
-        )
+            dismissOnClickOutside = false,
+        ),
     ) {
         // Show either full settings dialog or minimized size adjuster
         if (showSizeAdjuster) {
@@ -342,685 +342,694 @@ fun ElementEditorDialog(
                     element.setScale(1.0f)
                     hasUnsavedChanges = true
                     view.invalidate()
-                }
+                },
             )
         } else {
             // Full settings dialog
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
                 topBar = {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.edit_element, element.type.name),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = stringResource(R.string.element_position_size, element.x.toInt(), element.y.toInt(), currentScale),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = {
-                            if (hasUnsavedChanges) {
-                                showExitConfirmation = true
-                            } else {
-                                onDismiss()
+                    CenterAlignedTopAppBar(
+                        title = {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.edit_element, element.type.name),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                Text(
+                                    text = stringResource(R.string.element_position_size, element.x.toInt(), element.y.toInt(), currentScale),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
-                        }) {
-                            Icon(Icons.Default.Close, null)
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = {
+                                if (hasUnsavedChanges) {
+                                    showExitConfirmation = true
+                                } else {
+                                    onDismiss()
+                                }
+                            }) {
+                                Icon(Icons.Default.Close, null)
+                            }
+                        },
+                        actions = {
+                            IconButton(onClick = {
+                                saveChanges()
+                                onSave()
+                            }) {
+                                Icon(Icons.Default.Save, null)
+                            }
+                        },
+                    )
+                },
+            ) { padding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    // Appearance Section
+                    SettingsGroup(title = { Text(stringResource(R.string.appearance)) }) {
+                        // Text/Label - only for BUTTON type
+                        if (element.type == ControlElement.Type.BUTTON) {
+                            SettingsTextField(
+                                colors = settingsTileColors(),
+                                title = { Text(stringResource(R.string.label_text)) },
+                                subtitle = { Text(stringResource(R.string.label_text_subtitle)) },
+                                value = currentText,
+                                onValueChange = {
+                                    currentText = it
+                                    currentTextEdited = true
+                                    hasUnsavedChanges = true
+                                },
+                                action = {
+                                    // Reset button to restore original text
+                                    IconButton(onClick = {
+                                        // Reset to initial display text (binding-based or original custom text)
+                                        currentText = initialDisplayText
+                                        currentTextEdited = false
+                                        element.setText(originalText)
+                                        hasUnsavedChanges = true
+                                        view.invalidate()
+                                    }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp),
+                                        )
+                                    }
+                                },
+                            )
                         }
-                    },
-                    actions = {
-                        IconButton(onClick = {
-                            saveChanges()
-                            onSave()
-                        }) {
-                            Icon(Icons.Default.Save, null)
+
+                        // Element Type
+                        val types = ControlElement.Type.values()
+                        val typeNames = types.map {
+                            if (it == ControlElement.Type.SHOOTER_MODE) {
+                                "DYNAMIC JOYSTICKS"
+                            } else {
+                                it.name.replace("_", " ")
+                            }
+                        }
+                        SettingsListDropdown(
+                            colors = settingsTileColors(),
+                            title = { Text(stringResource(R.string.element_type)) },
+                            subtitle = { Text(stringResource(R.string.element_type_subtitle)) },
+                            value = currentTypeIndex,
+                            items = typeNames,
+                            onItemSelected = { index ->
+                                val newType = types[index]
+                                currentTypeIndex = index
+                                currentShape = when (newType) {
+                                    ControlElement.Type.STICK,
+                                    ControlElement.Type.SHOOTER_MODE,
+                                    -> ControlElement.Shape.CIRCLE
+                                    ControlElement.Type.TRACKPAD,
+                                    ControlElement.Type.RANGE_BUTTON,
+                                    -> ControlElement.Shape.ROUND_RECT
+                                    else -> currentShape
+                                }
+                                element.setTypeWithoutReset(newType)
+
+                                // Mark as having unsaved changes
+                                hasUnsavedChanges = true
+
+                                // Force UI refresh
+                                bindingsRefreshKey++
+                                view.invalidate()
+                            },
+                        )
+
+                        // Element Shape (with restrictions)
+                        // STICK, TRACKPAD, RANGE_BUTTON have fixed rendering shapes
+                        // D_PAD uses custom cross-shaped path and doesn't respect shape
+                        val selectedType = types[currentTypeIndex]
+                        val availableShapes = when (selectedType) {
+                            ControlElement.Type.STICK -> {
+                                // Stick is always rendered as CIRCLE
+                                listOf(ControlElement.Shape.CIRCLE)
+                            }
+                            ControlElement.Type.TRACKPAD,
+                            ControlElement.Type.RANGE_BUTTON,
+                            -> {
+                                // Trackpad and Range Button are always rendered as ROUND_RECT
+                                listOf(ControlElement.Shape.ROUND_RECT)
+                            }
+                            ControlElement.Type.D_PAD -> {
+                                // D-Pad uses custom cross-shaped path, shape doesn't affect rendering
+                                // Don't allow changing shape
+                                listOf(currentShape)
+                            }
+                            ControlElement.Type.SHOOTER_MODE -> {
+                                // Shooter Mode is always rendered as CIRCLE
+                                listOf(ControlElement.Shape.CIRCLE)
+                            }
+                            ControlElement.Type.BUTTON -> {
+                                // Buttons fully support all shapes
+                                ControlElement.Shape.values().toList()
+                            }
+                        }
+
+                        if (availableShapes.size > 1) {
+                            val shapeNames = availableShapes.map { it.name.replace("_", " ") }
+                            val currentShapeIndexInList = availableShapes.indexOf(currentShape).coerceAtLeast(0)
+                            SettingsListDropdown(
+                                colors = settingsTileColors(),
+                                title = { Text(stringResource(R.string.shape)) },
+                                subtitle = { Text(stringResource(R.string.shape_subtitle)) },
+                                value = currentShapeIndexInList,
+                                items = shapeNames,
+                                onItemSelected = { index ->
+                                    currentShape = availableShapes[index]
+                                    hasUnsavedChanges = true
+                                },
+                            )
+                        } else if (availableShapes.size == 1 && selectedType != ControlElement.Type.D_PAD) {
+                            // Show info for restricted types (but not D-PAD since it's obvious)
+                            SettingsMenuLink(
+                                colors = settingsTileColors(),
+                                title = { Text(stringResource(R.string.shape)) },
+                                subtitle = {
+                                    Text(stringResource(R.string.shape_restricted, selectedType.name, availableShapes[0].name.replace("_", " ")))
+                                },
+                                enabled = false,
+                                onClick = {},
+                            )
                         }
                     }
-                )
-            }
-        ) { padding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .verticalScroll(rememberScrollState())
-            ) {
-                // Appearance Section
-                SettingsGroup(title = { Text(stringResource(R.string.appearance)) }) {
-                    // Text/Label - only for BUTTON type
-                    if (element.type == ControlElement.Type.BUTTON) {
-                        SettingsTextField(
-                            colors = settingsTileColors(),
-                            title = { Text(stringResource(R.string.label_text)) },
-                            subtitle = { Text(stringResource(R.string.label_text_subtitle)) },
-                            value = currentText,
-                            onValueChange = {
-                                currentText = it
-                                currentTextEdited = true
-                                hasUnsavedChanges = true
-                            },
-                            action = {
-                                // Reset button to restore original text
-                                IconButton(onClick = {
-                                    // Reset to initial display text (binding-based or original custom text)
-                                    currentText = initialDisplayText
-                                    currentTextEdited = false
-                                    element.setText(originalText)
-                                    hasUnsavedChanges = true
-                                    view.invalidate()
-                                }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Refresh,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp)
+
+                    // Bindings Section
+                    // Use key() with bindingsRefreshKey to force recomposition when bindings change
+                    key(bindingsRefreshKey) {
+                        SettingsGroup(title = { Text(stringResource(R.string.bindings)) }) {
+                            // Quick Presets for directional controls (D-Pad and Stick only)
+                            if (element.type == ControlElement.Type.D_PAD || element.type == ControlElement.Type.STICK) {
+                                VirtualControlPresets(
+                                    element = element,
+                                    view = view,
+                                    onPresetsApplied = {
+                                        // Mark as having unsaved changes
+                                        hasUnsavedChanges = true
+                                        // Force UI refresh after presets are applied
+                                        bindingsRefreshKey++
+                                    },
+                                )
+                            }
+
+                            if (element.type == ControlElement.Type.RANGE_BUTTON) {
+                                SettingsMenuLink(
+                                    colors = settingsTileColors(),
+                                    title = { Text(stringResource(R.string.bindings_auto_generated)) },
+                                    subtitle = { Text(stringResource(R.string.bindings_auto_generated_subtitle)) },
+                                    enabled = false,
+                                    onClick = {},
+                                )
+                            } else if (element.type == ControlElement.Type.SHOOTER_MODE) {
+                                // Bindings auto-generated for these types
+                                SettingsMenuLink(
+                                    colors = settingsTileColors(),
+                                    title = { Text(stringResource(R.string.bindings_auto_generated)) },
+                                    subtitle = { Text(stringResource(R.string.bindings_auto_generated_subtitle)) },
+                                    enabled = false,
+                                    onClick = {},
+                                )
+                            } else {
+                                val bindingCount = when (element.type) {
+                                    ControlElement.Type.BUTTON -> 2
+                                    else -> 4
+                                }
+
+                                for (i in 0 until bindingCount) {
+                                    val binding = element.getBindingAt(i)
+                                    val bindingName = binding?.toString() ?: "NONE"
+
+                                    val slotLabel = when (element.type) {
+                                        ControlElement.Type.BUTTON -> {
+                                            stringResource(if (i == 0) R.string.primary_action else R.string.secondary_action)
+                                        }
+                                        ControlElement.Type.D_PAD,
+                                        ControlElement.Type.STICK,
+                                        -> {
+                                            val directionResId = when (i) {
+                                                0 -> R.string.direction_up
+                                                1 -> R.string.direction_right
+                                                2 -> R.string.direction_down
+                                                else -> R.string.direction_left
+                                            }
+                                            stringResource(directionResId)
+                                        }
+                                        ControlElement.Type.TRACKPAD -> {
+                                            val directionResId = when (i) {
+                                                0 -> R.string.direction_up
+                                                1 -> R.string.direction_right
+                                                2 -> R.string.direction_down
+                                                else -> R.string.direction_left
+                                            }
+                                            stringResource(directionResId) + stringResource(R.string.mouse_suffix)
+                                        }
+                                        else -> stringResource(R.string.slot_number, i + 1)
+                                    }
+
+                                    SettingsMenuLink(
+                                        colors = settingsTileColors(),
+                                        title = { Text(slotLabel) },
+                                        subtitle = { Text(bindingName) },
+                                        onClick = {
+                                            bindingSlotToEdit = Pair(i, slotLabel)
+                                        },
+                                    )
+                                }
+
+                                // Helper text for buttons
+                                if (element.type == ControlElement.Type.BUTTON) {
+                                    Text(
+                                        text = stringResource(R.string.button_slots_help),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.padding(16.dp),
                                     )
                                 }
                             }
-                        )
-                    }
-
-                    // Element Type
-                    val types = ControlElement.Type.values()
-                    val typeNames = types.map {
-                        if (it == ControlElement.Type.SHOOTER_MODE) "DYNAMIC JOYSTICKS"
-                        else it.name.replace("_", " ")
-                    }
-                    SettingsListDropdown(
-                        colors = settingsTileColors(),
-                        title = { Text(stringResource(R.string.element_type)) },
-                        subtitle = { Text(stringResource(R.string.element_type_subtitle)) },
-                        value = currentTypeIndex,
-                        items = typeNames,
-                        onItemSelected = { index ->
-                            val newType = types[index]
-                            currentTypeIndex = index
-                            currentShape = when (newType) {
-                                ControlElement.Type.STICK,
-                                ControlElement.Type.SHOOTER_MODE -> ControlElement.Shape.CIRCLE
-                                ControlElement.Type.TRACKPAD,
-                                ControlElement.Type.RANGE_BUTTON -> ControlElement.Shape.ROUND_RECT
-                                else -> currentShape
-                            }
-                            element.setTypeWithoutReset(newType)
-
-                            // Mark as having unsaved changes
-                            hasUnsavedChanges = true
-
-                            // Force UI refresh
-                            bindingsRefreshKey++
-                            view.invalidate()
-                        }
-                    )
-
-                    // Element Shape (with restrictions)
-                    // STICK, TRACKPAD, RANGE_BUTTON have fixed rendering shapes
-                    // D_PAD uses custom cross-shaped path and doesn't respect shape
-                    val selectedType = types[currentTypeIndex]
-                    val availableShapes = when (selectedType) {
-                        ControlElement.Type.STICK -> {
-                            // Stick is always rendered as CIRCLE
-                            listOf(ControlElement.Shape.CIRCLE)
-                        }
-                        ControlElement.Type.TRACKPAD,
-                        ControlElement.Type.RANGE_BUTTON -> {
-                            // Trackpad and Range Button are always rendered as ROUND_RECT
-                            listOf(ControlElement.Shape.ROUND_RECT)
-                        }
-                        ControlElement.Type.D_PAD -> {
-                            // D-Pad uses custom cross-shaped path, shape doesn't affect rendering
-                            // Don't allow changing shape
-                            listOf(currentShape)
-                        }
-                        ControlElement.Type.SHOOTER_MODE -> {
-                            // Shooter Mode is always rendered as CIRCLE
-                            listOf(ControlElement.Shape.CIRCLE)
-                        }
-                        ControlElement.Type.BUTTON -> {
-                            // Buttons fully support all shapes
-                            ControlElement.Shape.values().toList()
                         }
                     }
 
-                    if (availableShapes.size > 1) {
-                        val shapeNames = availableShapes.map { it.name.replace("_", " ") }
-                        val currentShapeIndexInList = availableShapes.indexOf(currentShape).coerceAtLeast(0)
-                        SettingsListDropdown(
-                            colors = settingsTileColors(),
-                            title = { Text(stringResource(R.string.shape)) },
-                            subtitle = { Text(stringResource(R.string.shape_subtitle)) },
-                            value = currentShapeIndexInList,
-                            items = shapeNames,
-                            onItemSelected = { index ->
-                                currentShape = availableShapes[index]
-                                hasUnsavedChanges = true
-                            }
-                        )
-                    } else if (availableShapes.size == 1 && selectedType != ControlElement.Type.D_PAD) {
-                        // Show info for restricted types (but not D-PAD since it's obvious)
-                        SettingsMenuLink(
-                            colors = settingsTileColors(),
-                            title = { Text(stringResource(R.string.shape)) },
-                            subtitle = { Text(stringResource(R.string.shape_restricted, selectedType.name, availableShapes[0].name.replace("_", " "))) },
-                            enabled = false,
-                            onClick = {}
-                        )
-                    }
-                }
-
-                // Bindings Section
-                // Use key() with bindingsRefreshKey to force recomposition when bindings change
-                key(bindingsRefreshKey) {
-                    SettingsGroup(title = { Text(stringResource(R.string.bindings)) }) {
-                        // Quick Presets for directional controls (D-Pad and Stick only)
-                        if (element.type == ControlElement.Type.D_PAD || element.type == ControlElement.Type.STICK) {
-                            VirtualControlPresets(
-                                element = element,
-                                view = view,
-                                onPresetsApplied = {
-                                    // Mark as having unsaved changes
-                                    hasUnsavedChanges = true
-                                    // Force UI refresh after presets are applied
-                                    bindingsRefreshKey++
-                                }
-                            )
-                        }
-
-                        if (element.type == ControlElement.Type.RANGE_BUTTON) {
-                            SettingsMenuLink(
+                    // Range Button Settings Section (only for RANGE_BUTTON type)
+                    if (types[currentTypeIndex] == ControlElement.Type.RANGE_BUTTON) {
+                        SettingsGroup(title = { Text(stringResource(R.string.range_button_settings)) }) {
+                            // Key Range dropdown
+                            SettingsListDropdown(
                                 colors = settingsTileColors(),
-                                title = { Text(stringResource(R.string.bindings_auto_generated)) },
-                                subtitle = { Text(stringResource(R.string.bindings_auto_generated_subtitle)) },
-                                enabled = false,
-                                onClick = {}
-                            )
-                        } else if (element.type == ControlElement.Type.SHOOTER_MODE) {
-                            // Bindings auto-generated for these types
-                            SettingsMenuLink(
-                                colors = settingsTileColors(),
-                                title = { Text(stringResource(R.string.bindings_auto_generated)) },
-                                subtitle = { Text(stringResource(R.string.bindings_auto_generated_subtitle)) },
-                                enabled = false,
-                                onClick = {}
-                            )
-                        } else {
-                            val bindingCount = when (element.type) {
-                                ControlElement.Type.BUTTON -> 2
-                                else -> 4
-                            }
-
-                            for (i in 0 until bindingCount) {
-                                val binding = element.getBindingAt(i)
-                                val bindingName = binding?.toString() ?: "NONE"
-
-                                val slotLabel = when (element.type) {
-                                    ControlElement.Type.BUTTON -> {
-                                        stringResource(if (i == 0) R.string.primary_action else R.string.secondary_action)
+                                title = { Text(stringResource(R.string.range_type)) },
+                                subtitle = { Text(stringResource(R.string.range_type_subtitle)) },
+                                value = currentRangeTypeIndex,
+                                items = rangeTypeLabels,
+                                onItemSelected = { index ->
+                                    currentRangeTypeIndex = index
+                                    element.setRange(rangeTypes[index])
+                                    // Clamp visible segments to the new range's max
+                                    val newMax = rangeTypes[index].max.toInt()
+                                    if (currentVisibleSegments > newMax) {
+                                        currentVisibleSegments = newMax
+                                        element.setBindingCount(newMax)
                                     }
-                                    ControlElement.Type.D_PAD,
-                                    ControlElement.Type.STICK -> {
-                                        val directionResId = when (i) {
-                                            0 -> R.string.direction_up
-                                            1 -> R.string.direction_right
-                                            2 -> R.string.direction_down
-                                            else -> R.string.direction_left
-                                        }
-                                        stringResource(directionResId)
-                                    }
-                                    ControlElement.Type.TRACKPAD -> {
-                                        val directionResId = when (i) {
-                                            0 -> R.string.direction_up
-                                            1 -> R.string.direction_right
-                                            2 -> R.string.direction_down
-                                            else -> R.string.direction_left
-                                        }
-                                        stringResource(directionResId) + stringResource(R.string.mouse_suffix)
-                                    }
-                                    else -> stringResource(R.string.slot_number, i + 1)
-                                }
-
-                                SettingsMenuLink(
-                                    colors = settingsTileColors(),
-                                    title = { Text(slotLabel) },
-                                    subtitle = { Text(bindingName) },
-                                    onClick = {
-                                        bindingSlotToEdit = Pair(i, slotLabel)
-                                    }
-                                )
-                            }
-
-                            // Helper text for buttons
-                            if (element.type == ControlElement.Type.BUTTON) {
-                                Text(
-                                    text = stringResource(R.string.button_slots_help),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.padding(16.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Range Button Settings Section (only for RANGE_BUTTON type)
-                if (types[currentTypeIndex] == ControlElement.Type.RANGE_BUTTON) {
-                    SettingsGroup(title = { Text(stringResource(R.string.range_button_settings)) }) {
-                        // Key Range dropdown
-                        SettingsListDropdown(
-                            colors = settingsTileColors(),
-                            title = { Text(stringResource(R.string.range_type)) },
-                            subtitle = { Text(stringResource(R.string.range_type_subtitle)) },
-                            value = currentRangeTypeIndex,
-                            items = rangeTypeLabels,
-                            onItemSelected = { index ->
-                                currentRangeTypeIndex = index
-                                element.setRange(rangeTypes[index])
-                                // Clamp visible segments to the new range's max
-                                val newMax = rangeTypes[index].max.toInt()
-                                if (currentVisibleSegments > newMax) {
-                                    currentVisibleSegments = newMax
-                                    element.setBindingCount(newMax)
-                                }
-                                hasUnsavedChanges = true
-                                view.invalidate()
-                            }
-                        )
-
-                        // Orientation dropdown
-                        val orientationLabels = listOf(
-                            stringResource(R.string.range_orientation_horizontal),
-                            stringResource(R.string.range_orientation_vertical)
-                        )
-                        SettingsListDropdown(
-                            colors = settingsTileColors(),
-                            title = { Text(stringResource(R.string.range_orientation)) },
-                            subtitle = { Text(stringResource(R.string.range_orientation_subtitle)) },
-                            value = currentOrientation,
-                            items = orientationLabels,
-                            onItemSelected = { index ->
-                                currentOrientation = index
-                                element.setOrientation(index.toByte())
-                                hasUnsavedChanges = true
-                                view.invalidate()
-                            }
-                        )
-
-                        // Visible Segments slider
-                        val maxSegments = rangeTypes[currentRangeTypeIndex].max.toInt()
-                        SettingsMenuLink(
-                            colors = settingsTileColors(),
-                            title = { Text(stringResource(R.string.range_visible_segments)) },
-                            subtitle = { Text(stringResource(R.string.range_visible_segments_subtitle, currentVisibleSegments)) },
-                            onClick = {}
-                        )
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Slider(
-                                value = currentVisibleSegments.toFloat(),
-                                onValueChange = {
-                                    val newCount = it.roundToInt().coerceIn(1, maxSegments)
-                                    currentVisibleSegments = newCount
-                                    element.setBindingCount(newCount)
                                     hasUnsavedChanges = true
                                     view.invalidate()
                                 },
-                                valueRange = 1f..maxSegments.toFloat(),
-                                steps = (maxSegments - 2).coerceAtLeast(0),
-                                modifier = Modifier.weight(1f)
                             )
-                            Text(
-                                text = "$currentVisibleSegments",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold
+
+                            // Orientation dropdown
+                            val orientationLabels = listOf(
+                                stringResource(R.string.range_orientation_horizontal),
+                                stringResource(R.string.range_orientation_vertical),
+                            )
+                            SettingsListDropdown(
+                                colors = settingsTileColors(),
+                                title = { Text(stringResource(R.string.range_orientation)) },
+                                subtitle = { Text(stringResource(R.string.range_orientation_subtitle)) },
+                                value = currentOrientation,
+                                items = orientationLabels,
+                                onItemSelected = { index ->
+                                    currentOrientation = index
+                                    element.setOrientation(index.toByte())
+                                    hasUnsavedChanges = true
+                                    view.invalidate()
+                                },
+                            )
+
+                            // Visible Segments slider
+                            val maxSegments = rangeTypes[currentRangeTypeIndex].max.toInt()
+                            SettingsMenuLink(
+                                colors = settingsTileColors(),
+                                title = { Text(stringResource(R.string.range_visible_segments)) },
+                                subtitle = { Text(stringResource(R.string.range_visible_segments_subtitle, currentVisibleSegments)) },
+                                onClick = {},
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Slider(
+                                    value = currentVisibleSegments.toFloat(),
+                                    onValueChange = {
+                                        val newCount = it.roundToInt().coerceIn(1, maxSegments)
+                                        currentVisibleSegments = newCount
+                                        element.setBindingCount(newCount)
+                                        hasUnsavedChanges = true
+                                        view.invalidate()
+                                    },
+                                    valueRange = 1f..maxSegments.toFloat(),
+                                    steps = (maxSegments - 2).coerceAtLeast(0),
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(
+                                    text = "$currentVisibleSegments",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+
+                            // Lock Scrolling switch
+                            SettingsSwitch(
+                                colors = settingsTileColorsAlt(),
+                                title = { Text(stringResource(R.string.range_lock_scrolling)) },
+                                subtitle = { Text(stringResource(R.string.range_lock_scrolling_subtitle)) },
+                                state = currentScrollLocked,
+                                onCheckedChange = {
+                                    currentScrollLocked = it
+                                    element.isScrollLocked = it
+                                    hasUnsavedChanges = true
+                                },
                             )
                         }
+                    }
 
-                        // Lock Scrolling switch
-                        SettingsSwitch(
-                            colors = settingsTileColorsAlt(),
-                            title = { Text(stringResource(R.string.range_lock_scrolling)) },
-                            subtitle = { Text(stringResource(R.string.range_lock_scrolling_subtitle)) },
-                            state = currentScrollLocked,
-                            onCheckedChange = {
-                                currentScrollLocked = it
-                                element.isScrollLocked = it
+                    // Shooter Mode Settings Section (only for SHOOTER_MODE type)
+                    if (types[currentTypeIndex] == ControlElement.Type.SHOOTER_MODE) {
+                        SettingsGroup(title = { Text(stringResource(R.string.shooter_mode_settings)) }) {
+                            // Movement Type dropdown
+                            SettingsListDropdown(
+                                colors = settingsTileColors(),
+                                title = { Text(stringResource(R.string.movement_type)) },
+                                subtitle = { Text(stringResource(R.string.movement_type_subtitle)) },
+                                value = currentMovementTypeIndex,
+                                items = movementTypeLabels,
+                                onItemSelected = { index ->
+                                    currentMovementTypeIndex = index
+                                    hasUnsavedChanges = true
+                                },
+                            )
+
+                            // Look Type dropdown
+                            SettingsListDropdown(
+                                colors = settingsTileColors(),
+                                title = { Text(stringResource(R.string.look_type)) },
+                                subtitle = { Text(stringResource(R.string.look_type_subtitle)) },
+                                value = currentLookTypeIndex,
+                                items = lookTypeLabels,
+                                onItemSelected = { index ->
+                                    currentLookTypeIndex = index
+                                    hasUnsavedChanges = true
+                                },
+                            )
+
+                            // Look Sensitivity slider
+                            SettingsMenuLink(
+                                colors = settingsTileColors(),
+                                title = { Text(stringResource(R.string.look_sensitivity)) },
+                                subtitle = { Text(stringResource(R.string.look_sensitivity_subtitle)) },
+                                onClick = {},
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Slider(
+                                    value = currentLookSensitivity,
+                                    onValueChange = {
+                                        currentLookSensitivity = it
+                                        hasUnsavedChanges = true
+                                    },
+                                    valueRange = 0.1f..10.0f,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(
+                                    text = String.format(Locale.US, "%.1fx", currentLookSensitivity),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+
+                            // Joystick Size slider
+                            SettingsMenuLink(
+                                colors = settingsTileColors(),
+                                title = { Text(stringResource(R.string.joystick_size)) },
+                                subtitle = { Text(stringResource(R.string.joystick_size_subtitle)) },
+                                onClick = {},
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp)
+                                    .padding(bottom = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Slider(
+                                    value = currentJoystickSize,
+                                    onValueChange = {
+                                        currentJoystickSize = it
+                                        hasUnsavedChanges = true
+                                    },
+                                    valueRange = 0.5f..3.0f,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(
+                                    text = String.format(Locale.US, "%.1fx", currentJoystickSize),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+                    }
+
+                    // Control Appearance Section
+                    SettingsGroup(title = { Text(stringResource(R.string.control_appearance)) }) {
+                        ControlAppearancePreview(
+                            type = types[currentTypeIndex],
+                            text = currentText.ifEmpty { bindingShortLabel(element.getBindingAt(0)).ifEmpty { "A" } },
+                            shape = currentShape,
+                            orientation = currentOrientation,
+                            segmentCount = currentVisibleSegments,
+                            color = currentButtonColor,
+                            activeColor = currentButtonActiveColor,
+                            opacity = currentButtonOpacity,
+                            strokeScale = currentButtonStrokeScale,
+                        )
+
+                        ControlColorField(
+                            title = stringResource(R.string.button_color),
+                            subtitle = stringResource(R.string.button_color_subtitle),
+                            value = currentButtonColorText,
+                            selectedColor = currentButtonColor,
+                            onValueChange = { value ->
+                                currentButtonColorText = value.uppercase(Locale.US)
+                                parseRgbHex(value)?.let {
+                                    currentButtonColor = it
+                                    hasUnsavedChanges = true
+                                }
+                            },
+                            onPresetSelected = {
+                                currentButtonColor = it
+                                currentButtonColorText = rgbToHex(it)
                                 hasUnsavedChanges = true
                             },
                         )
-                    }
-                }
 
-                // Shooter Mode Settings Section (only for SHOOTER_MODE type)
-                if (types[currentTypeIndex] == ControlElement.Type.SHOOTER_MODE) {
-                    SettingsGroup(title = { Text(stringResource(R.string.shooter_mode_settings)) }) {
-                        // Movement Type dropdown
-                        SettingsListDropdown(
-                            colors = settingsTileColors(),
-                            title = { Text(stringResource(R.string.movement_type)) },
-                            subtitle = { Text(stringResource(R.string.movement_type_subtitle)) },
-                            value = currentMovementTypeIndex,
-                            items = movementTypeLabels,
-                            onItemSelected = { index ->
-                                currentMovementTypeIndex = index
+                        ControlColorField(
+                            title = stringResource(R.string.button_active_color),
+                            subtitle = stringResource(R.string.button_active_color_subtitle),
+                            value = currentButtonActiveColorText,
+                            selectedColor = currentButtonActiveColor,
+                            onValueChange = { value ->
+                                currentButtonActiveColorText = value.uppercase(Locale.US)
+                                parseRgbHex(value)?.let {
+                                    currentButtonActiveColor = it
+                                    currentButtonActiveColorCustom = true
+                                    hasUnsavedChanges = true
+                                }
+                            },
+                            onPresetSelected = {
+                                currentButtonActiveColor = it
+                                currentButtonActiveColorCustom = true
+                                currentButtonActiveColorText = rgbToHex(it)
                                 hasUnsavedChanges = true
-                            }
+                            },
                         )
 
-                        // Look Type dropdown
-                        SettingsListDropdown(
-                            colors = settingsTileColors(),
-                            title = { Text(stringResource(R.string.look_type)) },
-                            subtitle = { Text(stringResource(R.string.look_type_subtitle)) },
-                            value = currentLookTypeIndex,
-                            items = lookTypeLabels,
-                            onItemSelected = { index ->
-                                currentLookTypeIndex = index
-                                hasUnsavedChanges = true
-                            }
-                        )
-
-                        // Look Sensitivity slider
                         SettingsMenuLink(
                             colors = settingsTileColors(),
-                            title = { Text(stringResource(R.string.look_sensitivity)) },
-                            subtitle = { Text(stringResource(R.string.look_sensitivity_subtitle)) },
-                            onClick = {}
+                            title = { Text(stringResource(R.string.button_opacity)) },
+                            subtitle = {
+                                Text(
+                                    if (currentButtonOpacityInherited) {
+                                        stringResource(R.string.button_opacity_inherited, (currentButtonOpacity * 100).roundToInt())
+                                    } else {
+                                        stringResource(R.string.button_opacity_value, (currentButtonOpacity * 100).roundToInt())
+                                    },
+                                )
+                            },
+                            onClick = {},
                         )
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Slider(
-                                value = currentLookSensitivity,
+                                value = currentButtonOpacity,
                                 onValueChange = {
-                                    currentLookSensitivity = it
+                                    currentButtonOpacity = it
+                                    currentButtonOpacityInherited = false
                                     hasUnsavedChanges = true
                                 },
-                                valueRange = 0.1f..10.0f,
-                                modifier = Modifier.weight(1f)
+                                valueRange = 0.1f..1.0f,
+                                modifier = Modifier.weight(1f),
                             )
                             Text(
-                                text = String.format(Locale.US, "%.1fx", currentLookSensitivity),
+                                text = "${(currentButtonOpacity * 100).roundToInt()}%",
                                 style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
                             )
                         }
 
-                        // Joystick Size slider
                         SettingsMenuLink(
                             colors = settingsTileColors(),
-                            title = { Text(stringResource(R.string.joystick_size)) },
-                            subtitle = { Text(stringResource(R.string.joystick_size_subtitle)) },
-                            onClick = {}
+                            title = { Text(stringResource(R.string.size)) },
+                            subtitle = { Text(stringResource(R.string.size_subtitle, currentScale)) },
+                            onClick = {
+                                showSizeAdjuster = true
+                            },
                         )
+
+                        val strokeWidthItems = listOf(
+                            stringResource(R.string.control_stroke_width_thin),
+                            stringResource(R.string.control_stroke_width_default),
+                            stringResource(R.string.control_stroke_width_thick),
+                            stringResource(R.string.control_stroke_width_extra_thick),
+                        )
+                        val strokeWidthIndex = closestStrokeWidthIndex(currentButtonStrokeScale)
+                        SettingsListDropdown(
+                            colors = settingsTileColors(),
+                            title = { Text(stringResource(R.string.control_stroke_width)) },
+                            subtitle = { Text(stringResource(R.string.control_stroke_width_subtitle)) },
+                            value = strokeWidthIndex,
+                            items = strokeWidthItems,
+                            onItemSelected = { index ->
+                                currentButtonStrokeScale = controlStrokeWidthScales[index]
+                                hasUnsavedChanges = true
+                            },
+                        )
+
+                        if (types[currentTypeIndex] == ControlElement.Type.BUTTON) {
+                            SettingsSwitch(
+                                colors = settingsTileColorsAlt(),
+                                title = { Text(stringResource(R.string.button_toggleable)) },
+                                subtitle = { Text(stringResource(R.string.button_toggleable_subtitle)) },
+                                state = currentToggleSwitch,
+                                onCheckedChange = {
+                                    currentToggleSwitch = it
+                                    element.setToggleSwitch(it)
+                                    hasUnsavedChanges = true
+                                },
+                            )
+
+                            SettingsSwitch(
+                                colors = settingsTileColorsAlt(),
+                                title = { Text(stringResource(R.string.button_look_through)) },
+                                subtitle = { Text(stringResource(R.string.button_look_through_subtitle)) },
+                                state = currentLookThrough == true,
+                                onCheckedChange = {
+                                    currentLookThrough = it
+                                    hasUnsavedChanges = true
+                                },
+                            )
+                        }
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                                .padding(bottom = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Slider(
-                                value = currentJoystickSize,
-                                onValueChange = {
-                                    currentJoystickSize = it
+                            OutlinedButton(
+                                onClick = {
+                                    showCopyAppearanceDialog(context, element, view) { appearance ->
+                                        currentScale = appearance.scale
+                                        currentButtonColor = appearance.color
+                                        currentButtonColorText = rgbToHex(appearance.color)
+                                        currentButtonActiveColor = appearance.activeColor
+                                        currentButtonActiveColorCustom = appearance.activeColorCustom
+                                        currentButtonActiveColorText = rgbToHex(appearance.activeColor)
+                                        currentButtonOpacityInherited = appearance.opacity < 0f
+                                        currentButtonOpacity = if (appearance.opacity >= 0f) appearance.opacity else view.overlayOpacity
+                                        currentButtonStrokeScale = appearance.strokeScale
+                                        currentLookThrough = appearance.lookThrough
+                                        currentLegacyShooterLookThrough = appearance.legacyShooterLookThrough
+                                        hasUnsavedChanges = true
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp),
+                            ) {
+                                Text(stringResource(R.string.copy), style = MaterialTheme.typography.labelSmall)
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    val appearance = currentAppearance()
+                                    view.profile?.elements
+                                        ?.forEach { appearance.applyTo(it) }
+                                    view.invalidate()
+                                    hasUnsavedChanges = true
+                                    SnackbarManager.show(context.getString(R.string.toast_applied_button_appearance))
+                                },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp),
+                            ) {
+                                Text(stringResource(R.string.apply_all), style = MaterialTheme.typography.labelSmall)
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    currentButtonColor = ControlElement.DEFAULT_BUTTON_COLOR
+                                    currentButtonColorText = rgbToHex(ControlElement.DEFAULT_BUTTON_COLOR)
+                                    currentButtonActiveColor = ControlElement.DEFAULT_BUTTON_ACTIVE_COLOR
+                                    currentButtonActiveColorCustom = false
+                                    currentButtonActiveColorText = rgbToHex(ControlElement.DEFAULT_BUTTON_ACTIVE_COLOR)
+                                    currentButtonOpacityInherited = true
+                                    currentButtonOpacity = view.overlayOpacity
+                                    currentScale = 1.0f
+                                    element.setScale(1.0f)
+                                    currentButtonStrokeScale = ControlElement.DEFAULT_BUTTON_STROKE_SCALE
+                                    currentLookThrough = ControlElement.DEFAULT_LOOK_THROUGH
+                                    currentLegacyShooterLookThrough = true
+                                    view.invalidate()
                                     hasUnsavedChanges = true
                                 },
-                                valueRange = 0.5f..3.0f,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(
-                                text = String.format(Locale.US, "%.1fx", currentJoystickSize),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-
-                // Control Appearance Section
-                SettingsGroup(title = { Text(stringResource(R.string.control_appearance)) }) {
-                    ControlAppearancePreview(
-                        type = types[currentTypeIndex],
-                        text = currentText.ifEmpty { bindingShortLabel(element.getBindingAt(0)).ifEmpty { "A" } },
-                        shape = currentShape,
-                        orientation = currentOrientation,
-                        segmentCount = currentVisibleSegments,
-                        color = currentButtonColor,
-                        activeColor = currentButtonActiveColor,
-                        opacity = currentButtonOpacity,
-                        strokeScale = currentButtonStrokeScale
-                    )
-
-                    ControlColorField(
-                        title = stringResource(R.string.button_color),
-                        subtitle = stringResource(R.string.button_color_subtitle),
-                        value = currentButtonColorText,
-                        selectedColor = currentButtonColor,
-                        onValueChange = { value ->
-                            currentButtonColorText = value.uppercase(Locale.US)
-                            parseRgbHex(value)?.let {
-                                currentButtonColor = it
-                                hasUnsavedChanges = true
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp),
+                            ) {
+                                Text(stringResource(R.string.reset), style = MaterialTheme.typography.labelSmall)
                             }
-                        },
-                        onPresetSelected = {
-                            currentButtonColor = it
-                            currentButtonColorText = rgbToHex(it)
-                            hasUnsavedChanges = true
-                        }
-                    )
-
-                    ControlColorField(
-                        title = stringResource(R.string.button_active_color),
-                        subtitle = stringResource(R.string.button_active_color_subtitle),
-                        value = currentButtonActiveColorText,
-                        selectedColor = currentButtonActiveColor,
-                        onValueChange = { value ->
-                            currentButtonActiveColorText = value.uppercase(Locale.US)
-                            parseRgbHex(value)?.let {
-                                currentButtonActiveColor = it
-                                currentButtonActiveColorCustom = true
-                                hasUnsavedChanges = true
-                            }
-                        },
-                        onPresetSelected = {
-                            currentButtonActiveColor = it
-                            currentButtonActiveColorCustom = true
-                            currentButtonActiveColorText = rgbToHex(it)
-                            hasUnsavedChanges = true
-                        }
-                    )
-
-                    SettingsMenuLink(
-                        colors = settingsTileColors(),
-                        title = { Text(stringResource(R.string.button_opacity)) },
-                        subtitle = {
-                            Text(
-                                if (currentButtonOpacityInherited) {
-                                    stringResource(R.string.button_opacity_inherited, (currentButtonOpacity * 100).roundToInt())
-                                } else {
-                                    stringResource(R.string.button_opacity_value, (currentButtonOpacity * 100).roundToInt())
-                                }
-                            )
-                        },
-                        onClick = {}
-                    )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Slider(
-                            value = currentButtonOpacity,
-                            onValueChange = {
-                                currentButtonOpacity = it
-                                currentButtonOpacityInherited = false
-                                hasUnsavedChanges = true
-                            },
-                            valueRange = 0.1f..1.0f,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text(
-                            text = "${(currentButtonOpacity * 100).roundToInt()}%",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    SettingsMenuLink(
-                        colors = settingsTileColors(),
-                        title = { Text(stringResource(R.string.size)) },
-                        subtitle = { Text(stringResource(R.string.size_subtitle, currentScale)) },
-                        onClick = {
-                            showSizeAdjuster = true
-                        }
-                    )
-
-                    val strokeWidthItems = listOf(
-                        stringResource(R.string.control_stroke_width_thin),
-                        stringResource(R.string.control_stroke_width_default),
-                        stringResource(R.string.control_stroke_width_thick),
-                        stringResource(R.string.control_stroke_width_extra_thick)
-                    )
-                    val strokeWidthIndex = closestStrokeWidthIndex(currentButtonStrokeScale)
-                    SettingsListDropdown(
-                        colors = settingsTileColors(),
-                        title = { Text(stringResource(R.string.control_stroke_width)) },
-                        subtitle = { Text(stringResource(R.string.control_stroke_width_subtitle)) },
-                        value = strokeWidthIndex,
-                        items = strokeWidthItems,
-                        onItemSelected = { index ->
-                            currentButtonStrokeScale = controlStrokeWidthScales[index]
-                            hasUnsavedChanges = true
-                        }
-                    )
-
-                    if (types[currentTypeIndex] == ControlElement.Type.BUTTON) {
-                        SettingsSwitch(
-                            colors = settingsTileColorsAlt(),
-                            title = { Text(stringResource(R.string.button_toggleable)) },
-                            subtitle = { Text(stringResource(R.string.button_toggleable_subtitle)) },
-                            state = currentToggleSwitch,
-                            onCheckedChange = {
-                                currentToggleSwitch = it
-                                element.setToggleSwitch(it)
-                                hasUnsavedChanges = true
-                            },
-                        )
-
-                        SettingsSwitch(
-                            colors = settingsTileColorsAlt(),
-                            title = { Text(stringResource(R.string.button_look_through)) },
-                            subtitle = { Text(stringResource(R.string.button_look_through_subtitle)) },
-                            state = currentLookThrough == true,
-                            onCheckedChange = {
-                                currentLookThrough = it
-                                hasUnsavedChanges = true
-                            },
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = {
-                                showCopyAppearanceDialog(context, element, view) { appearance ->
-                                    currentScale = appearance.scale
-                                    currentButtonColor = appearance.color
-                                    currentButtonColorText = rgbToHex(appearance.color)
-                                    currentButtonActiveColor = appearance.activeColor
-                                    currentButtonActiveColorCustom = appearance.activeColorCustom
-                                    currentButtonActiveColorText = rgbToHex(appearance.activeColor)
-                                    currentButtonOpacityInherited = appearance.opacity < 0f
-                                    currentButtonOpacity = if (appearance.opacity >= 0f) appearance.opacity else view.overlayOpacity
-                                    currentButtonStrokeScale = appearance.strokeScale
-                                    currentLookThrough = appearance.lookThrough
-                                    currentLegacyShooterLookThrough = appearance.legacyShooterLookThrough
-                                    hasUnsavedChanges = true
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp)
-                        ) {
-                            Text(stringResource(R.string.copy), style = MaterialTheme.typography.labelSmall)
-                        }
-
-                        OutlinedButton(
-                            onClick = {
-                                val appearance = currentAppearance()
-                                view.profile?.elements
-                                    ?.forEach { appearance.applyTo(it) }
-                                view.invalidate()
-                                hasUnsavedChanges = true
-                                SnackbarManager.show(context.getString(R.string.toast_applied_button_appearance))
-                            },
-                            modifier = Modifier.weight(1f),
-                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp)
-                        ) {
-                            Text(stringResource(R.string.apply_all), style = MaterialTheme.typography.labelSmall)
-                        }
-
-                        OutlinedButton(
-                            onClick = {
-                                currentButtonColor = ControlElement.DEFAULT_BUTTON_COLOR
-                                currentButtonColorText = rgbToHex(ControlElement.DEFAULT_BUTTON_COLOR)
-                                currentButtonActiveColor = ControlElement.DEFAULT_BUTTON_ACTIVE_COLOR
-                                currentButtonActiveColorCustom = false
-                                currentButtonActiveColorText = rgbToHex(ControlElement.DEFAULT_BUTTON_ACTIVE_COLOR)
-                                currentButtonOpacityInherited = true
-                                currentButtonOpacity = view.overlayOpacity
-                                currentScale = 1.0f
-                                element.setScale(1.0f)
-                                currentButtonStrokeScale = ControlElement.DEFAULT_BUTTON_STROKE_SCALE
-                                currentLookThrough = ControlElement.DEFAULT_LOOK_THROUGH
-                                currentLegacyShooterLookThrough = true
-                                view.invalidate()
-                                hasUnsavedChanges = true
-                            },
-                            modifier = Modifier.weight(1f),
-                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp)
-                        ) {
-                            Text(stringResource(R.string.reset), style = MaterialTheme.typography.labelSmall)
                         }
                     }
-                }
 
-                // Properties Section
-                SettingsGroup(title = { Text(stringResource(R.string.properties)) }) {
-                    SettingsMenuLink(
-                        colors = settingsTileColors(),
-                        title = { Text(stringResource(R.string.position)) },
-                        subtitle = { Text(stringResource(R.string.position_value, element.x, element.y)) },
-                        enabled = false,
-                        onClick = {}
-                    )
+                    // Properties Section
+                    SettingsGroup(title = { Text(stringResource(R.string.properties)) }) {
+                        SettingsMenuLink(
+                            colors = settingsTileColors(),
+                            title = { Text(stringResource(R.string.position)) },
+                            subtitle = { Text(stringResource(R.string.position_value, element.x, element.y)) },
+                            enabled = false,
+                            onClick = {},
+                        )
+                    }
                 }
             }
-        }
         }
     }
 
@@ -1078,7 +1087,7 @@ fun ElementEditorDialog(
 
                 // Force UI refresh to show updated binding in list
                 bindingsRefreshKey++
-            }
+            },
         )
     }
 
@@ -1135,7 +1144,7 @@ fun ElementEditorDialog(
                 }) {
                     Text(stringResource(R.string.discard))
                 }
-            }
+            },
         )
     }
 }
@@ -1153,7 +1162,7 @@ private fun SizeAdjusterOverlay(
     onScaleChange: (Float) -> Unit,
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
-    onReset: () -> Unit
+    onReset: () -> Unit,
 ) {
     // Determine if element is in top or bottom half of screen
     // Coordinates are in actual screen pixels (not normalized)
@@ -1167,7 +1176,7 @@ private fun SizeAdjusterOverlay(
 
     // Full screen transparent overlay
     Box(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
     ) {
         // Position slider opposite to element location - more compact and transparent
         Surface(
@@ -1178,27 +1187,27 @@ private fun SizeAdjusterOverlay(
                 .padding(16.dp),
             shape = MaterialTheme.shapes.medium,
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-            tonalElevation = 4.dp
+            tonalElevation = 4.dp,
         ) {
             Column(
                 modifier = Modifier
                     .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 // Title and current scale
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         text = stringResource(R.string.adjust_size),
-                        style = MaterialTheme.typography.labelLarge
+                        style = MaterialTheme.typography.labelLarge,
                     )
                     Text(
                         text = String.format(Locale.US, "%.2fx", currentScale),
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                     )
                 }
 
@@ -1209,13 +1218,13 @@ private fun SizeAdjusterOverlay(
                     valueRange = 0.1f..5.0f,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(32.dp)
+                        .height(32.dp),
                 )
 
                 // All 4 buttons in one row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     // Copy Size button
                     OutlinedButton(
@@ -1226,12 +1235,12 @@ private fun SizeAdjusterOverlay(
                             }
                         },
                         modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
                     ) {
                         Icon(
                             imageVector = Icons.Default.FileCopy,
                             contentDescription = null,
-                            modifier = Modifier.size(14.dp)
+                            modifier = Modifier.size(14.dp),
                         )
                         Spacer(modifier = Modifier.width(2.dp))
                         Text(stringResource(R.string.copy), style = MaterialTheme.typography.labelSmall)
@@ -1241,7 +1250,7 @@ private fun SizeAdjusterOverlay(
                     OutlinedButton(
                         onClick = onReset,
                         modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
                     ) {
                         Text(stringResource(R.string.reset), style = MaterialTheme.typography.labelSmall)
                     }
@@ -1250,12 +1259,12 @@ private fun SizeAdjusterOverlay(
                     OutlinedButton(
                         onClick = onCancel,
                         modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = null,
-                            modifier = Modifier.size(14.dp)
+                            modifier = Modifier.size(14.dp),
                         )
                         Spacer(modifier = Modifier.width(2.dp))
                         Text(stringResource(R.string.cancel), style = MaterialTheme.typography.labelSmall)
@@ -1265,12 +1274,12 @@ private fun SizeAdjusterOverlay(
                     Button(
                         onClick = onConfirm,
                         modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
                     ) {
                         Icon(
                             imageVector = Icons.Default.Check,
                             contentDescription = null,
-                            modifier = Modifier.size(14.dp)
+                            modifier = Modifier.size(14.dp),
                         )
                         Spacer(modifier = Modifier.width(2.dp))
                         Text(stringResource(R.string.done), style = MaterialTheme.typography.labelSmall)
@@ -1288,7 +1297,7 @@ private fun showCopySizeDialog(
     context: android.content.Context,
     currentElement: ControlElement,
     view: InputControlsView,
-    onSizeCopied: (Float) -> Unit
+    onSizeCopied: (Float) -> Unit,
 ) {
     val profile = view.profile ?: return
     val elements = profile.getElements()
@@ -1340,32 +1349,32 @@ private fun showCopySizeDialog(
 private fun VirtualControlPresets(
     element: ControlElement,
     view: InputControlsView,
-    onPresetsApplied: () -> Unit = {}
+    onPresetsApplied: () -> Unit = {},
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
-        )
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        ),
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             val context = LocalContext.current
             Text(
                 text = stringResource(R.string.quick_presets),
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSecondaryContainer
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
 
             // Keyboard layouts
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 OutlinedButton(
                     onClick = {
@@ -1373,7 +1382,7 @@ private fun VirtualControlPresets(
                         onPresetsApplied()
                     },
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)
+                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp),
                 ) {
                     Text(stringResource(R.string.preset_wasd), style = MaterialTheme.typography.labelSmall)
                 }
@@ -1383,7 +1392,7 @@ private fun VirtualControlPresets(
                         onPresetsApplied()
                     },
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)
+                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp),
                 ) {
                     Text(stringResource(R.string.preset_arrows), style = MaterialTheme.typography.labelSmall)
                 }
@@ -1393,7 +1402,7 @@ private fun VirtualControlPresets(
                         onPresetsApplied()
                     },
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)
+                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp),
                 ) {
                     Text(stringResource(R.string.preset_mouse), style = MaterialTheme.typography.labelSmall)
                 }
@@ -1402,7 +1411,7 @@ private fun VirtualControlPresets(
             // Gamepad modes
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 OutlinedButton(
                     onClick = {
@@ -1410,7 +1419,7 @@ private fun VirtualControlPresets(
                         onPresetsApplied()
                     },
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)
+                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp),
                 ) {
                     Text(stringResource(R.string.preset_dpad), style = MaterialTheme.typography.labelSmall)
                 }
@@ -1420,7 +1429,7 @@ private fun VirtualControlPresets(
                         onPresetsApplied()
                     },
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)
+                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp),
                 ) {
                     Text(stringResource(R.string.preset_left_stick), style = MaterialTheme.typography.labelSmall)
                 }
@@ -1430,7 +1439,7 @@ private fun VirtualControlPresets(
                         onPresetsApplied()
                     },
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)
+                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp),
                 ) {
                     Text(stringResource(R.string.preset_right_stick), style = MaterialTheme.typography.labelSmall)
                 }
@@ -1443,7 +1452,12 @@ private fun VirtualControlPresets(
  * Preset types for virtual control bindings
  */
 private enum class VirtualPresetType {
-    WASD, ARROW_KEYS, MOUSE_MOVE, DPAD, LEFT_STICK, RIGHT_STICK
+    WASD,
+    ARROW_KEYS,
+    MOUSE_MOVE,
+    DPAD,
+    LEFT_STICK,
+    RIGHT_STICK,
 }
 
 /**
@@ -1452,7 +1466,7 @@ private enum class VirtualPresetType {
 private fun applyVirtualPreset(
     element: ControlElement,
     presetType: VirtualPresetType,
-    view: InputControlsView
+    view: InputControlsView,
 ) {
     // Define bindings for each preset (Up, Right, Down, Left order)
     val bindings = when (presetType) {
@@ -1460,37 +1474,37 @@ private fun applyVirtualPreset(
             com.winlator.inputcontrols.Binding.KEY_W,
             com.winlator.inputcontrols.Binding.KEY_D,
             com.winlator.inputcontrols.Binding.KEY_S,
-            com.winlator.inputcontrols.Binding.KEY_A
+            com.winlator.inputcontrols.Binding.KEY_A,
         )
         VirtualPresetType.ARROW_KEYS -> listOf(
             com.winlator.inputcontrols.Binding.KEY_UP,
             com.winlator.inputcontrols.Binding.KEY_RIGHT,
             com.winlator.inputcontrols.Binding.KEY_DOWN,
-            com.winlator.inputcontrols.Binding.KEY_LEFT
+            com.winlator.inputcontrols.Binding.KEY_LEFT,
         )
         VirtualPresetType.MOUSE_MOVE -> listOf(
             com.winlator.inputcontrols.Binding.MOUSE_MOVE_UP,
             com.winlator.inputcontrols.Binding.MOUSE_MOVE_RIGHT,
             com.winlator.inputcontrols.Binding.MOUSE_MOVE_DOWN,
-            com.winlator.inputcontrols.Binding.MOUSE_MOVE_LEFT
+            com.winlator.inputcontrols.Binding.MOUSE_MOVE_LEFT,
         )
         VirtualPresetType.DPAD -> listOf(
             com.winlator.inputcontrols.Binding.GAMEPAD_DPAD_UP,
             com.winlator.inputcontrols.Binding.GAMEPAD_DPAD_RIGHT,
             com.winlator.inputcontrols.Binding.GAMEPAD_DPAD_DOWN,
-            com.winlator.inputcontrols.Binding.GAMEPAD_DPAD_LEFT
+            com.winlator.inputcontrols.Binding.GAMEPAD_DPAD_LEFT,
         )
         VirtualPresetType.LEFT_STICK -> listOf(
             com.winlator.inputcontrols.Binding.GAMEPAD_LEFT_THUMB_UP,
             com.winlator.inputcontrols.Binding.GAMEPAD_LEFT_THUMB_RIGHT,
             com.winlator.inputcontrols.Binding.GAMEPAD_LEFT_THUMB_DOWN,
-            com.winlator.inputcontrols.Binding.GAMEPAD_LEFT_THUMB_LEFT
+            com.winlator.inputcontrols.Binding.GAMEPAD_LEFT_THUMB_LEFT,
         )
         VirtualPresetType.RIGHT_STICK -> listOf(
             com.winlator.inputcontrols.Binding.GAMEPAD_RIGHT_THUMB_UP,
             com.winlator.inputcontrols.Binding.GAMEPAD_RIGHT_THUMB_RIGHT,
             com.winlator.inputcontrols.Binding.GAMEPAD_RIGHT_THUMB_DOWN,
-            com.winlator.inputcontrols.Binding.GAMEPAD_RIGHT_THUMB_LEFT
+            com.winlator.inputcontrols.Binding.GAMEPAD_RIGHT_THUMB_LEFT,
         )
     }
 
@@ -1513,26 +1527,26 @@ private fun getDefaultBindingsForType(type: ControlElement.Type): List<com.winla
             com.winlator.inputcontrols.Binding.GAMEPAD_DPAD_UP,
             com.winlator.inputcontrols.Binding.GAMEPAD_DPAD_RIGHT,
             com.winlator.inputcontrols.Binding.GAMEPAD_DPAD_DOWN,
-            com.winlator.inputcontrols.Binding.GAMEPAD_DPAD_LEFT
+            com.winlator.inputcontrols.Binding.GAMEPAD_DPAD_LEFT,
         )
         ControlElement.Type.STICK -> listOf(
             com.winlator.inputcontrols.Binding.GAMEPAD_LEFT_THUMB_UP,
             com.winlator.inputcontrols.Binding.GAMEPAD_LEFT_THUMB_RIGHT,
             com.winlator.inputcontrols.Binding.GAMEPAD_LEFT_THUMB_DOWN,
-            com.winlator.inputcontrols.Binding.GAMEPAD_LEFT_THUMB_LEFT
+            com.winlator.inputcontrols.Binding.GAMEPAD_LEFT_THUMB_LEFT,
         )
         ControlElement.Type.TRACKPAD -> listOf(
             com.winlator.inputcontrols.Binding.MOUSE_MOVE_UP,
             com.winlator.inputcontrols.Binding.MOUSE_MOVE_RIGHT,
             com.winlator.inputcontrols.Binding.MOUSE_MOVE_DOWN,
-            com.winlator.inputcontrols.Binding.MOUSE_MOVE_LEFT
+            com.winlator.inputcontrols.Binding.MOUSE_MOVE_LEFT,
         )
         // BUTTON and RANGE_BUTTON get no defaults
         else -> listOf(
             com.winlator.inputcontrols.Binding.NONE,
             com.winlator.inputcontrols.Binding.NONE,
             com.winlator.inputcontrols.Binding.NONE,
-            com.winlator.inputcontrols.Binding.NONE
+            com.winlator.inputcontrols.Binding.NONE,
         )
     }
 }

@@ -19,7 +19,7 @@ object UbisoftConnectStep : PreInstallStep {
         gameSource: GameSource,
         gameDirPath: String,
     ): Boolean {
-         if (MarkerUtils.hasMarker(gameDirPath, Marker.UBISOFT_CONNECT_INSTALLED)) return false
+        if (MarkerUtils.hasMarker(gameDirPath, Marker.UBISOFT_CONNECT_INSTALLED)) return false
 
         return true
     }

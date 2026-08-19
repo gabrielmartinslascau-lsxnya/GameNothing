@@ -10,19 +10,25 @@ class AmazonManifestTest {
     fun parse_uncompressedManifest_parsesFilesAndSizes() {
         val headerBytes = protobufMessage {
             // ManifestHeader.compression (field 1)
-            field(1, wireType = 2, value = protobufMessage {
-                // CompressionSettings.algorithm = 0 (none)
-                field(1, wireType = 0, value = byteArrayOf(0x00))
-            })
+            field(
+                1, wireType = 2,
+                value = protobufMessage {
+                    // CompressionSettings.algorithm = 0 (none)
+                    field(1, wireType = 0, value = byteArrayOf(0x00))
+                },
+            )
         }
 
         val fileMessage = protobufMessage {
             field(1, wireType = 2, value = "bin\\game.exe".encodeToByteArray())
             field(3, wireType = 0, value = varintBytes(123L))
-            field(5, wireType = 2, value = protobufMessage {
-                field(1, wireType = 0, value = byteArrayOf(0x00)) // sha256
-                field(2, wireType = 2, value = byteArrayOf(0x01, 0x02, 0x03))
-            })
+            field(
+                5, wireType = 2,
+                value = protobufMessage {
+                    field(1, wireType = 0, value = byteArrayOf(0x00)) // sha256
+                    field(2, wireType = 2, value = byteArrayOf(0x01, 0x02, 0x03))
+                },
+            )
         }
 
         val packageMessage = protobufMessage {

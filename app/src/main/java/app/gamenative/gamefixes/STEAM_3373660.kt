@@ -10,4 +10,3 @@ val STEAM_Fix_3373660: KeyedGameFix = KeyedLaunchArgFix(
     gameId = "3373660",
     launchArgs = "--no-sandbox",
 )
-

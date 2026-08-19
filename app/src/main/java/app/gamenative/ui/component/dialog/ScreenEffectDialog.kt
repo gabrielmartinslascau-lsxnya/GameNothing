@@ -293,5 +293,5 @@ private fun ScreenEffectSlider(
 
 private fun formatPercent(value: Float): String {
     val rounded = value.toInt()
-    return if (rounded > 0) "+${rounded}%" else "${rounded}%"
+    return if (rounded > 0) "+$rounded%" else "$rounded%"
 }

@@ -28,41 +28,40 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.lifecycleScope
-import coil.ImageLoader
-import coil.disk.DiskCache
-import coil.memory.MemoryCache
-import coil.intercept.Interceptor
-import coil.request.CachePolicy
 import app.gamenative.BuildConfig
 import app.gamenative.PrefManager
 import app.gamenative.events.AndroidEvent
 import app.gamenative.mods.NexusDownloadLinkInbox
 import app.gamenative.mods.NexusIntegrationStatus
 import app.gamenative.mods.NexusPendingDownloadStore
-import app.gamenative.ui.screen.library.appscreen.BaseAppScreen
+import app.gamenative.powercontrol.PowerManager
 import app.gamenative.service.SteamService
-import app.gamenative.service.gog.GOGService
 import app.gamenative.service.epic.EpicService
+import app.gamenative.service.gog.GOGService
 import app.gamenative.ui.PluviaMain
 import app.gamenative.ui.enums.Orientation
+import app.gamenative.ui.screen.library.appscreen.BaseAppScreen
 import app.gamenative.ui.util.LocalSnackbarHostController
 import app.gamenative.ui.util.SnackbarHostController
+import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.utils.AnimatedPngDecoder
-import app.gamenative.data.GameSource
-import app.gamenative.powercontrol.PowerManager
 import app.gamenative.utils.ContainerUtils
 import app.gamenative.utils.IconDecoder
 import app.gamenative.utils.IntentLaunchManager
 import app.gamenative.utils.LocaleHelper
-import app.gamenative.ui.util.SnackbarManager
+import coil.ImageLoader
+import coil.disk.DiskCache
+import coil.intercept.Interceptor
+import coil.memory.MemoryCache
+import coil.request.CachePolicy
 import com.posthog.PostHog
 import com.skydoves.landscapist.coil.LocalCoilImageLoader
 import com.winlator.core.AppUtils
 import com.winlator.inputcontrols.ControllerManager
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
 import java.util.EnumSet
 import kotlin.math.abs
+import kotlinx.coroutines.launch
 import okio.Path.Companion.toOkioPath
 import timber.log.Timber
 
@@ -199,7 +198,8 @@ class MainActivity : ComponentActivity() {
                 val axes = d.motionRanges.joinToString(",") { mr -> "axis=${mr.axis}(min=${mr.min},max=${mr.max})" }
                 Timber.tag("HeadsetInput").i(
                     "id=$id name='${d.name}' sources=0x%08x vendor=0x%04x product=0x%04x isGamepad=%b axes=[$axes]",
-                    d.sources, d.vendorId, d.productId, d.sources and android.view.InputDevice.SOURCE_GAMEPAD == android.view.InputDevice.SOURCE_GAMEPAD
+                    d.sources, d.vendorId, d.productId,
+                    d.sources and android.view.InputDevice.SOURCE_GAMEPAD == android.view.InputDevice.SOURCE_GAMEPAD,
                 )
             }
         }
@@ -266,16 +266,18 @@ class MainActivity : ComponentActivity() {
                     .diskCache(diskCache)
                     .components {
                         // serve cached images when device has no internet
-                        add(Interceptor { chain ->
-                            val request = if (!NetworkMonitor.hasInternet.value) {
-                                chain.request.newBuilder()
-                                    .networkCachePolicy(CachePolicy.DISABLED)
-                                    .build()
-                            } else {
-                                chain.request
-                            }
-                            chain.proceed(request)
-                        })
+                        add(
+                            Interceptor { chain ->
+                                val request = if (!NetworkMonitor.hasInternet.value) {
+                                    chain.request.newBuilder()
+                                        .networkCachePolicy(CachePolicy.DISABLED)
+                                        .build()
+                                } else {
+                                    chain.request
+                                }
+                                chain.proceed(request)
+                            },
+                        )
                         add(IconDecoder.Factory())
                         add(AnimatedPngDecoder.Factory())
                     }
@@ -284,6 +286,7 @@ class MainActivity : ComponentActivity() {
             }
 
             val snackbarController = remember { SnackbarHostController() }
+
             CompositionLocalProvider(
                 LocalCoilImageLoader provides imageLoader,
                 LocalSnackbarHostController provides snackbarController,
@@ -471,7 +474,8 @@ class MainActivity : ComponentActivity() {
 
         // Restart EpicService if it went down and user is authenticated
         if (EpicService.hasStoredCredentials(this) &&
-            !EpicService.isRunning) {
+            !EpicService.isRunning
+        ) {
             Timber.i("EpicService was down on resume - restarting")
             EpicService.start(this)
         }
@@ -554,7 +558,7 @@ class MainActivity : ComponentActivity() {
 
         // Stop GOGService if running and no downloads in progress
         if (GOGService.isRunning && !isChangingConfigurations) {
-            if(!GOGService.hasActiveOperations()) {
+            if (!GOGService.hasActiveOperations()) {
                 Timber.i("Stopping GOG Service - no active operations")
                 GOGService.stop()
             }

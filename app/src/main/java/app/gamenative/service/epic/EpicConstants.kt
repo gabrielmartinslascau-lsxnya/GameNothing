@@ -60,7 +60,7 @@ object EpicConstants {
         CONTAINER_LANGUAGE_TO_EPIC_INSTALL_TAGS[containerLanguage.lowercase()]
             ?: CONTAINER_LANGUAGE_TO_EPIC_INSTALL_TAGS.getValue(EPIC_FALLBACK_CONTAINER_LANGUAGE)
 
-    //! OAuth Configuration - Using Legendary's official credentials (Do not worry, these are hard-coded and not sensitive.)
+    // ! OAuth Configuration - Using Legendary's official credentials (Do not worry, these are hard-coded and not sensitive.)
     const val EPIC_CLIENT_ID = "34a02cf8f4414e29b15921876da36f9a"
     const val EPIC_CLIENT_SECRET = "daafbccc737745039dffe53d94fc76cf"
 
@@ -94,8 +94,10 @@ object EpicConstants {
     }
 
     const val EPIC_LIBRARY_API_URL = "https://library-service.live.use1a.on.epicgames.com/library/api/public/items"
+
     // Epic CDN for game assets
     const val EPIC_CATALOG_API_URL = "https://catalog-public-service-prod06.ol.epicgames.com/catalog/api"
+
     // Epic Launcher API for manifests
     const val EPIC_LAUNCHER_API_URL = "https://launcher-public-service-prod06.ol.epicgames.com"
 

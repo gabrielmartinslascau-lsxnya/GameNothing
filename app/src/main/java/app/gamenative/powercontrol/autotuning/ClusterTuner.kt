@@ -71,7 +71,10 @@ class ClusterTuner(
         val gpuStepCount: Int = 0,
     )
 
-    private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
+    private val json = Json {
+        encodeDefaults = true
+        ignoreUnknownKeys = true
+    }
     private val engine = TunerDecisionEngine({ tuningForStrategy(strategyProvider()) })
     private val sessionLog = JsonlSessionLog(TAG, "tuner-")
     private val stepIndex = mutableMapOf<TunerDomain, Int>()

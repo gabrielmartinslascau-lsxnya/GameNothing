@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import app.gamenative.ui.component.dialog.LoadingDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -25,26 +24,21 @@ import app.gamenative.service.DownloadService
 import app.gamenative.service.epic.EpicCloudSavesManager
 import app.gamenative.service.epic.EpicConstants
 import app.gamenative.service.epic.EpicService
+import app.gamenative.ui.component.dialog.LoadingDialog
 import app.gamenative.ui.data.AppMenuOption
 import app.gamenative.ui.data.GameDisplayInfo
 import app.gamenative.ui.enums.AppOptionMenuType
-import app.gamenative.enums.Marker
+import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.utils.ContainerUtils
-import app.gamenative.utils.ContainerUtils.extractGameIdFromContainerId
-import app.gamenative.utils.MarkerUtils
 import com.winlator.container.ContainerData
-import com.winlator.container.ContainerManager
 import com.winlator.core.StringUtils
 import java.io.File
-import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import app.gamenative.ui.util.SnackbarManager
 import timber.log.Timber
 
 // TODO: Verify all tests and do DLC auto-install with base game.
@@ -367,7 +361,7 @@ class EpicAppScreen : BaseAppScreen() {
             Timber.tag(TAG).i("Showing game manager dialog for: ${libraryItem.appId}")
             showGameManagerDialog(
                 gameId,
-                app.gamenative.ui.component.dialog.state.GameManagerDialogState(visible = true)
+                app.gamenative.ui.component.dialog.state.GameManagerDialogState(visible = true),
             )
         }
     }
@@ -378,7 +372,13 @@ class EpicAppScreen : BaseAppScreen() {
      * @param scope Lifecycle-aware CoroutineScope from the calling composable
      * @param selectedGameIds List of game IDs to download (base game + selected DLCs)
      */
-    private fun performDownload(scope: CoroutineScope, context: Context, libraryItem: LibraryItem, selectedGameIds: List<Int>, onClickPlay: (Boolean) -> Unit) {
+    private fun performDownload(
+        scope: CoroutineScope,
+        context: Context,
+        libraryItem: LibraryItem,
+        selectedGameIds: List<Int>,
+        onClickPlay: (Boolean) -> Unit,
+    ) {
         Timber.tag(TAG).i("Starting Epic game download: ${libraryItem.gameId} with ${selectedGameIds.size} items (including DLCs)")
         scope.launch(Dispatchers.IO) {
             try {
@@ -469,8 +469,8 @@ class EpicAppScreen : BaseAppScreen() {
                     title = context.getString(R.string.cancel_download_prompt_title),
                     message = context.getString(R.string.epic_delete_download_message),
                     confirmBtnText = context.getString(R.string.yes),
-                    dismissBtnText = context.getString(R.string.no)
-                )
+                    dismissBtnText = context.getString(R.string.no),
+                ),
             )
         } else if (isInstalled(context, libraryItem)) {
             // Show uninstall confirmation dialog
@@ -735,7 +735,9 @@ class EpicAppScreen : BaseAppScreen() {
         }
         app.gamenative.PluviaApp.events.on<app.gamenative.events.AndroidEvent.PostInstallSyncStatusChanged, Unit>(postInstallSyncListener)
         disposables +=
-            { app.gamenative.PluviaApp.events.off<app.gamenative.events.AndroidEvent.PostInstallSyncStatusChanged, Unit>(postInstallSyncListener) }
+            {
+                app.gamenative.PluviaApp.events.off<app.gamenative.events.AndroidEvent.PostInstallSyncStatusChanged, Unit>(postInstallSyncListener)
+            }
 
         // Return cleanup function
         return {
@@ -865,7 +867,7 @@ class EpicAppScreen : BaseAppScreen() {
                 },
                 onDismissRequest = {
                     hideGameManagerDialog(gameId)
-                }
+                },
             )
         }
 

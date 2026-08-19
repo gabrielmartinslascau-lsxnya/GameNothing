@@ -21,10 +21,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Face4
+import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -45,15 +45,15 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.gamenative.R
@@ -294,74 +294,74 @@ internal fun GridViewCard(
 
                 // Gradient overlay at bottom for title
                 if (frost < 1f) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(bottomGradientHeight)
-                        .alpha(1f - frost)
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.85f),
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(bottomGradientHeight)
+                            .alpha(1f - frost)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Black.copy(alpha = 0.85f),
+                                    ),
                                 ),
                             ),
-                        ),
-                )
+                    )
 
-                // Title + status icons, with per-device stats directly under the title
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .fillMaxWidth()
-                        .alpha(1f - frost)
-                        .padding(horizontal = 10.dp, vertical = cardContentBottomPadding),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = appInfo.name,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
-                            ),
-                            color = Color.White,
-                            maxLines = if (paneType == PaneType.GRID_CAPSULE) 2 else 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
-
-                        GridStatusIcons(appInfo = appInfo)
-                    }
-
-                    if (appInfo.isRecommended && appInfo.recStoreCard && appInfo.recPrice != null) {
+                    // Title + status icons, with per-device stats directly under the title
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth()
+                            .alpha(1f - frost)
+                            .padding(horizontal = 10.dp, vertical = cardContentBottomPadding),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            appInfo.recBasePrice?.let { base ->
+                            Text(
+                                text = appInfo.name,
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                ),
+                                color = Color.White,
+                                maxLines = if (paneType == PaneType.GRID_CAPSULE) 2 else 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
+                            )
+
+                            GridStatusIcons(appInfo = appInfo)
+                        }
+
+                        if (appInfo.isRecommended && appInfo.recStoreCard && appInfo.recPrice != null) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                appInfo.recBasePrice?.let { base ->
+                                    Text(
+                                        text = base,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            textDecoration = TextDecoration.LineThrough,
+                                        ),
+                                        color = Color.White.copy(alpha = 0.6f),
+                                    )
+                                }
                                 Text(
-                                    text = base,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        textDecoration = TextDecoration.LineThrough,
-                                    ),
-                                    color = Color.White.copy(alpha = 0.6f),
+                                    text = appInfo.recPrice,
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = Color.White,
+                                    modifier = if (appInfo.recBasePrice != null) Modifier.padding(start = 6.dp) else Modifier,
                                 )
                             }
-                            Text(
-                                text = appInfo.recPrice,
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                color = Color.White,
-                                modifier = if (appInfo.recBasePrice != null) Modifier.padding(start = 6.dp) else Modifier,
+                        }
+
+                        if (!appInfo.isFeatured) {
+                            GameStatsRow(
+                                stats = gameStats,
+                                tint = Color.White.copy(alpha = 0.55f),
+                                animate = animateStats,
                             )
                         }
                     }
-
-                    if (!appInfo.isFeatured) {
-                        GameStatsRow(
-                            stats = gameStats,
-                            tint = Color.White.copy(alpha = 0.55f),
-                            animate = animateStats,
-                        )
-                    }
-                }
                 }
 
                 // Top-left: Featured badge, GOG rating (store rec), or Recommended/compat badge

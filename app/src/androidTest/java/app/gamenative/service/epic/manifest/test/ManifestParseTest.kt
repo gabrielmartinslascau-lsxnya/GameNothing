@@ -29,7 +29,7 @@ class ManifestParseTest {
         val testManifests = listOf(
             "test-manifest.json",
             "test-v3-manifest.json",
-            "binary-control-file.manifest"
+            "binary-control-file.manifest",
         )
 
         testManifests.forEach { manifestAsset ->
@@ -48,7 +48,6 @@ class ManifestParseTest {
                 // Basic assertions
                 assertNotNull("Manifest should not be null", manifest)
                 assertTrue("Manifest version should be positive", manifest.version > 0)
-
             } catch (e: Exception) {
                 fail("Failed to parse manifest $manifestAsset: ${e.message}")
             }

@@ -1,8 +1,8 @@
 package app.gamenative.utils
 
 import app.gamenative.enums.Marker
-import timber.log.Timber
 import java.io.File
+import timber.log.Timber
 
 object MarkerUtils {
     private const val DOWNLOAD_INFO_DIR = ".DownloadInfo"
@@ -63,7 +63,7 @@ object MarkerUtils {
                 File(dir, type.fileName).createNewFile()
                 Timber.i("Added marker ${type.fileName} at $dirPath")
                 return true
-            } catch(e: Exception) {
+            } catch (e: Exception) {
                 Timber.e(e, "Failed to add marker ${type.fileName} at $dirPath")
                 return false
             }

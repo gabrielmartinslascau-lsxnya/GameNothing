@@ -104,7 +104,7 @@ class ManifestIdCorrelationTest {
             }
             if (!result.success && installedProfile == null) {
                 assertTrue(
-                    "Content install failed for ${entry.id} (${typeKey}): ${result.message}",
+                    "Content install failed for ${entry.id} ($typeKey): ${result.message}",
                     result.success,
                 )
             }
@@ -112,7 +112,7 @@ class ManifestIdCorrelationTest {
             println("Content installed IDs type=$typeKey ids=$installedIds")
             println("Content match type=$typeKey id=${entry.id} matched=${installedProfile != null}")
             assertTrue(
-                "Content ID mismatch for ${entry.id} (${typeKey}). Installed: $installedIds",
+                "Content ID mismatch for ${entry.id} ($typeKey). Installed: $installedIds",
                 installedProfile != null,
             )
         } finally {

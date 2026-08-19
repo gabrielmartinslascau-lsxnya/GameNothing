@@ -9,7 +9,7 @@ import app.gamenative.service.gog.GOGService
 object PlatformAuthUtils {
     fun isSignedInToAnyPlatform(context: Context): Boolean =
         SteamService.isLoggedIn ||
-        GOGService.hasStoredCredentials(context) ||
-        EpicService.hasStoredCredentials(context) ||
-        AmazonService.hasStoredCredentials(context)
+            GOGService.hasStoredCredentials(context) ||
+            EpicService.hasStoredCredentials(context) ||
+            AmazonService.hasStoredCredentials(context)
 }

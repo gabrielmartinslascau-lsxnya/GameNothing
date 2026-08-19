@@ -30,22 +30,22 @@ import kotlinx.coroutines.flow.flow
 // apps that are normally hidden (used by the "Expired" library filter for diagnostics).
 private const val OWNED_APPS_WHERE =
     "WHERE app.id != 480 " + // Actively filter out Spacewar
-    "AND app.package_id != :invalidPkgId " +
-    "AND app.type != 0 " +
-    "AND (" +
-    "  :includeExpired = 1 " +
-    "  OR EXISTS (" +
-    "    SELECT 1 FROM steam_license AS license " +
-    "    WHERE license.packageId = app.package_id " +
-    "    AND (license.license_flags & 8) = 0 " + // exclude expired licenses (e.g. free weekends)
-    "  ) " +
-    "  OR EXISTS (" +
-    "    SELECT 1 FROM steam_app AS dlc " +
-    "    INNER JOIN steam_license AS license ON dlc.package_id = license.packageId " +
-    "    WHERE dlc.dlc_for_app_id = app.id " +
-    "    AND (license.license_flags & 8) = 0 " +
-    "  ) " +
-    ") "
+        "AND app.package_id != :invalidPkgId " +
+        "AND app.type != 0 " +
+        "AND (" +
+        "  :includeExpired = 1 " +
+        "  OR EXISTS (" +
+        "    SELECT 1 FROM steam_license AS license " +
+        "    WHERE license.packageId = app.package_id " +
+        "    AND (license.license_flags & 8) = 0 " + // exclude expired licenses (e.g. free weekends)
+        "  ) " +
+        "  OR EXISTS (" +
+        "    SELECT 1 FROM steam_app AS dlc " +
+        "    INNER JOIN steam_license AS license ON dlc.package_id = license.packageId " +
+        "    WHERE dlc.dlc_for_app_id = app.id " +
+        "    AND (license.license_flags & 8) = 0 " +
+        "  ) " +
+        ") "
 
 private const val PAGE_SIZE = 50
 
@@ -120,7 +120,8 @@ interface SteamAppDao {
         val includeExpiredFlag = if (includeExpired) 1 else 0
         return _observeOwnedAppCount(invalidPkgId, includeExpiredFlag)
             .distinctUntilChanged() // skip reload when count unchanged
-            .flatMapLatest { // cancel stale reloads during rapid PICS inserts
+            .flatMapLatest {
+                // cancel stale reloads during rapid PICS inserts
                 flow { emit(_getAllOwnedAppsPaged(invalidPkgId, includeExpiredFlag)) }
             }
     }
@@ -153,21 +154,23 @@ interface SteamAppDao {
     @Query("SELECT steam_app.* FROM steam_app INNER JOIN app_info ON steam_app.id = app_info.id WHERE app_info.is_downloaded = 1 ORDER BY steam_app.name ASC")
     suspend fun getInstalledGames(): List<SteamApp>
 
-    @Query("SELECT * FROM steam_app AS app WHERE dlc_for_app_id = :appId AND depots <> '{}' AND " +
+    @Query(
+        "SELECT * FROM steam_app AS app WHERE dlc_for_app_id = :appId AND depots <> '{}' AND " +
             " EXISTS (" +
             "   SELECT * FROM steam_license AS license " +
             "     WHERE license.license_type <> 0 AND " +
             "       REPLACE(REPLACE(license.app_ids, '[', ','), ']', ',') LIKE ('%,' || app.id || ',%') " +
-            ")"
+            ")",
     )
     suspend fun findDownloadableDLCApps(appId: Int): List<SteamApp>?
 
-    @Query("SELECT * FROM steam_app AS app WHERE dlc_for_app_id = :appId AND depots = '{}' AND " +
+    @Query(
+        "SELECT * FROM steam_app AS app WHERE dlc_for_app_id = :appId AND depots = '{}' AND " +
             " EXISTS (" +
             "   SELECT * FROM steam_license AS license " +
             "     WHERE license.license_type <> 0 AND " +
             "       REPLACE(REPLACE(license.app_ids, '[', ','), ']', ',') LIKE ('%,' || app.id || ',%') " +
-            ")"
+            ")",
     )
     suspend fun findHiddenDLCApps(appId: Int): List<SteamApp>?
 

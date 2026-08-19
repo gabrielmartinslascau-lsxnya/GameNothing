@@ -59,23 +59,23 @@ data class EpicGame(
     // Art assets - Full HTTPS URLs from Epic CDN
     // Extracted from game metadata's keyImages array (DieselGameBoxTall, DieselGameBox, etc.)
     @ColumnInfo("art_cover")
-    val artCover: String = "",  // DieselGameBoxTall - Tall cover art
+    val artCover: String = "", // DieselGameBoxTall - Tall cover art
 
     @ColumnInfo("art_square")
-    val artSquare: String = "",  // DieselGameBox - Square box art
+    val artSquare: String = "", // DieselGameBox - Square box art
 
     @ColumnInfo("art_logo")
-    val artLogo: String = "",  // DieselGameBoxLogo - Logo image
+    val artLogo: String = "", // DieselGameBoxLogo - Logo image
 
     @ColumnInfo("art_portrait")
-    val artPortrait: String = "",  // DieselStoreFrontWide or other portrait variants
+    val artPortrait: String = "", // DieselStoreFrontWide or other portrait variants
 
     // DRM and features
     @ColumnInfo("can_run_offline")
     val canRunOffline: Boolean = true,
 
     @ColumnInfo("requires_ot")
-    val requiresOT: Boolean = false,  // requires online token
+    val requiresOT: Boolean = false, // requires online token
 
     @ColumnInfo("cloud_save_enabled")
     val cloudSaveEnabled: Boolean = false,
@@ -211,8 +211,8 @@ data class EpicDLCInfo(
  * Used for Epic authentication during game launch
  */
 data class EpicGameToken(
-    val authCode: String,           // Exchange code for -AUTH_PASSWORD parameter
-    val accountId: String,          // User account ID for -epicuserid
-    val displayName: String,        // User display name for -epicusername
-    val ownershipToken: String? = null,  // Optional DRM ownership token
+    val authCode: String, // Exchange code for -AUTH_PASSWORD parameter
+    val accountId: String, // User account ID for -epicuserid
+    val displayName: String, // User display name for -epicusername
+    val ownershipToken: String? = null, // Optional DRM ownership token
 )

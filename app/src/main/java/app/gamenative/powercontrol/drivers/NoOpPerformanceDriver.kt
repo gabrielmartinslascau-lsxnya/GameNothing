@@ -1,8 +1,5 @@
 package app.gamenative.powercontrol.drivers
 
-import app.gamenative.powercontrol.PowerProfile
-import app.gamenative.powercontrol.profiles.CpuGovernor
-import app.gamenative.powercontrol.profiles.PerformancePreset
 import timber.log.Timber
 
 class NoOpPerformanceDriver : PerformanceDriver() {

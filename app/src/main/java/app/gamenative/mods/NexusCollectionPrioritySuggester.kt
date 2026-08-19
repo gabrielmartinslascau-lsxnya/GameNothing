@@ -70,7 +70,12 @@ internal object NexusCollectionFileOrdering {
         if (result.size < ordered.size) {
             result += ordered
                 .filter { key(it) !in emitted }
-                .sortedWith(compareBy<NexusCollectionFile> { rankByKey[key(it)] ?: Int.MAX_VALUE }.thenBy { originalIndexByKey[key(it)] ?: Int.MAX_VALUE })
+                .sortedWith(
+                    compareBy<NexusCollectionFile> { rankByKey[key(it)] ?: Int.MAX_VALUE }.thenBy {
+                        originalIndexByKey[key(it)]
+                            ?: Int.MAX_VALUE
+                    },
+                )
         }
         return result
     }

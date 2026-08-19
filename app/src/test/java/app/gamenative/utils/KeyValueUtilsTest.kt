@@ -865,9 +865,9 @@ class KeyValueUtilsTest {
         // All three patterns share the same resolved root and path
         patterns.forEach { p ->
             assertEquals(PathType.WinMyDocuments, p.root)
-            assertEquals("My Games/Danganronpa2", p.path)  // no trailing slash
+            assertEquals("My Games/Danganronpa2", p.path) // no trailing slash
             assertEquals(PathType.GameInstall, p.uploadRoot)
-            assertEquals("", p.uploadPath)  // "/" normalised to "" → cloud key has no trailing slash
+            assertEquals("", p.uploadPath) // "/" normalised to "" → cloud key has no trailing slash
         }
         assertEquals("savedata.vfs", patterns[0].pattern)
         assertEquals("savedata_jp.vfs", patterns[1].pattern)
@@ -1053,5 +1053,4 @@ class KeyValueUtilsTest {
         assertEquals("*.sav", patterns[0].pattern)
         assertEquals(PathType.WinMyDocuments, patterns[0].uploadRoot)
     }
-
 }

@@ -25,9 +25,9 @@ import com.winlator.inputcontrols.RadialMenu
 import com.winlator.widget.InputControlsView
 import com.winlator.widget.TouchpadView
 import com.winlator.xserver.XServer
-import timber.log.Timber
 import kotlin.math.atan2
 import kotlin.math.sqrt
+import timber.log.Timber
 
 class RadialMenuCoordinator(
     private val context: Context,
@@ -548,11 +548,17 @@ class RadialMenuCoordinator(
             else -> {
                 val pointerButton = binding.pointerButton
                 if (isActionDown) {
-                    if (pointerButton != null) xServer.injectPointerButtonPress(pointerButton)
-                    else binding.inject(xServer, true)
+                    if (pointerButton != null) {
+                        xServer.injectPointerButtonPress(pointerButton)
+                    } else {
+                        binding.inject(xServer, true)
+                    }
                 } else {
-                    if (pointerButton != null) xServer.injectPointerButtonRelease(pointerButton)
-                    else binding.inject(xServer, false)
+                    if (pointerButton != null) {
+                        xServer.injectPointerButtonRelease(pointerButton)
+                    } else {
+                        binding.inject(xServer, false)
+                    }
                 }
             }
         }

@@ -35,6 +35,11 @@ import app.gamenative.mods.NexusModFile
 import app.gamenative.mods.NexusModInfo
 import app.gamenative.mods.NexusModManager
 import app.gamenative.mods.NexusModReference
+import java.util.ArrayDeque
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -46,16 +51,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import timber.log.Timber
-import java.util.ArrayDeque
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
 
 class NexusModImportService : Service() {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val mainHandler = Handler(Looper.getMainLooper())
     private val deferredStartIntents = ArrayDeque<Intent>()
+
     @Volatile
     private var destroyed = false
     private val delayedStop = Runnable {
@@ -562,6 +563,7 @@ class NexusModImportService : Service() {
         private val resumeInProgress = AtomicBoolean(false)
         private val resumeRequested = AtomicBoolean(false)
         private val serviceInstanceLock = Any()
+
         @Volatile
         private var currentService: NexusModImportService? = null
 
@@ -937,7 +939,6 @@ class NexusModImportService : Service() {
         val file: NexusModFile,
         val isPremiumAccount: Boolean? = null,
     )
-
 }
 
 private fun ModInstall.metadataSummary(): String =

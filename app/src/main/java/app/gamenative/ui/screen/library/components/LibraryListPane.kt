@@ -34,9 +34,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalContext
@@ -49,10 +49,10 @@ import app.gamenative.service.DownloadService
 import app.gamenative.service.amazon.AmazonService
 import app.gamenative.service.epic.EpicService
 import app.gamenative.service.gog.GOGService
-import app.gamenative.ui.enums.AppFilter
 import app.gamenative.ui.component.Scrollbar
 import app.gamenative.ui.data.LibraryState
 import app.gamenative.ui.data.statsFor
+import app.gamenative.ui.enums.AppFilter
 import app.gamenative.ui.enums.PaneType
 import app.gamenative.ui.internal.fakeAppInfo
 import app.gamenative.ui.theme.PluviaTheme
@@ -218,16 +218,35 @@ internal fun LibraryListPane(
                 }
             }
 
-            val totalSkeletonCount = remember(state.showSteamInLibrary, state.showCustomGamesInLibrary, state.showGOGInLibrary, state.showEpicInLibrary, state.showAmazonInLibrary) {
-                val customCount = if (state.showCustomGamesInLibrary) PrefManager.customGamesCount else 0
-                val steamCount = if (state.showSteamInLibrary) PrefManager.steamGamesCount else 0
-                val gogInstalledCount = if (state.showGOGInLibrary && GOGService.hasStoredCredentials(context)) PrefManager.gogInstalledGamesCount else 0
-                val epicInstalledCount = if (state.showEpicInLibrary && EpicService.hasStoredCredentials(context)) PrefManager.epicInstalledGamesCount else 0
-                val amazonInstalledCount = if (state.showAmazonInLibrary && AmazonService.hasStoredCredentials(context)) PrefManager.amazonInstalledGamesCount else 0
-                val total = customCount + steamCount + gogInstalledCount + epicInstalledCount + amazonInstalledCount
-                Timber.tag("LibraryListPane").d("Skeleton calculation - Custom: $customCount, Steam: $steamCount, GOG installed: $gogInstalledCount, Epic installed: $epicInstalledCount, Amazon installed: $amazonInstalledCount, Total: $total")
-                if (total == 0) 6 else minOf(total, 20)
-            }
+            val totalSkeletonCount =
+                remember(state.showSteamInLibrary, state.showCustomGamesInLibrary, state.showGOGInLibrary, state.showEpicInLibrary, state.showAmazonInLibrary) {
+                    val customCount = if (state.showCustomGamesInLibrary) PrefManager.customGamesCount else 0
+                    val steamCount = if (state.showSteamInLibrary) PrefManager.steamGamesCount else 0
+                    val gogInstalledCount = if (state.showGOGInLibrary &&
+                        GOGService.hasStoredCredentials(context)
+                    ) {
+                        PrefManager.gogInstalledGamesCount
+                    } else {
+                        0
+                    }
+                    val epicInstalledCount = if (state.showEpicInLibrary &&
+                        EpicService.hasStoredCredentials(context)
+                    ) {
+                        PrefManager.epicInstalledGamesCount
+                    } else {
+                        0
+                    }
+                    val amazonInstalledCount = if (state.showAmazonInLibrary &&
+                        AmazonService.hasStoredCredentials(context)
+                    ) {
+                        PrefManager.amazonInstalledGamesCount
+                    } else {
+                        0
+                    }
+                    val total = customCount + steamCount + gogInstalledCount + epicInstalledCount + amazonInstalledCount
+                    Timber.tag("LibraryListPane").d("Skeleton calculation - Custom: $customCount, Steam: $steamCount, GOG installed: $gogInstalledCount, Epic installed: $epicInstalledCount, Amazon installed: $amazonInstalledCount, Total: $total")
+                    if (total == 0) 6 else minOf(total, 20)
+                }
 
             if (state.appInfoList.isNotEmpty()) {
                 Scrollbar(

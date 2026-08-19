@@ -1,17 +1,17 @@
 package app.gamenative.workshop.compatibility
 
-import org.json.JSONObject
-import timber.log.Timber
 import java.io.ByteArrayOutputStream
 import java.io.File
-import java.nio.file.Path
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.Base64
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+import org.json.JSONObject
+import timber.log.Timber
 
 object SlayTheSpireModTheSpireCompatibility {
     const val APP_ID = 646570
@@ -127,7 +127,7 @@ object SlayTheSpireModTheSpireCompatibility {
 
         Timber.tag("WorkshopManager").i(
             "Configured Slay the Spire ModTheSpire root layout: " +
-                "${managedFiles.size} managed mod jar(s)"
+                "${managedFiles.size} managed mod jar(s)",
         )
     }
 
@@ -194,7 +194,7 @@ object SlayTheSpireModTheSpireCompatibility {
         val filePath = modsPath.resolve(fileName).normalize()
         if (!filePath.startsWith(modsPath) || filePath.parent != modsPath) {
             Timber.tag("WorkshopManager").w(
-                "Ignoring unsafe Slay the Spire managed mod manifest entry: $fileName"
+                "Ignoring unsafe Slay the Spire managed mod manifest entry: $fileName",
             )
             return null
         }
@@ -368,7 +368,7 @@ object SlayTheSpireModTheSpireCompatibility {
     private fun readZipEntryText(zip: ZipFile, entry: ZipEntry): String? {
         if (entry.size > MAX_METADATA_ENTRY_BYTES) {
             Timber.tag("WorkshopManager").w(
-                "Skipping oversized Slay the Spire mod metadata entry: ${entry.name}"
+                "Skipping oversized Slay the Spire mod metadata entry: ${entry.name}",
             )
             return null
         }
@@ -383,7 +383,7 @@ object SlayTheSpireModTheSpireCompatibility {
                 totalBytes += read
                 if (totalBytes > MAX_METADATA_ENTRY_BYTES) {
                     Timber.tag("WorkshopManager").w(
-                        "Skipping oversized Slay the Spire mod metadata entry: ${entry.name}"
+                        "Skipping oversized Slay the Spire mod metadata entry: ${entry.name}",
                     )
                     return@use null
                 }

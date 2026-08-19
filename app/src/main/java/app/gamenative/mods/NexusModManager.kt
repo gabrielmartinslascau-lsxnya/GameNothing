@@ -7,7 +7,6 @@ import app.gamenative.R
 import app.gamenative.data.ModInstall
 import app.gamenative.data.ModInstallSource
 import app.gamenative.data.ModInstallStatus
-import app.gamenative.data.ModOverwriteManifest
 import app.gamenative.data.ModPlacementMode
 import app.gamenative.data.ModPlacementRecipe
 import app.gamenative.data.ModTargetRoot
@@ -17,6 +16,10 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.nio.file.Files
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -24,10 +27,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
-import java.nio.file.Files
 
 data class ModImportProgress(
     val status: String,
@@ -122,7 +121,7 @@ object NexusModManager {
             (
                 (install.sizeBytes > 0L && tempArchiveFile.length() == install.sizeBytes) ||
                     NexusImportState.hasCompletedDownload(install, tempArchiveFile.length())
-            )
+                )
     }
 
     fun hasCompletePendingLocalContent(context: Context, install: ModInstall): Boolean {
@@ -360,7 +359,7 @@ object NexusModManager {
                 (
                     (file.sizeBytes > 0L && tempArchiveFile.length() == file.sizeBytes) ||
                         previousDownloadCompleted
-                )
+                    )
             if (archiveAlreadyDownloaded) {
                 val completedBytes = tempArchiveFile.length()
                 val expectedBytes = file.sizeBytes.takeIf { it > 0L } ?: completedBytes
@@ -1272,7 +1271,13 @@ object NexusModManager {
 
     private fun missingTargetsForEntry(entry: ModPlannedEntry, mode: ModPlacementMode): List<String> {
         if (mode == ModPlacementMode.SYMLINK) {
-            return if (Files.isSymbolicLink(entry.target.toPath()) || entry.target.exists()) emptyList() else listOf(entry.target.absolutePath)
+            return if (Files.isSymbolicLink(entry.target.toPath()) ||
+                entry.target.exists()
+            ) {
+                emptyList()
+            } else {
+                listOf(entry.target.absolutePath)
+            }
         }
         if (entry.source.isFile) {
             return if (entry.target.isFile) emptyList() else listOf(entry.target.absolutePath)
@@ -1328,5 +1333,4 @@ object NexusModManager {
 
     internal fun hasUsableExtractedContent(dir: File): Boolean =
         dir.isDirectory && dir.walkTopDown().any(File::isFile)
-
 }

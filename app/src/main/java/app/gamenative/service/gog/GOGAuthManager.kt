@@ -3,15 +3,13 @@ package app.gamenative.service.gog
 import android.content.Context
 import app.gamenative.data.GOGCredentials
 import app.gamenative.utils.Net
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.Request
 import org.json.JSONObject
 import timber.log.Timber
-import java.io.File
 
 /**
  * Manages GOG authentication and account operations.
@@ -117,18 +115,21 @@ object GOGAuthManager {
                 accessToken = accessToken,
                 refreshToken = refreshToken,
                 userId = userId,
-                username = "GOG User"
+                username = "GOG User",
             )
 
             // Store credentials to file
             val authData = JSONObject().apply {
-                put(GOGConstants.GOG_CLIENT_ID, JSONObject().apply {
-                    put("access_token", accessToken)
-                    put("refresh_token", refreshToken)
-                    put("user_id", userId)
-                    put("expires_in", expiresIn)
-                    put("loginTime", System.currentTimeMillis() / 1000.0)
-                })
+                put(
+                    GOGConstants.GOG_CLIENT_ID,
+                    JSONObject().apply {
+                        put("access_token", accessToken)
+                        put("refresh_token", refreshToken)
+                        put("user_id", userId)
+                        put("expires_in", expiresIn)
+                        put("loginTime", System.currentTimeMillis() / 1000.0)
+                    },
+                )
             }
 
             withContext(Dispatchers.IO) {
@@ -189,7 +190,7 @@ object GOGAuthManager {
                 accessToken = credentialsJson.getString("access_token"),
                 refreshToken = credentialsJson.optString("refresh_token", ""),
                 userId = credentialsJson.getString("user_id"),
-                username = credentialsJson.optString("username", "GOG User")
+                username = credentialsJson.optString("username", "GOG User"),
             )
 
             Timber.tag("GOG").d("Retrieved stored credentials for user: ${credentials.userId}")
@@ -212,7 +213,7 @@ object GOGAuthManager {
     suspend fun getGameCredentials(
         context: Context,
         clientId: String,
-        clientSecret: String
+        clientSecret: String,
     ): Result<GOGCredentials> {
         return try {
             val authFile = File(getAuthConfigPath(context))
@@ -235,12 +236,14 @@ object GOGAuthManager {
 
                 if (!isExpired) {
                     // Return existing valid credentials
-                    return Result.success(GOGCredentials(
-                        accessToken = gameCredentials.getString("access_token"),
-                        refreshToken = gameCredentials.optString("refresh_token", ""),
-                        userId = gameCredentials.getString("user_id"),
-                        username = gameCredentials.optString("username", "GOG User")
-                    ))
+                    return Result.success(
+                        GOGCredentials(
+                            accessToken = gameCredentials.getString("access_token"),
+                            refreshToken = gameCredentials.optString("refresh_token", ""),
+                            userId = gameCredentials.getString("user_id"),
+                            username = gameCredentials.optString("username", "GOG User"),
+                        ),
+                    )
                 }
             }
 
@@ -294,12 +297,14 @@ object GOGAuthManager {
                 json
             }
 
-            return Result.success(GOGCredentials(
-                accessToken = tokenJson.getString("access_token"),
-                refreshToken = tokenJson.optString("refresh_token", refreshToken),
-                userId = tokenJson.getString("user_id"),
-                username = tokenJson.optString("username", "GOG User")
-            ))
+            return Result.success(
+                GOGCredentials(
+                    accessToken = tokenJson.getString("access_token"),
+                    refreshToken = tokenJson.optString("refresh_token", refreshToken),
+                    userId = tokenJson.getString("user_id"),
+                    username = tokenJson.optString("username", "GOG User"),
+                ),
+            )
         } catch (e: Exception) {
             Timber.tag("GOG").e(e, "Failed to get game-specific credentials")
             Result.failure(e)

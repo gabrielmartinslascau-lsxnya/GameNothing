@@ -2,11 +2,11 @@ package app.gamenative.utils
 
 import android.content.res.AssetManager
 import com.winlator.core.TarCompressorUtils
-import timber.log.Timber
 import java.io.File
+import timber.log.Timber
 
 object AssetUtils {
-    fun log() : Timber.Tree {
+    fun log(): Timber.Tree {
         return Timber.tag("AssetUtils")
     }
 
@@ -21,7 +21,7 @@ object AssetUtils {
     fun extractComponentsWithVersionCheck(
         extractionPairs: List<Pair<String, File>>,
         assetManager: AssetManager,
-        extractType: TarCompressorUtils.Type
+        extractType: TarCompressorUtils.Type,
     ) {
         for ((assetFile, targetDir) in extractionPairs) {
             log().i("Extracting $assetFile to ${targetDir.absolutePath}")
@@ -33,7 +33,7 @@ object AssetUtils {
                 extractType,
                 assetManager,
                 assetFile,
-                tempDir
+                tempDir,
             )
 
             if (success) {

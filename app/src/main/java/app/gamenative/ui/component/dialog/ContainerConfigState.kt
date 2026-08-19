@@ -6,8 +6,8 @@ import app.gamenative.utils.ContainerUtils
 import app.gamenative.utils.ManifestComponentHelper
 import app.gamenative.utils.ManifestEntry
 import com.winlator.box86_64.Box86_64Preset
-import com.winlator.contents.ContentProfile
 import com.winlator.container.ContainerData
+import com.winlator.contents.ContentProfile
 import com.winlator.fexcore.FEXCorePreset
 
 /**

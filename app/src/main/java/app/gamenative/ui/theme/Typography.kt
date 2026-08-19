@@ -10,12 +10,7 @@ import app.gamenative.R
 
 // Define Bricolage Grotesque font family
 val BricolageGrotesque = FontFamily(
-    Font(R.font.bricolage_grotesque_light, FontWeight.Light),
-    Font(R.font.bricolage_grotesque_regular, FontWeight.Normal),
-    Font(R.font.bricolage_grotesque_medium, FontWeight.Medium),
-    Font(R.font.bricolage_grotesque_semibold, FontWeight.SemiBold),
-    Font(R.font.bricolage_grotesque_bold, FontWeight.Bold),
-    Font(R.font.bricolage_grotesque_extrabold, FontWeight.ExtraBold),
+    Font(R.font.ndot_47_inspired_by_nothing, FontWeight.Normal)
 )
 
 // Custom typography using Bricolage Grotesque

@@ -5,6 +5,8 @@ Project(Pluvia)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2 -Wno-unused-function -Wimplicit-function-declaration")
 set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} -s")
 
+add_link_options("-Wl,-z,max-page-size=16384")
+
 #add_subdirectory(proot)
 add_subdirectory(virglrenderer)
 add_subdirectory(patchelf)
@@ -25,8 +27,6 @@ target_link_libraries(winlator
                       EGL
                       GLESv2
                       GLESv3)
-
-target_link_options(winlator PRIVATE -Wl,-z,max-page-size=16384)
 
 
 add_custom_command(
@@ -64,5 +64,3 @@ target_link_libraries(vulkan_renderer
                       adrenotools
                       dl
                       atomic)
-
-target_link_options(vulkan_renderer PRIVATE -Wl,-z,max-page-size=16384)

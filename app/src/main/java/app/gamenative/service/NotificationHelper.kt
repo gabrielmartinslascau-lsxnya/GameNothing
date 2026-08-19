@@ -10,9 +10,9 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.net.toUri
 import app.gamenative.MainActivity
-import app.gamenative.data.DownloadInfo
 import app.gamenative.PrefManager
 import app.gamenative.R
+import app.gamenative.data.DownloadInfo
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 

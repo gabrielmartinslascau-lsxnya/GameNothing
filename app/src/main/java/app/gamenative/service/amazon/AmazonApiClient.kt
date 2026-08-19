@@ -2,6 +2,7 @@ package app.gamenative.service.amazon
 
 import app.gamenative.data.AmazonGame
 import app.gamenative.utils.Net
+import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -9,8 +10,6 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import timber.log.Timber
-import java.net.URL
-import java.security.MessageDigest
 
 /** Low-level client for Amazon Gaming distribution APIs. */
 object AmazonApiClient {
@@ -29,7 +28,6 @@ object AmazonApiClient {
 
     private const val GET_LIVE_VERSION_IDS_TARGET =
         "com.amazon.animusdistributionservice.external.AnimusDistributionService.GetLiveVersionIds"
-
 
     /** Result of a `GetGameDownload` call. */
     data class GameDownloadSpec(
@@ -74,8 +72,9 @@ object AmazonApiClient {
                 responseJson.getString("nextToken").also {
                     Timber.d("[Amazon] Got nextToken, fetching next page…")
                 }
-            } else null
-
+            } else {
+                null
+            }
         } while (nextToken != null)
 
         Timber.i("[Amazon] Fetched ${games.size} total entitlements")
@@ -279,7 +278,7 @@ object AmazonApiClient {
         }
         val updateAvailable = liveVersion != storedVersionId
         Timber.tag("Amazon").i(
-            "isUpdateAvailable: productId=$productId stored=$storedVersionId live=$liveVersion update=$updateAvailable"
+            "isUpdateAvailable: productId=$productId stored=$storedVersionId live=$liveVersion update=$updateAvailable",
         )
         updateAvailable
     }

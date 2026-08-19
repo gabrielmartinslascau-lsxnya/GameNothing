@@ -3,13 +3,13 @@ package app.gamenative.utils.downloader
 import android.content.Context
 import app.gamenative.BuildConfig
 import app.gamenative.service.SteamService
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import timber.log.Timber
-import java.io.File
 
 /**
  * Utility for downloading container pattern files (extras, container patterns, proton patterns) from the manifest server.
@@ -26,14 +26,14 @@ object ContainerFilesDownloader {
     data class ContainerFilesManifest(
         val version: Int,
         val updatedAt: String,
-        val components: List<ContainerFileComponent>
+        val components: List<ContainerFileComponent>,
     )
 
     @Serializable
     data class ContainerFileComponent(
         val id: String,
         val name: String,
-        val url: String
+        val url: String,
     )
 
     /**
@@ -47,7 +47,7 @@ object ContainerFilesDownloader {
     suspend fun ensureContainerFileAvailable(
         context: Context,
         componentId: String,
-        onProgress: (Float) -> Unit = {}
+        onProgress: (Float) -> Unit = {},
     ): File? = withContext(Dispatchers.IO) {
         // Validate component exists in manifest first (for both legacy and modern variants)
         val manifest = loadContainerFilesManifest(context)
@@ -78,7 +78,7 @@ object ContainerFilesDownloader {
                 fileName = "container_files/${component.name}",
                 dest = destFile,
                 context = context,
-                onProgress = onProgress
+                onProgress = onProgress,
             )
             Timber.i("Successfully downloaded container file: $componentId")
         } catch (e: Exception) {
@@ -177,7 +177,7 @@ interface ProgressCallback {
 fun ensureContainerFileAvailableBlocking(
     context: Context,
     componentId: String,
-    onProgress: ProgressCallback? = null
+    onProgress: ProgressCallback? = null,
 ): File? {
     return runBlocking {
         ContainerFilesDownloader.ensureContainerFileAvailable(context, componentId) { progress ->

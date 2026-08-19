@@ -25,6 +25,10 @@ data class MainState(
     val bootingSplashText: String = "Booting...",
     val bootingSplashHeroImageUrl: String = "",
 
+    val mainColor: String = "#9C27B0",
+    val wallpaperColor: String = "#121416",
+    val maxRefreshRate: Int = 60,
+
     // Connection state for background reconnection
     // Default to DISCONNECTED - service will start and set to CONNECTING
     val connectionState: ConnectionState = ConnectionState.DISCONNECTED,

@@ -1,7 +1,7 @@
 package app.gamenative.utils
 
-import app.gamenative.enums.Marker
 import app.gamenative.data.GameSource
+import app.gamenative.enums.Marker
 import com.winlator.container.Container
 import java.io.File
 
@@ -76,4 +76,3 @@ object VcRedistStep : PreInstallStep {
         return if (parts.isEmpty()) null else parts.joinToString(" & ")
     }
 }
-

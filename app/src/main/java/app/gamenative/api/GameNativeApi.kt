@@ -3,13 +3,13 @@ package app.gamenative.api
 import app.gamenative.BuildConfig
 import app.gamenative.utils.Net
 import app.gamenative.utils.PlayIntegrity
+import java.io.IOException
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import timber.log.Timber
-import java.io.IOException
 
 object GameNativeApi {
 

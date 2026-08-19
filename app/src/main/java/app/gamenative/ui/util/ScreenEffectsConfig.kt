@@ -3,8 +3,8 @@ package app.gamenative.ui.util
 import com.winlator.container.Container
 import com.winlator.renderer.GLRenderer
 import com.winlator.renderer.VulkanRenderer
-import com.winlator.renderer.effects.ColorEffect
 import com.winlator.renderer.effects.CRTEffect
+import com.winlator.renderer.effects.ColorEffect
 import com.winlator.renderer.effects.Effect
 import com.winlator.renderer.effects.FSR1EasuEffect
 import com.winlator.renderer.effects.FSR1RcasEffect
@@ -63,7 +63,8 @@ fun loadScreenEffectsConfig(container: Container?): ScreenEffectsConfig {
         contrast = container.getExtra(ScreenEffectsConfig.KEY_CONTRAST)?.toFloatOrNull() ?: 0f,
         gamma = container.getExtra(ScreenEffectsConfig.KEY_GAMMA)?.toFloatOrNull() ?: 1f,
         scalingMode = container.getExtra(ScreenEffectsConfig.KEY_SCALING_MODE)?.toIntOrNull() ?: ScreenEffectsConfig.SCALING_MODE_NONE,
-        fsrSharpnessLevel = container.getExtra(ScreenEffectsConfig.KEY_FSR_SHARPNESS)?.toIntOrNull() ?: ScreenEffectsConfig.FSR_DEFAULT_LEVEL,
+        fsrSharpnessLevel =
+        container.getExtra(ScreenEffectsConfig.KEY_FSR_SHARPNESS)?.toIntOrNull() ?: ScreenEffectsConfig.FSR_DEFAULT_LEVEL,
         enableToon = container.getExtra(ScreenEffectsConfig.KEY_ENABLE_TOON)?.toBooleanStrictOrNull() ?: false,
         enableFXAA = container.getExtra(ScreenEffectsConfig.KEY_ENABLE_FXAA)?.toBooleanStrictOrNull() ?: false,
         enableVivid = container.getExtra(ScreenEffectsConfig.KEY_ENABLE_VIVID)?.toBooleanStrictOrNull() ?: false,
@@ -107,7 +108,8 @@ fun applyScreenEffectsConfig(renderer: GLRenderer, config: ScreenEffectsConfig) 
 
     when (config.scalingMode) {
         ScreenEffectsConfig.SCALING_MODE_FSR,
-        ScreenEffectsConfig.SCALING_MODE_FSR_ASPECT -> {
+        ScreenEffectsConfig.SCALING_MODE_FSR_ASPECT,
+        -> {
             val easuEffect = composer.getEffect(FSR1EasuEffect::class.java) ?: FSR1EasuEffect()
             easuEffect.setPreserveAspect(config.scalingMode == ScreenEffectsConfig.SCALING_MODE_FSR_ASPECT)
             effects += easuEffect
@@ -172,15 +174,18 @@ fun applyScreenEffectsConfig(renderer: VulkanRenderer, config: ScreenEffectsConf
     }
     val sharpnessRange = ScreenEffectsConfig.FSR_MAX_LEVEL - ScreenEffectsConfig.FSR_MIN_LEVEL
     val sharpness = if (sharpnessRange > 0) {
-        (config.fsrSharpnessLevel.coerceIn(ScreenEffectsConfig.FSR_MIN_LEVEL, ScreenEffectsConfig.FSR_MAX_LEVEL) -
-            ScreenEffectsConfig.FSR_MIN_LEVEL).toFloat() / sharpnessRange.toFloat()
+        (
+            config.fsrSharpnessLevel.coerceIn(ScreenEffectsConfig.FSR_MIN_LEVEL, ScreenEffectsConfig.FSR_MAX_LEVEL) -
+                ScreenEffectsConfig.FSR_MIN_LEVEL
+            ).toFloat() / sharpnessRange.toFloat()
     } else {
         0f
     }
     val outputScalingMode = when (config.scalingMode) {
         ScreenEffectsConfig.SCALING_MODE_FILL -> VulkanRenderer.SCALE_FILL
         ScreenEffectsConfig.SCALING_MODE_STRETCH,
-        ScreenEffectsConfig.SCALING_MODE_FSR -> VulkanRenderer.SCALE_STRETCH
+        ScreenEffectsConfig.SCALING_MODE_FSR,
+        -> VulkanRenderer.SCALE_STRETCH
         else -> VulkanRenderer.SCALE_FIT
     }
     val effectMask =

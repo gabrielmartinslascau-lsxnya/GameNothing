@@ -5,13 +5,13 @@ import app.gamenative.data.ModInstallStatus
 import app.gamenative.data.ModOverwriteManifest
 import app.gamenative.data.ModPlacementMode
 import app.gamenative.data.ModPlacementRecipe
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.io.IOException
 import java.nio.file.Files
 import java.security.MessageDigest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class ModPlacementConflict(
     val sourcePath: String,
@@ -215,7 +215,8 @@ object ModMaterializer {
                             }
                         }
                         ModPlacementMode.COPY,
-                        ModPlacementMode.OVERWRITE_COPY -> {
+                        ModPlacementMode.OVERWRITE_COPY,
+                        -> {
                             val result = copyMissingFiles(entry.target, entry.source)
                             created += result.created
                             skipped += result.skipped

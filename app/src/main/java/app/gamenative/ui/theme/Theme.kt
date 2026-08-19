@@ -11,9 +11,21 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import app.gamenative.PrefManager
 import com.alorma.compose.settings.ui.base.internal.SettingsTileColors
 import com.alorma.compose.settings.ui.base.internal.SettingsTileDefaults
 import com.materialkolor.PaletteStyle
+
+/**
+ * Utility to parse hex color string to Color object.
+ */
+fun String.toColor(): Color {
+    return try {
+        Color(android.graphics.Color.parseColor(this))
+    } catch (e: Exception) {
+        Color.Unspecified
+    }
+}
 
 /**
  * Custom color system for Pluvia, extending Material3.
@@ -160,16 +172,77 @@ private val DarkColorScheme = darkColorScheme(
     surfaceContainerLowest = PluviaBackground,
 )
 
+/**
+ * Returns a suitable "on" color (White or Black) for a given background color.
+ */
+fun Color.onColor(): Color {
+    val luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+    return if (luminance > 0.5) Color.Black else Color.White
+}
+
 @Composable
 fun PluviaTheme(
-    seedColor: Color = PluviaSeed,
+    mainColor: Color = PrefManager.mainColor.toColor().takeIf { it != Color.Unspecified } ?: PluviaSeed,
+    wallpaperColor: Color = PrefManager.wallpaperColor.toColor().takeIf { it != Color.Unspecified } ?: PluviaBackground,
     isDark: Boolean = true, // for now, always force dark theme
     isAmoled: Boolean = false,
     style: PaletteStyle = PaletteStyle.TonalSpot,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = DarkColorScheme
-    val pluviaColors = if (isDark) DarkPluviaColors else DarkPluviaColors // We can use LightPluviaColors when ready
+    val onMain = mainColor.onColor()
+
+    val colorScheme = darkColorScheme(
+        primary = mainColor,
+        onPrimary = onMain,
+        primaryContainer = mainColor.copy(alpha = 0.2f),
+        onPrimaryContainer = Color.White,
+
+        secondary = PluviaSecondary,
+        onSecondary = Color.White,
+        secondaryContainer = PluviaSecondary.copy(alpha = 0.8f),
+        onSecondaryContainer = Color.White,
+
+        tertiary = mainColor,
+        onTertiary = onMain,
+        tertiaryContainer = mainColor.copy(alpha = 0.2f),
+        onTertiaryContainer = Color.White,
+
+        background = wallpaperColor,
+        onBackground = Color.White,
+
+        surface = PluviaCard,
+        onSurface = Color.White,
+        surfaceVariant = PluviaSecondary,
+        onSurfaceVariant = Color.White, // Force white instead of grey
+        surfaceTint = mainColor,
+
+        inverseSurface = Color.White,
+        inverseOnSurface = wallpaperColor,
+        inversePrimary = mainColor,
+
+        error = PluviaDestructive,
+        onError = Color.White,
+        errorContainer = PluviaDestructive.copy(alpha = 0.2f),
+        onErrorContainer = Color.White,
+
+        outline = Color.White.copy(alpha = 0.5f),
+        outlineVariant = PluviaSecondary,
+
+        scrim = Color.Black.copy(alpha = 0.5f),
+        surfaceBright = PluviaSecondary,
+        surfaceDim = wallpaperColor,
+        surfaceContainer = PluviaCard,
+        surfaceContainerHigh = PluviaSecondary,
+        surfaceContainerHighest = PluviaSecondary.copy(alpha = 0.9f),
+        surfaceContainerLow = wallpaperColor,
+        surfaceContainerLowest = wallpaperColor,
+    )
+
+    val pluviaColors = DarkPluviaColors.copy(
+        accentCyan = mainColor, // Use main color for highlights
+        accentPurple = mainColor,
+        surfacePanel = wallpaperColor
+    )
 
     val view = LocalView.current
     if (!view.isInEditMode) {
@@ -242,17 +315,25 @@ object DarkColors {
 
 // Settings tile color helpers
 @Composable
-fun settingsTileColors(): SettingsTileColors = SettingsTileDefaults.colors(
-    titleColor = PluviaForeground,
-    subtitleColor = PluviaForegroundMuted,
-    actionColor = PluviaCyan,
-)
+fun settingsTileColors(): SettingsTileColors {
+    val isGlass = PrefManager.glassPanels
+    val contentColor = glassContentColor()
+    return SettingsTileDefaults.colors(
+        titleColor = contentColor,
+        subtitleColor = contentColor.copy(alpha = 0.7f),
+        actionColor = MaterialTheme.colorScheme.primary,
+    )
+}
 
 @Composable
-fun settingsTileColorsAlt(): SettingsTileColors = SettingsTileDefaults.colors(
-    titleColor = PluviaForeground,
-    subtitleColor = PluviaForegroundMuted,
-)
+fun settingsTileColorsAlt(): SettingsTileColors {
+    val isGlass = PrefManager.glassPanels
+    val contentColor = glassContentColor()
+    return SettingsTileDefaults.colors(
+        titleColor = contentColor,
+        subtitleColor = contentColor.copy(alpha = 0.7f),
+    )
+}
 
 @Composable
 fun settingsTileColorsDebug(): SettingsTileColors = SettingsTileDefaults.colors(

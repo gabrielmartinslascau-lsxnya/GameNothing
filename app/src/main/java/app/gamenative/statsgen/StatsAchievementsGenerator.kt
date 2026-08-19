@@ -1,8 +1,6 @@
 package app.gamenative.statsgen
 
 import `in`.dragonbra.javasteam.steam.handlers.steamuserstats.callback.UserStatsCallback
-import org.json.JSONArray
-import org.json.JSONObject
 import java.io.File
 
 class StatsAchievementsGenerator {
@@ -108,7 +106,7 @@ class StatsAchievementsGenerator {
                             icon = achievementBuilder["icon"]?.toString(),
                             iconGray = achievementBuilder["icon_gray"]?.toString(),
                             icongray = achievementBuilder["icongray"]?.toString(),
-                            progress = achievementBuilder["progress"] as? Map<String, Any>
+                            progress = achievementBuilder["progress"] as? Map<String, Any>,
                         )
                         achievementsOut.add(achievement)
                     }
@@ -144,7 +142,7 @@ class StatsAchievementsGenerator {
                         type = statBuilder["type"]?.toString() ?: "int",
                         default = statBuilder["default"]?.toString() ?: "0",
                         global = statBuilder["global"]?.toString() ?: "0",
-                        min = statBuilder["min"]?.toString()
+                        min = statBuilder["min"]?.toString(),
                     )
                     statsOut.add(statObj)
                 }
@@ -159,7 +157,7 @@ class StatsAchievementsGenerator {
                 ach.copy(
                     unlocked = true,
                     unlockTimestamp = expanded.unlockTimestamp,
-                    formattedUnlockTime = expanded.getFormattedUnlockTime()
+                    formattedUnlockTime = expanded.getFormattedUnlockTime(),
                 )
             } else {
                 ach
@@ -267,7 +265,7 @@ class StatsAchievementsGenerator {
 
             val orderedKeys = listOf(
                 "hidden", "displayName", "description", "icon", "icon_gray", "name",
-                "earned", "earn_time", "formattedUnlockTime"
+                "earned", "earn_time", "formattedUnlockTime",
             )
 
             for ((index, ach) in outputAchievements.withIndex()) {

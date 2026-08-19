@@ -16,7 +16,7 @@ import com.winlator.core.StringUtils
 fun WineTabContent(state: ContainerConfigState) {
     val config = state.config.value
     val gpuCardsValues = state.gpuCards.values.toList()
-    SettingsGroup() {
+    SettingsGroup {
         SettingsListDropdownSearchable(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.renderer)) },
@@ -28,7 +28,7 @@ fun WineTabContent(state: ContainerConfigState) {
                 cfg.put("gpuName", gpuCardsValues[it].deviceId)
                 state.config.value = config.copy(
                     videoPciDeviceID = gpuCardsValues[it].deviceId,
-                    graphicsDriverConfig = cfg.toString()
+                    graphicsDriverConfig = cfg.toString(),
                 )
             },
         )

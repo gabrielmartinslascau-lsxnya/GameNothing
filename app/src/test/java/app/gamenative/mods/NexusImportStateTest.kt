@@ -3,13 +3,13 @@ package app.gamenative.mods
 import app.gamenative.data.ModInstall
 import app.gamenative.data.ModInstallSource
 import app.gamenative.data.ModInstallStatus
+import java.io.IOException
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.IOException
 
 class NexusImportStateTest {
     @Test

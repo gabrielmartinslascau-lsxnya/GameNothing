@@ -33,21 +33,23 @@ data class DownloadItemState(
         get() = status == DownloadItemStatus.DOWNLOADING
 
     val canResume: Boolean
-        get() = isPartial && (
-            status == DownloadItemStatus.PAUSED ||
-                status == DownloadItemStatus.RESUMABLE ||
-                status == DownloadItemStatus.FAILED
-            )
+        get() = isPartial &&
+            (
+                status == DownloadItemStatus.PAUSED ||
+                    status == DownloadItemStatus.RESUMABLE ||
+                    status == DownloadItemStatus.FAILED
+                )
 
     val canCancel: Boolean
         get() = status == DownloadItemStatus.DOWNLOADING || isPartial
 
     val isFinished: Boolean
-        get() = !isPartial && (
-            status == DownloadItemStatus.COMPLETED ||
-                status == DownloadItemStatus.CANCELLED ||
-                status == DownloadItemStatus.FAILED
-            )
+        get() = !isPartial &&
+            (
+                status == DownloadItemStatus.COMPLETED ||
+                    status == DownloadItemStatus.CANCELLED ||
+                    status == DownloadItemStatus.FAILED
+                )
 }
 
 data class CancelConfirmation(

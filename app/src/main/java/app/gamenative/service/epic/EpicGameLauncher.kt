@@ -5,9 +5,9 @@ import app.gamenative.data.EpicGame
 import app.gamenative.data.EpicGameToken
 import app.gamenative.utils.sanitizeForFilename
 import com.winlator.container.Container
-import timber.log.Timber
 import java.io.File
 import java.io.IOException
+import timber.log.Timber
 
 /**
  * Helper functionality for launching Epic Games with correct execution params for online verification
@@ -25,21 +25,21 @@ object EpicGameLauncher {
      * Returns a list of command-line arguments to pass to the game executable
      * for Epic Games Services authentication
      *
-    */
+     */
     suspend fun buildLaunchParameters(
         context: Context,
         container: Container,
         game: EpicGame,
         offline: Boolean = false,
-        languageCode: String = "en-US"
+        languageCode: String = "en-US",
     ): Result<List<String>> {
         return try {
             val params = mutableListOf<String>()
 
             // Offline launch if offline (either via the container settings or the device)
             if (offline) {
-                    Timber.tag("EPIC").i("Launching ${game.appName} in offline mode (no authentication)")
-                    return Result.success(params)
+                Timber.tag("EPIC").i("Launching ${game.appName} in offline mode (no authentication)")
+                return Result.success(params)
             }
 
             Timber.tag("EPIC").d("Launching ${game.appName} online, getting game launch token...")
@@ -48,7 +48,7 @@ object EpicGameLauncher {
                 context = context,
                 namespace = game.namespace,
                 catalogItemId = game.catalogId,
-                requiresOwnershipToken = game.requiresOT
+                requiresOwnershipToken = game.requiresOT,
             )
 
             if (tokenResult.isFailure) {
@@ -149,7 +149,10 @@ object EpicGameLauncher {
         for (c in input) {
             when {
                 inDouble -> if (c == '"') inDouble = false else current.append(c)
-                c == '"' -> { inDouble = true; hasToken = true }
+                c == '"' -> {
+                    inDouble = true
+                    hasToken = true
+                }
                 c.isWhitespace() -> {
                     if (hasToken) {
                         tokens.add(current.toString())
@@ -157,7 +160,10 @@ object EpicGameLauncher {
                         hasToken = false
                     }
                 }
-                else -> { current.append(c); hasToken = true }
+                else -> {
+                    current.append(c)
+                    hasToken = true
+                }
             }
         }
         if (hasToken) tokens.add(current.toString())
@@ -173,7 +179,7 @@ object EpicGameLauncher {
         container: Container,
         namespace: String,
         catalogItemId: String,
-        ownershipTokenHex: String
+        ownershipTokenHex: String,
     ): String {
         // Validate hex string
         if (ownershipTokenHex.isEmpty()) {

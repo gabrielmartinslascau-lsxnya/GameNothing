@@ -13,7 +13,7 @@ import timber.log.Timber
 /**
  * Invisible view that receives IME (soft keyboard) input from Android system keyboard
  * and forwards it to XServer as keyboard events for the game.
- * 
+ *
  * This is needed when the system keyboard is pinned to the external display
  */
 class IMEInputReceiver(
@@ -52,13 +52,13 @@ class IMEInputReceiver(
 
         Timber.d("IMEInputReceiver: onCreateInputConnection called!")
         // Disable autocomplete/suggestions so each key commits immediately
-        outAttrs.inputType = EditorInfo.TYPE_CLASS_TEXT or 
-                             EditorInfo.TYPE_TEXT_FLAG_NO_SUGGESTIONS or
-                             EditorInfo.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
-        outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_FULLSCREEN or 
-                              EditorInfo.IME_FLAG_NO_EXTRACT_UI or
-                              EditorInfo.IME_ACTION_NONE
-        
+        outAttrs.inputType = EditorInfo.TYPE_CLASS_TEXT or
+            EditorInfo.TYPE_TEXT_FLAG_NO_SUGGESTIONS or
+            EditorInfo.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+        outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_FULLSCREEN or
+            EditorInfo.IME_FLAG_NO_EXTRACT_UI or
+            EditorInfo.IME_ACTION_NONE
+
         return object : BaseInputConnection(this, false) {
             override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
                 Timber.d("IMEInputReceiver: commitText called with: '$text'")

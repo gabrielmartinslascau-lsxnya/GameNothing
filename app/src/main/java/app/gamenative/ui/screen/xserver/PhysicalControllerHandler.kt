@@ -38,6 +38,7 @@ class PhysicalControllerHandler(
     private var scrollRepeatTimer: Timer? = null
     private val scrollRepeatLock = Any()
     private val activeScrollBindings = mutableSetOf<Binding>()
+
     // track which axis keycodes are currently "pressed" so we only release on actual transitions.
     // accessed only from main thread (MotionEvent dispatch + Compose lifecycle), no sync needed.
     private val activeAxisBindings = mutableSetOf<Int>()
@@ -130,7 +131,11 @@ class PhysicalControllerHandler(
                     }
                     val offset = if (event.action == KeyEvent.ACTION_DOWN &&
                         (controllerBinding.binding == Binding.GAMEPAD_BUTTON_L2 || controllerBinding.binding == Binding.GAMEPAD_BUTTON_R2)
-                    ) 1f else 0f
+                    ) {
+                        1f
+                    } else {
+                        0f
+                    }
                     handleInputEvent(
                         controllerBinding.binding,
                         event.action == KeyEvent.ACTION_DOWN,
@@ -248,19 +253,22 @@ class PhysicalControllerHandler(
     private fun createMouseMoveTimer() {
         if (profile != null && mouseMoveTimer == null) {
             mouseMoveTimer = Timer()
-            mouseMoveTimer?.schedule(object : TimerTask() {
-                override fun run() {
-                    // Skip injection if movement is below 8% deadzone to save CPU cycles
-                    val magnitude = Math.sqrt((mouseMoveOffset.x * mouseMoveOffset.x + mouseMoveOffset.y * mouseMoveOffset.y).toDouble())
-                    if (magnitude < 0.08) return
+            mouseMoveTimer?.schedule(
+                object : TimerTask() {
+                    override fun run() {
+                        // Skip injection if movement is below 8% deadzone to save CPU cycles
+                        val magnitude = Math.sqrt((mouseMoveOffset.x * mouseMoveOffset.x + mouseMoveOffset.y * mouseMoveOffset.y).toDouble())
+                        if (magnitude < 0.08) return
 
-                    // Look up cursor speed dynamically so it updates when profile changes
-                    val cursorSpeed = profile?.cursorSpeed ?: 1f
-                    val deltaX = (mouseMoveOffset.x * 10 * cursorSpeed).toInt()
-                    val deltaY = (mouseMoveOffset.y * 10 * cursorSpeed).toInt()
-                    xServer?.injectPointerMoveDelta(deltaX, deltaY)
-                }
-            }, 0, 1000 / 60)
+                        // Look up cursor speed dynamically so it updates when profile changes
+                        val cursorSpeed = profile?.cursorSpeed ?: 1f
+                        val deltaX = (mouseMoveOffset.x * 10 * cursorSpeed).toInt()
+                        val deltaY = (mouseMoveOffset.y * 10 * cursorSpeed).toInt()
+                        xServer?.injectPointerMoveDelta(deltaX, deltaY)
+                    }
+                },
+                0, 1000 / 60,
+            )
         }
     }
 
@@ -291,14 +299,17 @@ class PhysicalControllerHandler(
     private fun createScrollRepeatTimerLocked() {
         if (scrollRepeatTimer != null) return
         scrollRepeatTimer = Timer()
-        scrollRepeatTimer?.schedule(object : TimerTask() {
-            override fun run() {
-                val bindings = synchronized(scrollRepeatLock) {
-                    activeScrollBindings.toList()
+        scrollRepeatTimer?.schedule(
+            object : TimerTask() {
+                override fun run() {
+                    val bindings = synchronized(scrollRepeatLock) {
+                        activeScrollBindings.toList()
+                    }
+                    bindings.forEach { sendScrollPulse(it) }
                 }
-                bindings.forEach { sendScrollPulse(it) }
-            }
-        }, SCROLL_REPEAT_INTERVAL_MS, SCROLL_REPEAT_INTERVAL_MS)
+            },
+            SCROLL_REPEAT_INTERVAL_MS, SCROLL_REPEAT_INTERVAL_MS,
+        )
     }
 
     private fun cancelScrollRepeatTimerLocked() {
@@ -333,7 +344,7 @@ class PhysicalControllerHandler(
             MotionEvent.AXIS_Z,
             MotionEvent.AXIS_RZ,
             MotionEvent.AXIS_HAT_X,
-            MotionEvent.AXIS_HAT_Y
+            MotionEvent.AXIS_HAT_Y,
         )
         val values = floatArrayOf(
             controller.state.thumbLX,
@@ -341,7 +352,7 @@ class PhysicalControllerHandler(
             controller.state.thumbRX,
             controller.state.thumbRY,
             controller.state.dPadX.toFloat(),
-            controller.state.dPadY.toFloat()
+            controller.state.dPadY.toFloat(),
         )
 
         for (i in axes.indices) {
@@ -469,8 +480,7 @@ class PhysicalControllerHandler(
                         }
                         else -> state.setPressed(buttonIdx, isActionDown)
                     }
-                }
-                else {
+                } else {
                     when (binding) {
                         Binding.GAMEPAD_LEFT_THUMB_UP, Binding.GAMEPAD_LEFT_THUMB_DOWN -> {
                             state.thumbLY = if (isActionDown) offset else 0f
@@ -484,27 +494,27 @@ class PhysicalControllerHandler(
                         Binding.GAMEPAD_RIGHT_THUMB_LEFT, Binding.GAMEPAD_RIGHT_THUMB_RIGHT -> {
                             state.thumbRX = if (isActionDown) offset else 0f
                         }
-                        Binding.GAMEPAD_DPAD_UP  -> {
+                        Binding.GAMEPAD_DPAD_UP -> {
                             state.dpad[0] = isActionDown
-                            if(isActionDown) {
+                            if (isActionDown) {
                                 state.dpad[Binding.GAMEPAD_DPAD_DOWN.ordinal - Binding.GAMEPAD_DPAD_UP.ordinal ] = false
                             }
                         }
                         Binding.GAMEPAD_DPAD_DOWN -> {
                             state.dpad[binding.ordinal - Binding.GAMEPAD_DPAD_UP.ordinal] = isActionDown
-                            if(isActionDown) {
+                            if (isActionDown) {
                                 state.dpad[0] = false
                             }
                         }
-                       Binding.GAMEPAD_DPAD_LEFT -> {
+                        Binding.GAMEPAD_DPAD_LEFT -> {
                             state.dpad[binding.ordinal - Binding.GAMEPAD_DPAD_UP.ordinal] = isActionDown
-                            if(isActionDown) {
-                              state.dpad[Binding.GAMEPAD_DPAD_RIGHT.ordinal - Binding.GAMEPAD_DPAD_UP.ordinal ] = false
-                          }
+                            if (isActionDown) {
+                                state.dpad[Binding.GAMEPAD_DPAD_RIGHT.ordinal - Binding.GAMEPAD_DPAD_UP.ordinal ] = false
+                            }
                         }
                         Binding.GAMEPAD_DPAD_RIGHT -> {
                             state.dpad[binding.ordinal - Binding.GAMEPAD_DPAD_UP.ordinal] = isActionDown
-                            if(isActionDown) {
+                            if (isActionDown) {
                                 state.dpad[Binding.GAMEPAD_DPAD_LEFT.ordinal - Binding.GAMEPAD_DPAD_UP.ordinal ] = false
                             }
                         }
@@ -539,7 +549,13 @@ class PhysicalControllerHandler(
             } else if (binding == Binding.MOUSE_MOVE_LEFT || binding == Binding.MOUSE_MOVE_RIGHT) {
                 // Handle horizontal mouse movement - ADD contribution from this input
                 if (isActionDown) {
-                    val contribution = if (offset != 0f) offset else if (binding == Binding.MOUSE_MOVE_LEFT) -1f else 1f
+                    val contribution = if (offset != 0f) {
+                        offset
+                    } else if (binding == Binding.MOUSE_MOVE_LEFT) {
+                        -1f
+                    } else {
+                        1f
+                    }
                     mouseMoveOffset.x += contribution
                     createMouseMoveTimer()
                 }
@@ -547,7 +563,13 @@ class PhysicalControllerHandler(
             } else if (binding == Binding.MOUSE_MOVE_DOWN || binding == Binding.MOUSE_MOVE_UP) {
                 // Handle vertical mouse movement - ADD contribution from this input
                 if (isActionDown) {
-                    val contribution = if (offset != 0f) offset else if (binding == Binding.MOUSE_MOVE_UP) -1f else 1f
+                    val contribution = if (offset != 0f) {
+                        offset
+                    } else if (binding == Binding.MOUSE_MOVE_UP) {
+                        -1f
+                    } else {
+                        1f
+                    }
                     mouseMoveOffset.y += contribution
                     createMouseMoveTimer()
                 }

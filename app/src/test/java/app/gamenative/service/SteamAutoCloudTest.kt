@@ -4,8 +4,6 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import app.gamenative.data.ConfigInfo
-import app.gamenative.data.FileChangeLists
-import app.gamenative.data.PostSyncInfo
 import app.gamenative.data.SaveFilePattern
 import app.gamenative.data.SteamApp
 import app.gamenative.data.SteamFileHashCache
@@ -16,49 +14,45 @@ import app.gamenative.enums.OS
 import app.gamenative.enums.PathType
 import app.gamenative.enums.ReleaseState
 import app.gamenative.enums.SaveLocation
-import app.gamenative.utils.Net
+import app.gamenative.enums.SyncResult
 import app.gamenative.service.DownloadService
 import app.gamenative.service.SteamService
+import app.gamenative.utils.Net
 import com.winlator.container.Container
 import com.winlator.xenvironment.ImageFs
 import `in`.dragonbra.javasteam.steam.handlers.steamcloud.AppFileChangeList
 import `in`.dragonbra.javasteam.steam.handlers.steamcloud.AppFileInfo
-import `in`.dragonbra.javasteam.steam.handlers.steamcloud.SteamCloud
 import `in`.dragonbra.javasteam.steam.handlers.steamcloud.FileDownloadInfo
+import `in`.dragonbra.javasteam.steam.handlers.steamcloud.SteamCloud
 import `in`.dragonbra.javasteam.steam.steamclient.configuration.SteamConfiguration
-import app.gamenative.enums.SyncResult
 import `in`.dragonbra.javasteam.util.crypto.CryptoHelper
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
+import java.io.File
+import java.io.IOException
+import java.nio.file.Files
+import java.util.Date
+import java.util.EnumSet
+import java.util.concurrent.CompletableFuture
+import kotlinx.coroutines.future.await
 import kotlinx.coroutines.runBlocking
 import okhttp3.Call
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Response
 import okhttp3.ResponseBody
-import java.util.Date
-import java.nio.file.Files
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.mockkObject
-import io.mockk.unmockkObject
-import kotlinx.coroutines.future.await
-import okhttp3.ResponseBody.Companion.toResponseBody
 import org.mockito.kotlin.any
-import org.mockito.kotlin.anyOrNull
-import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
-import java.io.File
-import java.io.IOException
-import java.lang.reflect.Field
-import java.nio.file.Path
-import java.util.EnumSet
-import java.util.concurrent.CompletableFuture
 
 @RunWith(RobolectricTestRunner::class)
 class SteamAutoCloudTest {
@@ -97,7 +91,7 @@ class SteamAutoCloudTest {
         val homeDir = File(imageFs.rootDir, "home")
         homeDir.mkdirs()
 
-        val containerDir = File(homeDir, "${ImageFs.USER}-${testAppId}")
+        val containerDir = File(homeDir, "${ImageFs.USER}-$testAppId")
         containerDir.mkdirs()
 
         // Create container
@@ -229,7 +223,9 @@ class SteamAutoCloudTest {
         val mockFileUploadInfo = mock<`in`.dragonbra.javasteam.steam.handlers.steamcloud.FileUploadInfo>()
         whenever(mockFileUploadInfo.blockRequests).thenReturn(emptyList())
 
-        every { mockSteamCloud.beginFileUpload(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
+        every {
+            mockSteamCloud.beginFileUpload(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns
             CompletableFuture.completedFuture(mockFileUploadInfo)
 
         every { mockSteamCloud.commitFileUpload(any(), any(), any(), any(), any()) } returns
@@ -285,15 +281,18 @@ class SteamAutoCloudTest {
     fun testMultiplePatternsSamePrefix_returnsAllFiles() = runBlocking {
         // Insert a non-empty stale cache so cacheIsAbsentOrEmpty=false and the upload path is taken.
         runBlocking {
-            db.appFileChangeListsDao().insert(steamAppId, listOf(
-                app.gamenative.data.UserFileInfo(
-                    root = PathType.WinMyDocuments,
-                    path = "__stale__",
-                    filename = "__placeholder__",
-                    timestamp = 0L,
-                    sha = ByteArray(20) { 0 },
-                )
-            ))
+            db.appFileChangeListsDao().insert(
+                steamAppId,
+                listOf(
+                    app.gamenative.data.UserFileInfo(
+                        root = PathType.WinMyDocuments,
+                        path = "__stale__",
+                        filename = "__placeholder__",
+                        timestamp = 0L,
+                        sha = ByteArray(20) { 0 },
+                    ),
+                ),
+            )
         }
 
         // Get the test app
@@ -642,7 +641,7 @@ class SteamAutoCloudTest {
                 path = "My Games/TestGame/Steam/76561198025127569",
                 filename = "SaveData_0.sav",
                 timestamp = System.currentTimeMillis() - 10000,
-                sha = oldFileSha
+                sha = oldFileSha,
             )
             db.appFileChangeListsDao().insert(steamAppId, listOf(oldUserFile))
         }
@@ -680,8 +679,11 @@ class SteamAutoCloudTest {
                 val a = args[i]
                 if (a is List<*> && a.all { it is String }) {
                     val list = a as List<String>
-                    if (capturedFilesToUpload.isEmpty()) capturedFilesToUpload.add(list)
-                    else capturedFilesToDelete.add(list)
+                    if (capturedFilesToUpload.isEmpty()) {
+                        capturedFilesToUpload.add(list)
+                    } else {
+                        capturedFilesToDelete.add(list)
+                    }
                 }
             }
             CompletableFuture.completedFuture(mockUploadBatchResponse)
@@ -690,7 +692,9 @@ class SteamAutoCloudTest {
         val mockFileUploadInfo = mock<`in`.dragonbra.javasteam.steam.handlers.steamcloud.FileUploadInfo>()
         whenever(mockFileUploadInfo.blockRequests).thenReturn(emptyList())
 
-        every { mockSteamCloud.beginFileUpload(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
+        every {
+            mockSteamCloud.beginFileUpload(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns
             CompletableFuture.completedFuture(mockFileUploadInfo)
 
         every { mockSteamCloud.commitFileUpload(any(), any(), any(), any(), any()) } returns
@@ -736,8 +740,20 @@ class SteamAutoCloudTest {
         // Verify prefixPath: path with folder uses Paths.get (slash before filename)
         val filesToUpload = capturedFilesToUpload.singleOrNull() ?: emptyList()
         val expectedPrefix = "%WinMyDocuments%My Games/TestGame/Steam/76561198025127569"
-        assertTrue("prefixPath for SaveData_0.sav should include path", filesToUpload.any { it.endsWith("/SaveData_0.sav") && it.contains(expectedPrefix) })
-        assertTrue("prefixPath for SaveData_New.sav should include path", filesToUpload.any { it.endsWith("/SaveData_New.sav") && it.contains(expectedPrefix) })
+        assertTrue(
+            "prefixPath for SaveData_0.sav should include path",
+            filesToUpload.any {
+                it.endsWith("/SaveData_0.sav") &&
+                    it.contains(expectedPrefix)
+            },
+        )
+        assertTrue(
+            "prefixPath for SaveData_New.sav should include path",
+            filesToUpload.any {
+                it.endsWith("/SaveData_New.sav") &&
+                    it.contains(expectedPrefix)
+            },
+        )
 
         // Verify database was updated with new change number
         val changeNumber = db.appChangeNumbersDao().getByAppId(steamAppId)
@@ -817,15 +833,18 @@ class SteamAutoCloudTest {
             db.appChangeNumbersDao().deleteByAppId(steamAppId)
             db.appFileChangeListsDao().deleteByAppId(steamAppId)
             db.appChangeNumbersDao().insert(app.gamenative.data.ChangeNumbers(steamAppId, 0))
-            db.appFileChangeListsDao().insert(steamAppId, listOf(
-                app.gamenative.data.UserFileInfo(
-                    root = PathType.WinMyDocuments,
-                    path = "__stale__",
-                    filename = "__placeholder__",
-                    timestamp = 0L,
-                    sha = ByteArray(20) { 0 },
-                )
-            ))
+            db.appFileChangeListsDao().insert(
+                steamAppId,
+                listOf(
+                    app.gamenative.data.UserFileInfo(
+                        root = PathType.WinMyDocuments,
+                        path = "__stale__",
+                        filename = "__placeholder__",
+                        timestamp = 0L,
+                        sha = ByteArray(20) { 0 },
+                    ),
+                ),
+            )
         }
 
         // Mock empty cloud (no cloud files)
@@ -938,15 +957,18 @@ class SteamAutoCloudTest {
             db.appChangeNumbersDao().deleteByAppId(steamAppId)
             db.appFileChangeListsDao().deleteByAppId(steamAppId)
             db.appChangeNumbersDao().insert(app.gamenative.data.ChangeNumbers(steamAppId, 0))
-            db.appFileChangeListsDao().insert(steamAppId, listOf(
-                app.gamenative.data.UserFileInfo(
-                    root = PathType.WinMyDocuments,
-                    path = "__stale__",
-                    filename = "__placeholder__",
-                    timestamp = 0L,
-                    sha = ByteArray(20) { 0 },
-                )
-            ))
+            db.appFileChangeListsDao().insert(
+                steamAppId,
+                listOf(
+                    app.gamenative.data.UserFileInfo(
+                        root = PathType.WinMyDocuments,
+                        path = "__stale__",
+                        filename = "__placeholder__",
+                        timestamp = 0L,
+                        sha = ByteArray(20) { 0 },
+                    ),
+                ),
+            )
         }
 
         // Mock empty cloud (no cloud files)
@@ -1054,7 +1076,7 @@ class SteamAutoCloudTest {
         whenever(mockAppFileChangeList.files).thenReturn(mockFiles)
 
         every { mockSteamCloud.getAppFileListChange(any(), any(), any()) } returns
-                CompletableFuture.completedFuture(mockAppFileChangeList)
+            CompletableFuture.completedFuture(mockAppFileChangeList)
 
         val mockDownloadFiles = (0..<count).toList()
             .map {
@@ -1145,7 +1167,7 @@ class SteamAutoCloudTest {
             assertEquals(
                 "File $i content should match",
                 contents[i].contentToString(),
-                expectedFile.readBytes().contentToString()
+                expectedFile.readBytes().contentToString(),
             )
 
             val changeNumber = db.appChangeNumbersDao().getByAppId(steamAppId)
@@ -1287,14 +1309,14 @@ class SteamAutoCloudTest {
                 path = "",
                 filename = "save1.sav",
                 timestamp = System.currentTimeMillis() - 10000,
-                sha = oldFileSha
+                sha = oldFileSha,
             )
             val oldUserFile2 = app.gamenative.data.UserFileInfo(
                 root = PathType.GameInstall,
                 path = ".",
                 filename = "save2.sav",
                 timestamp = System.currentTimeMillis() - 10000,
-                sha = oldFileSha
+                sha = oldFileSha,
             )
             db.appFileChangeListsDao()
                 .insert(steamAppId, listOf(oldUserFile1, oldUserFile2))
@@ -1335,7 +1357,7 @@ class SteamAutoCloudTest {
         whenever(mockAppFileChangeList.files).thenReturn(emptyList())
 
         every { mockSteamCloud.getAppFileListChange(any(), any(), any()) } returns
-                CompletableFuture.completedFuture(mockAppFileChangeList)
+            CompletableFuture.completedFuture(mockAppFileChangeList)
 
         // Mock upload batch response
         val mockUploadBatchResponse = mock<`in`.dragonbra.javasteam.steam.handlers.steamcloud.AppUploadBatchResponse>()
@@ -1351,8 +1373,11 @@ class SteamAutoCloudTest {
                 val a = args[i]
                 if (a is List<*> && a.all { it is String }) {
                     val list = a as List<String>
-                    if (capturedFilesToUpload.isEmpty()) capturedFilesToUpload.add(list)
-                    else capturedFilesToDelete.add(list)
+                    if (capturedFilesToUpload.isEmpty()) {
+                        capturedFilesToUpload.add(list)
+                    } else {
+                        capturedFilesToDelete.add(list)
+                    }
                 }
             }
             CompletableFuture.completedFuture(mockUploadBatchResponse)
@@ -1361,14 +1386,16 @@ class SteamAutoCloudTest {
         val mockFileUploadInfo = mock<`in`.dragonbra.javasteam.steam.handlers.steamcloud.FileUploadInfo>()
         whenever(mockFileUploadInfo.blockRequests).thenReturn(emptyList())
 
-        every { mockSteamCloud.beginFileUpload(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
-                CompletableFuture.completedFuture(mockFileUploadInfo)
+        every {
+            mockSteamCloud.beginFileUpload(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns
+            CompletableFuture.completedFuture(mockFileUploadInfo)
 
         every { mockSteamCloud.commitFileUpload(any(), any(), any(), any(), any()) } returns
-                CompletableFuture.completedFuture(true)
+            CompletableFuture.completedFuture(true)
 
         every { mockSteamCloud.completeAppUploadBatch(any(), any(), any(), any()) } returns
-                CompletableFuture.completedFuture(Unit)
+            CompletableFuture.completedFuture(Unit)
 
         // Create prefixToPath function
         val prefixToPath: (String) -> String = { prefix ->
@@ -1430,15 +1457,18 @@ class SteamAutoCloudTest {
         db.appChangeNumbersDao().deleteByAppId(steamAppId)
         db.appFileChangeListsDao().deleteByAppId(steamAppId)
         db.appChangeNumbersDao().insert(app.gamenative.data.ChangeNumbers(steamAppId, matchingChangeNumber.toLong()))
-        db.appFileChangeListsDao().insert(steamAppId, listOf(
-            app.gamenative.data.UserFileInfo(
-                root = PathType.WinMyDocuments,
-                path = "__stale__",
-                filename = "__placeholder__",
-                timestamp = 0L,
-                sha = ByteArray(20) { 0 },
-            )
-        ))
+        db.appFileChangeListsDao().insert(
+            steamAppId,
+            listOf(
+                app.gamenative.data.UserFileInfo(
+                    root = PathType.WinMyDocuments,
+                    path = "__stale__",
+                    filename = "__placeholder__",
+                    timestamp = 0L,
+                    sha = ByteArray(20) { 0 },
+                ),
+            ),
+        )
 
         val roamingRoot = File(tempDir, "roaming")
         val userdataRoot = File(tempDir, "userdata")
@@ -1493,7 +1523,9 @@ class SteamAutoCloudTest {
         val mockFileUploadInfo = mock<`in`.dragonbra.javasteam.steam.handlers.steamcloud.FileUploadInfo>()
         whenever(mockFileUploadInfo.blockRequests).thenReturn(emptyList())
 
-        every { mockSteamCloud.beginFileUpload(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
+        every {
+            mockSteamCloud.beginFileUpload(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns
             CompletableFuture.completedFuture(mockFileUploadInfo)
 
         every { mockSteamCloud.commitFileUpload(any(), any(), any(), any(), any()) } returns
@@ -1526,11 +1558,11 @@ class SteamAutoCloudTest {
         val filesToUpload = capturedFilesToUpload.singleOrNull() ?: emptyList()
         assertTrue(
             "Upload prefix must use cloud key %GameInstall%saves, not remapped root. Got: $filesToUpload",
-            filesToUpload.any { it.startsWith("%GameInstall%saves") }
+            filesToUpload.any { it.startsWith("%GameInstall%saves") },
         )
         assertFalse(
             "Upload prefix must NOT use local WinAppDataRoaming root. Got: $filesToUpload",
-            filesToUpload.any { it.startsWith("%WinAppDataRoaming%") }
+            filesToUpload.any { it.startsWith("%WinAppDataRoaming%") },
         )
     }
 
@@ -1540,15 +1572,18 @@ class SteamAutoCloudTest {
         db.appChangeNumbersDao().deleteByAppId(steamAppId)
         db.appFileChangeListsDao().deleteByAppId(steamAppId)
         db.appChangeNumbersDao().insert(app.gamenative.data.ChangeNumbers(steamAppId, matchingChangeNumber.toLong()))
-        db.appFileChangeListsDao().insert(steamAppId, listOf(
-            app.gamenative.data.UserFileInfo(
-                root = PathType.WinMyDocuments,
-                path = "__stale__",
-                filename = "__placeholder__",
-                timestamp = 0L,
-                sha = ByteArray(20) { 0 },
-            )
-        ))
+        db.appFileChangeListsDao().insert(
+            steamAppId,
+            listOf(
+                app.gamenative.data.UserFileInfo(
+                    root = PathType.WinMyDocuments,
+                    path = "__stale__",
+                    filename = "__placeholder__",
+                    timestamp = 0L,
+                    sha = ByteArray(20) { 0 },
+                ),
+            ),
+        )
 
         val localLowRoot = File(tempDir, "local-low")
         val userdataRoot = File(tempDir, "userdata")
@@ -1600,7 +1635,9 @@ class SteamAutoCloudTest {
         val mockFileUploadInfo = mock<`in`.dragonbra.javasteam.steam.handlers.steamcloud.FileUploadInfo>()
         whenever(mockFileUploadInfo.blockRequests).thenReturn(emptyList())
 
-        every { mockSteamCloud.beginFileUpload(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
+        every {
+            mockSteamCloud.beginFileUpload(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns
             CompletableFuture.completedFuture(mockFileUploadInfo)
 
         every { mockSteamCloud.commitFileUpload(any(), any(), any(), any(), any()) } returns
@@ -1633,7 +1670,7 @@ class SteamAutoCloudTest {
         val filesToUpload = capturedFilesToUpload.singleOrNull() ?: emptyList()
         assertTrue(
             "Upload should use the account ID cloud prefix and nested Saves file. Got: $filesToUpload",
-            filesToUpload.contains("%WinAppDataLocalLow%75264032/Saves/1003.sav")
+            filesToUpload.contains("%WinAppDataLocalLow%75264032/Saves/1003.sav"),
         )
     }
 
@@ -1874,15 +1911,18 @@ class SteamAutoCloudTest {
             db.appFileChangeListsDao().deleteByAppId(steamAppId)
             db.appChangeNumbersDao().insert(app.gamenative.data.ChangeNumbers(steamAppId, matchingChangeNumber.toLong()))
             // Insert a non-empty stale cache so cacheIsAbsentOrEmpty=false and the upload path is taken.
-            db.appFileChangeListsDao().insert(steamAppId, listOf(
-                app.gamenative.data.UserFileInfo(
-                    root = PathType.WinMyDocuments,
-                    path = "__stale__",
-                    filename = "__placeholder__",
-                    timestamp = 0L,
-                    sha = ByteArray(20) { 0 },
-                )
-            ))
+            db.appFileChangeListsDao().insert(
+                steamAppId,
+                listOf(
+                    app.gamenative.data.UserFileInfo(
+                        root = PathType.WinMyDocuments,
+                        path = "__stale__",
+                        filename = "__placeholder__",
+                        timestamp = 0L,
+                        sha = ByteArray(20) { 0 },
+                    ),
+                ),
+            )
         }
 
         // Create a temp directory to act as the WinAppDataRoaming root
@@ -1936,7 +1976,9 @@ class SteamAutoCloudTest {
         val mockFileUploadInfo = mock<`in`.dragonbra.javasteam.steam.handlers.steamcloud.FileUploadInfo>()
         whenever(mockFileUploadInfo.blockRequests).thenReturn(emptyList())
 
-        every { mockSteamCloud.beginFileUpload(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns
+        every {
+            mockSteamCloud.beginFileUpload(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns
             CompletableFuture.completedFuture(mockFileUploadInfo)
 
         every { mockSteamCloud.commitFileUpload(any(), any(), any(), any(), any()) } returns
@@ -1969,11 +2011,11 @@ class SteamAutoCloudTest {
         val filesToUpload = capturedFilesToUpload.singleOrNull() ?: emptyList()
         assertTrue(
             "Upload prefix must use original GameInstall root, not remapped WinAppDataRoaming. Got: $filesToUpload",
-            filesToUpload.any { it.startsWith("%GameInstall%") }
+            filesToUpload.any { it.startsWith("%GameInstall%") },
         )
         assertFalse(
             "Upload prefix must NOT use remapped WinAppDataRoaming root. Got: $filesToUpload",
-            filesToUpload.any { it.startsWith("%WinAppDataRoaming%") }
+            filesToUpload.any { it.startsWith("%WinAppDataRoaming%") },
         )
     }
     // ── Sync decision tests ──────────────────────────────────────────────
@@ -2049,7 +2091,7 @@ class SteamAutoCloudTest {
                         sha = sha1(java.nio.file.Files.readAllBytes(filePath)),
                         cloudRoot = pattern.uploadRoot,
                         cloudPath = pattern.uploadPath,
-                    )
+                    ),
                 )
             }
         }
@@ -2780,6 +2822,7 @@ class SteamAutoCloudTest {
         assertEquals(SyncResult.Success, result!!.syncResult)
         assertTrue("Should have downloaded files", result.filesDownloaded > 0)
     }
+
     @Test
     fun synced_cloudAdvanced_metadataFailure_doesNotCancelSiblingDownloads() = runBlocking {
         val localCn = 5L
@@ -3203,5 +3246,4 @@ class SteamAutoCloudTest {
             File(saveFilesDir, "CloudOnlySaveData.sav").exists(),
         )
     }
-
 }

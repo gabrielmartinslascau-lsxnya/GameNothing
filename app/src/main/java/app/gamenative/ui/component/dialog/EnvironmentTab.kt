@@ -32,14 +32,14 @@ import app.gamenative.ui.theme.settingsTileColors
 import com.alorma.compose.settings.ui.SettingsGroup
 import com.alorma.compose.settings.ui.SettingsMenuLink
 import com.winlator.core.envvars.EnvVarInfo
-import com.winlator.core.envvars.EnvVars
 import com.winlator.core.envvars.EnvVarSelectionType
+import com.winlator.core.envvars.EnvVars
 
 @Composable
 fun EnvironmentTabContent(state: ContainerConfigState) {
     val config = state.config.value
     val envVars = EnvVars(config.envVars)
-    SettingsGroup() {
+    SettingsGroup {
         if (config.envVars.isNotEmpty()) {
             SettingsEnvVars(
                 colors = settingsTileColors(),
@@ -201,7 +201,9 @@ fun EnvironmentTabContent(state: ContainerConfigState) {
                                         }
                                     }
                                 }
-                            } else null,
+                            } else {
+                                null
+                            },
                         )
                     }
                 }

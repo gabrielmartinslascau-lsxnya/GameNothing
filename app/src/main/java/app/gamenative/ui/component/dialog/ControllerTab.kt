@@ -23,7 +23,7 @@ fun ControllerTabContent(state: ContainerConfigState, default: Boolean) {
         mutableStateOf(PrefManager.showControllerDebugMenu)
     }
 
-    SettingsGroup() {
+    SettingsGroup {
         if (!default) {
             SettingsSwitch(
                 colors = settingsTileColorsAlt(),

@@ -104,7 +104,7 @@ class AmazonDownloadManager @Inject constructor(
             }
 
             Timber.tag(TAG).i(
-                "Manifest: ${files.size} file(s), ${manifest.totalInstallSize / 1_000_000} MB total"
+                "Manifest: ${files.size} file(s), ${manifest.totalInstallSize / 1_000_000} MB total",
             )
 
             // ── 4. Progress setup ────────────────────────────────────────────
@@ -139,7 +139,7 @@ class AmazonDownloadManager @Inject constructor(
                 if (failure != null) {
                     MarkerUtils.removeMarker(installPath, Marker.DOWNLOAD_IN_PROGRESS_MARKER)
                     return@withContext Result.failure(
-                        failure.exceptionOrNull() ?: Exception("File download failed")
+                        failure.exceptionOrNull() ?: Exception("File download failed"),
                     )
                 }
 
@@ -177,7 +177,6 @@ class AmazonDownloadManager @Inject constructor(
 
             Timber.tag(TAG).i("Download complete for ${game.title}")
             Result.success(Unit)
-
         } catch (e: Exception) {
             if (e is CancellationException) {
                 MarkerUtils.removeMarker(installPath, Marker.DOWNLOAD_IN_PROGRESS_MARKER)
@@ -216,13 +215,13 @@ class AmazonDownloadManager @Inject constructor(
                 val backoffMs = RETRY_DELAY_MS * (1 shl attempt) // 1s, 2s, 4s
                 Timber.tag(TAG).w(
                     "File ${file.unixPath} failed (attempt ${attempt + 1}/$MAX_RETRIES): " +
-                        "${lastException?.message}. Retrying in ${backoffMs}ms…"
+                        "${lastException?.message}. Retrying in ${backoffMs}ms…",
                 )
                 delay(backoffMs)
             }
         }
         return Result.failure(
-            lastException ?: Exception("Failed to download ${file.unixPath} after $MAX_RETRIES attempts")
+            lastException ?: Exception("Failed to download ${file.unixPath} after $MAX_RETRIES attempts"),
         )
     }
 
@@ -264,7 +263,7 @@ class AmazonDownloadManager @Inject constructor(
             okHttpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     return@withContext Result.failure(
-                        Exception("HTTP ${response.code} for ${file.unixPath}")
+                        Exception("HTTP ${response.code} for ${file.unixPath}"),
                     )
                 }
 
@@ -274,9 +273,9 @@ class AmazonDownloadManager @Inject constructor(
                         var read: Int
                         var bytesSinceLastEmit = 0L
                         while (input.read(buf).also { read = it } != -1) {
-                                    if (!downloadInfo.isActive()) {
-                                        throw CancellationException("Download cancelled")
-                                    }
+                            if (!downloadInfo.isActive()) {
+                                throw CancellationException("Download cancelled")
+                            }
                             output.write(buf, 0, read)
                             downloadInfo.updateBytesDownloaded(read.toLong())
                             bytesSinceLastEmit += read
@@ -305,7 +304,7 @@ class AmazonDownloadManager @Inject constructor(
                 if (!computed.contentEquals(file.hashBytes)) {
                     tmpFile.delete()
                     return@withContext Result.failure(
-                        Exception("SHA-256 mismatch for ${file.unixPath}")
+                        Exception("SHA-256 mismatch for ${file.unixPath}"),
                     )
                 }
             }

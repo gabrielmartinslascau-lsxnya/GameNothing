@@ -10,8 +10,8 @@ import app.gamenative.data.LibraryHeroInfo
 import app.gamenative.data.LibraryLogoInfo
 import app.gamenative.data.ManifestInfo
 import app.gamenative.data.SaveFilePattern
-import app.gamenative.data.SteamControllerConfigDetail
 import app.gamenative.data.SteamApp
+import app.gamenative.data.SteamControllerConfigDetail
 import app.gamenative.data.UFS
 import app.gamenative.enums.AppType
 import app.gamenative.enums.ControllerSupport
@@ -207,8 +207,11 @@ fun KeyValue.generateSteamApp(): SteamApp {
                                 // addpath is the full directory (e.g. The Roottrees are Dead has an
                                 // empty savefile path — appending "/" would produce a spurious trailing
                                 // slash that breaks file-system lookups).
-                                if (originalPath.isNotEmpty()) "$normalizedAddPath/${originalPath.trimStart('/')}"
-                                else normalizedAddPath
+                                if (originalPath.isNotEmpty()) {
+                                    "$normalizedAddPath/${originalPath.trimStart('/')}"
+                                } else {
+                                    normalizedAddPath
+                                }
                             } else {
                                 originalPath
                             }

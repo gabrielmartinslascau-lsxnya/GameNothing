@@ -176,8 +176,8 @@ class BinaryManifest : EpicManifest() {
         fileManifestList?.let { fml ->
             size += fml.elements.sumOf { fm ->
                 fm.filename.length + fm.symlinkTarget.length + 100 +
-                fm.installTags.sumOf { it.length + 4 } +
-                fm.chunkParts.size * 28
+                    fm.installTags.sumOf { it.length + 4 } +
+                    fm.chunkParts.size * 28
             }
         }
         // Custom fields estimate
@@ -225,8 +225,8 @@ class BinaryManifest : EpicManifest() {
         fileManifestList?.let { fml ->
             val needed = fml.elements.sumOf {
                 it.filename.length + it.symlinkTarget.length + 100 +
-                it.installTags.sumOf { t -> t.length + 4 } +
-                it.chunkParts.size * 28
+                    it.installTags.sumOf { t -> t.length + 4 } +
+                    it.chunkParts.size * 28
             }
             ensureSpace(needed + 1_000)
             fml.write(bodyBuffer)
@@ -251,13 +251,13 @@ class BinaryManifest : EpicManifest() {
 
         // Build the 41-byte manifest header
         val headerBuffer = ByteBuffer.allocate(41).order(ByteOrder.LITTLE_ENDIAN)
-        headerBuffer.putInt(HEADER_MAGIC.toInt())   // magic
-        headerBuffer.putInt(41)                      // header size (always 41)
-        headerBuffer.putInt(uncompressedData.size)   // size_uncompressed
-        headerBuffer.putInt(compressed.size)         // size_compressed
-        headerBuffer.put(sha)                        // SHA-1 (20 bytes)
-        headerBuffer.put(0x01.toByte())              // stored_as = compressed
-        headerBuffer.putInt(targetVersion)           // manifest version
+        headerBuffer.putInt(HEADER_MAGIC.toInt()) // magic
+        headerBuffer.putInt(41) // header size (always 41)
+        headerBuffer.putInt(uncompressedData.size) // size_uncompressed
+        headerBuffer.putInt(compressed.size) // size_compressed
+        headerBuffer.put(sha) // SHA-1 (20 bytes)
+        headerBuffer.put(0x01.toByte()) // stored_as = compressed
+        headerBuffer.putInt(targetVersion) // manifest version
 
         val result = ByteArray(41 + compressed.size)
         System.arraycopy(headerBuffer.array(), 0, result, 0, 41)
@@ -323,7 +323,7 @@ data class ManifestMeta(
     var prereqArgs: String = "",
     var uninstallActionPath: String = "",
     var uninstallActionArgs: String = "",
-    var buildId: String = ""
+    var buildId: String = "",
 ) {
     companion object {
         fun read(buffer: ByteBuffer): ManifestMeta {
@@ -420,7 +420,7 @@ data class ChunkDataList(
     var size: Int = 0,
     var count: Int = 0,
     val elements: MutableList<ChunkInfo> = mutableListOf(),
-    private var manifestVersion: Int = 18
+    private var manifestVersion: Int = 18,
 ) {
     private val guidMap: MutableMap<String, Int> by lazy {
         elements.mapIndexed { index, chunk -> chunk.guidStr to index }.toMap(mutableMapOf())
@@ -552,7 +552,7 @@ data class ChunkInfo(
     var windowSize: Int = 0,
     var fileSize: Long = 0,
     var useHashPrefixForV3: Boolean = false,
-    private val manifestVersion: Int = 18
+    private val manifestVersion: Int = 18,
 ) {
     val guidStr: String by lazy {
         guid.joinToString("-") { "%08x".format(it) }
@@ -612,7 +612,7 @@ data class FileManifestList(
     var version: Byte = 0,
     var size: Int = 0,
     var count: Int = 0,
-    val elements: MutableList<FileManifest> = mutableListOf()
+    val elements: MutableList<FileManifest> = mutableListOf(),
 ) {
 
     companion object {
@@ -669,7 +669,7 @@ data class FileManifestList(
                         guid = intArrayOf(buffer.int, buffer.int, buffer.int, buffer.int),
                         offset = buffer.int,
                         size = buffer.int,
-                        fileOffset = fileOffset
+                        fileOffset = fileOffset,
                     )
 
                     fm.chunkParts.add(part)
@@ -818,7 +818,7 @@ data class FileManifest(
     var fileSize: Long = 0,
     var hashMd5: ByteArray = ByteArray(16),
     var mimeType: String = "",
-    var hashSha256: ByteArray = ByteArray(32)
+    var hashSha256: ByteArray = ByteArray(32),
 ) {
     val isReadOnly: Boolean get() = (flags and 0x1) != 0
     val isCompressed: Boolean get() = (flags and 0x2) != 0
@@ -843,7 +843,7 @@ data class ChunkPart(
     val guid: IntArray,
     val offset: Int,
     val size: Int,
-    val fileOffset: Long
+    val fileOffset: Long,
 ) {
     val guidStr: String by lazy {
         guid.joinToString("-") { "%08x".format(it) }
@@ -867,7 +867,7 @@ data class ChunkPart(
  * Custom fields in the manifest
  */
 data class CustomFields(
-    private val fields: MutableMap<String, String> = mutableMapOf()
+    private val fields: MutableMap<String, String> = mutableMapOf(),
 ) {
     operator fun get(key: String): String? = fields[key]
     operator fun set(key: String, value: String) {

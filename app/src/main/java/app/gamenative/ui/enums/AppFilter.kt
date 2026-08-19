@@ -1,5 +1,6 @@
 package app.gamenative.ui.enums
 
+import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AvTimer
 import androidx.compose.material.icons.filled.Build
@@ -14,9 +15,8 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Stars
 import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.annotation.StringRes
-import app.gamenative.enums.AppType
 import app.gamenative.R
+import app.gamenative.enums.AppType
 import java.util.EnumSet
 
 enum class AppFilter(

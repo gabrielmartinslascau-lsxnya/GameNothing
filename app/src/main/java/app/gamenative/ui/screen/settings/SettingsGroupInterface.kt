@@ -3,104 +3,90 @@ package app.gamenative.ui.screen.settings
 import android.content.res.Configuration
 import android.os.Environment
 import android.os.storage.StorageManager
-import java.io.File
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.clickable
+import android.widget.ImageView
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.graphics.Color
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Login
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.runtime.collectAsState
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import app.gamenative.BuildConfig
-import app.gamenative.R
-import app.gamenative.PrefManager
-import app.gamenative.enums.AppTheme
-import app.gamenative.ui.component.dialog.SingleChoiceDialog
-import app.gamenative.ui.theme.settingsTileColorsAlt
-import com.alorma.compose.settings.ui.SettingsGroup
-import com.alorma.compose.settings.ui.SettingsSwitch
-import com.materialkolor.PaletteStyle
-import kotlinx.serialization.json.Json
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import app.gamenative.ui.theme.PluviaTheme
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
-import app.gamenative.ui.component.settings.SettingsListDropdown
-import app.gamenative.ui.component.ACHIEVEMENT_NOTIFICATION_POSITION
-import androidx.compose.ui.viewinterop.AndroidView
-import android.widget.ImageView
-import app.gamenative.utils.IconSwitcher
-import com.alorma.compose.settings.ui.SettingsMenuLink
-import androidx.compose.material3.Slider
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.width
-import kotlin.math.roundToInt
-import com.winlator.core.AppUtils
-import app.gamenative.ui.component.dialog.MessageDialog
-import app.gamenative.ui.component.dialog.LoadingDialog
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.launch
-import app.gamenative.utils.LocaleHelper
-import app.gamenative.service.epic.EpicAuthManager
-import android.content.Context
-import android.content.Intent
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import kotlinx.coroutines.CoroutineScope
-import timber.log.Timber
+import app.gamenative.BuildConfig
 import app.gamenative.PluviaApp
+import app.gamenative.PrefManager
+import app.gamenative.R
+import app.gamenative.enums.AppTheme
 import app.gamenative.events.AndroidEvent
-import app.gamenative.ui.screen.auth.EpicOAuthActivity
-import app.gamenative.ui.screen.auth.GOGOAuthActivity
-import app.gamenative.ui.screen.auth.AmazonOAuthActivity
-import app.gamenative.service.amazon.AmazonAuthManager
+import app.gamenative.sync.FrontendSyncManager
+import app.gamenative.ui.component.ACHIEVEMENT_NOTIFICATION_POSITION
+import app.gamenative.ui.component.dialog.LoadingDialog
+import app.gamenative.ui.component.dialog.MessageDialog
+import app.gamenative.ui.component.dialog.SingleChoiceDialog
+import app.gamenative.ui.component.settings.SettingsListDropdown
+import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.ui.theme.settingsTileColorsAlt
+import app.gamenative.ui.util.SnackbarManager
+import app.gamenative.utils.IconSwitcher
+import app.gamenative.utils.LocaleHelper
 import app.gamenative.utils.PlatformOAuthHandlers
 import app.gamenative.utils.StorageUtils
-import app.gamenative.data.GameSource
-import app.gamenative.sync.FrontendSyncManager
-import app.gamenative.ui.util.PlatformAuthUiHelpers
-import app.gamenative.ui.util.SnackbarManager
+import com.alorma.compose.settings.ui.SettingsGroup
+import com.alorma.compose.settings.ui.SettingsMenuLink
+import com.alorma.compose.settings.ui.SettingsSwitch
+import com.materialkolor.PaletteStyle
+import com.winlator.core.AppUtils
+import java.io.File
+import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import timber.log.Timber
 
 /** Icon button that triggers [FrontendSyncManager.resyncAll] and shows a spinner while syncing. */
 @Composable
@@ -182,9 +168,11 @@ fun SettingsGroupInterface(
         autoEntries + otherEntries.sortedBy { it.second }
     }
     var openRegionDialog by rememberSaveable { mutableStateOf(false) }
-    var selectedRegionIndex by rememberSaveable { mutableStateOf(
-        steamRegionsList.indexOfFirst { it.first == PrefManager.cellId }.takeIf { it >= 0 } ?: 0
-    ) }
+    var selectedRegionIndex by rememberSaveable {
+        mutableStateOf(
+            steamRegionsList.indexOfFirst { it.first == PrefManager.cellId }.takeIf { it >= 0 } ?: 0,
+        )
+    }
 
     // GOG login state
     var gogLoginLoading by rememberSaveable { mutableStateOf(false) }
@@ -237,7 +225,7 @@ fun SettingsGroupInterface(
                         gogLibraryGameCount = count
                         SnackbarManager.show(context.getString(R.string.gog_login_success_title))
                     },
-                    onDialogClose = { }
+                    onDialogClose = { },
                 )
             }
         }
@@ -276,7 +264,8 @@ fun SettingsGroupInterface(
         val achPositionLabels = achPositionLabelResIds.map { stringResource(it) }
         var achPositionIndex by rememberSaveable {
             mutableStateOf(
-                achPositionKeys.indexOf(PrefManager.achievementNotificationPosition).takeIf { it >= 0 } ?: achPositionKeys.indexOf("bottom_right")
+                achPositionKeys.indexOf(PrefManager.achievementNotificationPosition).takeIf { it >= 0 }
+                    ?: achPositionKeys.indexOf("bottom_right"),
             )
         }
         SettingsListDropdown(
@@ -379,7 +368,9 @@ fun SettingsGroupInterface(
                 subtitle = { Text(text = stringResource(R.string.settings_interface_frontend_sync_subtitle)) },
                 action = if (anyFrontendSyncConfigured) {
                     { FrontendSyncResyncButton() }
-                } else null,
+                } else {
+                    null
+                },
                 onClick = { showFrontendSyncDialog = true },
             )
         }
@@ -393,7 +384,17 @@ fun SettingsGroupInterface(
         )
 
         // Unified visual icon picker (affects app and notification icons)
-        var selectedVariant by rememberSaveable { mutableStateOf(if (PrefManager.useAltLauncherIcon || PrefManager.useAltNotificationIcon) 1 else 0) }
+        var selectedVariant by rememberSaveable {
+            mutableStateOf(
+                if (PrefManager.useAltLauncherIcon ||
+                    PrefManager.useAltNotificationIcon
+                ) {
+                    1
+                } else {
+                    0
+                },
+            )
+        }
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             Text(
                 text = stringResource(R.string.settings_interface_icon_style),
@@ -477,7 +478,7 @@ fun SettingsGroupInterface(
         val downloadSpeedValues = remember { listOf(8, 16, 24, 32) }
         var downloadSpeedValue by rememberSaveable {
             mutableStateOf(
-                downloadSpeedValues.indexOf(PrefManager.downloadSpeed).takeIf { it >= 0 }?.toFloat() ?: 2f
+                downloadSpeedValues.indexOf(PrefManager.downloadSpeed).takeIf { it >= 0 }?.toFloat() ?: 2f,
             )
         }
         Column(
@@ -508,7 +509,7 @@ fun SettingsGroupInterface(
             // Labels below slider
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 downloadSpeedLabels.forEach { label ->
                     Text(
@@ -516,7 +517,7 @@ fun SettingsGroupInterface(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.width(60.dp)
+                        modifier = Modifier.width(60.dp),
                     )
                 }
             }
@@ -551,10 +552,11 @@ fun SettingsGroupInterface(
             enabled = dirs.isNotEmpty(),
             title = { Text(text = stringResource(R.string.settings_interface_external_storage_title)) },
             subtitle = {
-                if (dirs.isEmpty())
+                if (dirs.isEmpty()) {
                     Text(stringResource(R.string.settings_interface_no_external_storage))
-                else
+                } else {
                     Text(stringResource(R.string.settings_interface_external_storage_subtitle))
+                }
             },
             state = useExternalStorage,
             onCheckedChange = {
@@ -741,9 +743,7 @@ fun SettingsGroupInterface(
 
     // GOG/Epic/Amazon login and logout flows (including loading dialogs and
     // confirmations) are now owned by the System Menu and shared helpers.
-
 }
-
 
 @Composable
 private fun IconVariantCard(
@@ -753,10 +753,14 @@ private fun IconVariantCard(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    val border = if (selected) BorderStroke(2.dp, PluviaTheme.colors.accentPurple) else BorderStroke(
-        1.dp,
-        PluviaTheme.colors.borderDefault.copy(alpha = 0.5f),
-    )
+    val border = if (selected) {
+        BorderStroke(2.dp, PluviaTheme.colors.accentPurple)
+    } else {
+        BorderStroke(
+            1.dp,
+            PluviaTheme.colors.borderDefault.copy(alpha = 0.5f),
+        )
+    }
     Card(
         modifier = Modifier
             .clickable { onClick() },
@@ -804,4 +808,3 @@ private fun Preview_SettingsScreen() {
         )
     }
 }
-

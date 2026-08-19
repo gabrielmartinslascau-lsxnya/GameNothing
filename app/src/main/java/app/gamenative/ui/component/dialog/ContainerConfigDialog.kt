@@ -1,54 +1,34 @@
 package app.gamenative.ui.component.dialog
 
-import android.widget.Spinner
-import android.widget.ArrayAdapter
 import android.content.res.Configuration
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.outlined.AddCircleOutline
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.TextButton
-import app.gamenative.ui.component.NoExtractOutlinedTextField
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -59,7 +39,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -72,66 +51,52 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.tooling.preview.Preview
 import app.gamenative.BuildConfig
 import app.gamenative.R
-import app.gamenative.ui.util.SnackbarManager
+import app.gamenative.service.SteamService
+import app.gamenative.ui.component.NoExtractOutlinedTextField
 import app.gamenative.ui.component.dialog.state.MessageDialogState
-import app.gamenative.ui.component.settings.SettingsCPUList
-import app.gamenative.ui.component.settings.SettingsCenteredLabel
-import app.gamenative.ui.component.settings.SettingsListDropdown
 import app.gamenative.ui.components.rememberCustomGameFolderPicker
 import app.gamenative.ui.components.requestPermissionsForPath
 import app.gamenative.ui.theme.PluviaTheme
-import app.gamenative.ui.theme.settingsTileColors
-import app.gamenative.ui.theme.settingsTileColorsAlt
-import app.gamenative.utils.CustomGameScanner
+import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.utils.ContainerUtils
+import app.gamenative.utils.CustomGameScanner
 import app.gamenative.utils.ManifestComponentHelper
+import app.gamenative.utils.ManifestComponentHelper.VersionOptionList
 import app.gamenative.utils.ManifestContentTypes
 import app.gamenative.utils.ManifestData
 import app.gamenative.utils.ManifestEntry
 import app.gamenative.utils.ManifestInstaller
-import app.gamenative.service.SteamService
-import app.gamenative.utils.ManifestComponentHelper.VersionOptionList
-import app.gamenative.utils.ManifestRepository
 import app.gamenative.utils.PaddingUtils
-import com.winlator.contents.ContentProfile
-import com.alorma.compose.settings.ui.SettingsGroup
-import com.alorma.compose.settings.ui.SettingsMenuLink
-import com.alorma.compose.settings.ui.SettingsSwitch
 import com.winlator.box86_64.Box86_64Preset
 import com.winlator.box86_64.Box86_64PresetManager
 import com.winlator.container.Container
 import com.winlator.container.ContainerData
-import com.winlator.core.KeyValueSet
-import com.winlator.core.StringUtils
-import com.winlator.core.envvars.EnvVars
+import com.winlator.contents.ContentProfile
 import com.winlator.core.DefaultVersion
 import com.winlator.core.GPUHelper
-import com.winlator.core.WineInfo
+import com.winlator.core.KeyValueSet
+import com.winlator.core.StringUtils
 import com.winlator.core.WineInfo.MAIN_WINE_VERSION
 import com.winlator.core.WineThemeManager
-import com.winlator.fexcore.FEXCoreManager
+import com.winlator.core.envvars.EnvVars
 import com.winlator.fexcore.FEXCorePreset
 import com.winlator.fexcore.FEXCorePresetManager
-import kotlinx.coroutines.Dispatchers
+import java.io.File
+import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.util.Locale
-import kotlin.math.roundToInt
 
 /**
  * Gets the component title for Win Components settings group.
@@ -711,7 +676,15 @@ fun ContainerConfigDialog(
             val storedRendererPm = config.rendererPresentMode.ifEmpty { "fifo" }
             val defaultRendererPresentIdx = rendererPresentModes.indexOfFirst { it.equals("fifo", true) }.takeIf { it >= 0 } ?: 0
             rendererPresentModeIndex =
-                rendererPresentModes.indexOfFirst { it.equals(storedRendererPm, true) }.let { if (it >= 0) it else defaultRendererPresentIdx }
+                rendererPresentModes.indexOfFirst { it.equals(storedRendererPm, true) }.let {
+                    if (it >=
+                        0
+                    ) {
+                        it
+                    } else {
+                        defaultRendererPresentIdx
+                    }
+                }
 
             val resourceType = cfg.get("resourceType", "auto")
             val defaultResourceIdx = resourceTypes.indexOfFirst { it.equals("auto", true) }.takeIf { it >= 0 } ?: 0
@@ -763,14 +736,14 @@ fun ContainerConfigDialog(
         val customScreenWidthRef = rememberSaveable {
             val searchIndex = screenSizes.indexOfFirst { it.contains(config.screenSize) }
             mutableStateOf(
-                if (searchIndex <= 0) config.screenSize.split("x").getOrElse(0) { "1280" } else "1280"
+                if (searchIndex <= 0) config.screenSize.split("x").getOrElse(0) { "1280" } else "1280",
             )
         }
         var customScreenWidth by customScreenWidthRef
         val customScreenHeightRef = rememberSaveable {
             val searchIndex = screenSizes.indexOfFirst { it.contains(config.screenSize) }
             mutableStateOf(
-                if (searchIndex <= 0) config.screenSize.split("x").getOrElse(1) { "720" } else "720"
+                if (searchIndex <= 0) config.screenSize.split("x").getOrElse(1) { "720" } else "720",
             )
         }
         var customScreenHeight by customScreenHeightRef
@@ -828,14 +801,21 @@ fun ContainerConfigDialog(
         // VKD3D version control (forced depending on driver)
         fun vkd3dForcedVersion(): String {
             val driverType = StringUtils.parseIdentifier(graphicsDrivers[graphicsDriverIndex])
-            val isVortekLike = config.containerVariant.equals(Container.GLIBC) && driverType == "vortek" || driverType == "adreno" || driverType == "sd-8-elite"
+            val isVortekLike =
+                config.containerVariant.equals(Container.GLIBC) &&
+                    driverType == "vortek" ||
+                    driverType == "adreno" ||
+                    driverType == "sd-8-elite"
             return if (isVortekLike) "2.6" else "2.14.1"
         }
 
         val graphicsDriverVersionIndexRef = rememberSaveable {
             val version = config.graphicsDriverVersion
-            val driverIndex = if (version.isEmpty()) 0
-            else getVersionsForDriver().indexOfFirst { it == version }.let { if (it >= 0) it else 0 }
+            val driverIndex = if (version.isEmpty()) {
+                0
+            } else {
+                getVersionsForDriver().indexOfFirst { it == version }.let { if (it >= 0) it else 0 }
+            }
             mutableIntStateOf(driverIndex)
         }
         var graphicsDriverVersionIndex by graphicsDriverVersionIndexRef
@@ -895,7 +875,9 @@ fun ContainerConfigDialog(
             val selectedVersion = context.ids.getOrNull(dxvkVersionIndex).orEmpty()
             val version = if (selectedVersion.isEmpty()) {
                 if (context.isVortekLike) "async-1.10.3" else DefaultVersion.DXVK
-            } else selectedVersion
+            } else {
+                selectedVersion
+            }
             val envSet = EnvVars(config.envVars)
             // Update dxwrapperConfig version regardless of wrapper type (allows DXVK config even when VKD3D is selected)
             val kvs = KeyValueSet(config.dxwrapperConfig)
@@ -1016,7 +998,7 @@ fun ContainerConfigDialog(
                     requestPermissionsForPath(context, path, storagePermissionLauncher)
                 }
 
-                config = config.copy(drives = "${config.drives}${letter}:${path}")
+                config = config.copy(drives = "${config.drives}$letter:$path")
                 pendingDriveLetter = ""
             },
             onFailure = { message ->
@@ -1056,10 +1038,10 @@ fun ContainerConfigDialog(
         }
 
         val nonzeroResolutionError = stringResource(
-            R.string.container_config_custom_resolution_error_nonzero
+            R.string.container_config_custom_resolution_error_nonzero,
         )
         val aspectResolutionError = stringResource(
-            R.string.container_config_custom_resolution_error_aspect
+            R.string.container_config_custom_resolution_error_aspect,
         )
 
         val state = ContainerConfigState(
@@ -1261,7 +1243,7 @@ fun ContainerConfigDialog(
                         stringResource(R.string.container_config_tab_win_components),
                         stringResource(R.string.container_config_tab_environment),
                         stringResource(R.string.container_config_tab_drives),
-                        stringResource(R.string.container_config_tab_advanced)
+                        stringResource(R.string.container_config_tab_advanced),
                     )
 
                     // Let controller shoulder buttons cycle through the tabs: R1/R2
@@ -1329,7 +1311,7 @@ fun ContainerConfigDialog(
                         }
                     }
                 }
-            }
+            },
         )
     }
 }
@@ -1415,7 +1397,7 @@ internal fun ExecutablePathDropdown(
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = it },
-        modifier = modifier
+        modifier = modifier,
     ) {
         NoExtractOutlinedTextField(
             value = value,
@@ -1446,13 +1428,13 @@ internal fun ExecutablePathDropdown(
                         else -> false
                     }
                 },
-            singleLine = true
+            singleLine = true,
         )
 
         if (!isLoading && executables.isNotEmpty()) {
             ExposedDropdownMenu(
                 expanded = expanded,
-                onDismissRequest = { expanded = false }
+                onDismissRequest = { expanded = false },
             ) {
                 executables.forEach { executable ->
                     DropdownMenuItem(
@@ -1460,13 +1442,13 @@ internal fun ExecutablePathDropdown(
                             Column {
                                 Text(
                                     text = executable.substringAfterLast('\\'),
-                                    style = MaterialTheme.typography.bodyMedium
+                                    style = MaterialTheme.typography.bodyMedium,
                                 )
                                 if (executable.contains('\\')) {
                                     Text(
                                         text = executable.substringBeforeLast('\\'),
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
                             }
@@ -1474,7 +1456,7 @@ internal fun ExecutablePathDropdown(
                         onClick = {
                             onValueChange(executable)
                             expanded = false
-                        }
+                        },
                     )
                 }
             }

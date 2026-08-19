@@ -160,7 +160,7 @@ private fun FrontendSyncSourceRow(
                     stringResource(
                         R.string.frontend_sync_clear_confirm_message,
                         FrontendSyncManager.extensionFor(source).trimStart('.'),
-                    )
+                    ),
                 )
             },
             confirmButton = {

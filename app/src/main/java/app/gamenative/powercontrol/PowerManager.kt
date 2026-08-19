@@ -22,13 +22,13 @@ import com.winlator.container.Container
 import com.winlator.core.ProcessHelper
 import com.winlator.winhandler.WinHandler
 import com.winlator.xserver.extensions.PresentExtension
+import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
 import org.json.JSONObject
 import timber.log.Timber
-import java.io.File
 
 /**
  * Manager for CPU and GPU performance control.
@@ -194,20 +194,20 @@ object PowerManager {
     data class CpuInfo(
         val currentGovernor: String,
         val currentMinValue: Long,
-        val currentMaxValue: Long
+        val currentMaxValue: Long,
     )
 
     data class GpuInfo(
         val currentGpuValue: Long,
         val minGpuPowerLevel: Int,
         val maxGpuPowerLevel: Int,
-        val numGpuPowerLevels: Int
+        val numGpuPowerLevels: Int,
     )
 
     data class BusInfo(
         val minBusLevel: Int,
         val maxBusLevel: Int,
-        val numBusLevels: Int
+        val numBusLevels: Int,
     )
 
     // ========================================
@@ -312,7 +312,7 @@ object PowerManager {
             Timber.tag("PowerManager").w("Cluster tuner unavailable, falling back to PerformanceAutoTuner")
         } else {
             Timber.tag("PowerManager").i(
-                "Selected PerformanceAutoTuner (per-cluster tuning: $perClusterTuning, cluster tuning supported: $clusterTuningSupported, model: ${Build.MODEL}, driver: ${driver::class.simpleName})"
+                "Selected PerformanceAutoTuner (per-cluster tuning: $perClusterTuning, cluster tuning supported: $clusterTuningSupported, model: ${Build.MODEL}, driver: ${driver::class.simpleName})",
             )
         }
 
@@ -356,7 +356,7 @@ object PowerManager {
             },
             getTuningStrategy = { currentProfile?.tuningStrategy ?: AutoTuningStrategy.BALANCED },
             enableLogging = BuildConfig.DEBUG,
-            skipWarmupCycles = isGameStarted
+            skipWarmupCycles = isGameStarted,
         )
 
         autoTuner?.start()
@@ -407,7 +407,7 @@ object PowerManager {
         clusterTuner = tuner
         tuner.start()
         Timber.tag("PowerManager").i(
-            "Cluster tuning started (prime: ${primeSteps.size} steps, performance: ${performanceSteps.size} steps, GPU: ${gpuSteps.size} levels)"
+            "Cluster tuning started (prime: ${primeSteps.size} steps, performance: ${performanceSteps.size} steps, GPU: ${gpuSteps.size} levels)",
         )
         return true
     }
@@ -416,7 +416,7 @@ object PowerManager {
         return appContext?.let { context ->
             File(
                 context.getExternalFilesDir(null) ?: context.filesDir,
-                PowerBaselineScripts.DIRECTORY_NAME
+                PowerBaselineScripts.DIRECTORY_NAME,
             )
         }
     }
@@ -517,7 +517,7 @@ object PowerManager {
         if (profile.enableAutoTuning) {
             if (previousProfile != null && previousProfile.enablePerClusterTuning != profile.enablePerClusterTuning) {
                 Timber.tag("PowerManager").i(
-                    "Per-cluster tuning changed to ${profile.enablePerClusterTuning}, restarting the tuner"
+                    "Per-cluster tuning changed to ${profile.enablePerClusterTuning}, restarting the tuner",
                 )
                 stopAutoTuning()
             }
@@ -572,7 +572,9 @@ object PowerManager {
                 if (gpuInfo != null) {
                     val maxGpuPowerLevel = if (gpuInfo.numGpuPowerLevels > 0) {
                         gpuInfo.numGpuPowerLevels - 1
-                    } else 0
+                    } else {
+                        0
+                    }
                     val currentFreqIndex = if (availableGpuFrequencies.isNotEmpty()) {
                         availableGpuFrequencies.indexOfFirst {
                             it >= gpuInfo.currentGpuValue
@@ -585,10 +587,14 @@ object PowerManager {
                         currentFreqIndex = currentFreqIndex,
                         minPowerLevel = gpuInfo.minGpuPowerLevel,
                         maxPowerLevel = gpuInfo.maxGpuPowerLevel,
-                        maxAvailablePowerLevel = maxGpuPowerLevel
+                        maxAvailablePowerLevel = maxGpuPowerLevel,
                     )
-                } else null
-            } else null
+                } else {
+                    null
+                }
+            } else {
+                null
+            }
 
             val ramDisplayInfo = if (isBusSupported()) {
                 val busInfo = getBusInfo()
@@ -596,7 +602,7 @@ object PowerManager {
                     RamDisplayInfo(
                         minBusLevel = busInfo.minBusLevel,
                         maxBusLevel = busInfo.maxBusLevel,
-                        maxAvailableBusLevel = busInfo.numBusLevels - 1
+                        maxAvailableBusLevel = busInfo.numBusLevels - 1,
                     )
                 } else {
                     null
@@ -623,23 +629,25 @@ object PowerManager {
                 profile.name == (currentProfile?.name ?: PerformancePreset.CUSTOM.displayName)
             }
 
-            val selectedProfile = (matchingProfile ?: PowerProfile(
-                name = PerformancePreset.CUSTOM.displayName,
-                governor = currentGovernor ?: CpuGovernor.SCHEDUTIL,
-                minCpuFreq = cpuInfo.currentMinValue,
-                maxCpuFreq = cpuInfo.currentMaxValue,
-                minGpuPowerLevel = gpuDisplayInfo?.minPowerLevel ?: 0,
-                maxGpuPowerLevel = gpuDisplayInfo?.maxPowerLevel ?: 0,
-                minBusLevel = ramDisplayInfo?.minBusLevel ?: 0,
-                maxBusLevel = ramDisplayInfo?.maxBusLevel ?: 0
-            )).copy(
+            val selectedProfile = (
+                matchingProfile ?: PowerProfile(
+                    name = PerformancePreset.CUSTOM.displayName,
+                    governor = currentGovernor ?: CpuGovernor.SCHEDUTIL,
+                    minCpuFreq = cpuInfo.currentMinValue,
+                    maxCpuFreq = cpuInfo.currentMaxValue,
+                    minGpuPowerLevel = gpuDisplayInfo?.minPowerLevel ?: 0,
+                    maxGpuPowerLevel = gpuDisplayInfo?.maxPowerLevel ?: 0,
+                    minBusLevel = ramDisplayInfo?.minBusLevel ?: 0,
+                    maxBusLevel = ramDisplayInfo?.maxBusLevel ?: 0,
+                )
+                ).copy(
                 // Preserve enableAutoTuning and tuningStrategy from PowerManager's current profile
                 enableAutoTuning = currentProfile?.enableAutoTuning ?: true,
                 enablePerClusterTuning = currentProfile?.enablePerClusterTuning ?: true,
                 enableAdaptiveFpsCap = currentProfile?.enableAdaptiveFpsCap ?: true,
                 enableFanControl = currentProfile?.enableFanControl ?: true,
                 enableGamePinning = currentProfile?.enableGamePinning ?: false,
-                tuningStrategy = currentProfile?.tuningStrategy ?: AutoTuningStrategy.POWER_EFFICIENT
+                tuningStrategy = currentProfile?.tuningStrategy ?: AutoTuningStrategy.POWER_EFFICIENT,
             )
 
             _uiState.value = PowerControlUiState.Success(
@@ -650,7 +658,7 @@ object PowerManager {
                     currentMinValue = cpuInfo.currentMinValue,
                     currentMaxValue = cpuInfo.currentMaxValue,
                     selectedMinFreqIndex = selectedMinFreqIndex,
-                    selectedMaxFreqIndex = selectedMaxFreqIndex
+                    selectedMaxFreqIndex = selectedMaxFreqIndex,
                 ),
                 gpuInfo = gpuDisplayInfo,
                 selectedProfile = selectedProfile,
@@ -792,7 +800,7 @@ object PowerManager {
             CpuInfo(
                 currentGovernor = getDriver().getCurrentGovernor(),
                 currentMinValue = getDriver().getCurrentMinCpuValue(),
-                currentMaxValue = getDriver().getCurrentMaxCpuValue()
+                currentMaxValue = getDriver().getCurrentMaxCpuValue(),
             )
         } catch (e: Exception) {
             Timber.tag("PowerManager").e(e, "Failed to get CPU info")
@@ -875,7 +883,7 @@ object PowerManager {
                 currentGpuValue = getDriver().getCurrentGpuValue(),
                 minGpuPowerLevel = getDriver().getCurrentMinGpuPowerLevel(),
                 maxGpuPowerLevel = getDriver().getCurrentMaxGpuPowerLevel(),
-                numGpuPowerLevels = getDriver().getNumGpuPowerLevels()
+                numGpuPowerLevels = getDriver().getNumGpuPowerLevels(),
             )
         } catch (e: Exception) {
             Timber.tag("PowerManager").e(e, "Failed to get GPU info")
@@ -927,7 +935,7 @@ object PowerManager {
             BusInfo(
                 minBusLevel = getDriver().getCurrentMinBusLevel(),
                 maxBusLevel = getDriver().getCurrentMaxBusLevel(),
-                numBusLevels = getDriver().getNumBusLevels()
+                numBusLevels = getDriver().getNumBusLevels(),
             )
         } catch (e: Exception) {
             Timber.tag("PowerManager").e(e, "Failed to get RAM bus info")
@@ -980,7 +988,9 @@ object PowerManager {
         try {
             val jsonString = if (currentProfile != null) {
                 json.encodeToString(currentProfile)
-            } else ""
+            } else {
+                ""
+            }
 
             val profileFile = getProfileFile()
             if (profileFile != null) {
@@ -1146,7 +1156,7 @@ object PowerManager {
     fun pinGameWithRetry(
         processName: String,
         maxRetries: Int = GAME_PIN_MAX_RETRIES,
-        retryDelayMs: Long = GAME_PIN_RETRY_DELAY_MS
+        retryDelayMs: Long = GAME_PIN_RETRY_DELAY_MS,
     ) {
         pinnedGameProcessName = processName
         startGamePin(processName, "game start", maxRetries, retryDelayMs)
@@ -1162,12 +1172,12 @@ object PowerManager {
         processName: String,
         reason: String,
         maxRetries: Int = GAME_PIN_MAX_RETRIES,
-        retryDelayMs: Long = GAME_PIN_RETRY_DELAY_MS
+        retryDelayMs: Long = GAME_PIN_RETRY_DELAY_MS,
     ) {
         val pserver = driver as? PServerDriver
         if (pserver == null) {
             Timber.tag("PowerManager").i(
-                "Game pinning inactive (driver=${driver?.let { it::class.simpleName }}), not pinning $processName"
+                "Game pinning inactive (driver=${driver?.let { it::class.simpleName }}), not pinning $processName",
             )
             return
         }
@@ -1179,7 +1189,7 @@ object PowerManager {
 
         if (!ownsGameAffinity) {
             Timber.tag("PowerManager").i(
-                "Container CPU list owns the game affinity, not pinning $processName"
+                "Container CPU list owns the game affinity, not pinning $processName",
             )
             return
         }
@@ -1206,14 +1216,14 @@ object PowerManager {
 
                     if (pid == null) {
                         Timber.tag("PowerManager").d(
-                            "$processName has not started yet, pin attempt $attempt of $maxRetries ($reason)"
+                            "$processName has not started yet, pin attempt $attempt of $maxRetries ($reason)",
                         )
                     } else if (applied && verifyGameAffinity(pid, gameCores, "PowerManager")) {
                         pinnedGameProcessName = processName
                         pinnedGamePid = pid
                         pinnedGameCores = gameCores
                         Timber.tag("PowerManager").i(
-                            "Pinned $processName (PID: $pid) to CPUs ${gameCores.joinToString()} after $attempt attempts ($reason)"
+                            "Pinned $processName (PID: $pid) to CPUs ${gameCores.joinToString()} after $attempt attempts ($reason)",
                         )
                         return@Thread
                     }
@@ -1222,7 +1232,7 @@ object PowerManager {
                     attempt++
                 }
                 Timber.tag("PowerManager").w(
-                    "Pin of $processName onto CPUs ${gameCores.joinToString()} did not take after $maxRetries attempts ($reason)"
+                    "Pin of $processName onto CPUs ${gameCores.joinToString()} did not take after $maxRetries attempts ($reason)",
                 )
             } catch (e: Exception) {
                 Timber.tag("PowerManager").e(e, "Failed to pin game: $processName")
@@ -1253,7 +1263,7 @@ object PowerManager {
                 val success = applyAffinity(processName, pid, allCores)
                 pinnedGameCores = emptyList()
                 Timber.tag("PowerManager").i(
-                    "Game pinning switched off, gave $processName CPUs ${allCores.joinToString()} back (success=$success)"
+                    "Game pinning switched off, gave $processName CPUs ${allCores.joinToString()} back (success=$success)",
                 )
                 if (success && pid != null) verifyGameAffinity(pid, allCores, "PowerManager")
             } catch (e: Exception) {
@@ -1307,7 +1317,7 @@ object PowerManager {
         if (winHandler != null) {
             winHandler.setProcessAffinity(processName, mask)
             Timber.tag("PowerManager").i(
-                "Applied affinity ${cores.joinToString()} (mask 0x${Integer.toHexString(mask)}) to $processName over the winhandler"
+                "Applied affinity ${cores.joinToString()} (mask 0x${Integer.toHexString(mask)}) to $processName over the winhandler",
             )
             return true
         }
@@ -1320,7 +1330,7 @@ object PowerManager {
 
         val success = pserver.setCpuAffinityByCores(pid, cores)
         Timber.tag("PowerManager").w(
-            "No winhandler available, applied affinity ${cores.joinToString()} to PID $pid over taskset (success=$success)"
+            "No winhandler available, applied affinity ${cores.joinToString()} to PID $pid over taskset (success=$success)",
         )
         return success
     }
@@ -1350,7 +1360,7 @@ object PowerManager {
         }
 
         Timber.tag(tag).w(
-            "Affinity of PID $pid is ${formatCores(kernelCores)}, applied ${cores.joinToString()}"
+            "Affinity of PID $pid is ${formatCores(kernelCores)}, applied ${cores.joinToString()}",
         )
         return false
     }
@@ -1402,11 +1412,11 @@ object PowerManager {
 
         if (explicit) {
             Timber.tag("PowerManager").i(
-                "Container CPU list is $cpuList, power control does not manage the game affinity this session"
+                "Container CPU list is $cpuList, power control does not manage the game affinity this session",
             )
         } else {
             Timber.tag("PowerManager").i(
-                "Container CPU list is ${cpuList ?: "unset"}, power control manages the game affinity this session"
+                "Container CPU list is ${cpuList ?: "unset"}, power control manages the game affinity this session",
             )
         }
     }

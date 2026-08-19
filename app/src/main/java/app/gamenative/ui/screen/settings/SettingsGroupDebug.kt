@@ -19,26 +19,26 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import app.gamenative.CrashHandler
-import coil.annotation.ExperimentalCoilApi
-import coil.imageLoader
+import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.service.SteamService
 import app.gamenative.ui.component.dialog.CrashLogDialog
+import app.gamenative.ui.component.dialog.WineDebugChannelsDialog
 import app.gamenative.ui.theme.settingsTileColors
+import app.gamenative.ui.theme.settingsTileColorsAlt
 import app.gamenative.ui.theme.settingsTileColorsDebug
+import app.gamenative.ui.util.SnackbarManager
+import coil.annotation.ExperimentalCoilApi
+import coil.imageLoader
 import com.alorma.compose.settings.ui.SettingsGroup
 import com.alorma.compose.settings.ui.SettingsMenuLink
 import com.alorma.compose.settings.ui.SettingsSwitch
-import app.gamenative.PrefManager
-import app.gamenative.ui.util.SnackbarManager
-import app.gamenative.ui.theme.settingsTileColorsAlt
 import com.winlator.PrefManager as WinlatorPrefManager
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.File
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import app.gamenative.ui.component.dialog.WineDebugChannelsDialog
 
 @Suppress("UnnecessaryOptInAnnotation") // ExperimentalFoundationApi
 @OptIn(ExperimentalCoilApi::class, ExperimentalFoundationApi::class)
@@ -54,9 +54,11 @@ fun SettingsGroupDebug() {
     // Load Wine debug channels and prepare selection state
     var allWineChannels by remember { mutableStateOf<List<String>>(emptyList()) }
     var showChannelsDialog by remember { mutableStateOf(false) }
-    var selectedWineChannels by remember { mutableStateOf(
-        if (isPreview) emptyList() else PrefManager.wineDebugChannels.split(",")
-    ) }
+    var selectedWineChannels by remember {
+        mutableStateOf(
+            if (isPreview) emptyList() else PrefManager.wineDebugChannels.split(","),
+        )
+    }
     LaunchedEffect(Unit) {
         // Read the list of channels from assets
         val json = context.assets.open("wine_debug_channels.json").bufferedReader().use { it.readText() }
@@ -75,7 +77,7 @@ fun SettingsGroupDebug() {
             }
             showChannelsDialog = false
         },
-        onDismiss = { showChannelsDialog = false }
+        onDismiss = { showChannelsDialog = false },
     )
 
     /* Crash Log stuff */
@@ -84,9 +86,11 @@ fun SettingsGroupDebug() {
     var enableWineDebugPref by rememberSaveable {
         mutableStateOf(if (isPreview) false else PrefManager.enableWineDebug)
     }
-    var enableBox86Logs by rememberSaveable { mutableStateOf(
-        if (isPreview) false else WinlatorPrefManager.getBoolean("enable_box86_64_logs", false)
-    ) }
+    var enableBox86Logs by rememberSaveable {
+        mutableStateOf(
+            if (isPreview) false else WinlatorPrefManager.getBoolean("enable_box86_64_logs", false),
+        )
+    }
     var latestCrashFile: File? by rememberSaveable { mutableStateOf(null) }
     LaunchedEffect(Unit) {
         val crashDir = File(context.getExternalFilesDir(null), "crash_logs")
@@ -177,7 +181,7 @@ fun SettingsGroupDebug() {
         )
     }
 
-    SettingsGroup() {
+    SettingsGroup {
         SettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_save_logcat_title)) },
@@ -190,10 +194,11 @@ fun SettingsGroupDebug() {
             title = { Text(text = stringResource(R.string.settings_debug_wine_channels_title)) },
             subtitle = {
                 Text(
-                    text = if (selectedWineChannels.isNotEmpty() && selectedWineChannels.any { it.isNotBlank() })
+                    text = if (selectedWineChannels.isNotEmpty() && selectedWineChannels.any { it.isNotBlank() }) {
                         selectedWineChannels.filter { it.isNotBlank() }.joinToString(",")
-                    else
+                    } else {
                         stringResource(R.string.settings_debug_no_channels_selected)
+                    },
                 )
             },
             onClick = { showChannelsDialog = true },
@@ -227,10 +232,11 @@ fun SettingsGroupDebug() {
             title = { Text(text = stringResource(R.string.settings_debug_view_crash_title)) },
             subtitle = {
                 Text(
-                    text = if (latestCrashFile != null)
+                    text = if (latestCrashFile != null) {
                         stringResource(R.string.settings_debug_view_crash_subtitle)
-                    else
+                    } else {
                         stringResource(R.string.settings_debug_no_crash_logs)
+                    },
                 )
             },
             enabled = latestCrashFile != null,
@@ -242,10 +248,11 @@ fun SettingsGroupDebug() {
             title = { Text(text = stringResource(R.string.settings_debug_view_log_title)) },
             subtitle = {
                 Text(
-                    text = if (latestWineLogFile != null)
+                    text = if (latestWineLogFile != null) {
                         stringResource(R.string.settings_debug_view_log_subtitle)
-                    else
+                    } else {
                         stringResource(R.string.settings_debug_no_wine_logs)
+                    },
                 )
             },
             enabled = latestWineLogFile != null,

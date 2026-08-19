@@ -2,8 +2,8 @@ package app.gamenative.utils
 
 import app.gamenative.PrefManager
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import timber.log.Timber
 
@@ -21,7 +21,7 @@ object GameCompatibilityCache {
     @Serializable
     data class CachedCompatibilityResponse(
         val response: GameCompatibilityResponseData,
-        val timestamp: Long
+        val timestamp: Long,
     )
 
     @Serializable
@@ -31,7 +31,7 @@ object GameCompatibilityCache {
         val gpuPlayableCount: Int,
         val avgRating: Float,
         val hasBeenTried: Boolean,
-        val isNotWorking: Boolean
+        val isNotWorking: Boolean,
     )
 
     /**
@@ -44,7 +44,7 @@ object GameCompatibilityCache {
             gpuPlayableCount = this.gpuPlayableCount,
             avgRating = this.avgRating,
             hasBeenTried = this.hasBeenTried,
-            isNotWorking = this.isNotWorking
+            isNotWorking = this.isNotWorking,
         )
     }
 
@@ -58,7 +58,7 @@ object GameCompatibilityCache {
             gpuPlayableCount = this.gpuPlayableCount,
             avgRating = this.avgRating,
             hasBeenTried = this.hasBeenTried,
-            isNotWorking = this.isNotWorking
+            isNotWorking = this.isNotWorking,
         )
     }
 

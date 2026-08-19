@@ -4,17 +4,17 @@ import app.gamenative.data.GameSource
 import app.gamenative.workshop.compatibility.WorkshopCompatibilityOverride
 import app.gamenative.workshop.compatibility.WorkshopCompatibilityRegistry
 import app.gamenative.workshop.compatibility.WorkshopExposureMode
+import java.io.File
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
+import kotlin.io.path.createTempDirectory
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.io.File
-import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
-import kotlinx.coroutines.runBlocking
-import kotlin.io.path.createTempDirectory
 
 class WorkshopManagerTest {
 

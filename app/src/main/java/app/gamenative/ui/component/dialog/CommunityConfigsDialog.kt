@@ -576,11 +576,12 @@ private fun CommunityHardwareControl(
             SegmentedButton(
                 selected = selected == option,
                 onClick = { onSelected(option) },
-                enabled = enabled && when (option) {
-                    CommunityHardwareScope.CURRENT_DEVICE -> deviceAvailable
-                    CommunityHardwareScope.CURRENT_GPU -> gpuAvailable
-                    CommunityHardwareScope.COMPATIBLE_GPUS -> gpuAvailable
-                },
+                enabled = enabled &&
+                    when (option) {
+                        CommunityHardwareScope.CURRENT_DEVICE -> deviceAvailable
+                        CommunityHardwareScope.CURRENT_GPU -> gpuAvailable
+                        CommunityHardwareScope.COMPATIBLE_GPUS -> gpuAvailable
+                    },
                 shape = SegmentedButtonDefaults.itemShape(index, options.size),
                 label = {
                     Text(

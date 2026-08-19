@@ -1,11 +1,11 @@
 package app.gamenative.service.amazon
 
-import org.tukaani.xz.LZMAInputStream
-import org.tukaani.xz.XZInputStream
-import timber.log.Timber
 import java.io.ByteArrayInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import org.tukaani.xz.LZMAInputStream
+import org.tukaani.xz.XZInputStream
+import timber.log.Timber
 
 /** Amazon game manifest parser. */
 object AmazonManifest {
@@ -32,6 +32,7 @@ object AmazonManifest {
         val packages: List<ManifestPackage>,
     ) {
         val allFiles: List<ManifestFile> get() = packages.flatMap { it.files }
+
         /** Sum of all file sizes. */
         val totalInstallSize: Long get() = allFiles.sumOf { it.size }
     }
@@ -43,7 +44,7 @@ object AmazonManifest {
         require(content.size > 4) { "Manifest too short: ${content.size} bytes" }
 
         val buf = ByteBuffer.wrap(content).order(ByteOrder.BIG_ENDIAN)
-        val headerSize = buf.int   // big-endian uint32
+        val headerSize = buf.int // big-endian uint32
 
         require(headerSize >= 0 && headerSize < content.size) {
             "Invalid header size: $headerSize"
@@ -60,8 +61,8 @@ object AmazonManifest {
         Timber.d("[Amazon] Manifest: compressionAlgorithm=$compressionAlgorithm headerSize=$headerSize bodySize=${bodyBytes.size}")
 
         val manifestBytes = when (compressionAlgorithm) {
-            1 -> decompressLzma(bodyBytes)   // lzma
-            else -> bodyBytes                // none
+            1 -> decompressLzma(bodyBytes) // lzma
+            else -> bodyBytes // none
         }
 
         return parseManifest(manifestBytes)
@@ -103,9 +104,9 @@ object AmazonManifest {
     private fun skipField(stream: java.io.InputStream, wireType: Int) {
         when (wireType) {
             0 -> readVarint(stream)
-            1 -> repeat(8) { stream.read() }  // 64-bit fixed
+            1 -> repeat(8) { stream.read() } // 64-bit fixed
             2 -> readLengthDelimited(stream)
-            5 -> repeat(4) { stream.read() }  // 32-bit fixed
+            5 -> repeat(4) { stream.read() } // 32-bit fixed
             else -> error("Unknown wire type: $wireType")
         }
     }

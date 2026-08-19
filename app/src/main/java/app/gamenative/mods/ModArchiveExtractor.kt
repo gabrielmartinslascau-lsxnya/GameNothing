@@ -1,16 +1,16 @@
 package app.gamenative.mods
 
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.nio.ByteBuffer
+import java.util.zip.ZipFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.libarchive.Archive
 import me.zhanghai.android.libarchive.ArchiveEntry
 import me.zhanghai.android.libarchive.ArchiveException
 import timber.log.Timber
-import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
-import java.nio.ByteBuffer
-import java.util.zip.ZipFile
 
 data class ModArchiveEntry(
     val path: String,
@@ -422,5 +422,4 @@ object ModArchiveExtractor {
             ?.replace('\\', '/')
             ?.substringAfterLast('/')
             ?.takeIf { it.isNotBlank() && !isUnsafeArchivePath(it) }
-
 }

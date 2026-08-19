@@ -6,10 +6,10 @@ import android.hardware.display.DisplayManager
 import android.os.Handler
 import android.os.Looper
 import android.view.Display
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
-import android.view.View
 
 class ExternalDisplaySwapController(
     private val context: Context,

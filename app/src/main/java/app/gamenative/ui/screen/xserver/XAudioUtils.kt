@@ -13,10 +13,10 @@ import app.gamenative.utils.CustomGameScanner
 import app.gamenative.utils.FileUtils
 import com.winlator.xenvironment.ImageFs
 import com.winlator.xenvironment.components.GuestProgramLauncherComponent
-import timber.log.Timber
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import timber.log.Timber
 
 object XAudioUtils {
     const val BATCH_SUCCESS_CHECK = "__GN_XAUDIO_EXTRACT_OK__"
@@ -24,7 +24,11 @@ object XAudioUtils {
     /**
      * Replace DLLs from DirectX Redistributable
      */
-    fun replaceXAudioDllsFromRedistributable(context: Context, guestProgramLauncherComponent: GuestProgramLauncherComponent, appId: String) {
+    fun replaceXAudioDllsFromRedistributable(
+        context: Context,
+        guestProgramLauncherComponent: GuestProgramLauncherComponent,
+        appId: String,
+    ) {
         val gameSource = ContainerUtils.extractGameSourceFromContainerId(appId)
         val appDirPath = try {
             when (gameSource) {
@@ -113,8 +117,8 @@ object XAudioUtils {
                     val name = file.name.lowercase()
                     val isAudioType =
                         name.contains("xaudio") ||
-                                name.contains("xact") ||
-                                name.contains("x3daudio")
+                            name.contains("xact") ||
+                            name.contains("x3daudio")
 
                     isAudioType && file.extension.equals("cab", ignoreCase = true)
                 }

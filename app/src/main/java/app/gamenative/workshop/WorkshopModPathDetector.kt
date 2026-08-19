@@ -1,9 +1,9 @@
 package app.gamenative.workshop
 
-import timber.log.Timber
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
+import timber.log.Timber
 
 /**
  * Detects where a game expects Workshop mod content to be placed,
@@ -57,6 +57,7 @@ class WorkshopModPathDetector {
             "extras", "expansion", "expansions",
             "content", "assets", "data",
         )
+
         /** Union of all three confidence tiers — used for fast membership checks. */
         val ALL_MOD_DIR_NAMES = HIGH_CONFIDENCE_NAMES + MEDIUM_CONFIDENCE_NAMES + LOW_CONFIDENCE_NAMES
 
@@ -114,8 +115,9 @@ class WorkshopModPathDetector {
         developerName: String = "",
     ): DetectionResult {
         Timber.tag(TAG).i("Detecting for '$gameName': ${gameInstallDir.absolutePath}")
-        if (!gameInstallDir.exists() || !gameInstallDir.isDirectory)
+        if (!gameInstallDir.exists() || !gameInstallDir.isDirectory) {
             return defaultResult("Install directory does not exist")
+        }
 
         val appDataRoots = buildList<AppDataRoot> {
             if (appDataRoaming.isDirectory) add(AppDataRoot(appDataRoaming, "%APPDATA%"))
@@ -145,7 +147,7 @@ class WorkshopModPathDetector {
         if (found.isEmpty()) {
             return if (binaryResult.stdSeen) {
                 Timber.tag(TAG).i(
-                    "[WS-DETECT] game='$gameName' candidates=0 decision: Standard (Steam API strings seen)"
+                    "[WS-DETECT] game='$gameName' candidates=0 decision: Standard (Steam API strings seen)",
                 )
                 DetectionResult(
                     WorkshopModPathStrategy.Standard, Confidence.MEDIUM,
@@ -154,7 +156,7 @@ class WorkshopModPathDetector {
                 )
             } else {
                 Timber.tag(TAG).i(
-                    "[WS-DETECT] game='$gameName' candidates=0 decision: Standard/LOW (no signals)"
+                    "[WS-DETECT] game='$gameName' candidates=0 decision: Standard/LOW (no signals)",
                 )
                 defaultResult("No mod path signals found")
             }
@@ -175,10 +177,11 @@ class WorkshopModPathDetector {
             .filter { it.confidence >= Confidence.MEDIUM && strongFamilyOf(it) != null }
             .mapNotNull { strongFamilyOf(it) }
             .toSet()
-        val fanOut = if (distinctStrongFamilies.size >= 2)
+        val fanOut = if (distinctStrongFamilies.size >= 2) {
             WorkshopModPathStrategy.FanOutPolicy.ALL_DIRS
-        else
+        } else {
             WorkshopModPathStrategy.FanOutPolicy.PRIMARY_ONLY
+        }
 
         val reason = sorted.joinToString("; ") { "${it.dir.name}[${it.confidence}](${it.source})" }
 
@@ -188,12 +191,12 @@ class WorkshopModPathDetector {
             Timber.tag(TAG).i(
                 "[WS-DETECT]   #$i dir=${c.dir.name.padEnd(20)} " +
                     "conf=${c.confidence.name.padEnd(6)} " +
-                    "source=${c.source.padEnd(30)} family=$family"
+                    "source=${c.source.padEnd(30)} family=$family",
             )
         }
         Timber.tag(TAG).i(
             "[WS-DETECT] decision: SymlinkIntoDir fanOut=$fanOut " +
-                "strongFamilies=$distinctStrongFamilies topConf=$topConf"
+                "strongFamilies=$distinctStrongFamilies topConf=$topConf",
         )
 
         return DetectionResult(WorkshopModPathStrategy.SymlinkIntoDir(dirs, fanOut), topConf, reason, binaryResult.stdSeen)
@@ -248,15 +251,26 @@ class WorkshopModPathDetector {
             if (!stdFound && BINARY_STANDARD_SIGNALS.any { lo.contains(it.lowercase()) }) stdFound = true
             if (APPDATA_TOKENS.any { lo.contains(it) }) {
                 if (ALL_MOD_DIR_NAMES.any { m ->
-                        lo.contains("\\$m\\") || lo.contains("/$m/") ||
-                            lo.endsWith("\\$m") || lo.endsWith("/$m")
-                    }) adPaths.add(s)
+                        lo.contains("\\$m\\") ||
+                            lo.contains("/$m/") ||
+                            lo.endsWith("\\$m") ||
+                            lo.endsWith("/$m")
+                    }
+                ) {
+                    adPaths.add(s)
+                }
                 return
             }
-            if ((s.contains('\\') || s.contains('/')) && ALL_MOD_DIR_NAMES.any { m ->
-                    lo.contains("\\$m\\") || lo.contains("/$m/") ||
-                        lo.endsWith("\\$m") || lo.endsWith("/$m")
-                }) instPaths.add(s)
+            if ((s.contains('\\') || s.contains('/')) &&
+                ALL_MOD_DIR_NAMES.any { m ->
+                    lo.contains("\\$m\\") ||
+                        lo.contains("/$m/") ||
+                        lo.endsWith("\\$m") ||
+                        lo.endsWith("/$m")
+                }
+            ) {
+                instPaths.add(s)
+            }
         }
 
         try {
@@ -318,10 +332,14 @@ class WorkshopModPathDetector {
             // Skip internal/infrastructure directories
             if (lo in INSTALL_SKIP_DIRS || child.name.startsWith(".")) return@forEach
             // Skip Unity engine data directories (contain Plugins/ with native DLLs, not mods)
-            if (lo.endsWith("_data") && child.listFiles()?.any {
+            if (lo.endsWith("_data") &&
+                child.listFiles()?.any {
                     it.name.equals("Managed", ignoreCase = true) ||
                         it.name.equals("Resources", ignoreCase = true)
-                } == true) return@forEach
+                } == true
+            ) {
+                return@forEach
+            }
             val populated = (child.listFiles()?.size ?: 0) > 0
             val conf: Confidence? = when {
                 lo in HIGH_CONFIDENCE_NAMES -> Confidence.HIGH
@@ -333,12 +351,15 @@ class WorkshopModPathDetector {
                 results.add(
                     CandidateDir(
                         child, conf,
-                        if (populated) "install-dir(pop,d$depth)" else "install-dir(empty,d$depth)"
-                    )
+                        if (populated) "install-dir(pop,d$depth)" else "install-dir(empty,d$depth)",
+                    ),
                 )
             }
-            if (lo !in HIGH_CONFIDENCE_NAMES && lo !in MEDIUM_CONFIDENCE_NAMES
-                && lo !in CONFIG_SKIP_DIRS && lo !in INSTALL_SKIP_DIRS) {
+            if (lo !in HIGH_CONFIDENCE_NAMES &&
+                lo !in MEDIUM_CONFIDENCE_NAMES &&
+                lo !in CONFIG_SKIP_DIRS &&
+                lo !in INSTALL_SKIP_DIRS
+            ) {
                 results += collectModsDirectories(child, depth + 1)
             }
         }
@@ -356,8 +377,10 @@ class WorkshopModPathDetector {
     private fun collectConfigCandidates(dir: File, depth: Int, max: Int, out: MutableList<File>) {
         if (depth > max) return
         dir.listFiles()?.forEach { entry ->
-            if (entry.isFile && entry.extension.lowercase() in CONFIG_EXTENSIONS &&
-                entry.name.lowercase() !in CONFIG_SKIP_FILES && entry.length() in 1..MAX_CONFIG_BYTES
+            if (entry.isFile &&
+                entry.extension.lowercase() in CONFIG_EXTENSIONS &&
+                entry.name.lowercase() !in CONFIG_SKIP_FILES &&
+                entry.length() in 1..MAX_CONFIG_BYTES
             ) {
                 out.add(entry)
             } else if (entry.isDirectory && depth < max && entry.name.lowercase() !in CONFIG_SKIP_DIRS) {
@@ -373,9 +396,13 @@ class WorkshopModPathDetector {
         val results = mutableListOf<CandidateDir>()
         for (rawLine in text.lines()) {
             val line = rawLine.trim()
-            if (line.startsWith("#") || line.startsWith(";") ||
-                line.startsWith("//") || line.startsWith("<!--")
-            ) continue
+            if (line.startsWith("#") ||
+                line.startsWith(";") ||
+                line.startsWith("//") ||
+                line.startsWith("<!--")
+            ) {
+                continue
+            }
             if (!CONFIG_MOD_KEY_FRAGMENTS.any { line.lowercase().contains(it) }) continue
             val di = line.indexOfFirst { it == '=' || it == ':' }.takeIf { it >= 0 } ?: continue
             val rv = line.substring(di + 1).trim().trim('"', '\'', ',').ifBlank { null } ?: continue
@@ -424,7 +451,11 @@ class WorkshopModPathDetector {
         fun tok(s: String): Set<String> {
             val c = s.lowercase().replace(Regex("[^a-z0-9 ]"), " ").trim()
             val w = c.split(Regex("\\s+")).filter { it.length >= 3 }
-            return buildSet { add(c.replace(" ", "")); addAll(w); w.firstOrNull()?.let { add(it) } }
+            return buildSet {
+                add(c.replace(" ", ""))
+                addAll(w)
+                w.firstOrNull()?.let { add(it) }
+            }
         }
         return (tok(gameName) + tok(developerName)).filter { it.isNotEmpty() }.toSet()
     }
@@ -483,7 +514,8 @@ class WorkshopModPathDetector {
                 val norm = child.name.lowercase().replace(Regex("[^a-z0-9]"), "")
                 if (!tokens.any { t ->
                         norm == t || norm.contains(t) || (norm.length >= 5 && t.contains(norm))
-                    }) {
+                    }
+                ) {
                     walkAppDataForGame(
                         AppDataRoot(child, "${adRoot.envToken}\\${child.name}"),
                         tokens, depth + 1, results,
@@ -496,14 +528,22 @@ class WorkshopModPathDetector {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private fun findMainExecutables(installDir: File): List<File> =
-        (installDir.listFiles { f ->
-            f.isFile && f.extension.lowercase() == "exe" && f.length() > 512 * 1024 &&
-                !f.name.lowercase().let { n ->
-                    n.contains("unins") || n.contains("crash") || n.contains("report") ||
-                        n.contains("setup") || n.contains("install") || n.contains("redist") ||
-                        n.contains("vcredist")
-                }
-        } ?: emptyArray()).sortedByDescending { it.length() }.take(2)
+        (
+            installDir.listFiles { f ->
+                f.isFile &&
+                    f.extension.lowercase() == "exe" &&
+                    f.length() > 512 * 1024 &&
+                    !f.name.lowercase().let { n ->
+                        n.contains("unins") ||
+                            n.contains("crash") ||
+                            n.contains("report") ||
+                            n.contains("setup") ||
+                            n.contains("install") ||
+                            n.contains("redist") ||
+                            n.contains("vcredist")
+                    }
+            } ?: emptyArray()
+            ).sortedByDescending { it.length() }.take(2)
 
     private fun defaultResult(reason: String) =
         DetectionResult(WorkshopModPathStrategy.Standard, Confidence.LOW, reason)

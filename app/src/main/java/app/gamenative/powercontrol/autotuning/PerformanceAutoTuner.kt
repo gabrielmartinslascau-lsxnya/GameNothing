@@ -2,8 +2,8 @@ package app.gamenative.powercontrol.autotuning
 
 import app.gamenative.powercontrol.AutoTuningStrategy
 import app.gamenative.powercontrol.PowerManager
-import timber.log.Timber
 import kotlin.math.abs
+import timber.log.Timber
 
 /**
  * Automatic performance tuner that uses PID controllers to adjust CPU, GPU, and RAM bus
@@ -33,7 +33,7 @@ class PerformanceAutoTuner(
         GPU_BOUND,
         BOTH_BOUND,
         MEMORY_BOUND,
-        NONE
+        NONE,
     }
 
     companion object {
@@ -115,7 +115,7 @@ class PerformanceAutoTuner(
             outputMax = 100.0,
             integralLimit = 50.0,
             tag = "CpuPidController",
-            enableLogging = enableLogging
+            enableLogging = enableLogging,
         )
 
         // Initialize GPU PID controller
@@ -128,7 +128,7 @@ class PerformanceAutoTuner(
                 outputMax = 100.0,
                 integralLimit = 50.0,
                 tag = "GpuPidController",
-                enableLogging = enableLogging
+                enableLogging = enableLogging,
             )
         }
 
@@ -142,7 +142,7 @@ class PerformanceAutoTuner(
                 outputMax = 100.0,
                 integralLimit = 50.0,
                 tag = "BusPidController",
-                enableLogging = enableLogging
+                enableLogging = enableLogging,
             )
         }
 
@@ -239,9 +239,9 @@ class PerformanceAutoTuner(
 
             // Check if CPU is the bottleneck
             val isCpuBottleneck = currentBottleneck == BottleneckType.CPU_BOUND ||
-                                  currentBottleneck == BottleneckType.BOTH_BOUND
+                currentBottleneck == BottleneckType.BOTH_BOUND
             val isNotCpuBottleneck = currentBottleneck == BottleneckType.GPU_BOUND ||
-                                     currentBottleneck == BottleneckType.MEMORY_BOUND
+                currentBottleneck == BottleneckType.MEMORY_BOUND
 
             // If we're hitting target FPS with low CPU usage, reduce performance
             if (fpsError < FPS_ERROR_THRESHOLD && cpuUsage < USAGE_LOW_THRESHOLD && currentCpuPerformance > MIN_PERFORMANCE + 5.0) {
@@ -249,7 +249,11 @@ class PerformanceAutoTuner(
                 controller.reset()
             }
             // If CPU is clearly not the bottleneck, reduce it to save power (only for POWER_EFFICIENT)
-            else if (shouldReduceNonBottleneck() && isNotCpuBottleneck && fpsError > FPS_ERROR_THRESHOLD && currentCpuPerformance > MIN_PERFORMANCE + 10.0) {
+            else if (shouldReduceNonBottleneck() &&
+                isNotCpuBottleneck &&
+                fpsError > FPS_ERROR_THRESHOLD &&
+                currentCpuPerformance > MIN_PERFORMANCE + 10.0
+            ) {
                 currentCpuPerformance = (currentCpuPerformance - PERFORMANCE_REDUCTION_STEP * 0.5).coerceAtLeast(MIN_PERFORMANCE)
                 controller.reset()
             }
@@ -282,7 +286,7 @@ class PerformanceAutoTuner(
             if (enableLogging) {
                 Timber.tag(TAG).d(
                     "CPU: FPS=%.1f/%.1f, usage=%.1f%%, perf=%.1f%%, freq=%d kHz",
-                    currentFps, targetFps, cpuUsage, currentCpuPerformance, closestFreq
+                    currentFps, targetFps, cpuUsage, currentCpuPerformance, closestFreq,
                 )
             }
         }
@@ -300,9 +304,9 @@ class PerformanceAutoTuner(
 
             // Check if GPU is the bottleneck
             val isGpuBottleneck = currentBottleneck == BottleneckType.GPU_BOUND ||
-                                  currentBottleneck == BottleneckType.BOTH_BOUND
+                currentBottleneck == BottleneckType.BOTH_BOUND
             val isNotGpuBottleneck = currentBottleneck == BottleneckType.CPU_BOUND ||
-                                     currentBottleneck == BottleneckType.MEMORY_BOUND
+                currentBottleneck == BottleneckType.MEMORY_BOUND
 
             // If we're hitting target FPS with low GPU usage, reduce performance
             if (fpsError < FPS_ERROR_THRESHOLD && gpuUsage < USAGE_LOW_THRESHOLD && currentGpuPerformance > MIN_PERFORMANCE + 5.0) {
@@ -310,7 +314,11 @@ class PerformanceAutoTuner(
                 controller.reset()
             }
             // If GPU is clearly not the bottleneck, reduce it to save power (only for POWER_EFFICIENT)
-            else if (shouldReduceNonBottleneck() && isNotGpuBottleneck && fpsError > FPS_ERROR_THRESHOLD && currentGpuPerformance > MIN_PERFORMANCE + 10.0) {
+            else if (shouldReduceNonBottleneck() &&
+                isNotGpuBottleneck &&
+                fpsError > FPS_ERROR_THRESHOLD &&
+                currentGpuPerformance > MIN_PERFORMANCE + 10.0
+            ) {
                 currentGpuPerformance = (currentGpuPerformance - PERFORMANCE_REDUCTION_STEP * 0.5).coerceAtLeast(MIN_PERFORMANCE)
                 controller.reset()
             }
@@ -341,7 +349,7 @@ class PerformanceAutoTuner(
             if (enableLogging) {
                 Timber.tag(TAG).d(
                     "GPU: FPS=%.1f/%.1f, usage=%.1f%%, perf=%.1f%%, level=%d",
-                    currentFps, targetFps, gpuUsage, currentGpuPerformance, gpuLevel
+                    currentFps, targetFps, gpuUsage, currentGpuPerformance, gpuLevel,
                 )
             }
         }
@@ -391,7 +399,7 @@ class PerformanceAutoTuner(
             if (enableLogging) {
                 Timber.tag(TAG).d(
                     "Bus: FPS=%.1f/%.1f, perf=%.1f%%, level=%d",
-                    currentFps, targetFps, currentBusPerformance, busLevel
+                    currentFps, targetFps, currentBusPerformance, busLevel,
                 )
             }
         }

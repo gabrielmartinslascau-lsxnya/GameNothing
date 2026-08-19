@@ -3,6 +3,7 @@ package app.gamenative.service.gog
 import android.content.Context
 import app.gamenative.data.DownloadInfo
 import app.gamenative.data.GameSource
+import app.gamenative.enums.Marker
 import app.gamenative.service.gog.api.DepotDirectory
 import app.gamenative.service.gog.api.DepotFile
 import app.gamenative.service.gog.api.DepotLink
@@ -11,31 +12,32 @@ import app.gamenative.service.gog.api.GOGApiClient
 import app.gamenative.service.gog.api.GOGManifestMeta
 import app.gamenative.service.gog.api.GOGManifestParser
 import app.gamenative.service.gog.api.V1DepotFile
-import app.gamenative.enums.Marker
 import app.gamenative.utils.CdnRankingUtils
 import app.gamenative.utils.ContainerStorageManager
 import app.gamenative.utils.DownloadSpeedConfig
-import app.gamenative.utils.StorageUtils
 import app.gamenative.utils.MarkerUtils
 import app.gamenative.utils.Net
-import org.json.JSONArray
-import org.json.JSONObject
+import app.gamenative.utils.StorageUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CoroutineScope
-import java.io.ByteArrayOutputStream
 import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
+import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.file.Files
 import java.nio.file.StandardOpenOption
 import java.security.DigestOutputStream
 import java.security.MessageDigest
-import java.util.zip.Inflater
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentHashMap.newKeySet
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.zip.Inflater
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -49,12 +51,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONArray
+import org.json.JSONObject
 import timber.log.Timber
-import java.io.IOException
-import java.io.RandomAccessFile
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentHashMap.newKeySet
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Custom exception for HTTP status errors with typed status code
@@ -129,7 +128,7 @@ class GOGDownloadManager @Inject constructor(
         try {
             Timber.tag("GOG").i("Starting download for game $gameId to ${installPath.absolutePath}")
 
-            if(supportDir != null) {
+            if (supportDir != null) {
                 Timber.tag("GOG").i("Will also put dependencies into ${supportDir.absolutePath}")
             }
 
@@ -495,7 +494,6 @@ class GOGDownloadManager @Inject constructor(
                     }
                     Timber.tag("GOG").w("Failed to install Dependencies: ${dependencyResult.exceptionOrNull()?.message}")
                 }
-
             }
 
             // Step 11: Cleanup
@@ -615,7 +613,8 @@ class GOGDownloadManager @Inject constructor(
     ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             Timber.tag("GOG").i("Starting Gen 1 (legacy) download for game $gameId")
-            val timestamp = gameManifest.productTimestamp ?: return@withContext Result.failure(Exception("Gen 1 manifest missing productTimestamp"))
+            val timestamp =
+                gameManifest.productTimestamp ?: return@withContext Result.failure(Exception("Gen 1 manifest missing productTimestamp"))
             val platform = selectedBuild.platform
             val ownedGameIds = gogManager.getAllGameIds()
 
@@ -644,7 +643,9 @@ class GOGDownloadManager @Inject constructor(
             for (productId in productIds) {
                 val linksResult = apiClient.getSecureLink(productId = productId, path = securePath, generation = 1)
                 if (linksResult.isFailure) {
-                    return@withContext Result.failure(linksResult.exceptionOrNull() ?: Exception("Failed to get secure link for product $productId"))
+                    return@withContext Result.failure(
+                        linksResult.exceptionOrNull() ?: Exception("Failed to get secure link for product $productId"),
+                    )
                 }
                 productUrlMap[productId] = linksResult.getOrThrow().urls
             }
@@ -727,7 +728,7 @@ class GOGDownloadManager @Inject constructor(
                         var copiedInFile = 0L
                         DigestOutputStream(
                             BufferedOutputStream(FileOutputStream(outFile)),
-                            md
+                            md,
                         ).use { out ->
                             body.byteStream().use { input ->
                                 var n: Int
@@ -742,7 +743,7 @@ class GOGDownloadManager @Inject constructor(
                                     if (copiedInFile >= progressInterval || downloadInfo.getBytesDownloaded() >= totalSize) {
                                         copiedInFile = 0L
                                         downloadInfo.setProgress(
-                                            (downloadInfo.getBytesDownloaded().toFloat() / totalSize).coerceIn(0f, 1f)
+                                            (downloadInfo.getBytesDownloaded().toFloat() / totalSize).coerceIn(0f, 1f),
                                         )
                                         downloadInfo.emitProgressChange()
                                     }
@@ -755,7 +756,7 @@ class GOGDownloadManager @Inject constructor(
                         if (file.hash.isNotEmpty() && md5 != file.hash) return Result.failure(Exception("MD5 mismatch ${file.path}"))
                         // bytes already reported during copy; ensure final progress is exact
                         downloadInfo.setProgress(
-                            (downloadInfo.getBytesDownloaded().toFloat() / totalSize).coerceIn(0f, 1f)
+                            (downloadInfo.getBytesDownloaded().toFloat() / totalSize).coerceIn(0f, 1f),
                         )
                         downloadInfo.emitProgressChange()
                         Result.success(Unit)
@@ -855,7 +856,7 @@ class GOGDownloadManager @Inject constructor(
 
             chunkHashes.forEach { chunkMd5 ->
                 chunkUsageCounts[chunkMd5] = AtomicInteger(
-                    files.sumOf { file -> file.chunks.count { chunk -> chunk.compressedMd5 == chunkMd5 } }
+                    files.sumOf { file -> file.chunks.count { chunk -> chunk.compressedMd5 == chunkMd5 } },
                 )
             }
 
@@ -919,7 +920,7 @@ class GOGDownloadManager @Inject constructor(
                 // 4. Free the cached chunk once it has been placed into all of its positions
                 val usageCount = chunkUsageCounts[chunkMd5]?.addAndGet(-assemblySuccessCount)
                 if (usageCount != null && usageCount <= 0) {
-                    val cacheFile = File(chunkCacheDir, "${chunkMd5}.chunk")
+                    val cacheFile = File(chunkCacheDir, "$chunkMd5.chunk")
                     cacheFile.delete()
                 }
 
@@ -974,7 +975,7 @@ class GOGDownloadManager @Inject constructor(
                                             "Chunk $chunkMd5 assembly failed (attempt $attempts/$MAX_CHUNK_ASSEMBLY_ATTEMPTS), " +
                                                 "re-fetching: ${assembleResult.exceptionOrNull()?.message}",
                                         )
-                                        File(chunkCacheDir, "${chunkMd5}.chunk").delete()
+                                        File(chunkCacheDir, "$chunkMd5.chunk").delete()
                                         downloadedChunkIds.remove(chunkMd5)
                                         networkChunkFlow.tryEmit(chunkMd5)
                                         return@flow
@@ -1103,7 +1104,7 @@ class GOGDownloadManager @Inject constructor(
                     |  Cache: ${chunkCacheSize / 1_000_000}MB
                     |  Game files: ${totalExpectedSize / 1_000_000}MB
                     |  Total disk: ${(chunkCacheSize + totalExpectedSize) / 1_000_000}MB
-                    """.trimMargin()
+                    """.trimMargin(),
                 )
 
                 if (currentPendingChunks == lastPendingChunks) {
@@ -1150,7 +1151,6 @@ class GOGDownloadManager @Inject constructor(
         }
     }
 
-
     /**
      * Downloads the dependencies for a given game by using the dependency array from the game's depo-list
      * It will download the dependencies using the dependency URL
@@ -1161,7 +1161,7 @@ class GOGDownloadManager @Inject constructor(
         dependencies: List<String>,
         gameDir: File,
         supportDir: File,
-        downloadInfo: DownloadInfo
+        downloadInfo: DownloadInfo,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             if (dependencies.isEmpty()) {
@@ -1494,7 +1494,7 @@ class GOGDownloadManager @Inject constructor(
                 if (!response.isSuccessful) {
                     Timber.tag("GOG").e("HTTP ${response.code} for chunk $chunkMd5 from URL: $safeUrl")
                     return@withContext Result.failure(
-                        HttpStatusException(response.code, "HTTP ${response.code} downloading chunk $chunkMd5")
+                        HttpStatusException(response.code, "HTTP ${response.code} downloading chunk $chunkMd5"),
                     )
                 }
 
@@ -1531,7 +1531,7 @@ class GOGDownloadManager @Inject constructor(
                 } catch (e: Exception) {
                     tempChunkFile.delete()
                     return@withContext Result.failure(
-                        Exception("Failed while streaming chunk $chunkMd5: ${e.message}")
+                        Exception("Failed while streaming chunk $chunkMd5: ${e.message}"),
                     )
                 }
 
@@ -1647,7 +1647,7 @@ class GOGDownloadManager @Inject constructor(
             FileChannel.open(
                 outputFile.toPath(),
                 StandardOpenOption.WRITE,
-                StandardOpenOption.CREATE
+                StandardOpenOption.CREATE,
             ).use { channel ->
                 channel.position(writeOffset)
 
@@ -1694,7 +1694,7 @@ class GOGDownloadManager @Inject constructor(
                                     } else {
                                         if (inflater.needsDictionary()) {
                                             throw java.io.IOException(
-                                                "Zlib data requires a preset dictionary which is not supported"
+                                                "Zlib data requires a preset dictionary which is not supported",
                                             )
                                         }
                                         break
@@ -1716,7 +1716,7 @@ class GOGDownloadManager @Inject constructor(
                                 } else {
                                     if (inflater.needsInput()) {
                                         throw java.io.IOException(
-                                            "Incomplete zlib data: decompression requires more input but none available"
+                                            "Incomplete zlib data: decompression requires more input but none available",
                                         )
                                     }
                                     break
@@ -1815,6 +1815,7 @@ class GOGDownloadManager @Inject constructor(
         if (expectedMd5.isNullOrBlank()) return false
         return calculateMd5File(outputFile).equals(expectedMd5, ignoreCase = true)
     }
+
     /**
      * Calculate MD5 hash of file
      */

@@ -8,13 +8,11 @@ import android.os.Build
 import android.os.Environment
 import android.provider.Settings
 import androidx.core.content.ContextCompat
-import app.gamenative.PluviaApp
 import app.gamenative.PrefManager
 import app.gamenative.data.AppInfo
 import app.gamenative.data.GameSource
 import app.gamenative.data.LibraryItem
 import app.gamenative.enums.Marker
-import app.gamenative.events.AndroidEvent
 import app.gamenative.service.DownloadService
 import app.gamenative.service.SteamService
 import app.gamenative.service.SteamService.Companion.INVALID_APP_ID
@@ -22,14 +20,13 @@ import app.gamenative.service.SteamService.Companion.getMainAppDepots
 import com.winlator.container.Container
 import com.winlator.container.ContainerManager
 import java.io.File
-import kotlin.math.abs
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import org.json.JSONObject
-import timber.log.Timber
 import kotlin.collections.component1
 import kotlin.collections.component2
+import kotlin.math.abs
 import kotlin.text.ifEmpty
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import timber.log.Timber
 
 object CustomGameScanner {
 
@@ -162,7 +159,8 @@ object CustomGameScanner {
         if (!folder.exists() || !folder.isDirectory) return null
 
         val steamGridLogo = folder.listFiles { file ->
-            file.isFile && file.name.startsWith("steamgriddb_logo", ignoreCase = true) &&
+            file.isFile &&
+                file.name.startsWith("steamgriddb_logo", ignoreCase = true) &&
                 (
                     file.name.endsWith(".png", ignoreCase = true) ||
                         file.name.endsWith(".jpg", ignoreCase = true) ||
@@ -204,7 +202,8 @@ object CustomGameScanner {
         if (!folder.exists() || !folder.isDirectory) return null
 
         val steamGridLogo = folder.listFiles { file ->
-            file.isFile && file.name.startsWith("steamgriddb_logo", ignoreCase = true) &&
+            file.isFile &&
+                file.name.startsWith("steamgriddb_logo", ignoreCase = true) &&
                 (
                     file.name.endsWith(".png", ignoreCase = true) ||
                         file.name.endsWith(".jpg", ignoreCase = true) ||
@@ -423,13 +422,15 @@ object CustomGameScanner {
     fun findUniqueExeRelativeToFolder(folder: File): String? {
         if (!folder.exists() || !folder.isDirectory) return null
 
-        fun File.isValidExe(): Boolean = this.isFile && this.name.endsWith(".exe", ignoreCase = true) &&
+        fun File.isValidExe(): Boolean = this.isFile &&
+            this.name.endsWith(".exe", ignoreCase = true) &&
             !this.name.startsWith("unins", ignoreCase = true)
 
         val candidates = mutableListOf<String>()
 
         folder.listFiles { f ->
-            f.isFile && f.name.endsWith(".exe", ignoreCase = true) &&
+            f.isFile &&
+                f.name.endsWith(".exe", ignoreCase = true) &&
                 !f.name.startsWith("unins", ignoreCase = true)
         }?.forEach { f ->
             candidates.add(f.name)
@@ -438,7 +439,8 @@ object CustomGameScanner {
         val subDirs = folder.listFiles { f -> f.isDirectory } ?: emptyArray()
         for (sd in subDirs) {
             sd.listFiles { f ->
-                f.isFile && f.name.endsWith(".exe", ignoreCase = true) &&
+                f.isFile &&
+                    f.name.endsWith(".exe", ignoreCase = true) &&
                     !f.name.startsWith("unins", ignoreCase = true)
             }?.forEach { f ->
                 val rel = sd.name + "/" + f.name
@@ -463,13 +465,15 @@ object CustomGameScanner {
     fun findAllValidExeFiles(folder: File): List<String> {
         if (!folder.exists() || !folder.isDirectory) return emptyList()
 
-        fun File.isValidExe(): Boolean = this.isFile && this.name.endsWith(".exe", ignoreCase = true) &&
+        fun File.isValidExe(): Boolean = this.isFile &&
+            this.name.endsWith(".exe", ignoreCase = true) &&
             !this.name.startsWith("unins", ignoreCase = true)
 
         val candidates = mutableListOf<String>()
 
         folder.listFiles { f ->
-            f.isFile && f.name.endsWith(".exe", ignoreCase = true) &&
+            f.isFile &&
+                f.name.endsWith(".exe", ignoreCase = true) &&
                 !f.name.startsWith("unins", ignoreCase = true)
         }?.forEach { f ->
             candidates.add(f.name)
@@ -478,7 +482,8 @@ object CustomGameScanner {
         val subDirs = folder.listFiles { f -> f.isDirectory } ?: emptyArray()
         for (sd in subDirs) {
             sd.listFiles { f ->
-                f.isFile && f.name.endsWith(".exe", ignoreCase = true) &&
+                f.isFile &&
+                    f.name.endsWith(".exe", ignoreCase = true) &&
                     !f.name.startsWith("unins", ignoreCase = true)
             }?.forEach { f ->
                 val rel = sd.name + "/" + f.name
@@ -650,7 +655,7 @@ object CustomGameScanner {
                                     downloadedDepots = mainAppDepotIds,
                                     dlcDepots = emptyList(),
                                     branch = "public",
-                                    customInstallPath = folderPath
+                                    customInstallPath = folderPath,
                                 ),
                             )
                         }

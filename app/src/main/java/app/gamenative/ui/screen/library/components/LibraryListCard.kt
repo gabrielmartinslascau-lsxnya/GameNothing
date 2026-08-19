@@ -94,127 +94,129 @@ internal fun ListViewCard(
                     indication = null,
                 ),
             shape = shape,
-        colors = CardDefaults.cardColors(
-            containerColor = if (isFocused) {
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
-            },
-        ),
-        border = when {
-            appInfo.isRecommended -> BorderStroke(
-                1.dp,
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-            )
-            else -> null
-        },
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            // Game icon
-            val iconUrl by produceState(
-                initialValue = appInfo.clientIconUrl,
-                key1 = appInfo.appId,
-                key2 = appInfo.clientIconUrl,
-            ) {
-                value = withContext(Dispatchers.IO) {
-                    getListIconUrl(context, appInfo)
-                }
-            }
-
-            Box(
-                modifier = Modifier
-                    .size(52.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (appInfo.isRecTeaser) {
-                    Icon(
-                        imageVector = Icons.Rounded.AutoAwesome,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp),
-                    )
+            colors = CardDefaults.cardColors(
+                containerColor = if (isFocused) {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
                 } else {
-                    ListItemImage(
-                        modifier = Modifier.fillMaxSize(),
-                        imageModifier = Modifier.clip(RoundedCornerShape(10.dp)),
-                        image = { iconUrl },
-                    )
-                }
-            }
-
-            // Game info
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = if (appInfo.isRecTeaser) {
-                        stringResource(R.string.rec_teaser_title)
-                    } else {
-                        appInfo.name
-                    },
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
+                },
+            ),
+            border = when {
+                appInfo.isRecommended -> BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
                 )
-
-                // Status row with compact badges
-                if (!appInfo.isRecTeaser) Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                else -> null
+            },
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                // Game icon
+                val iconUrl by produceState(
+                    initialValue = appInfo.clientIconUrl,
+                    key1 = appInfo.appId,
+                    key2 = appInfo.clientIconUrl,
                 ) {
-                    InstallStatusBadge(appInfo = appInfo, isRefreshing = isRefreshing)
-
-                    // Family share indicator
-                    if (appInfo.isShared) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Icon(
-                                Icons.Filled.Face4,
-                                contentDescription = stringResource(R.string.library_family_shared),
-                                tint = MaterialTheme.colorScheme.tertiary,
-                                modifier = Modifier.size(14.dp),
-                            )
-                            Text(
-                                text = stringResource(R.string.library_shared_short),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.tertiary,
-                            )
-                        }
+                    value = withContext(Dispatchers.IO) {
+                        getListIconUrl(context, appInfo)
                     }
                 }
 
-                GameStatsRow(
-                    stats = gameStats,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
-                )
-            }
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (appInfo.isRecTeaser) {
+                        Icon(
+                            imageVector = Icons.Rounded.AutoAwesome,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp),
+                        )
+                    } else {
+                        ListItemImage(
+                            modifier = Modifier.fillMaxSize(),
+                            imageModifier = Modifier.clip(RoundedCornerShape(10.dp)),
+                            image = { iconUrl },
+                        )
+                    }
+                }
 
-            val badgeStatus = if (appInfo.isRecommended) {
-                GameCompatibilityStatus.RECOMMENDED
-            } else {
-                compatibilityStatus
-            }
-            badgeStatus?.let { status ->
-                CompatibilityBadge(
-                    status = status,
-                    showLabel = true,
-                )
+                // Game info
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = if (appInfo.isRecTeaser) {
+                            stringResource(R.string.rec_teaser_title)
+                        } else {
+                            appInfo.name
+                        },
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+
+                    // Status row with compact badges
+                    if (!appInfo.isRecTeaser) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            InstallStatusBadge(appInfo = appInfo, isRefreshing = isRefreshing)
+
+                            // Family share indicator
+                            if (appInfo.isShared) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Face4,
+                                        contentDescription = stringResource(R.string.library_family_shared),
+                                        tint = MaterialTheme.colorScheme.tertiary,
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.library_shared_short),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.tertiary,
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    GameStatsRow(
+                        stats = gameStats,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                    )
+                }
+
+                val badgeStatus = if (appInfo.isRecommended) {
+                    GameCompatibilityStatus.RECOMMENDED
+                } else {
+                    compatibilityStatus
+                }
+                badgeStatus?.let { status ->
+                    CompatibilityBadge(
+                        status = status,
+                        showLabel = true,
+                    )
+                }
             }
         }
-    }
     }
 }
 

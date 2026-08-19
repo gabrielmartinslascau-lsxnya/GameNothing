@@ -2,13 +2,13 @@ package com.winlator.xenvironment
 
 import androidx.test.core.app.ApplicationProvider
 import com.winlator.core.FileUtils
-import java.io.File
-import java.lang.reflect.Method
-import java.nio.file.Files
 import io.mockk.every
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import io.mockk.verify
+import java.io.File
+import java.lang.reflect.Method
+import java.nio.file.Files
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -221,5 +221,4 @@ class ImageFsInstallerTest {
         method.isAccessible = true
         method.invoke(null, optDir, activeProtonVersion)
     }
-
 }

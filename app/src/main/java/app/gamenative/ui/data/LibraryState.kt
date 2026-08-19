@@ -6,9 +6,9 @@ import app.gamenative.data.GameSource
 import app.gamenative.data.LibraryItem
 import app.gamenative.data.SteamCollection
 import app.gamenative.ui.enums.AppFilter
-import app.gamenative.utils.DeviceGameStatsService.DeviceGameStats
 import app.gamenative.ui.enums.LibraryTab
 import app.gamenative.ui.enums.SortOption
+import app.gamenative.utils.DeviceGameStatsService.DeviceGameStats
 import java.util.EnumSet
 
 data class LibraryState(

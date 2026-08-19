@@ -108,7 +108,12 @@ class BestConfigServiceTest {
 
         assertEquals("exact_gpu_match", matchType)
 
-        val result = runBlocking { BestConfigService.parseConfigToContainerData(context, bestConfig, matchType, matchType != "fallback_match") }
+        val result = runBlocking {
+            BestConfigService.parseConfigToContainerData(
+                context, bestConfig, matchType,
+                matchType != "fallback_match",
+            )
+        }
 
         assertNotNull("Result should not be null", result)
         assertTrue("Result should not be empty", result!!.isNotEmpty())
@@ -137,7 +142,12 @@ class BestConfigServiceTest {
 
         assertEquals("gpu_family_match", matchType)
 
-        val result = runBlocking { BestConfigService.parseConfigToContainerData(context, bestConfig, matchType, matchType != "fallback_match") }
+        val result = runBlocking {
+            BestConfigService.parseConfigToContainerData(
+                context, bestConfig, matchType,
+                matchType != "fallback_match",
+            )
+        }
 
         assertNotNull("Result should not be null", result)
         assertTrue("Result should not be empty", result!!.isNotEmpty())
@@ -164,7 +174,12 @@ class BestConfigServiceTest {
 
         assertEquals("fallback_match", matchType)
 
-        val result = runBlocking { BestConfigService.parseConfigToContainerData(context, bestConfig, matchType, matchType != "fallback_match") }
+        val result = runBlocking {
+            BestConfigService.parseConfigToContainerData(
+                context, bestConfig, matchType,
+                matchType != "fallback_match",
+            )
+        }
 
         assertNotNull("Result should not be null", result)
         assertTrue("Result should not be empty", result!!.isNotEmpty())
@@ -186,7 +201,12 @@ class BestConfigServiceTest {
 
         assertEquals("fallback_match", matchType)
 
-        val result = runBlocking { BestConfigService.parseConfigToContainerData(context, bestConfig, matchType, matchType != "fallback_match") }
+        val result = runBlocking {
+            BestConfigService.parseConfigToContainerData(
+                context, bestConfig, matchType,
+                matchType != "fallback_match",
+            )
+        }
 
         assertNotNull("Result should not be null", result)
         assertTrue("Result should not be empty", result!!.isNotEmpty())
@@ -207,7 +227,12 @@ class BestConfigServiceTest {
 
         assertEquals("fallback_match", matchType)
 
-        val result = runBlocking { BestConfigService.parseConfigToContainerData(context, bestConfig, matchType, matchType != "fallback_match") }
+        val result = runBlocking {
+            BestConfigService.parseConfigToContainerData(
+                context, bestConfig, matchType,
+                matchType != "fallback_match",
+            )
+        }
 
         assertNotNull("Result should not be null", result)
         assertTrue("Result should not be empty", result!!.isNotEmpty())
@@ -238,8 +263,10 @@ class BestConfigServiceTest {
 
         // Should only contain executablePath and/or useLegacyDRM
         val keys = result.keys
-        assertTrue("Result should only contain executablePath and/or useLegacyDRM", 
-            keys.all { it == "executablePath" || it == "useLegacyDRM" })
+        assertTrue(
+            "Result should only contain executablePath and/or useLegacyDRM",
+            keys.all { it == "executablePath" || it == "useLegacyDRM" },
+        )
 
         // Verify executablePath is present if it exists in config
         if (bestConfig.toString().contains("executablePath")) {
@@ -267,7 +294,12 @@ class BestConfigServiceTest {
         val bestConfig = parseBestConfig(cs2MaliExactMatchResponse)
         val matchType = getMatchType(cs2MaliExactMatchResponse)
 
-        val result = runBlocking { BestConfigService.parseConfigToContainerData(context, bestConfig, matchType, matchType != "fallback_match") }
+        val result = runBlocking {
+            BestConfigService.parseConfigToContainerData(
+                context, bestConfig, matchType,
+                matchType != "fallback_match",
+            )
+        }
 
         assertNotNull("Result should not be null", result)
 
@@ -630,7 +662,12 @@ class BestConfigServiceTest {
         println("1. Counter-Strike 2 + Adreno (TM) 735 (fallback_match, bionic)")
         val cs2Adreno = parseBestConfig(cs2Adreno735Response)
         val cs2AdrenoMatch = getMatchType(cs2Adreno735Response)
-        val cs2AdrenoResult = runBlocking { BestConfigService.parseConfigToContainerData(context, cs2Adreno, cs2AdrenoMatch, cs2AdrenoMatch != "fallback_match") }
+        val cs2AdrenoResult = runBlocking {
+            BestConfigService.parseConfigToContainerData(
+                context, cs2Adreno, cs2AdrenoMatch,
+                cs2AdrenoMatch != "fallback_match",
+            )
+        }
         println("Match Type: $cs2AdrenoMatch")
         printContainerData(cs2AdrenoResult, "CS2-Adreno735")
         println()
@@ -639,7 +676,12 @@ class BestConfigServiceTest {
         println("2. Detective Dotson + Mali-G57 MC2 (fallback_match, glibc)")
         val detectiveMali = parseBestConfig(detectiveDotsonMaliResponse)
         val detectiveMaliMatch = getMatchType(detectiveDotsonMaliResponse)
-        val detectiveMaliResult = runBlocking { BestConfigService.parseConfigToContainerData(context, detectiveMali, detectiveMaliMatch, detectiveMaliMatch != "fallback_match") }
+        val detectiveMaliResult = runBlocking {
+            BestConfigService.parseConfigToContainerData(
+                context, detectiveMali, detectiveMaliMatch,
+                detectiveMaliMatch != "fallback_match",
+            )
+        }
         println("Match Type: $detectiveMaliMatch")
         printContainerData(detectiveMaliResult, "Detective-Mali")
         println()
@@ -648,7 +690,12 @@ class BestConfigServiceTest {
         println("3. Dota 2 + Mali-G57 MC2 (fallback_match, bionic)")
         val dota2Mali = parseBestConfig(dota2MaliResponse)
         val dota2MaliMatch = getMatchType(dota2MaliResponse)
-        val dota2MaliResult = runBlocking { BestConfigService.parseConfigToContainerData(context, dota2Mali, dota2MaliMatch, dota2MaliMatch != "fallback_match") }
+        val dota2MaliResult = runBlocking {
+            BestConfigService.parseConfigToContainerData(
+                context, dota2Mali, dota2MaliMatch,
+                dota2MaliMatch != "fallback_match",
+            )
+        }
         println("Match Type: $dota2MaliMatch")
         printContainerData(dota2MaliResult, "Dota2-Mali")
         println()
@@ -657,7 +704,12 @@ class BestConfigServiceTest {
         println("4. Counter-Strike 2 + Mali-G57 MC2 (exact_gpu_match, bionic)")
         val cs2Mali = parseBestConfig(cs2MaliExactMatchResponse)
         val cs2MaliMatch = getMatchType(cs2MaliExactMatchResponse)
-        val cs2MaliResult = runBlocking { BestConfigService.parseConfigToContainerData(context, cs2Mali, cs2MaliMatch, cs2MaliMatch != "fallback_match") }
+        val cs2MaliResult = runBlocking {
+            BestConfigService.parseConfigToContainerData(
+                context, cs2Mali, cs2MaliMatch,
+                cs2MaliMatch != "fallback_match",
+            )
+        }
         println("Match Type: $cs2MaliMatch")
         printContainerData(cs2MaliResult, "CS2-Mali-Exact")
         println()
@@ -666,7 +718,12 @@ class BestConfigServiceTest {
         println("5. Dota 2 + Adreno (TM) 830 (exact_gpu_match, bionic)")
         val dota2Adreno830 = parseBestConfig(dota2Adreno830ExactMatchResponse)
         val dota2Adreno830Match = getMatchType(dota2Adreno830ExactMatchResponse)
-        val dota2Adreno830Result = runBlocking { BestConfigService.parseConfigToContainerData(context, dota2Adreno830, dota2Adreno830Match, dota2Adreno830Match != "fallback_match") }
+        val dota2Adreno830Result = runBlocking {
+            BestConfigService.parseConfigToContainerData(
+                context, dota2Adreno830, dota2Adreno830Match,
+                dota2Adreno830Match != "fallback_match",
+            )
+        }
         println("Match Type: $dota2Adreno830Match")
         printContainerData(dota2Adreno830Result, "Dota2-Adreno830-Exact")
         println()
@@ -675,7 +732,12 @@ class BestConfigServiceTest {
         println("6. Dota 2 + Adreno (TM) 835 (gpu_family_match, bionic)")
         val dota2Adreno835 = parseBestConfig(dota2Adreno835FamilyMatchResponse)
         val dota2Adreno835Match = getMatchType(dota2Adreno835FamilyMatchResponse)
-        val dota2Adreno835Result = runBlocking { BestConfigService.parseConfigToContainerData(context, dota2Adreno835, dota2Adreno835Match, dota2Adreno835Match != "fallback_match") }
+        val dota2Adreno835Result = runBlocking {
+            BestConfigService.parseConfigToContainerData(
+                context, dota2Adreno835, dota2Adreno835Match,
+                dota2Adreno835Match != "fallback_match",
+            )
+        }
         println("Match Type: $dota2Adreno835Match")
         printContainerData(dota2Adreno835Result, "Dota2-Adreno835-Family")
         println()
@@ -684,7 +746,12 @@ class BestConfigServiceTest {
         println("7. Dota 2 + XClipse xxx (fallback_match, bionic)")
         val dota2XClipse = parseBestConfig(dota2XClipseFallbackResponse)
         val dota2XClipseMatch = getMatchType(dota2XClipseFallbackResponse)
-        val dota2XClipseResult = runBlocking { BestConfigService.parseConfigToContainerData(context, dota2XClipse, dota2XClipseMatch, dota2XClipseMatch != "fallback_match") }
+        val dota2XClipseResult = runBlocking {
+            BestConfigService.parseConfigToContainerData(
+                context, dota2XClipse, dota2XClipseMatch,
+                dota2XClipseMatch != "fallback_match",
+            )
+        }
         println("Match Type: $dota2XClipseMatch")
         printContainerData(dota2XClipseResult, "Dota2-XClipse-Fallback")
         println()
@@ -693,7 +760,13 @@ class BestConfigServiceTest {
         println("8. Hades II + Adreno (TM) 835 (gpu_family_match, glibc)")
         val hades2Adreno835 = parseBestConfig(hades2Adreno835FamilyMatchResponse)
         val hades2Adreno835Match = getMatchType(hades2Adreno835FamilyMatchResponse)
-        val hades2Adreno835Result = runBlocking { BestConfigService.parseConfigToContainerData(context, hades2Adreno835, hades2Adreno835Match, hades2Adreno835Match != "fallback_match") }
+        val hades2Adreno835Result =
+            runBlocking {
+                BestConfigService.parseConfigToContainerData(
+                    context, hades2Adreno835, hades2Adreno835Match,
+                    hades2Adreno835Match != "fallback_match",
+                )
+            }
         println("Match Type: $hades2Adreno835Match")
         printContainerData(hades2Adreno835Result, "Hades2-Adreno835-Family")
         println()
@@ -702,7 +775,13 @@ class BestConfigServiceTest {
         println("9. Hades II + Adreno (TM) 735 (exact_gpu_match, bionic)")
         val hades2Adreno735 = parseBestConfig(hades2Adreno735ExactMatchResponse)
         val hades2Adreno735Match = getMatchType(hades2Adreno735ExactMatchResponse)
-        val hades2Adreno735Result = runBlocking { BestConfigService.parseConfigToContainerData(context, hades2Adreno735, hades2Adreno735Match, hades2Adreno735Match != "fallback_match") }
+        val hades2Adreno735Result =
+            runBlocking {
+                BestConfigService.parseConfigToContainerData(
+                    context, hades2Adreno735, hades2Adreno735Match,
+                    hades2Adreno735Match != "fallback_match",
+                )
+            }
         println("Match Type: $hades2Adreno735Match")
         printContainerData(hades2Adreno735Result, "Hades2-Adreno735-Exact")
         println()
@@ -711,7 +790,13 @@ class BestConfigServiceTest {
         println("10. Hades II + Mali-GC 824 (fallback_match, bionic)")
         val hades2MaliGc824 = parseBestConfig(hades2MaliGc824FallbackResponse)
         val hades2MaliGc824Match = getMatchType(hades2MaliGc824FallbackResponse)
-        val hades2MaliGc824Result = runBlocking { BestConfigService.parseConfigToContainerData(context, hades2MaliGc824, hades2MaliGc824Match, hades2MaliGc824Match != "fallback_match") }
+        val hades2MaliGc824Result =
+            runBlocking {
+                BestConfigService.parseConfigToContainerData(
+                    context, hades2MaliGc824, hades2MaliGc824Match,
+                    hades2MaliGc824Match != "fallback_match",
+                )
+            }
         println("Match Type: $hades2MaliGc824Match")
         printContainerData(hades2MaliGc824Result, "Hades2-MaliGc824-Fallback")
         println()
@@ -763,7 +848,12 @@ class BestConfigServiceTest {
         // Test that all important fields are being parsed correctly
         val bestConfig = parseBestConfig(cs2MaliExactMatchResponse)
         val matchType = getMatchType(cs2MaliExactMatchResponse)
-        val result = runBlocking { BestConfigService.parseConfigToContainerData(context, bestConfig, matchType, matchType != "fallback_match") }
+        val result = runBlocking {
+            BestConfigService.parseConfigToContainerData(
+                context, bestConfig, matchType,
+                matchType != "fallback_match",
+            )
+        }
 
         assertNotNull("Result should not be null", result)
         assertTrue("Result should not be empty", result!!.isNotEmpty())
@@ -1029,7 +1119,12 @@ class BestConfigServiceTest {
         val bestConfigJson = org.json.JSONObject(bestConfig.toString())
         assertFalse("wineVersion should be missing from bestConfig", bestConfigJson.has("wineVersion"))
 
-        val result = runBlocking { BestConfigService.parseConfigToContainerData(context, bestConfig, matchType, matchType != "fallback_match") }
+        val result = runBlocking {
+            BestConfigService.parseConfigToContainerData(
+                context, bestConfig, matchType,
+                matchType != "fallback_match",
+            )
+        }
 
         assertTrue("Result should be empty map when wineVersion is missing from bestConfig", result == null || result.isEmpty())
     }
@@ -1093,4 +1188,3 @@ class BestConfigServiceTest {
         }
     }
 }
-

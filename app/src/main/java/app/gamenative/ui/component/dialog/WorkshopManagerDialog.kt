@@ -42,7 +42,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import app.gamenative.ui.component.NoExtractOutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -74,6 +73,7 @@ import androidx.compose.ui.window.DialogProperties
 import app.gamenative.R
 import app.gamenative.service.SteamService
 import app.gamenative.ui.component.LoadingScreen
+import app.gamenative.ui.component.NoExtractOutlinedTextField
 import app.gamenative.ui.component.topbar.BackButton
 import app.gamenative.ui.data.GameDisplayInfo
 import app.gamenative.utils.StorageUtils
@@ -81,12 +81,12 @@ import app.gamenative.workshop.WorkshopItem
 import app.gamenative.workshop.WorkshopManager
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -169,7 +169,7 @@ fun WorkshopManagerDialog(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(250.dp)
+                        .height(250.dp),
                 ) {
                     if (displayInfo.heroImageUrl != null) {
                         CoilImage(
@@ -180,7 +180,7 @@ fun WorkshopManagerDialog(
                             failure = {
                                 Surface(
                                     modifier = Modifier.fillMaxSize(),
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = MaterialTheme.colorScheme.primary,
                                 ) { }
                             },
                             previewPlaceholder = painterResource(R.drawable.testhero),
@@ -188,7 +188,7 @@ fun WorkshopManagerDialog(
                     } else {
                         Surface(
                             modifier = Modifier.fillMaxSize(),
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary,
                         ) { }
                     }
 
@@ -200,10 +200,10 @@ fun WorkshopManagerDialog(
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
                                         Color.Transparent,
-                                        Color.Black.copy(alpha = 0.8f)
-                                    )
-                                )
-                            )
+                                        Color.Black.copy(alpha = 0.8f),
+                                    ),
+                                ),
+                            ),
                     )
 
                     // Back button
@@ -212,8 +212,8 @@ fun WorkshopManagerDialog(
                             .padding(20.dp)
                             .background(
                                 color = Color.Black.copy(alpha = 0.5f),
-                                shape = RoundedCornerShape(12.dp)
-                            )
+                                shape = RoundedCornerShape(12.dp),
+                            ),
                     ) {
                         BackButton(onClick = onDismissRequest)
                     }
@@ -222,7 +222,7 @@ fun WorkshopManagerDialog(
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
-                            .padding(20.dp)
+                            .padding(20.dp),
                     ) {
                         Text(
                             text = displayInfo.name,
@@ -231,15 +231,15 @@ fun WorkshopManagerDialog(
                                 shadow = Shadow(
                                     color = Color.Black.copy(alpha = 0.5f),
                                     offset = Offset(0f, 2f),
-                                    blurRadius = 10f
-                                )
+                                    blurRadius = 10f,
+                                ),
                             ),
-                            color = Color.White
+                            color = Color.White,
                         )
                         Text(
                             text = "Workshop Mods",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.9f)
+                            color = Color.White.copy(alpha = 0.9f),
                         )
                     }
                 }
@@ -267,7 +267,7 @@ fun WorkshopManagerDialog(
 
                 // Content
                 Column(
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     when {
                         isLoading -> {
@@ -275,14 +275,14 @@ fun WorkshopManagerDialog(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(32.dp),
-                                contentAlignment = Alignment.Center
+                                contentAlignment = Alignment.Center,
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     CircularProgressIndicator()
                                     Text(
                                         text = "Loading subscribed mods...",
                                         modifier = Modifier.padding(top = 16.dp),
-                                        color = Color.White.copy(alpha = 0.7f)
+                                        color = Color.White.copy(alpha = 0.7f),
                                     )
                                 }
                             }
@@ -293,11 +293,11 @@ fun WorkshopManagerDialog(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(32.dp),
-                                contentAlignment = Alignment.Center
+                                contentAlignment = Alignment.Center,
                             ) {
                                 Text(
                                     text = "Failed to fetch workshop subscriptions. Check your connection and try again.",
-                                    color = MaterialTheme.colorScheme.error
+                                    color = MaterialTheme.colorScheme.error,
                                 )
                             }
                         }
@@ -307,11 +307,11 @@ fun WorkshopManagerDialog(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(32.dp),
-                                contentAlignment = Alignment.Center
+                                contentAlignment = Alignment.Center,
                             ) {
                                 Text(
                                     text = "No subscribed workshop mods found for this game.",
-                                    color = Color.White.copy(alpha = 0.7f)
+                                    color = Color.White.copy(alpha = 0.7f),
                                 )
                             }
                         }
@@ -357,12 +357,12 @@ fun WorkshopManagerDialog(
                                             workshopItems.forEach { item ->
                                                 selectedIds[item.publishedFileId] = newState
                                             }
-                                        }
-                                ) {
-                                    Text(
-                                        text = if (allSelected) "Deselect all" else "Select all"
-                                    )
-                                }
+                                        },
+                                    ) {
+                                        Text(
+                                            text = if (allSelected) "Deselect all" else "Select all",
+                                        )
+                                    }
                                 }
 
                                 // Mod folder path subtitle
@@ -415,7 +415,7 @@ fun WorkshopManagerDialog(
                                                     .clip(RoundedCornerShape(4.dp)),
                                                 imageModel = { item.previewUrl },
                                                 imageOptions = ImageOptions(
-                                                    contentScale = ContentScale.Crop
+                                                    contentScale = ContentScale.Crop,
                                                 ),
                                             )
                                         } else {
@@ -424,12 +424,12 @@ fun WorkshopManagerDialog(
                                                     .size(48.dp)
                                                     .clip(RoundedCornerShape(4.dp))
                                                     .background(MaterialTheme.colorScheme.surfaceVariant),
-                                                contentAlignment = Alignment.Center
+                                                contentAlignment = Alignment.Center,
                                             ) {
                                                 Text(
                                                     text = item.title.take(1).uppercase(),
                                                     style = MaterialTheme.typography.titleMedium,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 )
                                             }
                                         }
@@ -441,7 +441,7 @@ fun WorkshopManagerDialog(
                                                 Text(
                                                     text = StorageUtils.formatBinarySize(item.fileSizeBytes),
                                                     style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                                 )
                                             }
                                             if (item.timeUpdated > 0) {
@@ -452,7 +452,7 @@ fun WorkshopManagerDialog(
                                                 Text(
                                                     text = "Updated $dateStr",
                                                     style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                                 )
                                             }
                                         }
@@ -462,18 +462,18 @@ fun WorkshopManagerDialog(
                                             checked = checked,
                                             onCheckedChange = { isChecked ->
                                                 selectedIds[item.publishedFileId] = isChecked
-                                            }
+                                            },
                                         )
                                     },
                                     modifier = Modifier.clickable {
                                         selectedIds[item.publishedFileId] = !checked
-                                    }
+                                    },
                                 )
 
                                 HorizontalDivider(
                                     modifier = Modifier.padding(horizontal = 16.dp),
                                     thickness = 0.5.dp,
-                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
                                 )
                             }
                         }
@@ -509,7 +509,7 @@ fun WorkshopManagerDialog(
                                     .filter { it.value }
                                     .keys
                                 onSave(enabledIds)
-                            }
+                            },
                         ) {
                             Text("Save")
                         }
@@ -695,7 +695,8 @@ private fun FolderPickerDialog(
                                     val rootDir = roots
                                         .find { it.label == currentRootLabel }
                                         ?.dir
-                                    if (parent != null && rootDir != null &&
+                                    if (parent != null &&
+                                        rootDir != null &&
                                         parent.absolutePath.startsWith(rootDir.absolutePath)
                                     ) {
                                         currentDir = parent

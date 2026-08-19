@@ -1,9 +1,9 @@
 package app.gamenative.data
 
-import org.json.JSONObject
 import com.winlator.inputcontrols.Binding
 import kotlin.math.max
 import kotlin.math.min
+import org.json.JSONObject
 
 /**
  * Per-game shooter mode configuration.

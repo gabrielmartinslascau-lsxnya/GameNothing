@@ -2,14 +2,14 @@ package app.gamenative.utils
 
 import `in`.dragonbra.javasteam.depotdownloader.BaseCaseInsensitiveFileSystem
 import `in`.dragonbra.javasteam.depotdownloader.DepotDownloader
+import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import okio.FileMetadata
 import okio.FileSystem
 import okio.Path
 import okio.Sink
 import okio.Source
 import timber.log.Timber
-import java.io.File
-import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Okio [FileSystem] wrapper that resolves each path component against on-disk

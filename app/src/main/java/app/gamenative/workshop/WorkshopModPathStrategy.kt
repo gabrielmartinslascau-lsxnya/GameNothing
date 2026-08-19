@@ -19,6 +19,7 @@ sealed class WorkshopModPathStrategy {
     enum class FanOutPolicy {
         /** Only link/copy into targetDirs[0] — the highest-confidence dir. */
         PRIMARY_ONLY,
+
         /** Link/copy into every directory in targetDirs. */
         ALL_DIRS,
     }

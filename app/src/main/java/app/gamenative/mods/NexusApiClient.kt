@@ -1,6 +1,14 @@
 package app.gamenative.mods
 
 import app.gamenative.BuildConfig
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.io.InputStream
+import java.nio.charset.StandardCharsets
+import java.time.Instant
+import java.time.format.DateTimeParseException
+import java.util.zip.ZipInputStream
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -12,14 +20,6 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
-import java.io.IOException
-import java.io.InputStream
-import java.nio.charset.StandardCharsets
-import java.time.Instant
-import java.time.format.DateTimeParseException
-import java.util.zip.ZipInputStream
 
 data class NexusUserInfo(
     val name: String,
@@ -739,8 +739,12 @@ class NexusApiClient(
             modName = modName,
             fileName = fileName,
         )
-        if (modId <= 0L && fileId <= 0L && modName.isBlank() && fileName.isBlank() &&
-            manifestData.notes.isEmpty() && manifestData.externalUrl.isBlank()
+        if (modId <= 0L &&
+            fileId <= 0L &&
+            modName.isBlank() &&
+            fileName.isBlank() &&
+            manifestData.notes.isEmpty() &&
+            manifestData.externalUrl.isBlank()
         ) {
             return null
         }
@@ -840,8 +844,8 @@ class NexusApiClient(
                 is Number -> value.toLong()
                 is String -> value.toLongOrNull()
                 else -> null
+            }
         }
-    }
 
     private fun JSONObject.optFileSizeBytes(vararg names: String): Long? =
         names.firstNotNullOfOrNull { name ->

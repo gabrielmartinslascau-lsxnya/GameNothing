@@ -7,7 +7,6 @@ import java.text.Normalizer
 private val REGEX_UNACCENT = "\\p{M}+".toRegex()
 private val REGEX_FILENAME_UNSAFE = Regex("[^a-zA-Z0-9_-]")
 
-
 /**
  * Extension functions relating to [String] as the receiver type.
  */

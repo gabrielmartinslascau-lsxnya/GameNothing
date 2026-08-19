@@ -26,8 +26,8 @@ import app.gamenative.ui.screen.library.components.ambient.AmbientModeConstants.
 import app.gamenative.ui.screen.library.components.ambient.AmbientModeConstants.DVD_ICON_SIZE_DP
 import app.gamenative.ui.screen.library.components.ambient.AmbientModeConstants.DVD_SPEED_DP_PER_SEC
 import app.gamenative.ui.util.ListItemImage
-import kotlinx.coroutines.isActive
 import kotlin.math.abs
+import kotlinx.coroutines.isActive
 
 private val DvdPalette = listOf(
     Color.Red,

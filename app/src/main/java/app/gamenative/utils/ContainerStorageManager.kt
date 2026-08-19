@@ -4,17 +4,16 @@ import android.content.Context
 import app.gamenative.PluviaApp
 import app.gamenative.PrefManager
 import app.gamenative.R
+import app.gamenative.data.AppInfo
 import app.gamenative.data.GameSource
 import app.gamenative.data.LibraryItem
 import app.gamenative.data.SteamApp
-import app.gamenative.data.AppInfo
 import app.gamenative.db.dao.AmazonGameDao
 import app.gamenative.db.dao.AppInfoDao
 import app.gamenative.db.dao.EpicGameDao
 import app.gamenative.db.dao.GOGGameDao
 import app.gamenative.db.dao.SteamAppDao
 import app.gamenative.enums.AppType
-import app.gamenative.enums.OSArch
 import app.gamenative.events.AndroidEvent
 import app.gamenative.service.DownloadService
 import app.gamenative.service.SteamService
@@ -723,7 +722,8 @@ object ContainerStorageManager {
             status = status,
             installPath = installPath,
             canUninstallGame = (status == Status.READY || status == Status.GAME_FILES_MISSING) &&
-                gameSource != null && gameSource != GameSource.CUSTOM_GAME,
+                gameSource != null &&
+                gameSource != GameSource.CUSTOM_GAME,
             hasContainer = true,
         )
     }

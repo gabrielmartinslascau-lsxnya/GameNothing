@@ -2,11 +2,11 @@ package app.gamenative.service
 
 import android.net.LocalSocket
 import android.net.LocalSocketAddress
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
-import java.io.BufferedReader
-import java.io.InputStreamReader
 
 /**
  * Talks to the bionic Steam host process (libsteambootstrap) over its abstract-namespace

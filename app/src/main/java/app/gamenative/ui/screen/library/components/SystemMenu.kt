@@ -85,6 +85,8 @@ import app.gamenative.service.SteamService
 import app.gamenative.ui.component.dialog.SupportersDialog
 import app.gamenative.ui.screen.PluviaScreen
 import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.ui.theme.glassContentColor
+import app.gamenative.ui.theme.pluviaGlass
 import app.gamenative.ui.util.SteamIconImage
 import app.gamenative.ui.util.adaptivePanelWidth
 import app.gamenative.ui.util.shouldShowGamepadUI
@@ -357,14 +359,15 @@ fun SystemMenu(
             ),
             modifier = Modifier.align(Alignment.CenterEnd),
         ) {
-            Surface(
+            val isGlass = PrefManager.glassPanels
+            val contentColor = glassContentColor()
+
+            Box(
                 modifier = Modifier
                     .width(adaptivePanelWidth(380.dp))
-                    .fillMaxHeight(),
-                shape = RoundedCornerShape(topStart = 32.dp, bottomStart = 32.dp),
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 8.dp,
-                shadowElevation = 24.dp,
+                    .fillMaxHeight()
+                    .pluviaGlass()
+                    .then(if (!isGlass) Modifier.background(MaterialTheme.colorScheme.surface, RoundedCornerShape(topStart = 32.dp, bottomStart = 32.dp)) else Modifier),
             ) {
                 Column(
                     modifier = Modifier
@@ -383,13 +386,13 @@ fun SystemMenu(
                             style = MaterialTheme.typography.headlineSmall.copy(
                                 fontWeight = FontWeight.Bold,
                             ),
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = Color.White,
                         )
                         IconButton(onClick = onDismiss) {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = stringResource(R.string.options_panel_close),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint = Color.White,
                             )
                         }
                     }
@@ -657,8 +660,11 @@ fun SystemMenu(
                         // GOG
                         SystemMenuItem(
                             text = stringResource(
-                                if (gogLoggedIn) R.string.gog_settings_logout_title
-                                else R.string.gog_settings_login_title,
+                                if (gogLoggedIn) {
+                                    R.string.gog_settings_logout_title
+                                } else {
+                                    R.string.gog_settings_login_title
+                                },
                             ),
                             icon = if (gogLoggedIn) {
                                 Icons.AutoMirrored.Filled.Logout
@@ -675,8 +681,11 @@ fun SystemMenu(
                         // Epic
                         SystemMenuItem(
                             text = stringResource(
-                                if (epicLoggedIn) R.string.epic_settings_logout_title
-                                else R.string.epic_settings_login_title,
+                                if (epicLoggedIn) {
+                                    R.string.epic_settings_logout_title
+                                } else {
+                                    R.string.epic_settings_login_title
+                                },
                             ),
                             icon = if (epicLoggedIn) {
                                 Icons.AutoMirrored.Filled.Logout
@@ -693,8 +702,11 @@ fun SystemMenu(
                         // Amazon
                         SystemMenuItem(
                             text = stringResource(
-                                if (amazonLoggedIn) R.string.amazon_settings_logout_title
-                                else R.string.amazon_settings_login_title,
+                                if (amazonLoggedIn) {
+                                    R.string.amazon_settings_logout_title
+                                } else {
+                                    R.string.amazon_settings_login_title
+                                },
                             ),
                             icon = if (amazonLoggedIn) {
                                 Icons.AutoMirrored.Filled.Logout

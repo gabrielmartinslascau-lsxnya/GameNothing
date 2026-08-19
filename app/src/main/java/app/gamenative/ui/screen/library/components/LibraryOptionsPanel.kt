@@ -1,7 +1,6 @@
 package app.gamenative.ui.screen.library.components
 
 import android.content.res.Configuration
-import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
@@ -11,6 +10,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
@@ -48,7 +48,6 @@ import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.SportsEsports
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Stars
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -68,6 +67,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -83,7 +83,10 @@ import app.gamenative.ui.component.OptionSectionHeader
 import app.gamenative.ui.enums.AppFilter
 import app.gamenative.ui.enums.PaneType
 import app.gamenative.ui.enums.SortOption
+import app.gamenative.ui.theme.PluviaAnimation
 import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.ui.theme.glassContentColor
+import app.gamenative.ui.theme.pluviaGlass
 import app.gamenative.ui.util.adaptivePanelWidth
 import java.util.EnumSet
 
@@ -117,7 +120,7 @@ fun LibraryOptionsPanel(
         AnimatedVisibility(
             visible = isOpen,
             enter = fadeIn(animationSpec = tween(200)),
-            exit = fadeOut(animationSpec = tween(150))
+            exit = fadeOut(animationSpec = tween(150)),
         ) {
             Box(
                 modifier = Modifier
@@ -126,75 +129,64 @@ fun LibraryOptionsPanel(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                        onClick = onDismiss
-                    )
+                        onClick = onDismiss,
+                    ),
             )
         }
 
         AnimatedVisibility(
             visible = isOpen,
-            enter = slideInHorizontally(
-                initialOffsetX = { fullWidth -> -fullWidth },
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioLowBouncy,
-                    stiffness = Spring.StiffnessMediumLow
-                )
-            ),
-            exit = slideOutHorizontally(
-                targetOffsetX = { fullWidth -> -fullWidth },
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioNoBouncy,
-                    stiffness = Spring.StiffnessMedium
-                )
-            )
+            enter = PluviaAnimation.slideInFromLeft(),
+            exit = PluviaAnimation.slideOutToLeft(),
         ) {
-            Surface(
+            val isGlass = PrefManager.glassPanels
+            val contentColor = glassContentColor()
+
+            Box(
                 modifier = Modifier
                     .width(adaptivePanelWidth(300.dp))
-                    .fillMaxHeight(),
-                shape = RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp),
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 2.dp,
-                shadowElevation = 24.dp,
+                    .fillMaxHeight()
+                    .pluviaGlass()
+                    .then(if (!isGlass) Modifier.background(MaterialTheme.colorScheme.surface, RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)) else Modifier),
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .statusBarsPadding()
+                        .statusBarsPadding(),
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(start = 20.dp, end = 8.dp, top = 16.dp, bottom = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text(
                             text = stringResource(R.string.options_panel_title),
                             style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
                             ),
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = Color.White,
                         )
                         IconButton(onClick = onDismiss) {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = stringResource(R.string.options_panel_close),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = Color.White,
                             )
                         }
                     }
 
                     HorizontalDivider(
                         modifier = Modifier.padding(horizontal = 16.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        color = if (isGlass) Color.White.copy(alpha = 0.2f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
                     )
 
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
-                            .padding(vertical = 12.dp)
+                            .padding(vertical = 12.dp),
                     ) {
                         GameStatsKey(modifier = Modifier.padding(horizontal = 8.dp))
 
@@ -206,7 +198,7 @@ fun LibraryOptionsPanel(
                                 .fillMaxWidth()
                                 .focusGroup()
                                 .padding(horizontal = 8.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
                             SortOption.entries.forEachIndexed { index, option ->
                                 OptionRadioItem(
@@ -215,7 +207,7 @@ fun LibraryOptionsPanel(
                                     onClick = { onSortOptionChanged(option) },
                                     icon = option.icon(),
                                     focusRequester = if (index == 0) firstItemFocusRequester else remember { FocusRequester() },
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth(),
                                 )
                             }
                         }
@@ -228,7 +220,7 @@ fun LibraryOptionsPanel(
                                 .fillMaxWidth()
                                 .focusGroup()
                                 .padding(horizontal = 8.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
                             AppFilter.entries.forEach { appFilter ->
                                 if (appFilter in listOf(
@@ -243,7 +235,7 @@ fun LibraryOptionsPanel(
                                         selected = selectedFilters.contains(appFilter),
                                         onClick = { onFilterChanged(appFilter) },
                                         icon = appFilter.icon,
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier.fillMaxWidth(),
                                     )
                                 }
                             }
@@ -257,7 +249,7 @@ fun LibraryOptionsPanel(
                                 .fillMaxWidth()
                                 .focusGroup()
                                 .padding(horizontal = 8.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
                             AppFilter.entries.forEach { appFilter ->
                                 if (appFilter in listOf(
@@ -276,7 +268,7 @@ fun LibraryOptionsPanel(
                                         selected = selectedFilters.contains(appFilter),
                                         onClick = { onFilterChanged(appFilter) },
                                         icon = appFilter.icon,
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier.fillMaxWidth(),
                                     )
                                 }
                             }
@@ -290,35 +282,35 @@ fun LibraryOptionsPanel(
                                 .fillMaxWidth()
                                 .focusGroup()
                                 .padding(horizontal = 8.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
                             OptionRadioItem(
                                 text = stringResource(R.string.library_layout_list),
                                 selected = currentView == PaneType.LIST,
                                 onClick = { onViewChanged(PaneType.LIST) },
                                 icon = Icons.AutoMirrored.Filled.List,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
                             )
                             OptionRadioItem(
                                 text = stringResource(R.string.library_layout_capsule),
                                 selected = currentView == PaneType.GRID_CAPSULE,
                                 onClick = { onViewChanged(PaneType.GRID_CAPSULE) },
                                 icon = Icons.Default.PhotoAlbum,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
                             )
                             OptionRadioItem(
                                 text = stringResource(R.string.library_layout_hero),
                                 selected = currentView == PaneType.GRID_HERO,
                                 onClick = { onViewChanged(PaneType.GRID_HERO) },
                                 icon = Icons.Default.PhotoSizeSelectActual,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
                             )
                             OptionRadioItem(
                                 text = stringResource(R.string.library_layout_carousel),
                                 selected = currentView == PaneType.CAROUSEL,
                                 onClick = { onViewChanged(PaneType.CAROUSEL) },
                                 icon = Icons.Default.ViewCarousel,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
 
@@ -346,7 +338,7 @@ fun LibraryOptionsPanel(
                                     Icon(
                                         imageVector = if (collectionsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        tint = if (isGlass) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
                             }
@@ -453,7 +445,7 @@ fun LibraryOptionsPanel(
 @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES or Configuration.UI_MODE_TYPE_NORMAL)
 @Preview(
     uiMode = Configuration.UI_MODE_NIGHT_YES or Configuration.UI_MODE_TYPE_NORMAL,
-    device = "spec:width=1920px,height=1080px,dpi=440,orientation=landscape"
+    device = "spec:width=1920px,height=1080px,dpi=440,orientation=landscape",
 )
 @Composable
 private fun Preview_LibraryOptionsPanel() {
@@ -467,12 +459,12 @@ private fun Preview_LibraryOptionsPanel() {
                         .fillMaxSize()
                         .padding(32.dp),
                     verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
                         "Game Library",
                         style = MaterialTheme.typography.headlineLarge,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                     )
                 }
 

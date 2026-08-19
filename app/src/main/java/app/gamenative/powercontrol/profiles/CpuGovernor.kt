@@ -13,7 +13,8 @@ enum class CpuGovernor(val governorName: String) {
     INTERACTIVE("interactive"),
     PERFORMANCE("performance"),
     ONDEMAND("ondemand"),
-    WALT("walt");
+    WALT("walt"),
+    ;
 
     companion object {
         fun fromString(name: String): CpuGovernor? {

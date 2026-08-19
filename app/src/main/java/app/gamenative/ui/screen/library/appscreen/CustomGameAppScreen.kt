@@ -1,20 +1,21 @@
 package app.gamenative.ui.screen.library.appscreen
 
 import android.content.Context
+import android.net.Uri
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import app.gamenative.ui.component.dialog.LoadingDialog
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.res.stringResource
+import app.gamenative.PluviaApp
 import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.data.LibraryItem
 import app.gamenative.events.AndroidEvent
-import app.gamenative.PluviaApp
+import app.gamenative.ui.component.dialog.LoadingDialog
 import app.gamenative.ui.data.AppMenuOption
 import app.gamenative.ui.data.GameDisplayInfo
 import app.gamenative.ui.enums.AppOptionMenuType
@@ -25,14 +26,13 @@ import app.gamenative.utils.GameMetadataManager
 import app.gamenative.utils.SteamGridDB
 import app.gamenative.utils.StorageUtils
 import com.winlator.container.ContainerData
+import java.io.File
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import android.net.Uri
-import kotlinx.coroutines.CoroutineScope
-import java.io.File
 import timber.log.Timber
 
 /**
@@ -60,10 +60,11 @@ class CustomGameAppScreen : BaseAppScreen() {
         // Shared state for deletion progress dialog
         var showDeletingDialog by mutableStateOf(false)
     }
+
     @Composable
     override fun getGameDisplayInfo(
         context: Context,
-        libraryItem: LibraryItem
+        libraryItem: LibraryItem,
     ): GameDisplayInfo {
         val gameFolderPath = remember(libraryItem.appId) {
             CustomGameScanner.getFolderPathFromAppId(libraryItem.appId)
@@ -73,9 +74,11 @@ class CustomGameAppScreen : BaseAppScreen() {
         fun findSteamGridDBImage(folder: File, imageType: String): String? {
             return folder.listFiles()?.firstOrNull { file ->
                 file.name.startsWith("steamgriddb_$imageType") &&
-                (file.name.endsWith(".png", ignoreCase = true) ||
-                 file.name.endsWith(".jpg", ignoreCase = true) ||
-                 file.name.endsWith(".webp", ignoreCase = true))
+                    (
+                        file.name.endsWith(".png", ignoreCase = true) ||
+                            file.name.endsWith(".jpg", ignoreCase = true) ||
+                            file.name.endsWith(".webp", ignoreCase = true)
+                        )
             }?.let { Uri.fromFile(it).toString() }
         }
 
@@ -110,10 +113,12 @@ class CustomGameAppScreen : BaseAppScreen() {
                 CustomGameScanner.findHeroCoverInFolder(folder)
                     ?: folder.listFiles()?.firstOrNull { file ->
                         file.name.startsWith("steamgriddb_hero") &&
-                        !file.name.contains("grid") &&
-                        (file.name.endsWith(".png", ignoreCase = true) ||
-                         file.name.endsWith(".jpg", ignoreCase = true) ||
-                         file.name.endsWith(".webp", ignoreCase = true))
+                            !file.name.contains("grid") &&
+                            (
+                                file.name.endsWith(".png", ignoreCase = true) ||
+                                    file.name.endsWith(".jpg", ignoreCase = true) ||
+                                    file.name.endsWith(".webp", ignoreCase = true)
+                                )
                     }?.let { Uri.fromFile(it).toString() }
             }
         }
@@ -201,7 +206,7 @@ class CustomGameAppScreen : BaseAppScreen() {
     override fun onDownloadInstallClick(
         context: Context,
         libraryItem: LibraryItem,
-        onClickPlay: (Boolean) -> Unit
+        onClickPlay: (Boolean) -> Unit,
     ) {
         // custom games don't need downloading — go straight to preLaunchApp
         onClickPlay(false)
@@ -355,7 +360,7 @@ class CustomGameAppScreen : BaseAppScreen() {
     @Composable
     override fun getResetContainerOption(
         context: Context,
-        libraryItem: LibraryItem
+        libraryItem: LibraryItem,
     ): AppMenuOption {
         var showResetConfirmDialog by remember { mutableStateOf(false) }
 
@@ -365,17 +370,17 @@ class CustomGameAppScreen : BaseAppScreen() {
                     showResetConfirmDialog = false
                     resetContainerToDefaults(context, libraryItem)
                 },
-                onDismiss = { showResetConfirmDialog = false }
+                onDismiss = { showResetConfirmDialog = false },
             )
         }
 
         return AppMenuOption(
             optionType = AppOptionMenuType.ResetToDefaults,
-            onClick = { showResetConfirmDialog = true }
+            onClick = { showResetConfirmDialog = true },
         )
     }
 
-   /**
+    /**
      * Custom Game-specific menu options
      */
     @Composable
@@ -385,7 +390,7 @@ class CustomGameAppScreen : BaseAppScreen() {
         onEditContainer: () -> Unit,
         onBack: () -> Unit,
         onClickPlay: (Boolean) -> Unit,
-        isInstalled: Boolean
+        isInstalled: Boolean,
     ): List<AppMenuOption> {
         val options = mutableListOf<AppMenuOption>()
 
@@ -462,7 +467,7 @@ class CustomGameAppScreen : BaseAppScreen() {
         libraryItem: LibraryItem,
         onDismiss: () -> Unit,
         onEditContainer: () -> Unit,
-        onBack: () -> Unit
+        onBack: () -> Unit,
     ) {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
@@ -546,7 +551,7 @@ class CustomGameAppScreen : BaseAppScreen() {
                                     }
                                 }
                             }
-                        }
+                        },
                     ) {
                         Text("Delete", color = androidx.compose.material3.MaterialTheme.colorScheme.error)
                     }
@@ -557,12 +562,8 @@ class CustomGameAppScreen : BaseAppScreen() {
                     }) {
                         Text("Cancel")
                     }
-                }
+                },
             )
         }
     }
 }
-
-
-
-

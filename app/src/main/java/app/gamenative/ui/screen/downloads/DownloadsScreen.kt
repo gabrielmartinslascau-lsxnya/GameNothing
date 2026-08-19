@@ -456,7 +456,7 @@ private fun DownloadsSidebarItem(
                     )
                 } else {
                     Modifier.background(Color.Transparent)
-                }
+                },
             )
             .border(
                 width = if (isFocused) 2.dp else 1.dp,
@@ -676,14 +676,14 @@ private fun BackButton(
                     PluviaTheme.colors.accentPurple.copy(alpha = 0.2f)
                 } else {
                     PluviaTheme.colors.surfaceElevated
-                }
+                },
             )
             .then(
                 if (isFocused) {
                     Modifier.border(2.dp, PluviaTheme.colors.accentPurple.copy(alpha = 0.6f), CircleShape)
                 } else {
                     Modifier.border(1.dp, PluviaTheme.colors.borderDefault.copy(alpha = 0.3f), CircleShape)
-                }
+                },
             )
             .selectable(
                 selected = isFocused,
@@ -976,7 +976,7 @@ private fun GameArtworkButton(
                     accentColor.copy(alpha = 0.18f)
                 } else {
                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                }
+                },
             )
             .border(
                 width = if (isFocused) 2.dp else 1.dp,
@@ -1126,7 +1126,7 @@ private fun DownloadActionButton(
                     accentColor.copy(alpha = 0.18f)
                 } else {
                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                }
+                },
             )
             .border(
                 width = if (isFocused) 2.dp else 1.dp,

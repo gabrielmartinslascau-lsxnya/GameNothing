@@ -27,8 +27,8 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.kotlin.any
-import org.mockito.kotlin.atLeastOnce
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.atLeastOnce
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
@@ -332,7 +332,7 @@ class GOGDownloadManagerTest {
             compressedMd5 = "test-md5",
             md5 = calculateTestMd5(originalData),
             size = originalData.size.toLong(),
-            compressedSize = compressedData.size.toLong()
+            compressedSize = compressedData.size.toLong(),
         )
 
         // Act
@@ -361,7 +361,7 @@ class GOGDownloadManagerTest {
             compressedMd5 = "test-md5",
             md5 = calculateTestMd5(originalData),
             size = originalData.size.toLong(),
-            compressedSize = null // Indicates uncompressed
+            compressedSize = null, // Indicates uncompressed
         )
 
         // Act
@@ -398,7 +398,7 @@ class GOGDownloadManagerTest {
             compressedMd5 = "test-md5",
             md5 = calculateTestMd5(newData),
             size = newData.size.toLong(),
-            compressedSize = compressedNewData.size.toLong()
+            compressedSize = compressedNewData.size.toLong(),
         )
 
         // Act: Write at offset 4
@@ -429,7 +429,7 @@ class GOGDownloadManagerTest {
             compressedMd5 = "test-md5",
             md5 = actualMd5, // Correct MD5 so size check is reached
             size = 999L, // Wrong expected size
-            compressedSize = compressedData.size.toLong()
+            compressedSize = compressedData.size.toLong(),
         )
 
         // Act
@@ -458,7 +458,7 @@ class GOGDownloadManagerTest {
             compressedMd5 = "test-md5",
             md5 = "wrong-md5-hash", // Wrong MD5
             size = originalData.size.toLong(),
-            compressedSize = compressedData.size.toLong()
+            compressedSize = compressedData.size.toLong(),
         )
 
         // Act
@@ -486,7 +486,7 @@ class GOGDownloadManagerTest {
             compressedMd5 = "test-md5",
             md5 = "", // Empty MD5 still validates (won't match actual hash)
             size = originalData.size.toLong(),
-            compressedSize = compressedData.size.toLong()
+            compressedSize = compressedData.size.toLong(),
         )
 
         // Act
@@ -513,7 +513,7 @@ class GOGDownloadManagerTest {
             compressedMd5 = "test-md5",
             md5 = "any-md5",
             size = 100L,
-            compressedSize = corruptedData.size.toLong()
+            compressedSize = corruptedData.size.toLong(),
         )
 
         // Act
@@ -560,7 +560,7 @@ class GOGDownloadManagerTest {
         chunkFile: File,
         chunk: app.gamenative.service.gog.api.FileChunk,
         outputFile: File,
-        writeOffset: Long
+        writeOffset: Long,
     ): Result<Unit> {
         // Now that decompressChunkToFile is internal, we can call it directly
         return manager.decompressChunkToFile(chunkFile, chunk, outputFile, writeOffset)

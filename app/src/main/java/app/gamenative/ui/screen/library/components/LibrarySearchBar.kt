@@ -44,7 +44,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -58,8 +57,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.widget.doAfterTextChanged
 import app.gamenative.PrefManager
 import app.gamenative.R
-import app.gamenative.ui.data.LibraryState
 import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.ui.theme.glassContentColor
+import app.gamenative.ui.theme.pluviaGlass
 import kotlinx.coroutines.launch
 
 @Composable
@@ -72,6 +72,8 @@ fun LibrarySearchBar(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val isGlass = PrefManager.glassPanels
+
     AnimatedVisibility(
         visible = isVisible,
         enter = expandVertically(
@@ -94,15 +96,17 @@ fun LibrarySearchBar(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                            Color.Transparent,
+                .then(if (isGlass) Modifier.padding(horizontal = 12.dp, vertical = 6.dp).pluviaGlass() else {
+                    Modifier.background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                                Color.Transparent,
+                            ),
                         ),
-                    ),
-                )
+                    )
+                })
                 .padding(top = 8.dp, bottom = 20.dp, start = 12.dp, end = 12.dp),
         ) {
             Column(
