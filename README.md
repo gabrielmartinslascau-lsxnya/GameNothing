@@ -1,5 +1,5 @@
 # GameNothing
-Native PC gaming with Steam, Epic, GOG and Amazon integrations on Android. but a LOT better looking. with a few extras
+Native PC gaming with Steam, Epic, GOG and Amazon integrations on Android. but a LOT better looking. with a few extras of my own, LSX special
 
 emulate any game, right now, on your phone. just a simple install, and custom built UI options, and more coming soon
 log-in with steam for example, just download, and play. online or offline!
