@@ -1,4 +1,4 @@
-# Game nothing
+# Game nothing #
 
 <img width="1041" height="420" alt="51448" src="https://github.com/user-attachments/assets/ce498938-85ca-4e13-b04c-0d6021b45c89" />
 
@@ -37,6 +37,16 @@ here's what GameNothing will bring for you :
 - nexus mods
 - local mods
 - and a whole lot more!
+
+what to expect in the future :
+
+| version | key features | when |
+| --- | --- | --- |
+| BETA v0.1.0 | Very first oficial launch. with glass panels, animations, and colour picker | outdated |
+| BETA v0.1.1 | improved colour picker, new logo, fixed bugs, adjustable slider on glass panels, refresh rate slider, ram viewer| launched |
+| BETA v0.1.2 | haptics, more fonts, less bugs, faster responses | aug 21-22 |
+| BETA v0.1.3 | nothing download bar, more colours to the colour picker, and possibly some game optimization or tweaks | next week |
+| oficial launch | to see in the future.. | future |
 
 
 IMPORTANT : if a bug happens, DO NOT report as you would normally, since this is a custom built fork of gamenative. So if you encounter problems, bugs, or want to add something to it (such as features, recommendation, or questions). message me on tiktok. @lsxnothing (or evil rolfy)
