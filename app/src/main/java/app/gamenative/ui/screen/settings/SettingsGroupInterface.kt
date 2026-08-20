@@ -385,15 +385,7 @@ fun SettingsGroupInterface(
 
         // Unified visual icon picker (affects app and notification icons)
         var selectedVariant by rememberSaveable {
-            mutableStateOf(
-                if (PrefManager.useAltLauncherIcon ||
-                    PrefManager.useAltNotificationIcon
-                ) {
-                    1
-                } else {
-                    0
-                },
-            )
+            mutableStateOf(PrefManager.launcherIconVariant)
         }
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             Text(
@@ -409,9 +401,8 @@ fun SettingsGroupInterface(
                     selected = selectedVariant == 0,
                     onClick = {
                         selectedVariant = 0
-                        PrefManager.useAltLauncherIcon = false
-                        PrefManager.useAltNotificationIcon = false
-                        IconSwitcher.applyLauncherIcon(context, false)
+                        PrefManager.launcherIconVariant = 0
+                        IconSwitcher.applyLauncherIcon(context, 0)
                     },
                 )
                 IconVariantCard(
@@ -421,9 +412,19 @@ fun SettingsGroupInterface(
                     selected = selectedVariant == 1,
                     onClick = {
                         selectedVariant = 1
-                        PrefManager.useAltLauncherIcon = true
-                        PrefManager.useAltNotificationIcon = true
-                        IconSwitcher.applyLauncherIcon(context, true)
+                        PrefManager.launcherIconVariant = 1
+                        IconSwitcher.applyLauncherIcon(context, 1)
+                    },
+                )
+                IconVariantCard(
+                    label = stringResource(R.string.settings_theme_legion),
+                    launcherIconRes = R.drawable.legion,
+                    notificationIconRes = R.drawable.ic_notification_alt,
+                    selected = selectedVariant == 2,
+                    onClick = {
+                        selectedVariant = 2
+                        PrefManager.launcherIconVariant = 2
+                        IconSwitcher.applyLauncherIcon(context, 2)
                     },
                 )
             }

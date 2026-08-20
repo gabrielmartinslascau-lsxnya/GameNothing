@@ -17,7 +17,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import app.gamenative.Constants
 import app.gamenative.CrashHandler
 import app.gamenative.PrefManager
 import app.gamenative.R
@@ -182,6 +184,13 @@ fun SettingsGroupDebug() {
     }
 
     SettingsGroup {
+        val uriHandler = LocalUriHandler.current
+        SettingsMenuLink(
+            colors = settingsTileColors(),
+            title = { Text(text = stringResource(R.string.settings_debug_report_bug_title)) },
+            subtitle = { Text(text = stringResource(R.string.settings_debug_report_bug_subtitle)) },
+            onClick = { uriHandler.openUri(Constants.Misc.TIKTOK_LINK) },
+        )
         SettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_save_logcat_title)) },

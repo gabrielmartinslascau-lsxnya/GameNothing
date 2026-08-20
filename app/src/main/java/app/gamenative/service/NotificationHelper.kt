@@ -189,7 +189,7 @@ class NotificationHelper @Inject constructor(@ApplicationContext private val con
             PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val smallIconRes = if (PrefManager.useAltNotificationIcon) {
+        val smallIconRes = if (PrefManager.launcherIconVariant != 0) {
             R.drawable.ic_notification_alt
         } else {
             R.drawable.ic_notification

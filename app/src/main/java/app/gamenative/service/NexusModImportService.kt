@@ -500,7 +500,7 @@ class NexusModImportService : Service() {
             intent,
             android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val smallIconRes = if (PrefManager.useAltNotificationIcon) {
+        val smallIconRes = if (PrefManager.launcherIconVariant != 0) {
             R.drawable.ic_notification_alt
         } else {
             R.drawable.ic_notification

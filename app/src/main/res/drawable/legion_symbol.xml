@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="100dp"
+    android:height="100dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Perfectly Symmetric Ring -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,10 A40,40 0 1,1 50,90 A40,40 0 1,1 50,10 Z M50,82 A32,32 0 1,0 50,18 A32,32 0 1,0 50,82 Z" />
+    <!-- Perfectly Symmetric Legion Y Shape -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M46,15 h8 v32 L85,78 L79,84 L50,55 L21,84 L15,78 L46,47 Z" />
+</vector>

@@ -38,6 +38,8 @@ fun MessageDialog(
     title: String? = null,
     message: String? = null,
     useHtmlInMsg: Boolean = false,
+    confirmBtnColor: Color = Color.Unspecified,
+    dismissBtnColor: Color = Color.Unspecified,
 ) {
     when {
         visible -> {
@@ -70,7 +72,7 @@ fun MessageDialog(
                 dismissButton = onDismissClick?.let {
                     {
                         TextButton(onClick = it) {
-                            Text(dismissBtnText)
+                            Text(text = dismissBtnText, color = dismissBtnColor)
                         }
                     }
                 },
@@ -86,7 +88,7 @@ fun MessageDialog(
                         // Confirm button
                         onConfirmClick?.let {
                             TextButton(onClick = it) {
-                                Text(confirmBtnText)
+                                Text(text = confirmBtnText, color = confirmBtnColor)
                             }
                         }
                     }

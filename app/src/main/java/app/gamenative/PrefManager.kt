@@ -1439,15 +1439,10 @@ object PrefManager {
         set(value) = setPref(WINE_DEBUG_CHANNELS, value)
 
     // App and notification icon variants
-    private val USE_ALT_LAUNCHER_ICON = booleanPreferencesKey("use_alt_launcher_icon")
-    var useAltLauncherIcon: Boolean
-        get() = getPref(USE_ALT_LAUNCHER_ICON, false)
-        set(value) = setPref(USE_ALT_LAUNCHER_ICON, value)
-
-    private val USE_ALT_NOTIFICATION_ICON = booleanPreferencesKey("use_alt_notification_icon")
-    var useAltNotificationIcon: Boolean
-        get() = getPref(USE_ALT_NOTIFICATION_ICON, false)
-        set(value) = setPref(USE_ALT_NOTIFICATION_ICON, value)
+    private val LAUNCHER_ICON_VARIANT = intPreferencesKey("launcher_icon_variant")
+    var launcherIconVariant: Int
+        get() = getPref(LAUNCHER_ICON_VARIANT, 0)
+        set(value) = setPref(LAUNCHER_ICON_VARIANT, value)
 
     // App language preference (empty string means system default)
     private val APP_LANGUAGE = stringPreferencesKey("app_language")

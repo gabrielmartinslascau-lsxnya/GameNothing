@@ -1,6 +1,7 @@
 package app.gamenative.ui.component.dialog.state
 
 import androidx.compose.runtime.saveable.mapSaver
+import androidx.compose.ui.graphics.Color
 import app.gamenative.ui.enums.DialogType
 
 data class MessageDialogState(
@@ -11,6 +12,8 @@ data class MessageDialogState(
     val actionBtnText: String? = null,
     val title: String? = null,
     val message: String? = null,
+    val confirmBtnColor: Color? = null,
+    val dismissBtnColor: Color? = null,
 ) {
     companion object {
         val Saver = mapSaver(
@@ -23,6 +26,8 @@ data class MessageDialogState(
                     "actionBtnText" to state.actionBtnText,
                     "title" to state.title,
                     "message" to state.message,
+                    "confirmBtnColor" to state.confirmBtnColor?.value?.toLong(),
+                    "dismissBtnColor" to state.dismissBtnColor?.value?.toLong(),
                 )
             },
             restore = { savedMap ->
@@ -34,6 +39,8 @@ data class MessageDialogState(
                     actionBtnText = savedMap["actionBtnText"] as String?,
                     title = savedMap["title"] as String?,
                     message = savedMap["message"] as String?,
+                    confirmBtnColor = (savedMap["confirmBtnColor"] as? Long)?.let { Color(it.toULong()) },
+                    dismissBtnColor = (savedMap["dismissBtnColor"] as? Long)?.let { Color(it.toULong()) },
                 )
             },
         )

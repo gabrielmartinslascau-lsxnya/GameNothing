@@ -1,0 +1,10 @@
+- [x] Update rebranding strings in `BootingSplash.kt`
+- [x] Add TikTok link in `Constants.kt`
+- [x] Add `launchCount` and update icon variant in `PrefManager.kt`
+- [x] Implement launch counter increment and trigger logic in `MainActivity.kt`
+- [x] Remove membership settings from `SettingsGroupInfo.kt`
+- [x] Add button color support to `MessageDialog.kt` and `MessageDialogState.kt`
+- [x] Repurpose `ShowMembershipPitch` UI in `PluviaMain.kt`
+- [x] Update `strings.xml` for rebranding and TikTok popup
+- [x] Create Legion logo and icon resources (`ic_logo_legion.xml`, `ic_launcher_legion.xml`)
+- [x] Update `AndroidManifest.xml` and `IconSwitcher.kt` for the new icon variant

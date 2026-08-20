@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">GameNative</string>
+    <string name="app_name">GameNative-LSX</string>
     <string name="login_user">User Login</string>
     <string name="login_2fa">Two Factor</string>
     <string name="home">Home</string>
@@ -1084,10 +1084,6 @@
 
     <!-- Settings: Info Group -->
     <string name="settings_info_title">Info</string>
-    <string name="settings_info_send_tip_title">Become a member</string>
-    <string name="settings_info_send_tip_subtitle">Early access to releases, priority help, and more</string>
-    <string name="settings_info_ask_tip_title">Membership offers</string>
-    <string name="settings_info_ask_tip_subtitle">Show occasional offers to become a GameNative member</string>
     <string name="settings_info_source_title">Source code</string>
     <string name="settings_info_source_subtitle">View the source code of this project</string>
     <string name="settings_info_libraries_title">Libraries Used</string>
@@ -1178,7 +1174,7 @@
     <string name="container_storage_unknown_error">Unknown error</string>
 
     <!-- Login Screen -->
-    <string name="login_app_name">GameNative</string>
+    <string name="login_app_name">GameNative-LSX</string>
     <string name="login_privacy_policy">Privacy Policy</string>
     <string name="login_welcome_back">Welcome Back</string>
     <string name="login_subtitle">Sign in to access your Steam library</string>
@@ -1260,11 +1256,8 @@
     <!-- PluviaMain: Crash & Support -->
     <string name="main_recent_crash_title">Recent Crash</string>
     <string name="main_recent_crash_message">Sorry about that!\nIt would be nice to know about the recent issue you\'ve had.\nYou can view and export the most recent crash log in the app\'s settings and attach it as a Github issue in the project\'s repository.\nLink to the Github repo is also in settings!</string>
-    <string name="main_thank_you_title">Enjoying GameNative?</string>
-    <string name="main_thank_you_message">Become a member today. Members get:\n\n• Early access to new releases\n• Priority help getting your games running\n• Premium roles and exclusive channels on Discord\n• …and more\n\nFrom $5/month</string>
-    <string name="main_join_kofi">Become a member</string>
-    <string name="pitch_session_title">Enjoying %1$s?</string>
-    <string name="pitch_five_star_title">Glad %1$s ran great!</string>
+    <string name="settings_debug_report_bug_title" translatable="false">Report Bug</string>
+    <string name="settings_debug_report_bug_subtitle" translatable="false">report to me directly, with a brief description and or image, and ill respond whenever i can</string>
     <string name="main_share">Share</string>
     <string name="main_share_text">Check out GameNative - play your PC Steam games on Android, with full support for cloud saves!\nhttps://gamenative.app\nJoin the community: https://discord.gg/2hKv4VfZfE</string>
     <string name="main_discord_support_title">Did the game work?</string>
@@ -1556,6 +1549,7 @@
     <!-- Settings Interface -->
     <string name="settings_theme_default">Default</string>
     <string name="settings_theme_alternate">Alternate</string>
+    <string name="settings_theme_legion" translatable="false">Legion</string>
     <string name="settings_download_slow">Slow</string>
     <string name="settings_download_medium">Medium</string>
     <string name="settings_download_fast">Fast</string>

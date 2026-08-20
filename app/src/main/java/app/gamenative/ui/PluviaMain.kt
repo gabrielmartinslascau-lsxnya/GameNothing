@@ -30,6 +30,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
@@ -94,6 +95,7 @@ import app.gamenative.ui.screen.settings.SettingsScreen
 import app.gamenative.ui.screen.xserver.XServerScreen
 import app.gamenative.ui.theme.PluviaAnimation
 import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.ui.theme.toColor
 import app.gamenative.ui.util.LocalSnackbarHostController
 import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.utils.BestConfigService
@@ -264,17 +266,6 @@ private fun consumePendingSteamLoginError(context: Context) {
     SnackbarManager.show(context.getString(R.string.intent_launch_steam_login_failed))
 }
 
-private const val LAUNCH_PITCH_COOLDOWN_MS = 5 * 24 * 60 * 60 * 1000L
-
-private fun trackMembershipPrompt(event: String, trigger: String) {
-    if (PrefManager.usageAnalyticsEnabled) {
-        PostHog.capture(
-            event = event,
-            properties = mapOf("trigger" to trigger),
-        )
-    }
-}
-
 private fun trackGameLaunched(appId: String) {
     val gameSource = ContainerUtils.extractGameSourceFromContainerId(appId)
     val gameName = ContainerUtils.resolveGameName(appId)
@@ -306,7 +297,7 @@ fun PluviaMain(
         mutableStateOf(MessageDialogState(false))
     }
     val setMessageDialogState: (MessageDialogState) -> Unit = { msgDialogState = it }
-    var membershipPitchTrigger by rememberSaveable { mutableStateOf("launch") }
+
 
     var gameFeedbackState by rememberSaveable(stateSaver = GameFeedbackDialogState.Saver) {
         mutableStateOf(GameFeedbackDialogState(false))
@@ -498,6 +489,7 @@ fun PluviaMain(
         viewModel.uiEvent.collect { event ->
             when (event) {
                 MainViewModel.MainUiEvent.LaunchApp -> {
+                    Timber.i("[PluviaMain]: Navigating to XServer screen")
                     navController.navigate(PluviaScreen.XServer.route)
                 }
 
@@ -634,25 +626,6 @@ fun PluviaMain(
                     gameFeedbackState = GameFeedbackDialogState(
                         visible = true,
                         appId = event.appId,
-                    )
-                }
-
-                is MainViewModel.MainUiEvent.ShowMembershipPitch -> {
-                    val gameName = ContainerUtils.resolveGameName(event.appId)
-                    PrefManager.lastWarmPitchTime = System.currentTimeMillis()
-                    membershipPitchTrigger = event.trigger
-                    trackMembershipPrompt("membership_prompt_shown", event.trigger)
-                    msgDialogState = MessageDialogState(
-                        visible = true,
-                        type = DialogType.SUPPORT,
-                        title = if (event.trigger == "five_star") {
-                            context.getString(R.string.pitch_five_star_title, gameName)
-                        } else {
-                            context.getString(R.string.pitch_session_title, gameName)
-                        },
-                        message = context.getString(R.string.main_thank_you_message),
-                        confirmBtnText = context.getString(R.string.main_join_kofi),
-                        dismissBtnText = context.getString(R.string.close),
                     )
                 }
             }
@@ -826,8 +799,7 @@ fun PluviaMain(
 
         DialogType.SUPPORT -> {
             onConfirmClick = {
-                uriHandler.openUri(Constants.Misc.KO_FI_LINK)
-                trackMembershipPrompt("membership_prompt_clicked", membershipPitchTrigger)
+                uriHandler.openUri(Constants.Misc.TIKTOK_LINK)
                 msgDialogState = MessageDialogState(visible = false)
             }
             onDismissRequest = {
@@ -1172,6 +1144,8 @@ fun PluviaMain(
     }
 
     PluviaTheme(
+        mainColor = state.mainColor.toColor(),
+        wallpaperColor = state.wallpaperColor.toColor(),
         isDark = when (state.appTheme) {
             AppTheme.AUTO -> isSystemInDarkTheme()
             AppTheme.DAY -> false
@@ -1211,6 +1185,8 @@ fun PluviaMain(
                 icon = msgDialogState.type.icon,
                 title = msgDialogState.title,
                 message = msgDialogState.message,
+                confirmBtnColor = msgDialogState.confirmBtnColor ?: Color.Unspecified,
+                dismissBtnColor = msgDialogState.dismissBtnColor ?: Color.Unspecified,
             )
 
             val scope = rememberCoroutineScope()
@@ -1411,23 +1387,6 @@ fun PluviaMain(
                                     title = context.getString(R.string.main_recent_crash_title),
                                     message = context.getString(R.string.main_recent_crash_message),
                                     confirmBtnText = context.getString(R.string.ok),
-                                )
-                            } else if (!(PrefManager.tipped || BuildConfig.GOLD) &&
-                                PrefManager.hasAttemptedGameLaunch &&
-                                !MainViewModel.gamePlayedThisSession &&
-                                System.currentTimeMillis() - PrefManager.lastLaunchPitchTime >= LAUNCH_PITCH_COOLDOWN_MS
-                            ) {
-                                viewModel.setAnnoyingDialogShown(true)
-                                PrefManager.lastLaunchPitchTime = System.currentTimeMillis()
-                                membershipPitchTrigger = "launch"
-                                trackMembershipPrompt("membership_prompt_shown", "launch")
-                                msgDialogState = MessageDialogState(
-                                    visible = true,
-                                    type = DialogType.SUPPORT,
-                                    title = context.getString(R.string.main_thank_you_title),
-                                    message = context.getString(R.string.main_thank_you_message),
-                                    confirmBtnText = context.getString(R.string.main_join_kofi),
-                                    dismissBtnText = context.getString(R.string.close),
                                 )
                             }
                         }

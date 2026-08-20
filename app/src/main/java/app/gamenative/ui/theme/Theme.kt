@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
@@ -189,12 +190,16 @@ fun PluviaTheme(
     style: PaletteStyle = PaletteStyle.TonalSpot,
     content: @Composable () -> Unit,
 ) {
-    val onMain = mainColor.onColor()
+    // Force recomposition when PrefManager colors change (for callers who don't pass arguments)
+    val reactiveMainColor = remember(mainColor) { mainColor }
+    val reactiveWallpaperColor = remember(wallpaperColor) { wallpaperColor }
+
+    val onMain = reactiveMainColor.onColor()
 
     val colorScheme = darkColorScheme(
-        primary = mainColor,
+        primary = reactiveMainColor,
         onPrimary = onMain,
-        primaryContainer = mainColor.copy(alpha = 0.2f),
+        primaryContainer = reactiveMainColor.copy(alpha = 0.2f),
         onPrimaryContainer = Color.White,
 
         secondary = PluviaSecondary,
@@ -202,23 +207,23 @@ fun PluviaTheme(
         secondaryContainer = PluviaSecondary.copy(alpha = 0.8f),
         onSecondaryContainer = Color.White,
 
-        tertiary = mainColor,
+        tertiary = reactiveMainColor,
         onTertiary = onMain,
-        tertiaryContainer = mainColor.copy(alpha = 0.2f),
+        tertiaryContainer = reactiveMainColor.copy(alpha = 0.2f),
         onTertiaryContainer = Color.White,
 
-        background = wallpaperColor,
+        background = reactiveWallpaperColor,
         onBackground = Color.White,
 
         surface = PluviaCard,
         onSurface = Color.White,
         surfaceVariant = PluviaSecondary,
         onSurfaceVariant = Color.White, // Force white instead of grey
-        surfaceTint = mainColor,
+        surfaceTint = reactiveMainColor,
 
         inverseSurface = Color.White,
-        inverseOnSurface = wallpaperColor,
-        inversePrimary = mainColor,
+        inverseOnSurface = reactiveWallpaperColor,
+        inversePrimary = reactiveMainColor,
 
         error = PluviaDestructive,
         onError = Color.White,
@@ -230,18 +235,18 @@ fun PluviaTheme(
 
         scrim = Color.Black.copy(alpha = 0.5f),
         surfaceBright = PluviaSecondary,
-        surfaceDim = wallpaperColor,
+        surfaceDim = reactiveWallpaperColor,
         surfaceContainer = PluviaCard,
         surfaceContainerHigh = PluviaSecondary,
         surfaceContainerHighest = PluviaSecondary.copy(alpha = 0.9f),
-        surfaceContainerLow = wallpaperColor,
-        surfaceContainerLowest = wallpaperColor,
+        surfaceContainerLow = reactiveWallpaperColor,
+        surfaceContainerLowest = reactiveWallpaperColor,
     )
 
     val pluviaColors = DarkPluviaColors.copy(
-        accentCyan = mainColor, // Use main color for highlights
-        accentPurple = mainColor,
-        surfacePanel = wallpaperColor
+        accentCyan = reactiveMainColor, // Use main color for highlights
+        accentPurple = reactiveMainColor,
+        surfacePanel = reactiveWallpaperColor
     )
 
     val view = LocalView.current
