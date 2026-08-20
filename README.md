@@ -1,17 +1,33 @@
-# GameNothing
+# Game nothing
+
+<img width="1041" height="420" alt="51448" src="https://github.com/user-attachments/assets/ce498938-85ca-4e13-b04c-0d6021b45c89" />
+
 Native PC gaming with Steam, Epic, GOG and Amazon integrations on Android. but a LOT better looking. with a few extras of my own, LSX special
 
 emulate any game, right now, on your phone. just a simple install, and custom built UI options, and more coming soon
 log-in with steam for example, just download, and play. online or offline!
-here's what Gamenothing or GameNative-LSX will bring for you :
+here's what GameNothing will bring for you :
+
+
+<img width="1260" height="1482" alt="51450" src="https://github.com/user-attachments/assets/67ecd602-1a9b-4bf8-9b4c-356a39b2d7ad" />
 
 - more animations
 - glass panel UI
 - colour picker
-- haptics
-- 144hz support
-- nothing style font
-- multiple logos to choose
+
+<img width="1260" height="843" alt="51452" src="https://github.com/user-attachments/assets/cbb696b6-a4bf-4404-9ff9-679202124084" />
+
+- haptics (in progress!)
+- Nothing ® style font
+
+<img width="1222" height="1447" alt="51456" src="https://github.com/user-attachments/assets/1b7edf09-9537-42ca-b266-8e2a184e59d5" />
+
+- aggressive caching
+- ram viewer
+- refresh rate control with 144hz support
+
+<img width="908" height="901" alt="51458" src="https://github.com/user-attachments/assets/edb8cc01-4792-446e-b3f7-4a904f53d2fe" />
+
 - steam emulation
 - GOG emulation
 - Amazon games emulation
