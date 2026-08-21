@@ -49,6 +49,9 @@ what to expect in the future :
 | **official 1.0 launch** | to see in the future... | future |
 
 
+# 📥 [Click Here to Download Latest Game nothing version! (v0.1.1)](https://github.com/gabrielmartinslascau-lsxnya/GameNothing/releases)
+
+
 IMPORTANT : if a bug happens, DO NOT report as you would normally, since this is a custom built fork of gamenative. So if you encounter problems, bugs, or want to add something to it (such as features, recommendation, or questions). message me on tiktok. @lsxnothing (or evil rolfy)
 
 to report a bug, in the emulator, just go to the three lines on top, > settings > scroll down > debug > report bug. and this will take you directly to my account to message me
