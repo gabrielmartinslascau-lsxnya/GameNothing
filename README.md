@@ -44,7 +44,7 @@ what to expect in the future :
 | :--- | :--- | :--- |
 | **BETA v0.1.0** | Very first official launch. with nothing® style font, glass panels, animations, and colour picker with 6 colours, together with a screen refresh rate slider, and ram viewer | outdated |
 | **BETA v0.1.1** | improved colour picker, new custom "legion" logo, fixed bugs, better adjustable slider on glass panels, better refresh rate slider, improved floating ram viewer | latest |
-| **BETA v0.1.2** | complete "legion" logo redesign, introducing haptics (adjustable), more fonts to choose, less crashes or soflocks, and faster responses | aug 21-22 |
+| **BETA v0.1.2** | complete "legion" logo redesign, introducing haptics (adjustable), more fonts to choose, less crashes or soflocks, and faster responses | aug 21-22 (DELAYED TO 23-24)|
 | **BETA v0.1.3** | Nothing® style download bar, more colours to the colour picker, and possibly some game optimization or tweaks together with additions or redesigns | next week |
 | **official 1.0 launch** | to see in the future... | future |
 
