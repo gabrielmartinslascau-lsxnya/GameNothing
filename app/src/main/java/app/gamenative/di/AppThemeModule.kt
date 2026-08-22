@@ -2,6 +2,7 @@ package app.gamenative.di
 
 import app.gamenative.PrefManager
 import app.gamenative.enums.AppTheme
+import app.gamenative.enums.FontType
 import com.materialkolor.PaletteStyle
 import dagger.Module
 import dagger.Provides
@@ -31,6 +32,27 @@ interface IAppTheme {
 
     val maxRefreshRateFlow: StateFlow<Int>
     var maxRefreshRate: Int
+
+    val jigglyAnimationsFlow: StateFlow<Boolean>
+    var jigglyAnimations: Boolean
+
+    val glassPanelsFlow: StateFlow<Boolean>
+    var glassPanels: Boolean
+
+    val trueGlassEnabledFlow: StateFlow<Boolean>
+    var trueGlassEnabled: Boolean
+
+    val glassTransparencyFlow: StateFlow<Float>
+    var glassTransparency: Float
+
+    val glassBlurIntensityFlow: StateFlow<Float>
+    var glassBlurIntensity: Float
+
+    val glassColorFlow: StateFlow<String>
+    var glassColor: String
+
+    val fontTypeFlow: StateFlow<FontType>
+    var fontType: FontType
 }
 
 class AppThemeImpl : IAppTheme {
@@ -49,6 +71,27 @@ class AppThemeImpl : IAppTheme {
 
     override val maxRefreshRateFlow: MutableStateFlow<Int> = MutableStateFlow(PrefManager.maxRefreshRate)
     override var maxRefreshRate: Int by MaxRefreshRateDelegate()
+
+    override val jigglyAnimationsFlow: MutableStateFlow<Boolean> = MutableStateFlow(PrefManager.jigglyAnimations)
+    override var jigglyAnimations: Boolean by JigglyAnimationsDelegate()
+
+    override val glassPanelsFlow: MutableStateFlow<Boolean> = MutableStateFlow(PrefManager.glassPanels)
+    override var glassPanels: Boolean by GlassPanelsDelegate()
+
+    override val trueGlassEnabledFlow: MutableStateFlow<Boolean> = MutableStateFlow(PrefManager.trueGlassEnabled)
+    override var trueGlassEnabled: Boolean by TrueGlassEnabledDelegate()
+
+    override val glassTransparencyFlow: MutableStateFlow<Float> = MutableStateFlow(PrefManager.glassTransparency)
+    override var glassTransparency: Float by GlassTransparencyDelegate()
+
+    override val glassBlurIntensityFlow: MutableStateFlow<Float> = MutableStateFlow(PrefManager.glassBlurIntensity)
+    override var glassBlurIntensity: Float by GlassBlurIntensityDelegate()
+
+    override val glassColorFlow: MutableStateFlow<String> = MutableStateFlow(PrefManager.glassColor)
+    override var glassColor: String by GlassColorDelegate()
+
+    override val fontTypeFlow: MutableStateFlow<FontType> = MutableStateFlow(PrefManager.fontType)
+    override var fontType: FontType by FontTypeDelegate()
 
     inner class AppThemeDelegate : ReadWriteProperty<Any, AppTheme> {
         override fun getValue(thisRef: Any, property: KProperty<*>): AppTheme = PrefManager.appTheme
@@ -87,6 +130,62 @@ class AppThemeImpl : IAppTheme {
         override fun setValue(thisRef: Any, property: KProperty<*>, value: Int) {
             maxRefreshRateFlow.value = value
             PrefManager.maxRefreshRate = value
+        }
+    }
+
+    inner class JigglyAnimationsDelegate : ReadWriteProperty<Any, Boolean> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): Boolean = PrefManager.jigglyAnimations
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: Boolean) {
+            jigglyAnimationsFlow.value = value
+            PrefManager.jigglyAnimations = value
+        }
+    }
+
+    inner class GlassPanelsDelegate : ReadWriteProperty<Any, Boolean> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): Boolean = PrefManager.glassPanels
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: Boolean) {
+            glassPanelsFlow.value = value
+            PrefManager.glassPanels = value
+        }
+    }
+
+    inner class TrueGlassEnabledDelegate : ReadWriteProperty<Any, Boolean> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): Boolean = PrefManager.trueGlassEnabled
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: Boolean) {
+            trueGlassEnabledFlow.value = value
+            PrefManager.trueGlassEnabled = value
+        }
+    }
+
+    inner class GlassTransparencyDelegate : ReadWriteProperty<Any, Float> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): Float = PrefManager.glassTransparency
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: Float) {
+            glassTransparencyFlow.value = value
+            PrefManager.glassTransparency = value
+        }
+    }
+
+    inner class GlassBlurIntensityDelegate : ReadWriteProperty<Any, Float> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): Float = PrefManager.glassBlurIntensity
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: Float) {
+            glassBlurIntensityFlow.value = value
+            PrefManager.glassBlurIntensity = value
+        }
+    }
+
+    inner class GlassColorDelegate : ReadWriteProperty<Any, String> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): String = PrefManager.glassColor
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: String) {
+            glassColorFlow.value = value
+            PrefManager.glassColor = value
+        }
+    }
+
+    inner class FontTypeDelegate : ReadWriteProperty<Any, FontType> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): FontType = PrefManager.fontType
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: FontType) {
+            fontTypeFlow.value = value
+            PrefManager.fontType = value
         }
     }
 }

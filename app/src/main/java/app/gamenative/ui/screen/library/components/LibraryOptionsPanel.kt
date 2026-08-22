@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -65,6 +66,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -85,8 +87,10 @@ import app.gamenative.ui.enums.PaneType
 import app.gamenative.ui.enums.SortOption
 import app.gamenative.ui.theme.PluviaAnimation
 import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.ui.theme.PluviaGlassPanel
 import app.gamenative.ui.theme.glassContentColor
-import app.gamenative.ui.theme.pluviaGlass
+import app.gamenative.utils.HapticManager
+import app.gamenative.utils.hapticClickable
 import app.gamenative.ui.util.adaptivePanelWidth
 import java.util.EnumSet
 
@@ -142,12 +146,11 @@ fun LibraryOptionsPanel(
             val isGlass = PrefManager.glassPanels
             val contentColor = glassContentColor()
 
-            Box(
+            PluviaGlassPanel(
                 modifier = Modifier
                     .width(adaptivePanelWidth(300.dp))
-                    .fillMaxHeight()
-                    .pluviaGlass()
-                    .then(if (!isGlass) Modifier.background(MaterialTheme.colorScheme.surface, RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)) else Modifier),
+                    .fillMaxHeight(),
+                shape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
             ) {
                 Column(
                     modifier = Modifier
@@ -168,11 +171,18 @@ fun LibraryOptionsPanel(
                             ),
                             color = Color.White,
                         )
-                        IconButton(onClick = onDismiss) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .hapticClickable(type = HapticManager.HapticType.CLICK) { onDismiss() },
+                            contentAlignment = Alignment.Center
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = stringResource(R.string.options_panel_close),
                                 tint = Color.White,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }

@@ -260,7 +260,7 @@ fun PluviaTheme(
     CompositionLocalProvider(LocalPluviaColors provides pluviaColors) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = PluviaTypography,
+            typography = getPluviaTypography(),
             content = content,
         )
     }

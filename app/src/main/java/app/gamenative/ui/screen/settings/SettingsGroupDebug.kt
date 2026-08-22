@@ -5,6 +5,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import app.gamenative.Constants
 import app.gamenative.CrashHandler
 import app.gamenative.PrefManager
@@ -26,6 +29,8 @@ import app.gamenative.R
 import app.gamenative.service.SteamService
 import app.gamenative.ui.component.dialog.CrashLogDialog
 import app.gamenative.ui.component.dialog.WineDebugChannelsDialog
+import app.gamenative.ui.component.settings.HapticSettingsMenuLink
+import app.gamenative.ui.component.settings.HapticSettingsSwitch
 import app.gamenative.ui.theme.settingsTileColors
 import app.gamenative.ui.theme.settingsTileColorsAlt
 import app.gamenative.ui.theme.settingsTileColorsDebug
@@ -33,8 +38,6 @@ import app.gamenative.ui.util.SnackbarManager
 import coil.annotation.ExperimentalCoilApi
 import coil.imageLoader
 import com.alorma.compose.settings.ui.SettingsGroup
-import com.alorma.compose.settings.ui.SettingsMenuLink
-import com.alorma.compose.settings.ui.SettingsSwitch
 import com.winlator.PrefManager as WinlatorPrefManager
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -185,20 +188,22 @@ fun SettingsGroupDebug() {
 
     SettingsGroup {
         val uriHandler = LocalUriHandler.current
-        SettingsMenuLink(
+        HapticSettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_debug_report_bug_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_debug_report_bug_subtitle)) },
-            onClick = { uriHandler.openUri(Constants.Misc.TIKTOK_LINK) },
+            onClick = {
+                uriHandler.openUri(Constants.Misc.TIKTOK_LINK)
+            },
         )
-        SettingsMenuLink(
+        HapticSettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_save_logcat_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_save_logcat_subtitle)) },
             onClick = { saveLogCat.launch("app_logs_${CrashHandler.timestamp}.txt") },
         )
         // Link to open channel selector
-        SettingsMenuLink(
+        HapticSettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_debug_wine_channels_title)) },
             subtitle = {
@@ -212,7 +217,7 @@ fun SettingsGroupDebug() {
             },
             onClick = { showChannelsDialog = true },
         )
-        SettingsSwitch(
+        HapticSettingsSwitch(
             colors = settingsTileColorsAlt(),
             state = enableWineDebugPref,
             title = { Text(text = stringResource(R.string.settings_debug_wine_logs_title)) },
@@ -224,7 +229,7 @@ fun SettingsGroupDebug() {
                 }
             },
         )
-        SettingsSwitch(
+        HapticSettingsSwitch(
             colors = settingsTileColorsAlt(),
             state = enableBox86Logs,
             title = { Text(text = stringResource(R.string.settings_debug_box_logs_title)) },
@@ -236,7 +241,7 @@ fun SettingsGroupDebug() {
                 }
             },
         )
-        SettingsMenuLink(
+        HapticSettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_debug_view_crash_title)) },
             subtitle = {
@@ -252,7 +257,7 @@ fun SettingsGroupDebug() {
             onClick = { showLogcatDialog = true },
         )
 
-        SettingsMenuLink(
+        HapticSettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_debug_view_log_title)) },
             subtitle = {
@@ -268,7 +273,7 @@ fun SettingsGroupDebug() {
             onClick = { showWineLogDialog = true },
         )
 
-        SettingsMenuLink(
+        HapticSettingsMenuLink(
             modifier = Modifier.combinedClickable(
                 onLongClick = {
                     SteamService.logOut()
@@ -284,7 +289,7 @@ fun SettingsGroupDebug() {
             onClick = {},
         )
 
-        SettingsMenuLink(
+        HapticSettingsMenuLink(
             modifier = Modifier.combinedClickable(
                 onLongClick = {
                     SteamService.stop()
@@ -301,7 +306,7 @@ fun SettingsGroupDebug() {
             onClick = {},
         )
 
-        SettingsMenuLink(
+        HapticSettingsMenuLink(
             modifier = Modifier.combinedClickable(
                 onLongClick = {
                     context.imageLoader.diskCache?.clear()
@@ -313,7 +318,7 @@ fun SettingsGroupDebug() {
             ),
             colors = settingsTileColorsDebug(),
             title = { Text(text = stringResource(R.string.settings_debug_clear_cache_title)) },
-            subtitle = { Text(text = stringResource(R.string.settings_debug_clear_cache_subtitle)) },
+            subtitle = { Text(stringResource(R.string.settings_debug_clear_cache_subtitle)) },
             onClick = {},
         )
     }

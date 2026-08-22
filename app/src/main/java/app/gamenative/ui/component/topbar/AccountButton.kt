@@ -21,6 +21,7 @@ import app.gamenative.service.SteamService
 import app.gamenative.ui.component.dialog.ProfileDialog
 import app.gamenative.ui.theme.PluviaTheme
 import app.gamenative.ui.util.SteamIconImage
+import app.gamenative.utils.HapticManager
 import app.gamenative.utils.getAvatarURL
 import `in`.dragonbra.javasteam.enums.EPersonaState
 import kotlinx.coroutines.launch
@@ -83,7 +84,10 @@ fun AccountButton(
     )
 
     IconButton(
-        onClick = { showDialog = true },
+        onClick = {
+            HapticManager.trigger(HapticManager.HapticType.MENU)
+            showDialog = true
+        },
         content = {
             SteamIconImage(
                 image = { persona?.avatarHash?.getAvatarURL() },

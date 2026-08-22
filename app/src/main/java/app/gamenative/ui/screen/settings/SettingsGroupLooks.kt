@@ -38,13 +38,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gamenative.PrefManager
 import app.gamenative.R
+import app.gamenative.enums.FontType
+import app.gamenative.ui.component.settings.HapticSettingsSwitch
+import app.gamenative.ui.component.settings.SettingsListDropdown
 import app.gamenative.ui.model.MainViewModel
 import app.gamenative.ui.theme.glassContentColor
 import app.gamenative.ui.theme.settingsTileColors
 import app.gamenative.ui.theme.settingsTileColorsAlt
 import app.gamenative.ui.theme.toColor
 import com.alorma.compose.settings.ui.SettingsGroup
-import com.alorma.compose.settings.ui.SettingsSwitch
 import kotlin.math.roundToInt
 
 @Composable
@@ -53,7 +55,7 @@ fun SettingsGroupLooks(viewModel: MainViewModel) {
         var jigglyAnimations by rememberSaveable { mutableStateOf(PrefManager.jigglyAnimations) }
         var glassPanels by rememberSaveable { mutableStateOf(PrefManager.glassPanels) }
 
-        SettingsSwitch(
+        HapticSettingsSwitch(
             colors = settingsTileColors(),
             state = jigglyAnimations,
             title = { Text(text = stringResource(R.string.settings_looks_jiggly_title)) },
@@ -65,7 +67,7 @@ fun SettingsGroupLooks(viewModel: MainViewModel) {
         )
 
         Column {
-            SettingsSwitch(
+            HapticSettingsSwitch(
                 colors = settingsTileColorsAlt(),
                 state = glassPanels,
                 title = { Text(text = stringResource(R.string.settings_looks_glass_title)) },
@@ -81,29 +83,83 @@ fun SettingsGroupLooks(viewModel: MainViewModel) {
                 enter = expandVertically() + fadeIn(),
                 exit = shrinkVertically() + fadeOut()
             ) {
-                var transparency by remember { mutableFloatStateOf(PrefManager.glassTransparency) }
-                val contentColor = glassContentColor()
+                Column {
+                    var trueGlassEnabled by rememberSaveable { mutableStateOf(PrefManager.trueGlassEnabled) }
+                    HapticSettingsSwitch(
+                        colors = settingsTileColorsAlt(),
+                        state = trueGlassEnabled,
+                        title = { Text(text = stringResource(R.string.settings_looks_true_glass_title)) },
+                        subtitle = { Text(text = stringResource(R.string.settings_looks_true_glass_subtitle)) },
+                        onCheckedChange = {
+                            trueGlassEnabled = it
+                            PrefManager.trueGlassEnabled = it
+                        },
+                    )
 
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Text(
-                        text = "Glass Transparency",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = contentColor
-                    )
-                    Slider(
-                        value = transparency,
-                        onValueChange = { transparency = it },
-                        onValueChangeFinished = { PrefManager.glassTransparency = transparency },
-                        valueRange = 0.05f..0.8f
-                    )
-                    Text(
-                        text = "${(transparency * 100).roundToInt()}%",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
+                    var transparency by remember { mutableFloatStateOf(PrefManager.glassTransparency) }
+                    var blurIntensity by remember { mutableFloatStateOf(PrefManager.glassBlurIntensity) }
+                    val contentColor = glassContentColor()
+
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        Text(
+                            text = if (trueGlassEnabled) "Blur Intensiveness" else "Glass Transparency",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = contentColor
+                        )
+                        if (trueGlassEnabled) {
+                            Slider(
+                                value = blurIntensity,
+                                onValueChange = { blurIntensity = it },
+                                onValueChangeFinished = { PrefManager.glassBlurIntensity = blurIntensity },
+                                valueRange = 5f..50f
+                            )
+                            Text(
+                                text = "${blurIntensity.roundToInt()}px",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        } else {
+                            Slider(
+                                value = transparency,
+                                onValueChange = { transparency = it },
+                                onValueChangeFinished = { PrefManager.glassTransparency = transparency },
+                                valueRange = 0.05f..0.8f
+                            )
+                            Text(
+                                text = "${(transparency * 100).roundToInt()}%",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+
+                    var glassColor by rememberSaveable { mutableStateOf(PrefManager.glassColor) }
+                    ColorSelectionRow(
+                        title = "Glass Colour",
+                        currentColor = glassColor,
+                        onColorSelected = {
+                            glassColor = it
+                            PrefManager.glassColor = it
+                        }
                     )
                 }
             }
         }
+
+        var currentFontType by rememberSaveable { mutableStateOf(PrefManager.fontType) }
+        val fontOptions = FontType.entries.map { stringResource(it.labelResId) }
+
+        SettingsListDropdown(
+            colors = settingsTileColorsAlt(),
+            value = currentFontType.ordinal,
+            items = fontOptions,
+            onItemSelected = { index ->
+                val newFont = FontType.entries[index]
+                currentFontType = newFont
+                PrefManager.fontType = newFont
+            },
+            title = { Text(text = stringResource(R.string.settings_looks_font_type_title)) }
+        )
 
         Spacer(modifier = Modifier.height(8.dp))
 

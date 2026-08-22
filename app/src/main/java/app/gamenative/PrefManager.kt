@@ -1,6 +1,9 @@
 package app.gamenative
 
 import android.content.Context
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.Preferences
@@ -15,6 +18,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import app.gamenative.data.GameSource
 import app.gamenative.enums.AppTheme
+import app.gamenative.enums.FontType
 import app.gamenative.ui.enums.AppFilter
 import app.gamenative.ui.enums.HomeDestination
 import app.gamenative.ui.enums.Orientation
@@ -36,7 +40,6 @@ import timber.log.Timber
 
 /**
  * A universal Preference Manager that can be used anywhere within gamenative.
- * Note: King of ugly though.
  */
 object PrefManager {
 
@@ -75,7 +78,23 @@ object PrefManager {
                 removePref(oldRefreshToken)
             }
         }
+
+        // Initialize reactive states
+        _fontType = getFontTypeSync()
     }
+
+    private fun getFontTypeSync(): FontType {
+        val key = getPref(FONT_TYPE, FontType.NDOT.key)
+        return FontType.fromKey(key)
+    }
+
+    private var _fontType by mutableStateOf(FontType.NDOT)
+    var fontType: FontType
+        get() = _fontType
+        set(value) {
+            _fontType = value
+            setPref(FONT_TYPE, value.key)
+        }
 
     fun clearPreferences() {
         scope.launch {
@@ -85,9 +104,6 @@ object PrefManager {
 
     /**
      * Clears only Steam account/session state while preserving app-wide settings.
-     *
-     * This is used during Steam logout so user-configured defaults (container
-     * settings, download preferences, tips, theme, etc.) are not wiped.
      */
     fun clearSteamSessionPreferences() {
         scope.launch {
@@ -1444,6 +1460,11 @@ object PrefManager {
         get() = getPref(LAUNCHER_ICON_VARIANT, 0)
         set(value) = setPref(LAUNCHER_ICON_VARIANT, value)
 
+    private val IS_FIRST_LAUNCH = booleanPreferencesKey("is_first_launch")
+    var isFirstLaunch: Boolean
+        get() = getPref(IS_FIRST_LAUNCH, true)
+        set(value) = setPref(IS_FIRST_LAUNCH, value)
+
     // App language preference (empty string means system default)
     private val APP_LANGUAGE = stringPreferencesKey("app_language")
     var appLanguage: String
@@ -1551,4 +1572,36 @@ object PrefManager {
                 setPref(NEXUS_LAST_PLACEMENT_JSON, value)
             }
         }
+
+    private val HAPTICS_ENABLED = booleanPreferencesKey("haptics_enabled")
+    var hapticsEnabled: Boolean
+        get() = getPref(HAPTICS_ENABLED, false)
+        set(value) = setPref(HAPTICS_ENABLED, value)
+
+    private val HAPTIC_INTENSITY = intPreferencesKey("haptic_intensity")
+    var hapticIntensity: Int
+        get() = getPref(HAPTIC_INTENSITY, 1)
+        set(value) = setPref(HAPTIC_INTENSITY, value.coerceIn(1, 3))
+
+    private val TRUE_GLASS_ENABLED = booleanPreferencesKey("true_glass_enabled")
+    var trueGlassEnabled: Boolean
+        get() = getPref(TRUE_GLASS_ENABLED, false)
+        set(value) = setPref(TRUE_GLASS_ENABLED, value)
+
+    private val GLASS_BLUR_INTENSITY = floatPreferencesKey("glass_blur_intensity")
+    var glassBlurIntensity: Float
+        get() = getPref(GLASS_BLUR_INTENSITY, 16f)
+        set(value) = setPref(GLASS_BLUR_INTENSITY, value.coerceIn(5f, 50f))
+
+    private val GLASS_COLOR = stringPreferencesKey("glass_color")
+    var glassColor: String
+        get() = getPref(GLASS_COLOR, "#FFFFFF")
+        set(value) = setPref(GLASS_COLOR, value)
+
+    private val FONT_TYPE = stringPreferencesKey("font_type")
+
+    private val HAS_COMPLETED_TUTORIAL = booleanPreferencesKey("has_completed_tutorial")
+    var hasCompletedTutorial: Boolean
+        get() = getPref(HAS_COMPLETED_TUTORIAL, false)
+        set(value) = setPref(HAS_COMPLETED_TUTORIAL, value)
 }

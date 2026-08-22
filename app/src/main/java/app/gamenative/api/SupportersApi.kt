@@ -16,13 +16,19 @@ object SupportersApi {
         GameNativeApi.executeRequest(request) { responseBody ->
             val json = JSONObject(responseBody)
             val array = json.getJSONArray("supporters")
-            (0 until array.length()).map { i ->
+            val supporters = (0 until array.length()).map { i ->
                 val item = array.getJSONObject(i)
                 Supporter(
                     name = if (item.isNull("name")) null else item.optString("name"),
                     oneOff = if (item.isNull("oneOff")) null else item.optBoolean("oneOff"),
                     total = if (item.isNull("total")) null else item.optDouble("total"),
                 )
+            }
+
+            // Filter out invalid entries based on steering (Filter out messages with empty or invalid parts)
+            // In the context of supporters, this means filtering out those without a valid name or donation total.
+            supporters.filter { s ->
+                !s.name.isNullOrBlank() || (s.total ?: 0.0) > 0.0
             }
         }
     }

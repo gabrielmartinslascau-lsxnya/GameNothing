@@ -38,6 +38,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.AirplaneTicket
 import androidx.compose.material.icons.automirrored.filled.Help
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.StarHalf
@@ -85,8 +86,11 @@ import app.gamenative.service.SteamService
 import app.gamenative.ui.component.dialog.SupportersDialog
 import app.gamenative.ui.screen.PluviaScreen
 import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.ui.theme.PluviaGlassPanel
 import app.gamenative.ui.theme.glassContentColor
-import app.gamenative.ui.theme.pluviaGlass
+import app.gamenative.utils.HapticManager
+import app.gamenative.utils.hapticClickable
+import app.gamenative.utils.hapticSelectable
 import app.gamenative.ui.util.SteamIconImage
 import app.gamenative.ui.util.adaptivePanelWidth
 import app.gamenative.ui.util.shouldShowGamepadUI
@@ -137,10 +141,9 @@ private fun SystemMenuItem(
             .clip(RoundedCornerShape(16.dp))
             .background(backgroundColor)
             .focusRequester(focusRequester)
-            .selectable(
-                selected = isFocused,
+            .hapticClickable(
                 interactionSource = interactionSource,
-                indication = null,
+                type = HapticManager.HapticType.CLICK,
                 onClick = onClick,
             )
             .padding(horizontal = 20.dp, vertical = 16.dp),
@@ -200,10 +203,9 @@ private fun StatusOption(
             .scale(scale)
             .clip(RoundedCornerShape(12.dp))
             .background(backgroundColor)
-            .selectable(
-                selected = isFocused,
+            .hapticClickable(
                 interactionSource = interactionSource,
-                indication = null,
+                type = HapticManager.HapticType.CLICK,
                 onClick = onClick,
             )
             .padding(horizontal = 16.dp, vertical = 12.dp),
@@ -323,7 +325,13 @@ fun SystemMenu(
 
     Box(modifier = modifier.fillMaxSize()) {
         // Backdrop
-        AnimatedVisibility(
+        LaunchedEffect(isOpen) {
+        if (isOpen) {
+            HapticManager.trigger(HapticManager.HapticType.MENU)
+        }
+    }
+
+    AnimatedVisibility(
             visible = isOpen,
             enter = fadeIn(animationSpec = tween(200)),
             exit = fadeOut(animationSpec = tween(150)),
@@ -341,7 +349,13 @@ fun SystemMenu(
         }
 
         // Menu panel - slides from right
-        AnimatedVisibility(
+        LaunchedEffect(isOpen) {
+        if (isOpen) {
+            HapticManager.trigger(HapticManager.HapticType.MENU)
+        }
+    }
+
+    AnimatedVisibility(
             visible = isOpen,
             enter = slideInHorizontally(
                 initialOffsetX = { fullWidth -> fullWidth },
@@ -359,15 +373,13 @@ fun SystemMenu(
             ),
             modifier = Modifier.align(Alignment.CenterEnd),
         ) {
-            val isGlass = PrefManager.glassPanels
             val contentColor = glassContentColor()
 
-            Box(
+            PluviaGlassPanel(
                 modifier = Modifier
                     .width(adaptivePanelWidth(380.dp))
-                    .fillMaxHeight()
-                    .pluviaGlass()
-                    .then(if (!isGlass) Modifier.background(MaterialTheme.colorScheme.surface, RoundedCornerShape(topStart = 32.dp, bottomStart = 32.dp)) else Modifier),
+                    .fillMaxHeight(),
+                shape = RoundedCornerShape(topStart = 32.dp, bottomStart = 32.dp)
             ) {
                 Column(
                     modifier = Modifier
@@ -388,11 +400,18 @@ fun SystemMenu(
                             ),
                             color = Color.White,
                         )
-                        IconButton(onClick = onDismiss) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .hapticClickable(type = HapticManager.HapticType.CLICK) { onDismiss() },
+                            contentAlignment = Alignment.Center
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = stringResource(R.string.options_panel_close),
                                 tint = Color.White,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
@@ -436,7 +455,7 @@ fun SystemMenu(
                                     },
                                 )
                                 .focusRequester(profileFocusRequester)
-                                .selectable(
+                                .hapticSelectable(
                                     selected = isProfileFocused,
                                     interactionSource = profileInteractionSource,
                                     indication = null,
@@ -604,6 +623,15 @@ fun SystemMenu(
                             text = stringResource(R.string.hall_of_fame),
                             icon = Icons.AutoMirrored.Filled.StarHalf,
                             onClick = { showSupporters = true },
+                        )
+
+                        SystemMenuItem(
+                            text = stringResource(R.string.tutorial_title),
+                            icon = Icons.AutoMirrored.Filled.MenuBook,
+                            onClick = {
+                                onNavigateRoute(PluviaScreen.Onboarding.route)
+                                onDismiss()
+                            },
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))

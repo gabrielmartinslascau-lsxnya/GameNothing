@@ -73,6 +73,8 @@ import app.gamenative.ui.screen.library.GameMigrationDialog
 import app.gamenative.ui.theme.PluviaTheme
 import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.utils.ContainerStorageManager
+import app.gamenative.utils.HapticManager
+import app.gamenative.utils.hapticSelectable
 import app.gamenative.utils.StorageUtils
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
@@ -795,7 +797,7 @@ private fun StorageArtworkButton(
                 },
                 shape = RoundedCornerShape(10.dp),
             )
-            .selectable(
+            .hapticSelectable(
                 selected = isFocused,
                 enabled = enabled,
                 interactionSource = interactionSource,
@@ -840,7 +842,10 @@ private fun StorageActionButton(
     val accentColor = PluviaTheme.colors.accentPurple
 
     FilledTonalButton(
-        onClick = onClick,
+        onClick = {
+            HapticManager.trigger(HapticManager.HapticType.CLICK)
+            onClick()
+        },
         enabled = enabled,
         shape = RoundedCornerShape(16.dp),
         interactionSource = interactionSource,

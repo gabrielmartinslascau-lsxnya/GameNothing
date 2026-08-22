@@ -19,6 +19,7 @@ import app.gamenative.service.SteamService
 import app.gamenative.sync.FrontendSyncManager
 import app.gamenative.ui.screen.xserver.RadialMenuCoordinator
 import app.gamenative.utils.ContainerMigrator
+import app.gamenative.utils.HapticManager
 import app.gamenative.utils.IntentLaunchManager
 import app.gamenative.utils.PlayIntegrity
 import app.gamenative.utils.downloader.ContainerFilesDownloader
@@ -83,6 +84,7 @@ class PluviaApp : SplitCompatApplication() {
 
         // Init our datastore preferences.
         PrefManager.init(this)
+        HapticManager.init(this)
         FrontendSyncManager.init(this)
 
         // Initialize GOGConstants

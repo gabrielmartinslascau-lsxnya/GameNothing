@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -35,6 +34,7 @@ import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.enums.AppTheme
 import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.utils.hapticSelectable
 
 @Composable
 fun SingleChoiceDialog(
@@ -66,7 +66,7 @@ fun SingleChoiceDialog(
                         Modifier
                             .fillMaxWidth()
                             .height(56.dp)
-                            .selectable(
+                            .hapticSelectable(
                                 selected = index == currentItem,
                                 onClick = { onSelected(index) },
                                 role = Role.RadioButton,

@@ -40,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import app.gamenative.utils.hapticClickable
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
@@ -152,10 +153,9 @@ internal fun GridViewCard(
                 .fillMaxWidth()
                 .aspectRatio(aspectRatio)
                 .focusRing(interactionSource, cardShape)
-                .clickable(
+                .hapticClickable(
                     onClick = onClick,
                     interactionSource = interactionSource,
-                    indication = null,
                 ),
             shape = cardShape,
             colors = CardDefaults.cardColors(

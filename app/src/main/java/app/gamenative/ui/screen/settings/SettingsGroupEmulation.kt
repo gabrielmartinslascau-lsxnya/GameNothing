@@ -17,12 +17,13 @@ import app.gamenative.ui.component.dialog.Box64PresetsDialog
 import app.gamenative.ui.component.dialog.ContainerConfigDialog
 import app.gamenative.ui.component.dialog.FEXCorePresetsDialog
 import app.gamenative.ui.component.dialog.OrientationDialog
+import app.gamenative.ui.component.settings.HapticSettingsMenuLink
+import app.gamenative.ui.component.settings.HapticSettingsSwitch
 import app.gamenative.ui.theme.PluviaTheme
 import app.gamenative.ui.theme.settingsTileColors
 import app.gamenative.ui.theme.settingsTileColorsAlt
 import app.gamenative.utils.ContainerUtils
 import com.alorma.compose.settings.ui.SettingsGroup
-import com.alorma.compose.settings.ui.SettingsMenuLink
 import com.alorma.compose.settings.ui.SettingsSwitch
 
 @Composable
@@ -77,21 +78,21 @@ fun SettingsGroupEmulation() {
             WineProtonManagerDialog(open = showWineProtonManager, onDismiss = { showWineProtonManager = false })
         }
 
-        SettingsMenuLink(
+        HapticSettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_emulation_orientations_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_emulation_orientations_subtitle)) },
             onClick = { showOrientationDialog = true },
         )
 
-        SettingsMenuLink(
+        HapticSettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_emulation_default_config_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_emulation_default_config_subtitle)) },
             onClick = { showConfigDialog = true },
         )
         var autoApplyKnownConfig by rememberSaveable { mutableStateOf(PrefManager.autoApplyKnownConfig) }
-        SettingsSwitch(
+        HapticSettingsSwitch(
             colors = settingsTileColorsAlt(),
             state = autoApplyKnownConfig,
             title = { Text(text = stringResource(R.string.settings_emulation_auto_apply_known_config_title)) },
@@ -101,31 +102,31 @@ fun SettingsGroupEmulation() {
                 PrefManager.autoApplyKnownConfig = it
             },
         )
-        SettingsMenuLink(
+        HapticSettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_emulation_box64_presets_title)) },
             subtitle = { Text(stringResource(R.string.settings_emulation_box64_presets_subtitle)) },
             onClick = { showBox64PresetsDialog = true },
         )
-        SettingsMenuLink(
+        HapticSettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.fexcore_presets)) },
             subtitle = { Text(text = stringResource(R.string.fexcore_presets_description)) },
             onClick = { showFexcorePresetsDialog = true },
         )
-        SettingsMenuLink(
+        HapticSettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_emulation_driver_manager_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_emulation_driver_manager_subtitle)) },
             onClick = { showDriverManager = true },
         )
-        SettingsMenuLink(
+        HapticSettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_emulation_contents_manager_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_emulation_contents_manager_subtitle)) },
             onClick = { showContentsManager = true },
         )
-        SettingsMenuLink(
+        HapticSettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_emulation_wine_proton_manager_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_emulation_wine_proton_manager_subtitle)) },

@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import app.gamenative.utils.hapticSelectable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
@@ -143,10 +144,9 @@ fun OptionListItem(
                 },
             )
             .focusRequester(focusRequester)
-            .selectable(
+            .hapticSelectable(
                 selected = selected,
                 interactionSource = interactionSource,
-                indication = null,
                 onClick = onClick,
             )
             .padding(horizontal = 16.dp, vertical = 14.dp),
@@ -229,10 +229,9 @@ fun OptionRadioItem(
                 },
             )
             .focusRequester(focusRequester)
-            .selectable(
+            .hapticSelectable(
                 selected = selected,
                 interactionSource = interactionSource,
-                indication = null,
                 onClick = onClick,
             )
             .padding(horizontal = 16.dp, vertical = 14.dp),

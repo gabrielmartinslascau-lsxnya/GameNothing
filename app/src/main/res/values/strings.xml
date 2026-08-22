@@ -252,6 +252,7 @@
     <string name="reset_onscreen_controls">Reset On-Screen Controls</string>
     <string name="open_navigation_menu">Open Navigation Menu</string>
     <string name="quick_menu_title">Quick Menu</string>
+    <string name="tutorial_title">Tutorial</string>
     <string name="quick_menu_back">Back</string>
     <string name="display_brightness">Display brightness</string>
     <string name="screen_effects">Screen Effects</string>
@@ -1092,6 +1093,12 @@
     <string name="settings_info_privacy_subtitle">Opens a link to GameNative\'s privacy policy</string>
     <string name="settings_info_usage_analytics_title">Usage analytics</string>
     <string name="settings_info_usage_analytics_subtitle">We never track personal information. Disabling this stops non-essential analytics, however core game performance data is still collected as a legitimate interest to improve compatibility.</string>
+
+    <!-- Settings: Feel Group -->
+    <string name="settings_feel_title" translatable="false">Feel</string>
+    <string name="settings_feel_haptics_title" translatable="false">Haptic Feedback</string>
+    <string name="settings_feel_haptics_subtitle" translatable="false">Vibrate on clicks and movements</string>
+    <string name="settings_feel_intensity" translatable="false">Haptic Intensity</string>
 
     <!-- Settings: Interface Group -->
     <string name="settings_interface_title">Interface</string>
@@ -2329,4 +2336,9 @@
     <string name="settings_looks_jiggly_subtitle">Add more bounce and spring to UI transitions.</string>
     <string name="settings_looks_glass_title">Glass Panels</string>
     <string name="settings_looks_glass_subtitle">Apply a frosted glass effect to backgrounds and cards.</string>
+    <string name="settings_looks_true_glass_title" translatable="false">True Glass</string>
+    <string name="settings_looks_true_glass_subtitle" translatable="false">Add a realistic blur effect to panels (Android 12+)</string>
+    <string name="settings_looks_font_type_title" translatable="false">Font Type</string>
+    <string name="font_type_ndot" translatable="false">Ndot</string>
+    <string name="font_type_normal" translatable="false">Normal</string>
 </resources>

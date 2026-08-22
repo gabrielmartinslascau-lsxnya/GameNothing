@@ -87,6 +87,7 @@ fun DriverManagerDialog(open: Boolean, onDismiss: () -> Unit) {
     var driverToDelete by remember { mutableStateOf<String?>(null) }
 
     val refreshDriverList: () -> Unit = {
+        app.gamenative.utils.HapticManager.trigger(app.gamenative.utils.HapticManager.HapticType.CLICK)
         installedDrivers.clear()
         driverMeta.clear()
         try {

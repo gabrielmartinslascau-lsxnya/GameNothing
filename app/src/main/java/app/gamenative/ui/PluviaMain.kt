@@ -19,6 +19,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -91,10 +92,16 @@ import app.gamenative.ui.model.MainViewModel
 import app.gamenative.ui.screen.HomeScreen
 import app.gamenative.ui.screen.PluviaScreen
 import app.gamenative.ui.screen.login.UserLoginScreen
+import app.gamenative.ui.screen.TutorialScreen
 import app.gamenative.ui.screen.settings.SettingsScreen
 import app.gamenative.ui.screen.xserver.XServerScreen
 import app.gamenative.ui.theme.PluviaAnimation
 import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.ui.theme.LooksState
+import app.gamenative.ui.theme.LocalLooksState
+import app.gamenative.ui.theme.NdotFontFamily
+import app.gamenative.ui.theme.PTMonoFontFamily
+import app.gamenative.enums.FontType
 import app.gamenative.ui.theme.toColor
 import app.gamenative.ui.util.LocalSnackbarHostController
 import app.gamenative.ui.util.SnackbarManager
@@ -104,6 +111,7 @@ import app.gamenative.utils.PlatformAuthUtils
 import app.gamenative.utils.CustomGameScanner
 import app.gamenative.utils.ManifestInstaller
 import app.gamenative.utils.GameFeedbackUtils
+import app.gamenative.utils.HapticManager
 import app.gamenative.utils.IntentLaunchManager
 import app.gamenative.utils.SteamUtils
 import app.gamenative.utils.UpdateChecker
@@ -409,7 +417,7 @@ fun PluviaMain(
                 shownPendingLaunchSnackbar = showDeferredLaunchSnackbar(context, launchRequest.appId)
                 return@let
             }
-            when (val resolution = resolveGameAppId(context, launchRequest.appId)) {
+            when (val resolution = resolveGameAppId(context, appId = launchRequest.appId)) {
                 is GameResolutionResult.Success -> {
                     if (launchRequest.containerConfig != null) {
                         IntentLaunchManager.applyTemporaryConfigOverride(
@@ -453,7 +461,7 @@ fun PluviaMain(
         MainActivity.consumePendingLaunchRequest()?.let { launchRequest ->
             Timber.tag("IntentLaunch")
                 .i("Processing pending launch for ${launchRequest.appId} ($reason)")
-            when (val resolution = resolveGameAppId(context, launchRequest.appId)) {
+            when (val resolution = resolveGameAppId(context, appId = launchRequest.appId)) {
                 is GameResolutionResult.NotFound -> {
                     val appName = ContainerUtils.resolveGameName(resolution.originalAppId)
                     Timber.tag("IntentLaunch").w("Game not installed: $appName (${launchRequest.appId})")
@@ -510,7 +518,7 @@ fun PluviaMain(
                         return@collect
                     }
 
-                    when (val resolution = resolveGameAppId(context, event.appId)) {
+                    when (val resolution = resolveGameAppId(context, appId = event.appId)) {
                         is GameResolutionResult.Success -> {
                             Timber.i("[PluviaMain]: Using appId: ${resolution.finalAppId} (original: ${event.appId}, isSteamInstalled: ${resolution.isSteamInstalled}, isCustomGame: ${resolution.isCustomGame})")
                             launchIntentApp(
@@ -644,6 +652,7 @@ fun PluviaMain(
                 Timber.i("onDestinationChanged to ${destination.route}")
                 // in order not to trigger the screen changed launch effect
                 viewModel.setCurrentScreen(destination.route)
+                HapticManager.trigger(HapticManager.HapticType.MENU)
             }
             PluviaApp.events.emit(AndroidEvent.StartOrientator)
         } else {
@@ -1155,446 +1164,482 @@ fun PluviaMain(
         isAmoled = (state.appTheme == AppTheme.AMOLED),
         style = state.paletteStyle,
     ) {
-        val window = (context as? Activity)?.window
-        LaunchedEffect(state.maxRefreshRate) {
-            window?.let {
-                val lp = it.attributes
-                val targetHz = if (PrefManager.refreshRateEnabled) state.maxRefreshRate.toFloat() else 60f
-                lp.preferredRefreshRate = targetHz
-                it.attributes = lp
-                Timber.i("Applied experimental preferredRefreshRate: $targetHz Hz")
-            }
-        }
+        val looksState = LooksState(
+            isJigglyAnimations = state.jigglyAnimations,
+            isGlassEnabled = state.glassPanels,
+            isTrueGlassEnabled = state.trueGlassEnabled,
+            glassTransparencyOrBlur = if (state.trueGlassEnabled) {
+                (state.glassBlurIntensity - 5f) / 45f // 5-50 -> 0-1
+            } else {
+                (state.glassTransparency - 0.05f) / 0.75f // 0.05-0.8 -> 0-1
+            },
+            glassColor = state.glassColor.toColor(),
+            fontType = when (state.fontType) {
+                FontType.NDOT -> NdotFontFamily
+                FontType.NORMAL -> PTMonoFontFamily
+            },
+            mainColor = state.mainColor.toColor(),
+            wallpaperColor = state.wallpaperColor.toColor()
+        )
 
-        Box(modifier = Modifier.fillMaxSize()) {
-            LoadingDialog(
-                visible = state.loadingDialogVisible,
-                progress = state.loadingDialogProgress,
-                message = state.loadingDialogMessage,
-            )
-
-            MessageDialog(
-                visible = msgDialogState.visible,
-                onDismissRequest = onDismissRequest,
-                onConfirmClick = onConfirmClick,
-                confirmBtnText = msgDialogState.confirmBtnText,
-                onDismissClick = onDismissClick,
-                dismissBtnText = msgDialogState.dismissBtnText,
-                onActionClick = onActionClick,
-                actionBtnText = msgDialogState.actionBtnText,
-                icon = msgDialogState.type.icon,
-                title = msgDialogState.title,
-                message = msgDialogState.message,
-                confirmBtnColor = msgDialogState.confirmBtnColor ?: Color.Unspecified,
-                dismissBtnColor = msgDialogState.dismissBtnColor ?: Color.Unspecified,
-            )
-
-            val scope = rememberCoroutineScope()
-            var containerConfigForDialog by remember(openContainerConfigForAppId) { mutableStateOf<ContainerData?>(null) }
-            LaunchedEffect(openContainerConfigForAppId) {
-                val appId = openContainerConfigForAppId
-                if (appId == null) {
-                    containerConfigForDialog = null
-                    return@LaunchedEffect
-                }
-                containerConfigForDialog = withContext(Dispatchers.IO) {
-                    val container = ContainerUtils.getOrCreateContainer(context, appId)
-                    ContainerUtils.toContainerData(container)
+        androidx.compose.runtime.CompositionLocalProvider(LocalLooksState provides looksState) {
+            val window = (context as? Activity)?.window
+            LaunchedEffect(state.maxRefreshRate) {
+                window?.let {
+                    val lp = it.attributes
+                    val targetHz = if (PrefManager.refreshRateEnabled) state.maxRefreshRate.toFloat() else 60f
+                    lp.preferredRefreshRate = targetHz
+                    it.attributes = lp
+                    Timber.i("Applied experimental preferredRefreshRate: $targetHz Hz")
                 }
             }
-            openContainerConfigForAppId?.let { appId ->
-                containerConfigForDialog?.let { config ->
-                    ContainerConfigDialog(
-                        visible = true,
-                        title = context.getString(R.string.container_config_title),
-                        initialConfig = config,
-                        onDismissRequest = { openContainerConfigForAppId = null },
-                        onSave = { newConfig ->
-                            scope.launch {
-                                withContext(Dispatchers.IO) {
-                                    ContainerUtils.applyToContainer(context, appId, newConfig)
-                                }
-                                openContainerConfigForAppId = null
-                            }
-                        },
+
+            app.gamenative.ui.components.NothingLaunchWrapper {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    LoadingDialog(
+                        visible = state.loadingDialogVisible,
+                        progress = state.loadingDialogProgress,
+                        message = state.loadingDialogMessage,
                     )
-                }
-            }
 
-            GameFeedbackDialog(
-                state = gameFeedbackState,
-                onStateChange = { gameFeedbackState = it },
-                onSubmit = { feedbackState ->
-                    Timber.d(
-                        "GameFeedback: onSubmit called with rating=${feedbackState.rating}, tags=${feedbackState.selectedTags}, text=${
-                            feedbackState.feedbackText.take(
-                                20,
+                    MessageDialog(
+                        visible = msgDialogState.visible,
+                        onDismissRequest = onDismissRequest,
+                        onConfirmClick = onConfirmClick,
+                        confirmBtnText = msgDialogState.confirmBtnText,
+                        onDismissClick = onDismissClick,
+                        dismissBtnText = msgDialogState.dismissBtnText,
+                        onActionClick = onActionClick,
+                        actionBtnText = msgDialogState.actionBtnText,
+                        icon = msgDialogState.type.icon,
+                        title = msgDialogState.title,
+                        message = msgDialogState.message,
+                        confirmBtnColor = msgDialogState.confirmBtnColor ?: Color.Unspecified,
+                        dismissBtnColor = msgDialogState.dismissBtnColor ?: Color.Unspecified,
+                    )
+
+                    val scope = rememberCoroutineScope()
+                    var containerConfigForDialog by remember(openContainerConfigForAppId) { mutableStateOf<ContainerData?>(null) }
+                    LaunchedEffect(openContainerConfigForAppId) {
+                        val appId = openContainerConfigForAppId
+                        if (appId == null) {
+                            containerConfigForDialog = null
+                            return@LaunchedEffect
+                        }
+                        containerConfigForDialog = withContext(Dispatchers.IO) {
+                            val container = ContainerUtils.getOrCreateContainer(context, appId)
+                            ContainerUtils.toContainerData(container)
+                        }
+                    }
+                    openContainerConfigForAppId?.let { appId ->
+                        containerConfigForDialog?.let { config ->
+                            ContainerConfigDialog(
+                                visible = true,
+                                title = context.getString(R.string.container_config_title),
+                                initialConfig = config,
+                                onDismissRequest = { openContainerConfigForAppId = null },
+                                onSave = { newConfig ->
+                                    scope.launch {
+                                        withContext(Dispatchers.IO) {
+                                            ContainerUtils.applyToContainer(context, appId, newConfig)
+                                        }
+                                        openContainerConfigForAppId = null
+                                    }
+                                },
                             )
-                        }",
-                    )
-                    try {
-                        // Get the container for the app
-                        val appId = feedbackState.appId
-                        Timber.d("GameFeedback: Got appId=$appId")
+                        }
+                    }
 
-                        // Submit feedback via worker API
-                        Timber.d("GameFeedback: Starting coroutine for submission")
-                        viewModel.viewModelScope.launch {
-                            Timber.d("GameFeedback: Inside coroutine scope")
+                    GameFeedbackDialog(
+                        state = gameFeedbackState,
+                        onStateChange = { gameFeedbackState = it },
+                        onSubmit = { feedbackState ->
+                            Timber.d(
+                                "GameFeedback: onSubmit called with rating=${feedbackState.rating}, tags=${feedbackState.selectedTags}, text=${
+                                    feedbackState.feedbackText.take(
+                                        20,
+                                    )
+                                }",
+                            )
                             try {
-                                Timber.d("GameFeedback: Calling submitGameFeedback with rating=${feedbackState.rating}")
-                                val result = GameFeedbackUtils.submitGameFeedback(
+                                // Get the container for the app
+                                val appId = feedbackState.appId
+                                Timber.d("GameFeedback: Got appId=$appId")
+
+                                // Submit feedback via worker API
+                                Timber.d("GameFeedback: Starting coroutine for submission")
+                            viewModel.viewModelScope.launch {
+                                Timber.d("GameFeedback: Inside coroutine scope")
+                                try {
+                                    Timber.d("GameFeedback: Calling submitGameFeedback with rating=${feedbackState.rating}")
+                                    val result = GameFeedbackUtils.submitGameFeedback(
+                                        context = context,
+                                        appId = appId,
+                                        rating = feedbackState.rating,
+                                        tags = feedbackState.selectedTags.toList(),
+                                        notes = feedbackState.feedbackText.takeIf { it.isNotBlank() },
+                                    )
+
+                                    Timber.d("GameFeedback: Submission returned $result")
+                                    if (result) {
+                                        Timber.d("GameFeedback: Showing success snackbar")
+                                        SnackbarManager.show("Thank you for your feedback!")
+                                    } else {
+                                        Timber.d("GameFeedback: Showing failure snackbar")
+                                        SnackbarManager.show("Failed to submit feedback")
+                                    }
+                                } catch (e: Exception) {
+                                    Timber.e(e, "GameFeedback: Error submitting game feedback")
+                                    SnackbarManager.show("Error submitting feedback")
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Timber.e(e, "GameFeedback: Error preparing game feedback")
+                            SnackbarManager.show("Failed to submit feedback")
+                        } finally {
+                            // Close the dialog regardless of success
+                            Timber.d("GameFeedback: Closing dialog")
+                            gameFeedbackState = GameFeedbackDialogState(visible = false)
+                            viewModel.onGameFeedbackResolved(feedbackState.rating)
+                        }
+                    },
+                    onDismiss = {
+                        gameFeedbackState = GameFeedbackDialogState(visible = false)
+                        viewModel.onGameFeedbackResolved(null)
+                    },
+                    onDiscordSupport = {
+                        uriHandler.openUri("https://discord.gg/2hKv4VfZfE")
+                    },
+                )
+
+                Box(modifier = Modifier.zIndex(10f)) {
+                    BootingSplash(
+                        visible = state.showBootingSplash,
+                        text = state.bootingSplashText,
+                        heroImageUrl = state.bootingSplashHeroImageUrl,
+                    )
+                }
+
+                // Connection status banner (overlay) - dismissible so users can access navigation
+                if (state.currentScreen != PluviaScreen.LoginUser && !connectionBannerDismissed && initialConnectDone && !state.isSteamConnected &&
+                    SteamUtils.hasStoredCredentials()) {
+                    Box(modifier = Modifier.zIndex(5f)) {
+                        ConnectionStatusBanner(
+                            connectionState = state.connectionState,
+                            connectionMessage = state.connectionMessage,
+                            timeoutSeconds = state.connectionTimeoutSeconds,
+                            onContinueOffline = {
+                                viewModel.continueOffline()
+                            },
+                            onRetry = {
+                                viewModel.retryConnection()
+                                context.startForegroundService(Intent(context, SteamService::class.java))
+                            },
+                            onDismiss = {
+                                connectionBannerDismissed = true
+                            },
+                        )
+                    }
+                }
+
+                val startDestination = rememberSaveable {
+                    when {
+                        !PrefManager.hasCompletedTutorial -> PluviaScreen.Onboarding.route
+                        SteamService.isLoggedIn -> PluviaScreen.Home.route + "?offline=false"
+                        // skip login screen if any service has stored credentials
+                        SteamUtils.hasStoredCredentials() ||
+                            GOGService.hasStoredCredentials(context) ||
+                            EpicService.hasStoredCredentials(context) ||
+                            AmazonService.hasStoredCredentials(context) ->
+                            PluviaScreen.Home.route + "?offline=true"
+                        else -> PluviaScreen.LoginUser.route
+                    }
+                }
+
+                NavHost(
+                    navController = navController,
+                    startDestination = startDestination,
+                ) {
+                    /** Onboarding **/
+                    composable(route = PluviaScreen.Onboarding.route) {
+                        TutorialScreen(
+                            onComplete = {
+                                PrefManager.hasCompletedTutorial = true
+                                navController.navigate(PluviaScreen.LoginUser.route) {
+                                    popUpTo(PluviaScreen.Onboarding.route) { inclusive = true }
+                                }
+                            }
+                        )
+                    }
+
+                    /** Login **/
+                    composable(route = PluviaScreen.LoginUser.route) {
+                        UserLoginScreen(
+                            connectionState = state.connectionState,
+                            onRetryConnection = viewModel::retryConnection,
+                            onContinueOffline = {
+                                navController.navigate(PluviaScreen.Home.route + "?offline=true")
+                            },
+                            onPlatformSignedIn = {
+                                navController.navigate(PluviaScreen.Home.route + "?offline=true") {
+                                    popUpTo(PluviaScreen.LoginUser.route) { inclusive = true }
+                                }
+                            },
+                        )
+                    }
+                    /** Library, Downloads **/
+                    composable(
+                        route = PluviaScreen.Home.route + "?offline={offline}",
+                        deepLinks = listOf(navDeepLink { uriPattern = "pluvia://home" }),
+                        arguments = listOf(
+                            navArgument("offline") {
+                                type = NavType.BoolType
+                                defaultValue = false // default when the query param isn’t present
+                            },
+                        ),
+                    ) { backStackEntry ->
+                        val isOffline = backStackEntry.arguments?.getBoolean("offline") ?: false
+
+                        // Show update/crash/support dialogs when Home is first displayed
+                        // Skip when offline with Steam credentials (avoid flash when Steam reconnects)
+                        LaunchedEffect(Unit) {
+                            val shouldShowDialogs = !isOffline || !SteamUtils.hasStoredCredentials()
+
+                            if (shouldShowDialogs && !state.annoyingDialogShown && PluviaApp.xEnvironment == null && !SteamService.keepAlive && !MainActivity.wasLaunchedViaExternalIntent) {
+                                val currentUpdateInfo = updateInfo
+                                if (currentUpdateInfo != null) {
+                                    viewModel.setAnnoyingDialogShown(true)
+                                    msgDialogState = MessageDialogState(
+                                        visible = true,
+                                        type = DialogType.APP_UPDATE,
+                                        title = context.getString(R.string.main_update_available_title),
+                                        message = context.getString(
+                                            R.string.main_update_available_message,
+                                            currentUpdateInfo.versionName,
+                                            currentUpdateInfo.releaseNotes?.let { "\n\n$it" } ?: "",
+                                        ),
+                                        confirmBtnText = context.getString(R.string.main_update_button),
+                                        dismissBtnText = context.getString(R.string.main_later_button),
+                                    )
+                                } else if (state.hasCrashedLastStart) {
+                                    viewModel.setAnnoyingDialogShown(true)
+                                    msgDialogState = MessageDialogState(
+                                        visible = true,
+                                        type = DialogType.CRASH,
+                                        title = context.getString(R.string.main_recent_crash_title),
+                                        message = context.getString(R.string.main_recent_crash_message),
+                                        confirmBtnText = context.getString(R.string.ok),
+                                    )
+                                }
+                            }
+                        }
+
+                        HomeScreen(
+                            onClickPlay = { appId, asContainer ->
+                                trackGameLaunched(appId)
+                                viewModel.setLaunchedAppId(appId)
+                                viewModel.setBootToContainer(asContainer)
+                                viewModel.setTestGraphics(false)
+                                viewModel.setDiagnostics(false)
+                                viewModel.setOffline(isOffline)
+                                preLaunchApp(
                                     context = context,
                                     appId = appId,
-                                    rating = feedbackState.rating,
-                                    tags = feedbackState.selectedTags.toList(),
-                                    notes = feedbackState.feedbackText.takeIf { it.isNotBlank() },
+                                    setLoadingDialogVisible = viewModel::setLoadingDialogVisible,
+                                    setLoadingProgress = viewModel::setLoadingDialogProgress,
+                                    setLoadingMessage = viewModel::setLoadingDialogMessage,
+                                    setMessageDialogState = { msgDialogState = it },
+                                    onSuccess = viewModel::launchApp,
+                                    isOffline = isOffline,
+                                    bootToContainer = asContainer,
                                 )
-
-                                Timber.d("GameFeedback: Submission returned $result")
-                                if (result) {
-                                    Timber.d("GameFeedback: Showing success snackbar")
-                                    SnackbarManager.show("Thank you for your feedback!")
+                            },
+                            onTestGraphics = { appId ->
+                                viewModel.setLaunchedAppId(appId)
+                                viewModel.setBootToContainer(true)
+                                viewModel.setTestGraphics(true)
+                                viewModel.setDiagnostics(false)
+                                viewModel.setOffline(isOffline)
+                                preLaunchApp(
+                                    context = context,
+                                    appId = appId,
+                                    setLoadingDialogVisible = viewModel::setLoadingDialogVisible,
+                                    setLoadingProgress = viewModel::setLoadingDialogProgress,
+                                    setLoadingMessage = viewModel::setLoadingDialogMessage,
+                                    setMessageDialogState = { msgDialogState = it },
+                                    onSuccess = viewModel::launchApp,
+                                    isOffline = isOffline,
+                                    bootToContainer = true,
+                                )
+                            },
+                            onPlayWithDiagnostics = { appId ->
+                                trackGameLaunched(appId)
+                                viewModel.setLaunchedAppId(appId)
+                                viewModel.setBootToContainer(false)
+                                viewModel.setTestGraphics(false)
+                                viewModel.setDiagnostics(true)
+                                viewModel.setOffline(isOffline)
+                                preLaunchApp(
+                                    context = context,
+                                    appId = appId,
+                                    setLoadingDialogVisible = viewModel::setLoadingDialogVisible,
+                                    setLoadingProgress = viewModel::setLoadingDialogProgress,
+                                    setLoadingMessage = viewModel::setLoadingDialogMessage,
+                                    setMessageDialogState = { msgDialogState = it },
+                                    onSuccess = viewModel::launchApp,
+                                    isOffline = isOffline,
+                                    bootToContainer = false,
+                                )
+                            },
+                            onClickExit = {
+                                if (!PrefManager.warnBeforeExit) {
+                                    PluviaApp.events.emit(AndroidEvent.EndProcess)
+                                } else if (exitSnackbarVisible) {
+                                    PluviaApp.events.emit(AndroidEvent.EndProcess)
                                 } else {
-                                    Timber.d("GameFeedback: Showing failure snackbar")
-                                    SnackbarManager.show("Failed to submit feedback")
+                                    exitSnackbarVisible = true
+                                    SnackbarManager.show(context.getString(R.string.back_press_exit_warning))
                                 }
-                            } catch (e: Exception) {
-                                Timber.e(e, "GameFeedback: Error submitting game feedback")
-                                SnackbarManager.show("Error submitting feedback")
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Timber.e(e, "GameFeedback: Error preparing game feedback")
-                        SnackbarManager.show("Failed to submit feedback")
-                    } finally {
-                        // Close the dialog regardless of success
-                        Timber.d("GameFeedback: Closing dialog")
-                        gameFeedbackState = GameFeedbackDialogState(visible = false)
-                        viewModel.onGameFeedbackResolved(feedbackState.rating)
-                    }
-                },
-                onDismiss = {
-                    gameFeedbackState = GameFeedbackDialogState(visible = false)
-                    viewModel.onGameFeedbackResolved(null)
-                },
-                onDiscordSupport = {
-                    uriHandler.openUri("https://discord.gg/2hKv4VfZfE")
-                },
-            )
-
-            Box(modifier = Modifier.zIndex(10f)) {
-                BootingSplash(
-                    visible = state.showBootingSplash,
-                    text = state.bootingSplashText,
-                    heroImageUrl = state.bootingSplashHeroImageUrl,
-                )
-            }
-
-            // Connection status banner (overlay) - dismissible so users can access navigation
-            if (state.currentScreen != PluviaScreen.LoginUser && !connectionBannerDismissed && initialConnectDone && !state.isSteamConnected &&
-                SteamUtils.hasStoredCredentials()) {
-                Box(modifier = Modifier.zIndex(5f)) {
-                    ConnectionStatusBanner(
-                        connectionState = state.connectionState,
-                        connectionMessage = state.connectionMessage,
-                        timeoutSeconds = state.connectionTimeoutSeconds,
-                        onContinueOffline = {
-                            viewModel.continueOffline()
-                        },
-                        onRetry = {
-                            viewModel.retryConnection()
-                            context.startForegroundService(Intent(context, SteamService::class.java))
-                        },
-                        onDismiss = {
-                            connectionBannerDismissed = true
-                        },
-                    )
-                }
-            }
-
-            val startDestination = rememberSaveable {
-                when {
-                    SteamService.isLoggedIn -> PluviaScreen.Home.route + "?offline=false"
-                    // skip login screen if any service has stored credentials
-                    SteamUtils.hasStoredCredentials() ||
-                        GOGService.hasStoredCredentials(context) ||
-                        EpicService.hasStoredCredentials(context) ||
-                        AmazonService.hasStoredCredentials(context) ->
-                        PluviaScreen.Home.route + "?offline=true"
-                    else -> PluviaScreen.LoginUser.route
-                }
-            }
-
-            NavHost(
-                navController = navController,
-                startDestination = startDestination,
-            ) {
-                /** Login **/
-                composable(route = PluviaScreen.LoginUser.route) {
-                    UserLoginScreen(
-                        connectionState = state.connectionState,
-                        onRetryConnection = viewModel::retryConnection,
-                        onContinueOffline = {
-                            navController.navigate(PluviaScreen.Home.route + "?offline=true")
-                        },
-                        onPlatformSignedIn = {
-                            navController.navigate(PluviaScreen.Home.route + "?offline=true") {
-                                popUpTo(PluviaScreen.LoginUser.route) { inclusive = true }
-                            }
-                        },
-                    )
-                }
-                /** Library, Downloads **/
-                composable(
-                    route = PluviaScreen.Home.route + "?offline={offline}",
-                    deepLinks = listOf(navDeepLink { uriPattern = "pluvia://home" }),
-                    arguments = listOf(
-                        navArgument("offline") {
-                            type = NavType.BoolType
-                            defaultValue = false // default when the query param isn’t present
-                        },
-                    ),
-                ) { backStackEntry ->
-                    val isOffline = backStackEntry.arguments?.getBoolean("offline") ?: false
-
-                    // Show update/crash/support dialogs when Home is first displayed
-                    // Skip when offline with Steam credentials (avoid flash when Steam reconnects)
-                    LaunchedEffect(Unit) {
-                        val shouldShowDialogs = !isOffline || !SteamUtils.hasStoredCredentials()
-
-                        if (shouldShowDialogs && !state.annoyingDialogShown && PluviaApp.xEnvironment == null && !SteamService.keepAlive && !MainActivity.wasLaunchedViaExternalIntent) {
-                            val currentUpdateInfo = updateInfo
-                            if (currentUpdateInfo != null) {
-                                viewModel.setAnnoyingDialogShown(true)
-                                msgDialogState = MessageDialogState(
-                                    visible = true,
-                                    type = DialogType.APP_UPDATE,
-                                    title = context.getString(R.string.main_update_available_title),
-                                    message = context.getString(
-                                        R.string.main_update_available_message,
-                                        currentUpdateInfo.versionName,
-                                        currentUpdateInfo.releaseNotes?.let { "\n\n$it" } ?: "",
-                                    ),
-                                    confirmBtnText = context.getString(R.string.main_update_button),
-                                    dismissBtnText = context.getString(R.string.main_later_button),
+                            },
+                            onChat = {
+                                navController.navigate(PluviaScreen.Chat.route(it))
+                            },
+                            onNavigateRoute = {
+                                navController.navigate(it)
+                            },
+                            onLogout = {
+                                SteamService.logOut()
+                            },
+                            onGoOnline = {
+                                navController.navigate(
+                                    if (!SteamService.isLoggedIn) PluviaScreen.LoginUser.route
+                                    else PluviaScreen.Home.route
                                 )
-                            } else if (state.hasCrashedLastStart) {
-                                viewModel.setAnnoyingDialogShown(true)
-                                msgDialogState = MessageDialogState(
-                                    visible = true,
-                                    type = DialogType.CRASH,
-                                    title = context.getString(R.string.main_recent_crash_title),
-                                    message = context.getString(R.string.main_recent_crash_message),
-                                    confirmBtnText = context.getString(R.string.ok),
-                                )
-                            }
-                        }
+                            },
+                            isOffline = isOffline,
+                            isSteamConnected = state.isSteamConnected,
+                        )
                     }
 
-                    HomeScreen(
-                        onClickPlay = { appId, asContainer ->
-                            trackGameLaunched(appId)
-                            viewModel.setLaunchedAppId(appId)
-                            viewModel.setBootToContainer(asContainer)
-                            viewModel.setTestGraphics(false)
-                            viewModel.setDiagnostics(false)
-                            viewModel.setOffline(isOffline)
-                            preLaunchApp(
-                                context = context,
-                                appId = appId,
-                                setLoadingDialogVisible = viewModel::setLoadingDialogVisible,
-                                setLoadingProgress = viewModel::setLoadingDialogProgress,
-                                setLoadingMessage = viewModel::setLoadingDialogMessage,
-                                setMessageDialogState = { msgDialogState = it },
-                                onSuccess = viewModel::launchApp,
-                                isOffline = isOffline,
-                                bootToContainer = asContainer,
-                            )
-                        },
-                        onTestGraphics = { appId ->
-                            viewModel.setLaunchedAppId(appId)
-                            viewModel.setBootToContainer(true)
-                            viewModel.setTestGraphics(true)
-                            viewModel.setDiagnostics(false)
-                            viewModel.setOffline(isOffline)
-                            preLaunchApp(
-                                context = context,
-                                appId = appId,
-                                setLoadingDialogVisible = viewModel::setLoadingDialogVisible,
-                                setLoadingProgress = viewModel::setLoadingDialogProgress,
-                                setLoadingMessage = viewModel::setLoadingDialogMessage,
-                                setMessageDialogState = { msgDialogState = it },
-                                onSuccess = viewModel::launchApp,
-                                isOffline = isOffline,
-                                bootToContainer = true,
-                            )
-                        },
-                        onPlayWithDiagnostics = { appId ->
-                            trackGameLaunched(appId)
-                            viewModel.setLaunchedAppId(appId)
-                            viewModel.setBootToContainer(false)
-                            viewModel.setTestGraphics(false)
-                            viewModel.setDiagnostics(true)
-                            viewModel.setOffline(isOffline)
-                            preLaunchApp(
-                                context = context,
-                                appId = appId,
-                                setLoadingDialogVisible = viewModel::setLoadingDialogVisible,
-                                setLoadingProgress = viewModel::setLoadingDialogProgress,
-                                setLoadingMessage = viewModel::setLoadingDialogMessage,
-                                setMessageDialogState = { msgDialogState = it },
-                                onSuccess = viewModel::launchApp,
-                                isOffline = isOffline,
-                                bootToContainer = false,
-                            )
-                        },
-                        onClickExit = {
-                            if (!PrefManager.warnBeforeExit) {
-                                PluviaApp.events.emit(AndroidEvent.EndProcess)
-                            } else if (exitSnackbarVisible) {
-                                PluviaApp.events.emit(AndroidEvent.EndProcess)
-                            } else {
-                                exitSnackbarVisible = true
-                                SnackbarManager.show(context.getString(R.string.back_press_exit_warning))
-                            }
-                        },
-                        onChat = {
-                            navController.navigate(PluviaScreen.Chat.route(it))
-                        },
-                        onNavigateRoute = {
-                            navController.navigate(it)
-                        },
-                        onLogout = {
-                            SteamService.logOut()
-                        },
-                        onGoOnline = {
-                            navController.navigate(
-                                if (!SteamService.isLoggedIn) PluviaScreen.LoginUser.route
-                                else PluviaScreen.Home.route
-                            )
-                        },
-                        isOffline = isOffline,
-                        isSteamConnected = state.isSteamConnected,
-                    )
-                }
+                    /** Full Screen Chat **/
+                    // Chat feature temporarily disabled - screen component removed
+                    /* composable(
+                        route = "chat/{id}",
+                        arguments = listOf(
+                            navArgument(PluviaScreen.Chat.ARG_ID) {
+                                type = NavType.LongType
+                            },
+                        ),
+                    ) {
+                        val id = it.arguments?.getLong(PluviaScreen.Chat.ARG_ID) ?: throw RuntimeException("Unable to get ID to chat")
+                        ChatScreen(
+                            friendId = id,
+                            onBack = {
+                                CoroutineScope(Dispatchers.Main).launch {
+                                    navController.popBackStack()
+                                }
+                            },
+                        )
+                    } */
 
-                /** Full Screen Chat **/
-                // Chat feature temporarily disabled - screen component removed
-                /* composable(
-                    route = "chat/{id}",
-                    arguments = listOf(
-                        navArgument(PluviaScreen.Chat.ARG_ID) {
-                            type = NavType.LongType
-                        },
-                    ),
-                ) {
-                    val id = it.arguments?.getLong(PluviaScreen.Chat.ARG_ID) ?: throw RuntimeException("Unable to get ID to chat")
-                    ChatScreen(
-                        friendId = id,
-                        onBack = {
-                            CoroutineScope(Dispatchers.Main).launch {
-                                navController.popBackStack()
-                            }
-                        },
-                    )
-                } */
+                    /** Game Screen **/
+                    composable(route = PluviaScreen.XServer.route) {
+                        val xServerIsOffline by viewModel.isOffline.collectAsStateWithLifecycle()
+                        XServerScreen(
+                            appId = state.launchedAppId,
+                            bootToContainer = state.bootToContainer,
+                            testGraphics = state.testGraphics,
+                            diagnostics = state.diagnostics,
+                            isOffline = xServerIsOffline,
+                            registerBackAction = { cb ->
+                                Timber.d("registerBackAction called: $cb")
+                                gameBackAction = cb
+                            },
+                            navigateBack = {
+                                CoroutineScope(Dispatchers.Main).launch {
+                                    val currentRoute = navController.currentBackStackEntry
+                                        ?.destination
+                                        ?.route
 
-                /** Game Screen **/
-                composable(route = PluviaScreen.XServer.route) {
-                    val xServerIsOffline by viewModel.isOffline.collectAsStateWithLifecycle()
-                    XServerScreen(
-                        appId = state.launchedAppId,
-                        bootToContainer = state.bootToContainer,
-                        testGraphics = state.testGraphics,
-                        diagnostics = state.diagnostics,
-                        isOffline = xServerIsOffline,
-                        registerBackAction = { cb ->
-                            Timber.d("registerBackAction called: $cb")
-                            gameBackAction = cb
-                        },
-                        navigateBack = {
-                            CoroutineScope(Dispatchers.Main).launch {
-                                val currentRoute = navController.currentBackStackEntry
-                                    ?.destination
-                                    ?.route
-
-                                if (currentRoute == PluviaScreen.XServer.route) {
-                                    if (MainActivity.wasLaunchedViaExternalIntent) {
-                                        Timber.d("[IntentLaunch]: Finishing activity to return to external launcher")
-                                        MainActivity.wasLaunchedViaExternalIntent = false
-                                        (context as? android.app.Activity)?.finish()
-                                    } else {
-                                        navController.popBackStack()
+                                    if (currentRoute == PluviaScreen.XServer.route) {
+                                        if (MainActivity.wasLaunchedViaExternalIntent) {
+                                            Timber.d("[IntentLaunch]: Finishing activity to return to external launcher")
+                                            MainActivity.wasLaunchedViaExternalIntent = false
+                                            (context as? android.app.Activity)?.finish()
+                                        } else {
+                                            navController.popBackStack()
+                                        }
                                     }
                                 }
-                            }
-                        },
-                        onWindowMapped = { context, window ->
-                            viewModel.onWindowMapped(context, window, state.launchedAppId)
-                        },
-                        onExit = { onComplete ->
-                            viewModel.exitSteamApp(context, state.launchedAppId, onComplete)
-                        },
-                        onGameLaunchError = { error ->
-                            viewModel.onGameLaunchError(error)
-                        },
-                    )
-                }
+                            },
+                            onWindowMapped = { context, window ->
+                                viewModel.onWindowMapped(context, window, state.launchedAppId)
+                            },
+                            onExit = { onComplete ->
+                                viewModel.exitSteamApp(context, state.launchedAppId, onComplete)
+                            },
+                            onGameLaunchError = { error ->
+                                viewModel.onGameLaunchError(error)
+                            },
+                        )
+                    }
 
-                /** Settings **/
-                composable(
-                    route = PluviaScreen.Settings.route,
-                    enterTransition = { PluviaAnimation.enterFromRight() },
-                    exitTransition = { PluviaAnimation.exitToRight() },
-                    popEnterTransition = { PluviaAnimation.enterFromRight() },
-                    popExitTransition = { PluviaAnimation.exitToRight() },
-                ) {
-                    SettingsScreen(
-                        viewModel = viewModel,
-                        appTheme = state.appTheme,
-                        paletteStyle = state.paletteStyle,
-                        onAppTheme = viewModel::setTheme,
-                        onPaletteStyle = viewModel::setPalette,
-                        onBack = { navController.navigateUp() },
-                    )
-                }
-            }
-
-            if (snackbarController.rootOwnsHost) {
-                SnackbarHost(
-                    hostState = snackbarController.hostState,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility)
-                        .padding(bottom = 16.dp),
-                ) { data ->
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.BottomCenter,
+                    /** Settings **/
+                    composable(
+                        route = PluviaScreen.Settings.route,
+                        enterTransition = { PluviaAnimation.enterFromRight() },
+                        exitTransition = { PluviaAnimation.exitToRight() },
+                        popEnterTransition = { PluviaAnimation.enterFromRight() },
+                        popExitTransition = { PluviaAnimation.exitToRight() },
                     ) {
-                        Surface(
-                            shape = RoundedCornerShape(24.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            shadowElevation = 4.dp,
+                        SettingsScreen(
+                            viewModel = viewModel,
+                            appTheme = state.appTheme,
+                            paletteStyle = state.paletteStyle,
+                            onAppTheme = viewModel::setTheme,
+                            onPaletteStyle = viewModel::setPalette,
+                            onBack = { navController.navigateUp() },
+                        )
+                    }
+                }
+
+                if (snackbarController.rootOwnsHost) {
+                    SnackbarHost(
+                        hostState = snackbarController.hostState,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility)
+                            .padding(bottom = 16.dp),
+                    ) { data ->
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.BottomCenter,
                         ) {
-                            Text(
-                                text = data.visuals.message,
-                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
+                            Surface(
+                                shape = RoundedCornerShape(24.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                shadowElevation = 4.dp,
+                            ) {
+                                Text(
+                                    text = data.visuals.message,
+                                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            AchievementOverlay()
-            GameInviteOverlay()
-            RamViewerOverlay()
+                AchievementOverlay()
+                GameInviteOverlay()
+                RamViewerOverlay()
+            }
         }
     }
 }
+}
+
 
 fun preLaunchApp(
     context: Context,
@@ -2403,3 +2448,5 @@ fun preLaunchApp(
         }
     }
 }
+
+

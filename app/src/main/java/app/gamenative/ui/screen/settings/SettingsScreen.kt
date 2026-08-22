@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -63,8 +64,11 @@ import app.gamenative.R
 import app.gamenative.enums.AppTheme
 import app.gamenative.ui.model.MainViewModel
 import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.ui.theme.PluviaGlassPanel
 import app.gamenative.ui.theme.glassContentColor
-import app.gamenative.ui.theme.pluviaGlass
+import app.gamenative.utils.HapticManager
+import app.gamenative.utils.hapticClickable
+import app.gamenative.utils.hapticSelectable
 import com.materialkolor.PaletteStyle
 
 @Composable
@@ -161,6 +165,15 @@ private fun SettingsScreenContent(
                     iconTint = PluviaTheme.colors.accentCyan,
                 ) {
                     viewModel?.let { SettingsGroupLooks(viewModel = it) }
+                }
+
+                // Feel section
+                SettingsSection(
+                    title = stringResource(R.string.settings_feel_title),
+                    icon = Icons.Default.TouchApp,
+                    iconTint = PluviaTheme.colors.accentPurple,
+                ) {
+                    SettingsGroupFeel()
                 }
 
                 // Info section
@@ -296,11 +309,11 @@ private fun BackButton(
                     )
                 },
             )
-            .selectable(
+            .hapticSelectable(
                 selected = isFocused,
                 interactionSource = interactionSource,
-                indication = null,
                 onClick = onClick,
+                type = HapticManager.HapticType.CLICK,
             ),
         contentAlignment = Alignment.Center,
     ) {
@@ -324,11 +337,9 @@ private fun SettingsSection(
     val isGlass = PrefManager.glassPanels
     val contentColor = glassContentColor()
 
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .pluviaGlass()
-            .then(if (!isGlass) Modifier.background(PluviaTheme.colors.surfaceElevated, RoundedCornerShape(16.dp)).border(1.dp, PluviaTheme.colors.borderDefault.copy(alpha = 0.1f), RoundedCornerShape(16.dp)) else Modifier)
+    PluviaGlassPanel(
+        modifier = modifier.fillMaxWidth(),
+        cornerRadius = 16
     ) {
         // Force the settings library components to use transparent surfaces and correct content color
         MaterialTheme(

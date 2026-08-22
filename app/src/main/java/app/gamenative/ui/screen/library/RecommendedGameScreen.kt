@@ -41,7 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
@@ -100,7 +100,7 @@ internal fun RecommendedGameScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(280.dp)
-                .clipToBounds(),
+                .graphicsLayer { clip = true },
         ) {
             if (media.isEmpty()) {
                 VideoHero(

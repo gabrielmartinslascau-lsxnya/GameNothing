@@ -41,7 +41,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.gamenative.PrefManager
-import app.gamenative.ui.theme.pluviaGlass
+import app.gamenative.ui.theme.PluviaGlassPanel
+import app.gamenative.utils.HapticManager
+import app.gamenative.utils.hapticClickable
 import kotlinx.coroutines.delay
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -85,65 +87,67 @@ fun BoxScope.RamViewerOverlay() {
             .align(Alignment.TopEnd)
             .padding(16.dp)
             .animateContentSize()
-            .pluviaGlass(cornerRadius = 12)
-            .then(if (!isGlass) Modifier.shadow(8.dp, RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f), RoundedCornerShape(12.dp)) else Modifier)
     ) {
-        if (isMinimized) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clickable { isMinimized = false },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Memory,
-                    contentDescription = "RAM",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        } else {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Memory,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Column {
-                    Text(
-                        text = "RAM Usage",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.6f)
-                    )
-                    Text(
-                        text = ramUsage,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        ),
-                        color = Color.White
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
+        PluviaGlassPanel(
+            cornerRadius = 12
+        ) {
+            if (isMinimized) {
                 Box(
                     modifier = Modifier
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.1f))
-                        .clickable { isMinimized = true },
+                        .size(40.dp)
+                        .hapticClickable { isMinimized = false },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Remove,
-                        contentDescription = "Minimize",
-                        tint = Color.White,
-                        modifier = Modifier.size(14.dp)
+                        imageVector = Icons.Default.Memory,
+                        contentDescription = "RAM",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
                     )
+                }
+            } else {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Memory,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = "RAM Usage",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.6f)
+                        )
+                        Text(
+                            text = ramUsage,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            ),
+                            color = Color.White
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.1f))
+                            .hapticClickable { isMinimized = true },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Remove,
+                            contentDescription = "Minimize",
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
             }
         }

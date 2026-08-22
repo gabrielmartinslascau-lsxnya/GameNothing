@@ -59,8 +59,12 @@ import app.gamenative.R
 import app.gamenative.ui.component.focusRing
 import app.gamenative.ui.enums.LibraryTab
 import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.ui.theme.PluviaGlassPanel
 import app.gamenative.ui.theme.glassContentColor
 import app.gamenative.ui.theme.pluviaGlass
+import app.gamenative.utils.HapticManager
+import app.gamenative.utils.hapticClickable
+import app.gamenative.utils.hapticSelectable
 import app.gamenative.ui.util.WindowWidthClass
 import app.gamenative.ui.util.rememberWindowWidthClass
 
@@ -147,28 +151,18 @@ private fun CompactLibraryTabBar(
         scrollState.animateScrollTo((targetCenter - viewportCenter).coerceAtLeast(0))
     }
 
-    val isGlass = app.gamenative.PrefManager.glassPanels
     val contentColor = glassContentColor()
 
-    Box(
+    PluviaGlassPanel(
         modifier = modifier
             .fillMaxWidth()
-            .then(if (isGlass) Modifier.padding(horizontal = 8.dp, vertical = 4.dp).pluviaGlass() else {
-                Modifier.background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                            Color.Transparent,
-                        ),
-                    ),
-                )
-            })
-            .padding(top = 8.dp, bottom = 12.dp, start = 8.dp, end = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        cornerRadius = 16
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(top = 8.dp, bottom = 12.dp, start = 8.dp, end = 8.dp)
                 .focusGroup()
                 .onPreviewKeyEvent { keyEvent ->
                     if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
@@ -198,13 +192,14 @@ private fun CompactLibraryTabBar(
                 icon = Icons.Default.Tune,
                 contentDescription = stringResource(R.string.options),
                 onClick = onOptionsClick,
+                type = HapticManager.HapticType.MENU,
             )
 
             Row(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(20.dp))
-                    .then(if (!isGlass) Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)) else Modifier.background(Color.White.copy(alpha = 0.05f)))
+                    .background(Color.White.copy(alpha = 0.05f))
                     .horizontalScroll(scrollState)
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.Center,
@@ -229,11 +224,11 @@ private fun CompactLibraryTabBar(
                                 },
                             )
                             .focusRing(tabInteractionSource, RoundedCornerShape(16.dp), width = 2.dp)
-                            .selectable(
+                            .hapticSelectable(
                                 selected = isSelected,
                                 interactionSource = tabInteractionSource,
-                                indication = null,
                                 onClick = { onTabSelected(tab) },
+                                type = HapticManager.HapticType.CLICK,
                             )
                             .padding(horizontal = if (tab.icon != null) 8.dp else 14.dp, vertical = 8.dp),
                         contentAlignment = Alignment.Center,
@@ -274,16 +269,19 @@ private fun CompactLibraryTabBar(
                 icon = Icons.Default.Search,
                 contentDescription = stringResource(R.string.search),
                 onClick = onSearchClick,
+                type = HapticManager.HapticType.CLICK,
             )
             CompactIconButton(
                 icon = Icons.Default.Add,
                 contentDescription = stringResource(R.string.action_add_game),
                 onClick = onAddGameClick,
+                type = HapticManager.HapticType.MENU,
             )
             CompactIconButton(
                 icon = Icons.Default.Menu,
                 contentDescription = stringResource(R.string.menu),
                 onClick = onMenuClick,
+                type = HapticManager.HapticType.MENU,
             )
         }
     }
@@ -297,6 +295,7 @@ private fun CompactIconButton(
     icon: ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
+    type: HapticManager.HapticType = HapticManager.HapticType.CLICK,
     modifier: Modifier = Modifier,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -314,11 +313,10 @@ private fun CompactIconButton(
                 },
             )
             .focusRing(interactionSource, CircleShape, width = 2.dp)
-            .selectable(
-                selected = false,
+            .hapticClickable(
                 interactionSource = interactionSource,
-                indication = null,
                 onClick = onClick,
+                type = type,
             ),
         contentAlignment = Alignment.Center,
     ) {
@@ -387,29 +385,18 @@ private fun ExpandedLibraryTabBar(
         scrollState.animateScrollTo((targetCenter - viewportCenter).coerceAtLeast(0))
     }
 
-    val isGlass = app.gamenative.PrefManager.glassPanels
     val contentColor = glassContentColor()
 
-    Box(
+    PluviaGlassPanel(
         modifier = modifier
             .fillMaxWidth()
-            .then(if (isGlass) Modifier.padding(horizontal = 12.dp, vertical = 6.dp).pluviaGlass() else {
-                Modifier.background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                            Color.Transparent,
-                        ),
-                    ),
-                )
-            })
-            .padding(top = 8.dp, bottom = 20.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        cornerRadius = 16
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp)
+                .padding(top = 8.dp, bottom = 20.dp, start = 12.dp, end = 12.dp)
                 .focusGroup()
                 .onPreviewKeyEvent { keyEvent ->
                     if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
@@ -439,25 +426,14 @@ private fun ExpandedLibraryTabBar(
                 icon = Icons.Default.Tune,
                 contentDescription = stringResource(R.string.options),
                 onClick = onOptionsClick,
+                type = HapticManager.HapticType.MENU,
             )
 
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(24.dp))
-                    .then(if (!isGlass) {
-                        Modifier.background(
-                            brush = Brush.horizontalGradient(
-                                colors = listOf(
-                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                                ),
-                            ),
-                        )
-                    } else {
-                        Modifier.background(Color.White.copy(alpha = 0.05f))
-                    })
+                    .background(Color.White.copy(alpha = 0.05f))
                     .horizontalScroll(scrollState)
                     .padding(4.dp),
                 contentAlignment = Alignment.CenterStart,
@@ -502,18 +478,21 @@ private fun ExpandedLibraryTabBar(
                 icon = Icons.Default.Search,
                 contentDescription = stringResource(R.string.search),
                 onClick = onSearchClick,
+                type = HapticManager.HapticType.CLICK,
             )
 
             IconActionButton(
                 icon = Icons.Default.Add,
                 contentDescription = stringResource(R.string.action_add_game),
                 onClick = onAddGameClick,
+                type = HapticManager.HapticType.MENU,
             )
 
             IconActionButton(
                 icon = Icons.Default.Menu,
                 contentDescription = stringResource(R.string.menu),
                 onClick = onMenuClick,
+                type = HapticManager.HapticType.MENU,
             )
         }
     }
@@ -524,6 +503,7 @@ private fun IconActionButton(
     icon: ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
+    type: HapticManager.HapticType = HapticManager.HapticType.CLICK,
     modifier: Modifier = Modifier,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -573,13 +553,10 @@ private fun IconActionButton(
                 ),
             )
             .focusRing(interactionSource, CircleShape, width = 2.dp)
-            .selectable(
-                // These are actions, not toggles; feeding isFocused back as `selected` caused an
-                // extra recomposition on every focus change.
-                selected = false,
+            .hapticClickable(
                 interactionSource = interactionSource,
-                indication = null,
                 onClick = onClick,
+                type = type,
             ),
         contentAlignment = Alignment.Center,
     ) {
@@ -638,11 +615,11 @@ private fun TabItem(
                     coordinates.size.width.toFloat(),
                 )
             }
-            .selectable(
+            .hapticSelectable(
                 selected = isSelected,
                 interactionSource = interactionSource,
-                indication = null,
                 onClick = onClick,
+                type = HapticManager.HapticType.CLICK,
             )
             .padding(horizontal = if (tab.icon != null) 10.dp else 20.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,

@@ -94,6 +94,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import app.gamenative.ui.theme.NdotFontFamily
+import app.gamenative.ui.theme.PTMonoFontFamily
+import android.os.Build
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import app.gamenative.PrefManager
@@ -104,9 +107,25 @@ import app.gamenative.ui.data.PerformanceHudConfig
 import app.gamenative.ui.data.PerformanceHudSize
 import app.gamenative.ui.theme.PluviaAnimation
 import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.ui.theme.PluviaGlassPanel
 import app.gamenative.ui.theme.glassContentColor
-import app.gamenative.ui.theme.pluviaGlass
+import app.gamenative.ui.theme.toColor
+import app.gamenative.ui.theme.LocalLooksState
+import app.gamenative.ui.theme.LooksState
 import app.gamenative.ui.util.adaptivePanelWidth
+import app.gamenative.ui.theme.pluviaGlass
+import app.gamenative.utils.hapticClickable
+import app.gamenative.utils.hapticSelectable
+import androidx.compose.ui.graphics.asComposeRenderEffect
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.CompositingStrategy
+import app.gamenative.ui.component.settings.HapticSettingsSwitch
+import app.gamenative.ui.component.settings.SettingsListDropdown
+import app.gamenative.ui.theme.settingsTileColorsAlt
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import app.gamenative.enums.FontType
+import app.gamenative.ui.model.MainViewModel
 import app.gamenative.utils.MathUtils.normalizedProgress
 import com.winlator.container.Container
 import com.winlator.renderer.GLRenderer
@@ -116,6 +135,9 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import androidx.compose.material.icons.filled.Palette
+import androidx.hilt.navigation.compose.hiltViewModel
+import app.gamenative.utils.HapticManager
 
 object QuickMenuAction {
     const val KEYBOARD = 1
@@ -134,6 +156,7 @@ enum class QuickMenuTab(val labelResId: Int, val icon: ImageVector) {
     HUD(R.string.performance_hud, Icons.Default.QueryStats),
     POWER(R.string.power_control, Icons.Default.BatteryChargingFull),
     LSFG(R.string.lsfg_tab_title, Icons.Default.Speed),
+    LOOKS(R.string.settings_looks_title, Icons.Default.Palette),
     INVITE(R.string.steam_invite_tab_title, Icons.Default.PersonAdd),
     EFFECTS(R.string.screen_effects, Icons.Default.AutoFixHigh),
     CONTROLLER(R.string.quick_menu_tab_controller, Icons.Default.Gamepad),
@@ -230,6 +253,7 @@ fun QuickMenu(
     isVisible: Boolean,
     onDismiss: () -> Unit,
     onItemSelected: (Int) -> Boolean,
+    viewModel: MainViewModel = hiltViewModel(),
     renderer: VulkanRenderer? = null,
     glRenderer: GLRenderer? = null,
     container: Container? = null,
@@ -361,15 +385,15 @@ fun QuickMenu(
 
             AnimatedVisibility(visibleState = visibleState, enter = PluviaAnimation.slideInFromLeft(), exit = PluviaAnimation.slideOutToLeft(), modifier = Modifier.align(Alignment.CenterStart)) {
                 val panelWidth = if (selectedTab == QuickMenuTab.POWER) adaptivePanelWidth(800.dp, 0.95f) else adaptivePanelWidth(400.dp)
-                val isGlass = PrefManager.glassPanels
                 val contentColor = glassContentColor()
+                val looks = LocalLooksState.current
+                val shape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
 
                 Box(
                     modifier = Modifier
                         .width(panelWidth)
                         .fillMaxHeight()
-                        .pluviaGlass()
-                        .then(if (!isGlass) Modifier.background(MaterialTheme.colorScheme.surface, RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)) else Modifier),
+                        .quickMenuBackground(looks, shape)
                 ) {
                     Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
                         Row(modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
@@ -377,26 +401,27 @@ fun QuickMenu(
                             IconButton(onClick = onDismiss) { Icon(imageVector = Icons.Default.Close, contentDescription = stringResource(R.string.close), tint = contentColor) }
                         }
 
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = if (isGlass) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
                         Row(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 12.dp)) {
                             Column(modifier = Modifier.width(64.dp).fillMaxHeight().focusGroup(), horizontalAlignment = Alignment.CenterHorizontally) {
                                 val tabScrollState = rememberScrollState()
                                 Column(modifier = Modifier.weight(1f).verticalScroll(tabScrollState), verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    availableTabs.forEach { tab -> QuickMenuTabButton(icon = tab.icon, contentDescriptionResId = tab.labelResId, selected = selectedTab == tab, accentColor = PluviaTheme.colors.accentPurple, onSelected = { selectedTab = tab; PrefManager.quickMenuLastTabEnum = tab }, modifier = Modifier.width(56.dp)) }
+                                    availableTabs.forEach { tab -> QuickMenuTabButton(icon = tab.icon, contentDescriptionResId = tab.labelResId, selected = selectedTab == tab, accentColor = looks.mainColor, onSelected = { selectedTab = tab; PrefManager.quickMenuLastTabEnum = tab }, modifier = Modifier.width(56.dp)) }
                                 }
                                 Spacer(modifier = Modifier.height(12.dp))
                                 QuickMenuRailActionButton(item = exitGameItem, onClick = { if (onItemSelected(QuickMenuAction.EXIT_GAME)) onDismiss() }, modifier = Modifier.width(56.dp))
                             }
 
-                            Box(modifier = Modifier.padding(horizontal = 12.dp).width(1.dp).fillMaxHeight().background(if (isGlass) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)))
+                            Box(modifier = Modifier.padding(horizontal = 12.dp).width(1.dp).fillMaxHeight().background(if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)))
 
                             Column(modifier = Modifier.fillMaxSize()) {
                                 Text(text = stringResource(selectedTab.labelResId), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), color = contentColor, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
-                                HorizontalDivider(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), color = if (isGlass) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+                                HorizontalDivider(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), color = if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
                                 Box(modifier = Modifier.weight(1f)) {
                                     when (selectedTab) {
                                         QuickMenuTab.HUD -> PerformanceHudQuickMenuTab(isPerformanceHudEnabled = isPerformanceHudEnabled, config = performanceHudConfig, fpsLimiterEnabled = fpsLimiterEnabled, fpsLimiterTarget = fpsLimiterTarget, fpsLimiterMax = fpsLimiterMax, lsfgMultiplier = if (isLsfgAvailable) lsfgMultiplier else 0, onToggle = { onItemSelected(QuickMenuAction.PERFORMANCE_HUD) }, onConfigChanged = onPerformanceHudConfigChanged, onFpsEnabled = onFpsLimiterEnabledChanged, onFpsChanged = onFpsLimiterChanged, scrollState = hudScrollState, focusRequester = hudItemFocusRequester, modifier = Modifier.fillMaxSize())
+                                        QuickMenuTab.LOOKS -> LooksQuickMenuTab(viewModel = viewModel, modifier = Modifier.fillMaxSize())
                                         QuickMenuTab.LSFG -> LsfgQuickMenuTab(multiplier = lsfgMultiplier, flowScale = lsfgFlowScale, performanceMode = lsfgPerformanceMode, onMultiplierChanged = onLsfgMultiplierChanged, onFlowScaleChanged = onLsfgFlowScaleChanged, onPerformanceModeChanged = onLsfgPerformanceModeChanged, presentMode = lsfgPresentMode, onPresentModeChanged = { lsfgPresentMode = it; container?.let { c -> app.gamenative.utils.LsfgQuickMenuHelper.applyPresentMode(c, it) } }, scrollState = lsfgScrollState, focusRequester = lsfgItemFocusRequester, modifier = Modifier.fillMaxSize())
                                         QuickMenuTab.INVITE -> inviteMenu?.let { SteamInviteQuickMenuTab(state = it, focusRequester = inviteItemFocusRequester, modifier = Modifier.fillMaxSize()) }
                                         QuickMenuTab.EFFECTS -> { if (renderer != null) ScreenEffectsTabContent(renderer = renderer, container = container, modifier = Modifier.fillMaxSize(), firstItemFocusRequester = effectsItemFocusRequester, scrollState = effectsScrollState) else if (glRenderer != null) GLScreenEffectsTabContent(renderer = glRenderer, container = container, modifier = Modifier.fillMaxSize(), firstItemFocusRequester = effectsItemFocusRequester, scrollState = effectsScrollState) }
@@ -418,26 +443,26 @@ fun QuickMenu(
 
 @Composable
 private fun QuickMenuTabButton(icon: ImageVector, contentDescriptionResId: Int, selected: Boolean, accentColor: Color, onSelected: () -> Unit, modifier: Modifier = Modifier, focusRequester: FocusRequester? = null) {
-    val interactionSource = remember { MutableInteractionSource() }; val isFocused by interactionSource.collectIsFocusedAsState(); val isGlass = PrefManager.glassPanels; val contentColor = glassContentColor(); val inputBypass = LocalImmersiveInputBypass.current; LaunchedEffect(isFocused) { inputBypass.reportActivate(interactionSource, if (isFocused) onSelected else null) }
-    Box(modifier = modifier.size(56.dp).clip(RoundedCornerShape(14.dp)).background(when { selected -> accentColor.copy(alpha = 0.18f); isFocused -> accentColor.copy(alpha = 0.12f); else -> if (isGlass) Color.Black.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f) }).focusRing(interactionSource, RoundedCornerShape(14.dp), width = 2.dp).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).onFocusChanged { if (it.isFocused && !selected) onSelected() }.selectable(selected = selected, interactionSource = interactionSource, indication = null, onClick = onSelected).focusable(interactionSource = interactionSource), contentAlignment = Alignment.Center) { Icon(imageVector = icon, contentDescription = stringResource(contentDescriptionResId), tint = if (selected || isFocused) accentColor else contentColor.copy(alpha = 0.7f), modifier = Modifier.size(24.dp)) }
+    val interactionSource = remember { MutableInteractionSource() }; val isFocused by interactionSource.collectIsFocusedAsState(); val looks = LocalLooksState.current; val contentColor = glassContentColor(); val inputBypass = LocalImmersiveInputBypass.current; LaunchedEffect(isFocused) { inputBypass.reportActivate(interactionSource, if (isFocused) onSelected else null) }
+    Box(modifier = modifier.size(56.dp).clip(RoundedCornerShape(14.dp)).background(when { selected -> accentColor.copy(alpha = 0.18f); isFocused -> accentColor.copy(alpha = 0.12f); else -> if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f) }).focusRing(interactionSource, RoundedCornerShape(14.dp), width = 2.dp).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).onFocusChanged { if (it.isFocused && !selected) onSelected() }.hapticSelectable(selected = selected, interactionSource = interactionSource, indication = null, onClick = onSelected).focusable(interactionSource = interactionSource), contentAlignment = Alignment.Center) { Icon(imageVector = icon, contentDescription = stringResource(contentDescriptionResId), tint = if (selected || isFocused) accentColor else contentColor.copy(alpha = 0.7f), modifier = Modifier.size(24.dp)) }
 }
 
 @Composable
 private fun QuickMenuRailActionButton(item: QuickMenuItem, onClick: () -> Unit, modifier: Modifier = Modifier, focusRequester: FocusRequester? = null) {
     val interactionSource = remember { MutableInteractionSource() }; val inputBypass = LocalImmersiveInputBypass.current; val isFocused by interactionSource.collectIsFocusedAsState(); val accentColor = if (item.accentColor != Color.Unspecified) item.accentColor else MaterialTheme.colorScheme.error; val shape = RoundedCornerShape(14.dp)
-    Box(modifier = modifier.size(56.dp).then(if (isFocused) Modifier.border(width = 2.dp, color = accentColor.copy(alpha = 0.7f), shape = shape) else Modifier.border(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f), shape = shape)).clip(shape).background(if (isFocused) accentColor.copy(alpha = 0.18f) else accentColor.copy(alpha = 0.08f)).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).clickable(interactionSource = interactionSource, indication = null, onClick = onClick).focusable(interactionSource = interactionSource), contentAlignment = Alignment.Center) { Icon(imageVector = item.icon, contentDescription = stringResource(item.labelResId), tint = if (isFocused) accentColor else accentColor.copy(alpha = 0.9f), modifier = Modifier.size(24.dp)) }
+    Box(modifier = modifier.size(56.dp).then(if (isFocused) Modifier.border(width = 2.dp, color = accentColor.copy(alpha = 0.7f), shape = shape) else Modifier.border(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f), shape = shape)).clip(shape).background(if (isFocused) accentColor.copy(alpha = 0.18f) else accentColor.copy(alpha = 0.08f)).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).hapticClickable(interactionSource = interactionSource, indication = null, onClick = onClick).focusable(interactionSource = interactionSource), contentAlignment = Alignment.Center) { Icon(imageVector = item.icon, contentDescription = stringResource(item.labelResId), tint = if (isFocused) accentColor else accentColor.copy(alpha = 0.9f), modifier = Modifier.size(24.dp)) }
 }
 
 @Composable
 private fun QuickMenuItemRow(item: QuickMenuItem, isActive: Boolean, onClick: () -> Unit, focusRequester: FocusRequester?, secondaryIcon: ImageVector?, secondaryContentDescriptionResId: Int?, onSecondaryClick: (() -> Unit)?, modifier: Modifier = Modifier) {
-    val interactionSource = remember { MutableInteractionSource() }; val inputBypass = LocalImmersiveInputBypass.current; val isFocused by interactionSource.collectIsFocusedAsState(); val isGlass = PrefManager.glassPanels; val contentColor = glassContentColor(); val accentColor = if (item.accentColor != Color.Unspecified) item.accentColor else MaterialTheme.colorScheme.primary; val shape = RoundedCornerShape(12.dp)
+    val interactionSource = remember { MutableInteractionSource() }; val inputBypass = LocalImmersiveInputBypass.current; val isFocused by interactionSource.collectIsFocusedAsState(); val looks = LocalLooksState.current; val contentColor = glassContentColor(); val accentColor = if (item.accentColor != Color.Unspecified) item.accentColor else looks.mainColor; val shape = RoundedCornerShape(12.dp)
     val backgroundBrush = if (isFocused && item.enabled) Brush.horizontalGradient(listOf(accentColor.copy(alpha = 0.15f), accentColor.copy(alpha = 0.05f))) else null
-    val itemBgColor = when { !item.enabled -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f); isFocused || isActive -> accentColor.copy(alpha = 0.2f); else -> if (isGlass) Color.Black.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) }
+    val itemBgColor = when { !item.enabled -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f); isFocused || isActive -> accentColor.copy(alpha = 0.2f); else -> if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) }
 
-    Row(modifier = modifier.fillMaxWidth().clip(shape).then(if (backgroundBrush != null) Modifier.background(backgroundBrush) else Modifier).focusRing(interactionSource, shape, width = 2.dp).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).selectable(selected = isFocused, enabled = item.enabled, interactionSource = interactionSource, indication = null, onClick = onClick).focusable(enabled = item.enabled, interactionSource = interactionSource).padding(horizontal = 12.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    Row(modifier = modifier.fillMaxWidth().clip(shape).then(if (backgroundBrush != null) Modifier.background(backgroundBrush) else Modifier).focusRing(interactionSource, shape, width = 2.dp).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).hapticSelectable(selected = isFocused, enabled = item.enabled, interactionSource = interactionSource, indication = null, onClick = onClick).focusable(enabled = item.enabled, interactionSource = interactionSource).padding(horizontal = 12.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         Box(modifier = Modifier.size(40.dp).then(if (isActive) Modifier.border(BorderStroke(2.dp, accentColor), CircleShape) else Modifier).clip(CircleShape).background(itemBgColor), contentAlignment = Alignment.Center) { Icon(imageVector = item.icon, contentDescription = null, tint = when { !item.enabled -> contentColor.copy(alpha = 0.4f); isFocused || isActive -> accentColor; else -> contentColor.copy(alpha = 0.7f) }, modifier = Modifier.size(22.dp)) }
         Text(text = stringResource(item.labelResId), style = MaterialTheme.typography.bodyLarge, color = when { !item.enabled -> contentColor.copy(alpha = 0.4f); isFocused -> accentColor; else -> contentColor }, modifier = Modifier.weight(1f))
-        if (secondaryIcon != null && onSecondaryClick != null) { Box(modifier = Modifier.size(48.dp).clip(CircleShape).background(if (isGlass) Color.Black.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)).clickable(role = Role.Button, onClick = onSecondaryClick), contentAlignment = Alignment.Center) { Icon(imageVector = secondaryIcon, contentDescription = stringResource(secondaryContentDescriptionResId ?: R.string.gesture_settings_title), tint = contentColor.copy(alpha = 0.7f), modifier = Modifier.size(18.dp)) } }
+        if (secondaryIcon != null && onSecondaryClick != null) { Box(modifier = Modifier.size(48.dp).clip(CircleShape).background(if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)).hapticClickable(role = Role.Button, onClick = onSecondaryClick), contentAlignment = Alignment.Center) { Icon(imageVector = secondaryIcon, contentDescription = stringResource(secondaryContentDescriptionResId ?: R.string.gesture_settings_title), tint = contentColor.copy(alpha = 0.7f), modifier = Modifier.size(18.dp)) } }
     }
 }
 
@@ -551,11 +576,11 @@ private fun QuickMenuSectionHeader(title: String, subtitle: String? = null) {
 
 @Composable
 internal fun QuickMenuToggleRow(title: String, enabled: Boolean, selectable: Boolean = true, onToggle: () -> Unit, accentColor: Color, modifier: Modifier = Modifier, subtitle: String? = null, focusRequester: FocusRequester? = null) {
-    val interactionSource = remember { MutableInteractionSource() }; val inputBypass = LocalImmersiveInputBypass.current; val isFocused by interactionSource.collectIsFocusedAsState(); val contentColor = glassContentColor()
+    val interactionSource = remember { MutableInteractionSource() }; val inputBypass = LocalImmersiveInputBypass.current; val isFocused by interactionSource.collectIsFocusedAsState(); val contentColor = glassContentColor(); val looks = LocalLooksState.current
     LaunchedEffect(isFocused, selectable) { inputBypass.reportActivate(interactionSource, if (isFocused && selectable) onToggle else null) }
-    val rowBg = if (isFocused) Brush.horizontalGradient(listOf(accentColor.copy(alpha = 0.16f), accentColor.copy(alpha = 0.08f))) else if (PrefManager.glassPanels) Brush.linearGradient(listOf(Color.Black.copy(alpha = 0.05f), Color.Black.copy(alpha = 0.05f))) else Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f), MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.10f)))
+    val rowBg = if (isFocused) Brush.horizontalGradient(listOf(accentColor.copy(alpha = 0.16f), accentColor.copy(alpha = 0.08f))) else if (looks.isGlassEnabled) Brush.linearGradient(listOf(Color.Black.copy(alpha = 0.05f), Color.Black.copy(alpha = 0.05f))) else Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f), MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.10f)))
     val rowBorderModifier = if (isFocused) Modifier.border(2.dp, accentColor.copy(alpha = 0.7f), RoundedCornerShape(14.dp)) else Modifier
-    Row(modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).clip(RoundedCornerShape(14.dp)).background(rowBg).then(rowBorderModifier).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).selectable(selected = isFocused, interactionSource = interactionSource, indication = null, onClick = { if (selectable) onToggle() }).then(if (inputBypass.active) Modifier else Modifier.focusable(interactionSource = interactionSource)).padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    Row(modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).clip(RoundedCornerShape(14.dp)).background(rowBg).then(rowBorderModifier).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).hapticSelectable(selected = isFocused, interactionSource = interactionSource, indication = null, onClick = { if (selectable) { onToggle() } }).then(if (inputBypass.active) Modifier else Modifier.focusable(interactionSource = interactionSource)).padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(modifier = Modifier.weight(1f).then(if (!selectable) Modifier.alpha(0.5f) else Modifier)) {
             Text(text = title, style = MaterialTheme.typography.bodyLarge, color = contentColor, fontWeight = if (isFocused) FontWeight.SemiBold else FontWeight.Medium)
             if (!subtitle.isNullOrBlank()) { Spacer(modifier = Modifier.height(4.dp)); Text(text = subtitle, style = MaterialTheme.typography.bodyMedium, color = contentColor.copy(alpha = 0.7f)) }
@@ -566,18 +591,19 @@ internal fun QuickMenuToggleRow(title: String, enabled: Boolean, selectable: Boo
 
 @Composable
 private fun QuickMenuSwitch(enabled: Boolean, accentColor: Color) {
-    Box(modifier = Modifier.width(56.dp).height(32.dp).clip(RoundedCornerShape(999.dp)).background(if (enabled) accentColor else if (PrefManager.glassPanels) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)).border(width = 1.dp, color = if (enabled) accentColor.copy(alpha = 0.8f) else if (PrefManager.glassPanels) Color.Black.copy(alpha = 0.2f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f), shape = RoundedCornerShape(999.dp)).padding(4.dp)) {
-        Box(modifier = Modifier.size(22.dp).align(if (enabled) Alignment.CenterEnd else Alignment.CenterStart).background(if (PrefManager.glassPanels && !enabled) Color.Gray else Color.White, CircleShape))
+    val looks = LocalLooksState.current
+    Box(modifier = Modifier.width(56.dp).height(32.dp).clip(RoundedCornerShape(999.dp)).background(if (enabled) accentColor else if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)).border(width = 1.dp, color = if (enabled) accentColor.copy(alpha = 0.8f) else if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.2f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f), shape = RoundedCornerShape(999.dp)).padding(4.dp)) {
+        Box(modifier = Modifier.size(22.dp).align(if (enabled) Alignment.CenterEnd else Alignment.CenterStart).background(if (looks.isGlassEnabled && !enabled) Color.Gray else Color.White, CircleShape))
     }
 }
 
 @Composable
 internal fun QuickMenuAdjustmentRow(title: String, valueText: String, progress: Float, onDecrease: () -> Unit, onIncrease: () -> Unit, accentColor: Color, modifier: Modifier = Modifier, focusRequester: FocusRequester? = null, subtitle: String? = null) {
-    val interactionSource = remember { MutableInteractionSource() }; val isFocused by interactionSource.collectIsFocusedAsState(); val shape = RoundedCornerShape(14.dp); var isAdjustmentLocked by remember { mutableStateOf(false) }; val inputBypass = LocalImmersiveInputBypass.current; val contentColor = glassContentColor()
+    val interactionSource = remember { MutableInteractionSource() }; val isFocused by interactionSource.collectIsFocusedAsState(); val shape = RoundedCornerShape(14.dp); var isAdjustmentLocked by remember { mutableStateOf(false) }; val inputBypass = LocalImmersiveInputBypass.current; val contentColor = glassContentColor(); val looks = LocalLooksState.current
     LaunchedEffect(isFocused, isAdjustmentLocked) { inputBypass.reportAdjustment(interactionSource, if (isFocused && isAdjustmentLocked) (onDecrease to onIncrease) else null) }
-    val rowBg = if (isFocused) Brush.horizontalGradient(listOf(accentColor.copy(alpha = 0.16f), accentColor.copy(alpha = 0.08f))) else if (PrefManager.glassPanels) Brush.linearGradient(listOf(Color.Black.copy(alpha = 0.05f), Color.Black.copy(alpha = 0.05f))) else Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f), MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.10f)))
+    val rowBg = if (isFocused) Brush.horizontalGradient(listOf(accentColor.copy(alpha = 0.16f), accentColor.copy(alpha = 0.08f))) else if (looks.isGlassEnabled) Brush.linearGradient(listOf(Color.Black.copy(alpha = 0.05f), Color.Black.copy(alpha = 0.05f))) else Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f), MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.10f)))
     val rowBorderModifier = if (isFocused && !isAdjustmentLocked) Modifier.border(2.dp, accentColor.copy(alpha = 0.7f), shape) else Modifier
-    Column(modifier = modifier.padding(horizontal = 8.dp, vertical = 2.dp).clip(shape).background(rowBg).then(rowBorderModifier).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).onFocusChanged { if (!it.isFocused) isAdjustmentLocked = false }.focusable(interactionSource = interactionSource).onPreviewKeyEvent { keyEvent -> if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN && isFocused) { when { keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_BUTTON_A && (!inputBypass.active || !isAdjustmentLocked) -> { isAdjustmentLocked = if (inputBypass.active) true else !isAdjustmentLocked; true }; isAdjustmentLocked && (keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_BUTTON_B || (inputBypass.active && keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_BACK)) -> { isAdjustmentLocked = false; true }; isAdjustmentLocked && keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_LEFT -> { onDecrease(); true }; isAdjustmentLocked && keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT -> { onIncrease(); true }; else -> false } } else false }.selectable(selected = isFocused, interactionSource = interactionSource, indication = null, onClick = {}).padding(horizontal = 16.dp, vertical = 14.dp)) {
+    Column(modifier = modifier.padding(horizontal = 8.dp, vertical = 2.dp).clip(shape).background(rowBg).then(rowBorderModifier).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).onFocusChanged { if (!it.isFocused) isAdjustmentLocked = false }.focusable(interactionSource = interactionSource).onPreviewKeyEvent { keyEvent -> if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN && isFocused) { when { keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_BUTTON_A && (!inputBypass.active || !isAdjustmentLocked) -> { isAdjustmentLocked = if (inputBypass.active) true else !isAdjustmentLocked; true }; isAdjustmentLocked && (keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_BUTTON_B || (inputBypass.active && keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_BACK)) -> { isAdjustmentLocked = false; true }; isAdjustmentLocked && keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_LEFT -> { onDecrease(); true }; isAdjustmentLocked && keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT -> { onIncrease(); true }; else -> false } } else false }.hapticSelectable(selected = isFocused, interactionSource = interactionSource, indication = null, onClick = {}).padding(horizontal = 16.dp, vertical = 14.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(text = title, style = MaterialTheme.typography.bodyLarge, color = contentColor, fontWeight = if (isFocused) FontWeight.SemiBold else FontWeight.Medium)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -590,10 +616,10 @@ internal fun QuickMenuAdjustmentRow(title: String, valueText: String, progress: 
         Row(modifier = Modifier.fillMaxWidth().height(36.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             QuickMenuAdjustmentButton(text = "-", rowIsFocused = isFocused, isAdjustmentLocked = isAdjustmentLocked, accentColor = accentColor, onClick = onDecrease)
             Box(modifier = Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
-                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(999.dp)), color = accentColor, trackColor = if (PrefManager.glassPanels) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(999.dp)), color = accentColor, trackColor = if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
                 Row(modifier = Modifier.fillMaxSize()) {
-                    Box(modifier = Modifier.weight(1f).fillMaxHeight().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDecrease))
-                    Box(modifier = Modifier.weight(1f).fillMaxHeight().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onIncrease))
+                    Box(modifier = Modifier.weight(1f).fillMaxHeight().hapticClickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDecrease))
+                    Box(modifier = Modifier.weight(1f).fillMaxHeight().hapticClickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onIncrease))
                 }
             }
             QuickMenuAdjustmentButton(text = "+", rowIsFocused = isFocused, isAdjustmentLocked = isAdjustmentLocked, accentColor = accentColor, onClick = onIncrease)
@@ -603,21 +629,21 @@ internal fun QuickMenuAdjustmentRow(title: String, valueText: String, progress: 
 
 @Composable
 private fun QuickMenuAdjustmentButton(text: String, rowIsFocused: Boolean, isAdjustmentLocked: Boolean, accentColor: Color, onClick: () -> Unit) {
-    val isGlass = PrefManager.glassPanels
-    val bgColor = if (isAdjustmentLocked) accentColor.copy(alpha = 0.25f) else if (isGlass) Color.Black.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (rowIsFocused) 0.32f else 0.45f)
-    val borderColor = if (isAdjustmentLocked) accentColor.copy(alpha = 0.9f) else if (isGlass) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
-    Box(modifier = Modifier.width(44.dp).fillMaxHeight().clip(RoundedCornerShape(10.dp)).background(bgColor).border(width = if (isAdjustmentLocked) 2.dp else 1.dp, color = borderColor, shape = RoundedCornerShape(10.dp)).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick), contentAlignment = Alignment.Center) {
+    val looks = LocalLooksState.current
+    val bgColor = if (isAdjustmentLocked) accentColor.copy(alpha = 0.25f) else if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (rowIsFocused) 0.32f else 0.45f)
+    val borderColor = if (isAdjustmentLocked) accentColor.copy(alpha = 0.9f) else if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+    Box(modifier = Modifier.width(44.dp).fillMaxHeight().clip(RoundedCornerShape(10.dp)).background(bgColor).border(width = if (isAdjustmentLocked) 2.dp else 1.dp, color = borderColor, shape = RoundedCornerShape(10.dp)).hapticClickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick), contentAlignment = Alignment.Center) {
         Text(text = text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (isAdjustmentLocked) accentColor else glassContentColor().copy(alpha = 0.7f))
     }
 }
 
 @Composable
 private fun QuickMenuChoiceChip(text: String, selected: Boolean, accentColor: Color, onClick: () -> Unit, modifier: Modifier = Modifier, focusRequester: FocusRequester? = null) {
-    val interactionSource = remember { MutableInteractionSource() }; val isFocused by interactionSource.collectIsFocusedAsState(); val shape = RoundedCornerShape(12.dp); val inputBypass = LocalImmersiveInputBypass.current; val contentColor = glassContentColor()
+    val interactionSource = remember { MutableInteractionSource() }; val isFocused by interactionSource.collectIsFocusedAsState(); val shape = RoundedCornerShape(12.dp); val inputBypass = LocalImmersiveInputBypass.current; val contentColor = glassContentColor(); val looks = LocalLooksState.current
     LaunchedEffect(isFocused) { inputBypass.reportActivate(interactionSource, if (isFocused) onClick else null) }
     val borderColor = if (isFocused) accentColor.copy(alpha = 0.7f) else if (selected) accentColor.copy(alpha = 0.55f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
-    val chipBg = when { selected -> accentColor.copy(alpha = 0.18f); isFocused -> accentColor.copy(alpha = 0.12f); else -> if (PrefManager.glassPanels) Color.Black.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f) }
-    Box(modifier = modifier.height(44.dp).then(if (isFocused) Modifier.border(width = 2.dp, color = borderColor, shape = shape) else Modifier.border(width = 1.dp, color = borderColor, shape = shape)).clip(shape).background(chipBg).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).selectable(selected = selected, interactionSource = interactionSource, indication = null, onClick = onClick).then(if (inputBypass.active) Modifier else Modifier.focusable(interactionSource = interactionSource)).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+    val chipBg = when { selected -> accentColor.copy(alpha = 0.18f); isFocused -> accentColor.copy(alpha = 0.12f); else -> if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f) }
+    Box(modifier = modifier.height(44.dp).then(if (isFocused) Modifier.border(width = 2.dp, color = borderColor, shape = shape) else Modifier.border(width = 1.dp, color = borderColor, shape = shape)).clip(shape).background(chipBg).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).hapticSelectable(selected = selected, interactionSource = interactionSource, indication = null, onClick = onClick).then(if (inputBypass.active) Modifier else Modifier.focusable(interactionSource = interactionSource)).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
         Text(text = text, style = MaterialTheme.typography.labelLarge, color = if (selected || isFocused) accentColor else contentColor, fontWeight = if (selected || isFocused) FontWeight.SemiBold else FontWeight.Medium)
     }
 }
@@ -625,9 +651,9 @@ private fun QuickMenuChoiceChip(text: String, selected: Boolean, accentColor: Co
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun QuickMenuDetailRow(title: String, subtitle: String, accentColor: Color, onActivate: () -> Unit, modifier: Modifier = Modifier, focusRequester: FocusRequester? = null) {
-    val interactionSource = remember { MutableInteractionSource() }; val isFocused by interactionSource.collectIsFocusedAsState(); val shape = RoundedCornerShape(14.dp); val contentColor = glassContentColor()
-    val rowBg = if (isFocused) Brush.horizontalGradient(listOf(accentColor.copy(alpha = 0.14f), accentColor.copy(alpha = 0.06f))) else if (PrefManager.glassPanels) Brush.linearGradient(listOf(Color.Black.copy(alpha = 0.05f), Color.Black.copy(alpha = 0.05f))) else Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f), MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.10f)))
-    Row(modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).clip(shape).background(rowBg).then(if (isFocused) Modifier.border(2.dp, accentColor.copy(alpha = 0.8f), shape) else Modifier).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).focusable(interactionSource = interactionSource).onPreviewKeyEvent { keyEvent -> if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN && isFocused) { when (keyEvent.nativeKeyEvent.keyCode) { KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { onActivate(); true }; else -> false } } else false }.selectable(selected = isFocused, interactionSource = interactionSource, indication = null, onClick = onActivate).padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    val interactionSource = remember { MutableInteractionSource() }; val isFocused by interactionSource.collectIsFocusedAsState(); val shape = RoundedCornerShape(14.dp); val contentColor = glassContentColor(); val looks = LocalLooksState.current
+    val rowBg = if (isFocused) Brush.horizontalGradient(listOf(accentColor.copy(alpha = 0.14f), accentColor.copy(alpha = 0.06f))) else if (looks.isGlassEnabled) Brush.linearGradient(listOf(Color.Black.copy(alpha = 0.05f), Color.Black.copy(alpha = 0.05f))) else Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f), MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.10f)))
+    Row(modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).clip(shape).background(rowBg).then(if (isFocused) Modifier.border(2.dp, accentColor.copy(alpha = 0.8f), shape) else Modifier).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).focusable(interactionSource = interactionSource).onPreviewKeyEvent { keyEvent -> if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN && isFocused) { when (keyEvent.nativeKeyEvent.keyCode) { KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { onActivate(); true }; else -> false } } else false }.hapticSelectable(selected = isFocused, interactionSource = interactionSource, indication = null, onClick = onActivate).padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(modifier = Modifier.weight(1f)) {
             Text(text = title, style = MaterialTheme.typography.bodyLarge, color = if (isFocused) accentColor else contentColor, fontWeight = if (isFocused) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1, modifier = Modifier.fillMaxWidth().basicMarquee(iterations = Int.MAX_VALUE))
             Spacer(modifier = Modifier.height(4.dp)); Text(text = subtitle, style = MaterialTheme.typography.bodyMedium, color = if (isFocused) accentColor.copy(alpha = 0.92f) else contentColor.copy(alpha = 0.7f), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -635,7 +661,238 @@ private fun QuickMenuDetailRow(title: String, subtitle: String, accentColor: Col
     }
 }
 
+@Composable
+private fun LooksQuickMenuTab(
+    viewModel: MainViewModel,
+    modifier: Modifier = Modifier
+) {
+    val looks = LocalLooksState.current
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier = modifier
+            .verticalScroll(scrollState)
+            .focusGroup(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        QuickMenuToggleRow(
+            title = stringResource(R.string.settings_looks_jiggly_title),
+            subtitle = stringResource(R.string.settings_looks_jiggly_subtitle),
+            enabled = looks.isJigglyAnimations,
+            onToggle = { viewModel.setJigglyAnimations(!looks.isJigglyAnimations) },
+            accentColor = looks.mainColor
+        )
+
+        QuickMenuToggleRow(
+            title = stringResource(R.string.settings_looks_glass_title),
+            subtitle = stringResource(R.string.settings_looks_glass_subtitle),
+            enabled = looks.isGlassEnabled,
+            onToggle = { viewModel.setGlassPanels(!looks.isGlassEnabled) },
+            accentColor = looks.mainColor
+        )
+
+        AnimatedVisibility(
+            visible = looks.isGlassEnabled,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                QuickMenuToggleRow(
+                    title = stringResource(R.string.settings_looks_true_glass_title),
+                    subtitle = stringResource(R.string.settings_looks_true_glass_subtitle),
+                    enabled = looks.isTrueGlassEnabled,
+                    onToggle = { viewModel.setTrueGlassEnabled(!looks.isTrueGlassEnabled) },
+                    accentColor = looks.mainColor
+                )
+
+                QuickMenuAdjustmentRow(
+                    title = if (looks.isTrueGlassEnabled) "Blur Intensity" else "Glass Transparency",
+                    valueText = if (looks.isTrueGlassEnabled) {
+                        "${(5f + looks.glassTransparencyOrBlur * 45f).roundToInt()}px"
+                    } else {
+                        "${(0.05f + looks.glassTransparencyOrBlur * 0.75f).let { (it * 100).roundToInt() }}%"
+                    },
+                    progress = looks.glassTransparencyOrBlur,
+                    onDecrease = {
+                        val newValue = (looks.glassTransparencyOrBlur - 0.05f).coerceIn(0f, 1f)
+                        if (looks.isTrueGlassEnabled) viewModel.setGlassBlurIntensity(5f + newValue * 45f)
+                        else viewModel.setGlassTransparency(0.05f + newValue * 0.75f)
+                    },
+                    onIncrease = {
+                        val newValue = (looks.glassTransparencyOrBlur + 0.05f).coerceIn(0f, 1f)
+                        if (looks.isTrueGlassEnabled) viewModel.setGlassBlurIntensity(5f + newValue * 45f)
+                        else viewModel.setGlassTransparency(0.05f + newValue * 0.75f)
+                    },
+                    accentColor = looks.mainColor
+                )
+
+                QuickMenuColorPickerRow(
+                    title = "Glass Colour",
+                    currentColor = looks.glassColor,
+                    onColorSelected = { viewModel.setGlassColor(it) },
+                    accentColor = looks.mainColor
+                )
+            }
+        }
+
+        val fontOptions = FontType.entries.map { stringResource(it.labelResId) }
+        val currentFontIndex = FontType.entries.indexOfFirst {
+            when (it) {
+                FontType.NDOT -> looks.fontType == NdotFontFamily
+                FontType.NORMAL -> looks.fontType == PTMonoFontFamily
+            }
+        }.coerceAtLeast(0)
+
+        SettingsListDropdown(
+            colors = settingsTileColorsAlt(),
+            value = currentFontIndex,
+            items = fontOptions,
+            onItemSelected = { index ->
+                viewModel.setFontType(FontType.entries[index])
+            },
+            title = { Text(text = stringResource(R.string.settings_looks_font_type_title)) }
+        )
+
+        QuickMenuColorPickerRow(
+            title = "Main Colour",
+            currentColor = looks.mainColor,
+            onColorSelected = { viewModel.setMainColor(it) },
+            accentColor = looks.mainColor
+        )
+
+        QuickMenuColorPickerRow(
+            title = "Wallpaper Colour",
+            currentColor = looks.wallpaperColor,
+            onColorSelected = { viewModel.setWallpaperColor(it) },
+            accentColor = looks.mainColor
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+    }
+}
+
+@Composable
+private fun QuickMenuColorPickerRow(
+    title: String,
+    currentColor: Color,
+    onColorSelected: (String) -> Unit,
+    accentColor: Color
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val contentColor = glassContentColor()
+    val colors = listOf(
+        "#E91E63" to "Cherry",
+        "#4CAF50" to "Forest",
+        "#2196F3" to "Ice",
+        "#9C27B0" to "Violet",
+        "#FFFFFF" to "Frost",
+        "#000000" to "Volcanic"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (expanded) accentColor.copy(alpha = 0.08f) else Color.Transparent)
+            .hapticClickable { expanded = !expanded }
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = contentColor,
+                fontWeight = FontWeight.Medium
+            )
+
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(currentColor)
+                    .border(1.dp, contentColor.copy(alpha = 0.2f), CircleShape)
+            )
+        }
+
+        AnimatedVisibility(visible = expanded) {
+            Row(
+                modifier = Modifier
+                    .padding(top = 16.dp)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                colors.forEach { (hex, name) ->
+                    val isSelected = hex.toColor() == currentColor
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.hapticClickable { onColorSelected(hex) }
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(hex.toColor())
+                                .border(
+                                    width = if (isSelected) 3.dp else 1.dp,
+                                    color = if (isSelected) accentColor else contentColor.copy(alpha = 0.1f),
+                                    shape = CircleShape
+                                )
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = name,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = contentColor.copy(alpha = if (isSelected) 1f else 0.6f),
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun Modifier.quickMenuBackground(
+    looks: LooksState,
+    shape: androidx.compose.ui.graphics.Shape
+): Modifier {
+    return when {
+        // Condition C: True Glass ON
+        looks.isTrueGlassEnabled -> {
+            val radius = 5f + (looks.glassTransparencyOrBlur * 45f)
+            this.graphicsLayer {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    renderEffect = android.graphics.RenderEffect.createBlurEffect(
+                        radius, radius, android.graphics.Shader.TileMode.CLAMP
+                    ).asComposeRenderEffect()
+                }
+                compositingStrategy = CompositingStrategy.Offscreen
+            }
+            .background(looks.glassColor.copy(alpha = 0.15f), shape)
+            .clip(shape)
+        }
+        // Condition B: Glass ON, True Glass OFF
+        looks.isGlassEnabled -> {
+            val alpha = 0.05f + (looks.glassTransparencyOrBlur * 0.75f)
+            this.background(looks.glassColor.copy(alpha = alpha), shape)
+                .clip(shape)
+        }
+        // Condition A: Glass OFF
+        else -> {
+            this.background(looks.wallpaperColor, shape)
+                .clip(shape)
+        }
+    }
+}
+
 @Preview(showBackground = true, backgroundColor = 0xFF000000)
+
 @Composable
 private fun Preview_QuickMenu() {
     PluviaTheme { Box(modifier = Modifier.fillMaxSize()) { QuickMenu(isVisible = true, onDismiss = {}, onItemSelected = { false }, hasPhysicalController = false) } }

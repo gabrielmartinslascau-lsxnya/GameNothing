@@ -13,6 +13,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import app.gamenative.utils.HapticManager
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -57,6 +58,7 @@ fun Modifier.focusRing(
     val angle = remember { Animatable(0f) }
     LaunchedEffect(focused) {
         if (focused) {
+            HapticManager.trigger(HapticManager.HapticType.CLICK)
             angle.animateTo(
                 targetValue = 360f,
                 animationSpec = infiniteRepeatable(

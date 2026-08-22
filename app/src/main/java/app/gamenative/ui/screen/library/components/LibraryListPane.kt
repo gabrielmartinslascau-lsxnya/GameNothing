@@ -257,80 +257,86 @@ internal fun LibraryListPane(
                         isRefreshing = state.isRefreshing,
                         onRefresh = onRefresh,
                         state = pullToRefreshState,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().graphicsLayer { clip = true },
                     ) {
-                        LazyVerticalGrid(
-                            columns = columnType,
-                            state = listState,
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalArrangement = Arrangement.spacedBy(gridSpacing),
-                            contentPadding = PaddingValues(
-                                top = 80.dp,
-                                start = horizontalPadding,
-                                end = horizontalPadding + 4.dp,
-                                bottom = 72.dp,
-                            ),
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer { clip = true }
                         ) {
-                            items(
-                                count = state.appInfoList.size,
-                                key = { listIndex ->
+                            LazyVerticalGrid(
+                                columns = columnType,
+                                state = listState,
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalArrangement = Arrangement.spacedBy(gridSpacing),
+                                contentPadding = PaddingValues(
+                                    top = 80.dp,
+                                    start = horizontalPadding,
+                                    end = horizontalPadding + 4.dp,
+                                    bottom = 72.dp,
+                                ),
+                            ) {
+                                items(
+                                    count = state.appInfoList.size,
+                                    key = { listIndex ->
+                                        val item = state.appInfoList[listIndex]
+                                        if (item.recSource == "hero") "HERO_SLOT" else item.appId
+                                    },
+                                ) { listIndex ->
                                     val item = state.appInfoList[listIndex]
-                                    if (item.recSource == "hero") "HERO_SLOT" else item.appId
-                                },
-                            ) { listIndex ->
-                                val item = state.appInfoList[listIndex]
-                                val animateFade = remember(item.index) { !listState.isScrollInProgress }
-                                var isVisible by remember(item.index) { mutableStateOf(!animateFade) }
-                                val alpha by animateFloatAsState(
-                                    targetValue = if (isVisible) 1f else 0f,
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioNoBouncy,
-                                        stiffness = Spring.StiffnessLow,
-                                    ),
-                                    label = "fadeIn",
-                                )
-
-                                if (animateFade) {
-                                    LaunchedEffect(item.index) {
-                                        delay((item.index % 8) * 30L)
-                                        isVisible = true
-                                    }
-                                }
-
-                                Box(modifier = Modifier.graphicsLayer { this.alpha = alpha }) {
-                                    val appItemModifier = if (firstGridItemFocusRequester != null &&
-                                        focusTargetListIndex != null &&
-                                        listIndex == focusTargetListIndex
-                                    ) {
-                                        Modifier.focusRequester(firstGridItemFocusRequester)
-                                    } else {
-                                        Modifier
-                                    }
-
-                                    if (item.index > 0 && currentLayout == PaneType.LIST) {
-                                        HorizontalDivider()
-                                    }
-                                    AppItem(
-                                        modifier = appItemModifier,
-                                        appInfo = item,
-                                        onClick = { onNavigate(item.appId) },
-                                        paneType = currentLayout,
-                                        onFocus = { targetOfScroll = item.index },
-                                        imageRefreshCounter = state.imageRefreshCounter,
-                                        compatibilityStatus = state.compatibilityMap[item.name],
-                                        gameStats = state.statsFor(item),
+                                    val animateFade = remember(item.index) { !listState.isScrollInProgress }
+                                    var isVisible by remember(item.index) { mutableStateOf(!animateFade) }
+                                    val alpha by animateFloatAsState(
+                                        targetValue = if (isVisible) 1f else 0f,
+                                        animationSpec = spring(
+                                            dampingRatio = Spring.DampingRatioNoBouncy,
+                                            stiffness = Spring.StiffnessLow,
+                                        ),
+                                        label = "fadeIn",
                                     )
+
+                                    if (animateFade) {
+                                        LaunchedEffect(item.index) {
+                                            delay((item.index % 8) * 30L)
+                                            isVisible = true
+                                        }
+                                    }
+
+                                    Box(modifier = Modifier.graphicsLayer { this.alpha = alpha }) {
+                                        val appItemModifier = if (firstGridItemFocusRequester != null &&
+                                            focusTargetListIndex != null &&
+                                            listIndex == focusTargetListIndex
+                                        ) {
+                                            Modifier.focusRequester(firstGridItemFocusRequester)
+                                        } else {
+                                            Modifier
+                                        }
+
+                                        if (item.index > 0 && currentLayout == PaneType.LIST) {
+                                            HorizontalDivider()
+                                        }
+                                        AppItem(
+                                            modifier = appItemModifier,
+                                            appInfo = item,
+                                            onClick = { onNavigate(item.appId) },
+                                            paneType = currentLayout,
+                                            onFocus = { targetOfScroll = item.index },
+                                            imageRefreshCounter = state.imageRefreshCounter,
+                                            compatibilityStatus = state.compatibilityMap[item.name],
+                                            gameStats = state.statsFor(item),
+                                        )
+                                    }
                                 }
-                            }
-                            if (state.appInfoList.size < state.totalAppsInFilter) {
-                                item {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(16.dp),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        CircularProgressIndicator()
+                                if (state.appInfoList.size < state.totalAppsInFilter) {
+                                    item {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(16.dp),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            CircularProgressIndicator()
+                                        }
                                     }
                                 }
                             }
@@ -345,7 +351,8 @@ internal fun LibraryListPane(
                     modifier = Modifier
                         .fillMaxSize()
                         .alpha(skeletonAlpha)
-                        .pointerInteropFilter { false },
+                        .pointerInteropFilter { false }
+                        .graphicsLayer { clip = true },
                 ) {
                     LazyVerticalGrid(
                         columns = columnType,

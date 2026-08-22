@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import app.gamenative.utils.hapticClickable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -88,10 +89,9 @@ internal fun ListViewCard(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(
+                .hapticClickable(
                     onClick = onClick,
                     interactionSource = interactionSource,
-                    indication = null,
                 ),
             shape = shape,
             colors = CardDefaults.cardColors(

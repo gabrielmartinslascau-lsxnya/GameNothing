@@ -13,6 +13,7 @@ import app.gamenative.data.LibraryPlayHistory
 import app.gamenative.db.dao.LibraryPlayHistoryDao
 import app.gamenative.di.IAppTheme
 import app.gamenative.enums.AppTheme
+import app.gamenative.enums.FontType
 import app.gamenative.enums.LoginResult
 import app.gamenative.enums.PathType
 import app.gamenative.events.AndroidEvent
@@ -308,6 +309,48 @@ class MainViewModel @Inject constructor(
                 _state.update { it.copy(maxRefreshRate = value) }
             }
         }
+
+        viewModelScope.launch {
+            appTheme.jigglyAnimationsFlow.collect { value ->
+                _state.update { it.copy(jigglyAnimations = value) }
+            }
+        }
+
+        viewModelScope.launch {
+            appTheme.glassPanelsFlow.collect { value ->
+                _state.update { it.copy(glassPanels = value) }
+            }
+        }
+
+        viewModelScope.launch {
+            appTheme.trueGlassEnabledFlow.collect { value ->
+                _state.update { it.copy(trueGlassEnabled = value) }
+            }
+        }
+
+        viewModelScope.launch {
+            appTheme.glassTransparencyFlow.collect { value ->
+                _state.update { it.copy(glassTransparency = value) }
+            }
+        }
+
+        viewModelScope.launch {
+            appTheme.glassBlurIntensityFlow.collect { value ->
+                _state.update { it.copy(glassBlurIntensity = value) }
+            }
+        }
+
+        viewModelScope.launch {
+            appTheme.glassColorFlow.collect { value ->
+                _state.update { it.copy(glassColor = value) }
+            }
+        }
+
+        viewModelScope.launch {
+            appTheme.fontTypeFlow.collect { value ->
+                _state.update { it.copy(fontType = value) }
+            }
+        }
     }
 
     override fun onCleared() {
@@ -343,6 +386,34 @@ class MainViewModel @Inject constructor(
 
     fun setMaxRefreshRate(value: Int) {
         appTheme.maxRefreshRate = value
+    }
+
+    fun setJigglyAnimations(value: Boolean) {
+        appTheme.jigglyAnimations = value
+    }
+
+    fun setGlassPanels(value: Boolean) {
+        appTheme.glassPanels = value
+    }
+
+    fun setTrueGlassEnabled(value: Boolean) {
+        appTheme.trueGlassEnabled = value
+    }
+
+    fun setGlassTransparency(value: Float) {
+        appTheme.glassTransparency = value
+    }
+
+    fun setGlassBlurIntensity(value: Float) {
+        appTheme.glassBlurIntensity = value
+    }
+
+    fun setGlassColor(value: String) {
+        appTheme.glassColor = value
+    }
+
+    fun setFontType(value: FontType) {
+        appTheme.fontType = value
     }
 
     fun setAnnoyingDialogShown(value: Boolean) {

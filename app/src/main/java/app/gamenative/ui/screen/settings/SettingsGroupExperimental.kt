@@ -23,10 +23,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gamenative.PrefManager
+import app.gamenative.ui.component.settings.HapticSettingsSwitch
 import app.gamenative.ui.model.MainViewModel
 import app.gamenative.ui.theme.glassContentColor
 import app.gamenative.ui.theme.settingsTileColors
 import app.gamenative.ui.theme.settingsTileColorsAlt
+import app.gamenative.utils.HapticManager
 import com.alorma.compose.settings.ui.SettingsGroup
 import com.alorma.compose.settings.ui.SettingsSwitch
 import kotlin.math.roundToInt
@@ -40,7 +42,7 @@ fun SettingsGroupExperimental(viewModel: MainViewModel) {
         var aggressiveCaching by remember { mutableStateOf(PrefManager.aggressiveCaching) }
         var ramViewerEnabled by remember { mutableStateOf(PrefManager.ramViewerEnabled) }
 
-        SettingsSwitch(
+        HapticSettingsSwitch(
             colors = settingsTileColors(),
             state = aggressiveCaching,
             title = { Text(text = "Aggressive Caching") },
@@ -51,7 +53,7 @@ fun SettingsGroupExperimental(viewModel: MainViewModel) {
             },
         )
 
-        SettingsSwitch(
+        HapticSettingsSwitch(
             colors = settingsTileColorsAlt(),
             state = ramViewerEnabled,
             title = { Text(text = "RAM Viewer") },
@@ -65,7 +67,7 @@ fun SettingsGroupExperimental(viewModel: MainViewModel) {
         Column {
             var refreshRateEnabled by remember { mutableStateOf(PrefManager.refreshRateEnabled) }
 
-            SettingsSwitch(
+            HapticSettingsSwitch(
                 colors = settingsTileColors(),
                 state = refreshRateEnabled,
                 title = { Text(text = "More Hz!") },
@@ -103,6 +105,7 @@ fun SettingsGroupExperimental(viewModel: MainViewModel) {
                             sliderIndex = it
                         },
                         onValueChangeFinished = {
+                            HapticManager.trigger(HapticManager.HapticType.CLICK)
                             val finalIndex = sliderIndex.roundToInt()
                             sliderIndex = finalIndex.toFloat()
                             viewModel.setMaxRefreshRate(hzOptions[finalIndex])

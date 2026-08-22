@@ -1,6 +1,7 @@
 package app.gamenative.ui.data
 
 import app.gamenative.enums.AppTheme
+import app.gamenative.enums.FontType
 import app.gamenative.ui.enums.ConnectionState
 import app.gamenative.ui.screen.PluviaScreen
 import com.materialkolor.PaletteStyle
@@ -28,6 +29,14 @@ data class MainState(
     val mainColor: String = "#9C27B0",
     val wallpaperColor: String = "#121416",
     val maxRefreshRate: Int = 60,
+
+    val jigglyAnimations: Boolean = true,
+    val glassPanels: Boolean = false,
+    val trueGlassEnabled: Boolean = false,
+    val glassTransparency: Float = 0.3f,
+    val glassBlurIntensity: Float = 16f,
+    val glassColor: String = "#FFFFFF",
+    val fontType: FontType = FontType.NDOT,
 
     // Connection state for background reconnection
     // Default to DISCONNECTED - service will start and set to CONNECTING

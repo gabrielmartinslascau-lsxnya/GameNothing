@@ -66,17 +66,20 @@ import app.gamenative.ui.component.ACHIEVEMENT_NOTIFICATION_POSITION
 import app.gamenative.ui.component.dialog.LoadingDialog
 import app.gamenative.ui.component.dialog.MessageDialog
 import app.gamenative.ui.component.dialog.SingleChoiceDialog
+import app.gamenative.ui.component.settings.HapticSettingsMenuLink
+import app.gamenative.ui.component.settings.HapticSettingsSwitch
 import app.gamenative.ui.component.settings.SettingsListDropdown
 import app.gamenative.ui.theme.PluviaTheme
 import app.gamenative.ui.theme.settingsTileColorsAlt
 import app.gamenative.ui.util.SnackbarManager
+import app.gamenative.utils.HapticManager
+import app.gamenative.utils.hapticClickable
 import app.gamenative.utils.IconSwitcher
 import app.gamenative.utils.LocaleHelper
 import app.gamenative.utils.PlatformOAuthHandlers
 import app.gamenative.utils.StorageUtils
 import com.alorma.compose.settings.ui.SettingsGroup
 import com.alorma.compose.settings.ui.SettingsMenuLink
-import com.alorma.compose.settings.ui.SettingsSwitch
 import com.materialkolor.PaletteStyle
 import com.winlator.core.AppUtils
 import java.io.File
@@ -94,7 +97,10 @@ private fun FrontendSyncResyncButton() {
     val isSyncing by FrontendSyncManager.isSyncing.collectAsState()
     val resyncLabel = stringResource(R.string.frontend_sync_resync_all)
     IconButton(
-        onClick = { FrontendSyncManager.resyncAll() },
+        onClick = {
+            HapticManager.trigger(HapticManager.HapticType.CLICK)
+            FrontendSyncManager.resyncAll()
+        },
         modifier = Modifier.semantics { contentDescription = resyncLabel },
     ) {
         if (isSyncing) {
@@ -240,7 +246,7 @@ fun SettingsGroupInterface(
     }
 
     SettingsGroup(modifier = Modifier.background(Color.Transparent)) {
-        SettingsSwitch(
+        HapticSettingsSwitch(
             colors = settingsTileColorsAlt(),
             title = { Text(text = stringResource(R.string.settings_achievement_show_notification)) },
             state = showAchievementNotifications,
@@ -249,7 +255,7 @@ fun SettingsGroupInterface(
                 PrefManager.achievementShowNotification = it
             },
         )
-        SettingsSwitch(
+        HapticSettingsSwitch(
             colors = settingsTileColorsAlt(),
             title = { Text(text = stringResource(R.string.settings_achievement_play_sound)) },
             state = playAchievementSound,
@@ -279,7 +285,7 @@ fun SettingsGroupInterface(
             colors = settingsTileColorsAlt(),
         )
 
-        SettingsSwitch(
+        HapticSettingsSwitch(
             colors = settingsTileColorsAlt(),
             title = { Text(text = stringResource(R.string.settings_interface_external_links_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_interface_external_links_subtitle)) },
@@ -290,7 +296,7 @@ fun SettingsGroupInterface(
             },
         )
 
-        SettingsSwitch(
+        HapticSettingsSwitch(
             colors = settingsTileColorsAlt(),
             title = { Text(text = stringResource(R.string.settings_interface_hide_statusbar_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_interface_hide_statusbar_subtitle)) },
@@ -304,7 +310,7 @@ fun SettingsGroupInterface(
             },
         )
 
-        SettingsSwitch(
+        HapticSettingsSwitch(
             colors = settingsTileColorsAlt(),
             title = { Text(text = stringResource(R.string.settings_interface_swap_face_buttons_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_interface_swap_face_buttons_subtitle)) },
@@ -316,7 +322,7 @@ fun SettingsGroupInterface(
         )
 
         var warnBeforeExit by rememberSaveable { mutableStateOf(PrefManager.warnBeforeExit) }
-        SettingsSwitch(
+        HapticSettingsSwitch(
             colors = settingsTileColorsAlt(),
             title = { Text(text = stringResource(R.string.settings_interface_warn_before_exit_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_interface_warn_before_exit_subtitle)) },
@@ -327,7 +333,7 @@ fun SettingsGroupInterface(
             },
         )
 
-        SettingsSwitch(
+        HapticSettingsSwitch(
             colors = settingsTileColorsAlt(),
             title = { Text(text = stringResource(R.string.settings_interface_show_gamepad_hints_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_interface_show_gamepad_hints_subtitle)) },
@@ -339,7 +345,7 @@ fun SettingsGroupInterface(
         )
 
         var showRecommendations by rememberSaveable { mutableStateOf(PrefManager.showRecommendations) }
-        SettingsSwitch(
+        HapticSettingsSwitch(
             colors = settingsTileColorsAlt(),
             title = { Text(text = stringResource(R.string.settings_interface_show_recommendations_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_interface_show_recommendations_subtitle)) },
@@ -362,7 +368,7 @@ fun SettingsGroupInterface(
 
         if (!BuildConfig.MODERN_ANDROID) {
             val anyFrontendSyncConfigured by FrontendSyncManager.anyConfigured.collectAsState()
-            SettingsMenuLink(
+            HapticSettingsMenuLink(
                 colors = settingsTileColorsAlt(),
                 title = { Text(text = stringResource(R.string.settings_interface_frontend_sync_title)) },
                 subtitle = { Text(text = stringResource(R.string.settings_interface_frontend_sync_subtitle)) },
@@ -376,7 +382,7 @@ fun SettingsGroupInterface(
         }
 
         // Language selection
-        SettingsMenuLink(
+        HapticSettingsMenuLink(
             colors = settingsTileColorsAlt(),
             title = { Text(text = stringResource(R.string.settings_language)) },
             subtitle = { Text(text = LocaleHelper.getLanguageDisplayName(PrefManager.appLanguage)) },
@@ -437,7 +443,7 @@ fun SettingsGroupInterface(
         title = { Text(text = stringResource(R.string.settings_interface_custom_games)) },
     ) {
         var importCustomGameAsSteamGame by rememberSaveable { mutableStateOf(PrefManager.importCustomGameAsSteamGame) }
-        SettingsSwitch(
+        HapticSettingsSwitch(
             colors = settingsTileColorsAlt(),
             title = { Text(text = stringResource(R.string.settings_interface_custom_game_import_as_steam)) },
             state = importCustomGameAsSteamGame,
@@ -458,7 +464,7 @@ fun SettingsGroupInterface(
         title = { Text(text = stringResource(R.string.settings_downloads_title)) },
     ) {
         var wifiOnlyDownload by rememberSaveable { mutableStateOf(PrefManager.downloadOnWifiOnly) }
-        SettingsSwitch(
+        HapticSettingsSwitch(
             colors = settingsTileColorsAlt(),
             title = { Text(text = stringResource(R.string.settings_interface_wifi_only_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_interface_wifi_only_subtitle)) },
@@ -504,6 +510,9 @@ fun SettingsGroupInterface(
                     val index = newIndex.roundToInt().coerceIn(0, 3)
                     PrefManager.downloadSpeed = downloadSpeedValues[index]
                 },
+                onValueChangeFinished = {
+                    HapticManager.trigger(HapticManager.HapticType.CLICK)
+                },
                 valueRange = 0f..3f,
                 steps = 2, // Creates exactly 4 positions: 0, 1, 2, 3
             )
@@ -548,7 +557,7 @@ fun SettingsGroupInterface(
             }
         }
         var useExternalStorage by rememberSaveable { mutableStateOf(PrefManager.useExternalStorage) }
-        SettingsSwitch(
+        HapticSettingsSwitch(
             colors = settingsTileColorsAlt(),
             enabled = dirs.isNotEmpty(),
             title = { Text(text = stringResource(R.string.settings_interface_external_storage_title)) },
@@ -583,6 +592,7 @@ fun SettingsGroupInterface(
                 items = labels,
                 value = selectedIndex,
                 onItemSelected = { idx ->
+                    HapticManager.trigger(HapticManager.HapticType.CLICK)
                     selectedIndex = idx
                     PrefManager.externalStoragePath = StorageUtils.preferredInstallRoot(dirs[idx])
                 },
@@ -590,7 +600,7 @@ fun SettingsGroupInterface(
             )
         }
         // Steam download server selection
-        SettingsMenuLink(
+        HapticSettingsMenuLink(
             colors = settingsTileColorsAlt(),
             title = { Text(text = stringResource(R.string.settings_interface_download_server_title)) },
             subtitle = {
@@ -764,7 +774,7 @@ private fun IconVariantCard(
     }
     Card(
         modifier = Modifier
-            .clickable { onClick() },
+            .hapticClickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         border = border,
         colors = CardDefaults.cardColors(),

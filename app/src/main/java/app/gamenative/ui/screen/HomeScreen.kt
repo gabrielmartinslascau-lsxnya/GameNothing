@@ -49,7 +49,10 @@ fun HomeScreen(
             onNavigateRoute = onNavigateRoute,
             onLogout = onLogout,
             onGoOnline = onGoOnline,
-            onDownloadsClick = { viewModel.onDestination(HomeDestination.Downloads) },
+            onDownloadsClick = {
+                app.gamenative.utils.HapticManager.trigger(app.gamenative.utils.HapticManager.HapticType.CLICK)
+                viewModel.onDestination(HomeDestination.Downloads)
+            },
             isOffline = isOffline,
             isSteamConnected = isSteamConnected,
         )

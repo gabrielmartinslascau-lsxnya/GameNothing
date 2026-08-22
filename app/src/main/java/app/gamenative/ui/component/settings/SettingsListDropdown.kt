@@ -31,6 +31,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.gamenative.utils.HapticManager
+import app.gamenative.utils.hapticClickable
 import com.alorma.compose.settings.ui.base.internal.LocalSettingsGroupEnabled
 import com.alorma.compose.settings.ui.base.internal.SettingsTileColors
 import com.alorma.compose.settings.ui.base.internal.SettingsTileDefaults
@@ -64,9 +66,11 @@ fun SettingsListDropdown(
     SettingsTileScaffold(
         modifier = Modifier
             .focusRequester(focusRequester)
-            .clickable(
+            .hapticClickable(
                 enabled = enabled,
-                onClick = { isDropdownExpanded = true },
+                onClick = {
+                    isDropdownExpanded = true
+                },
             ).then(modifier),
         enabled = enabled,
         title = title,
@@ -115,6 +119,7 @@ fun SettingsListDropdown(
                     enabled = enabled,
                     text = { Text(text = text, color = textColor) },
                     onClick = {
+                        HapticManager.trigger(HapticManager.HapticType.CLICK)
                         onItemSelected(index)
                         isDropdownExpanded = false
                         focusRequester.requestFocus()

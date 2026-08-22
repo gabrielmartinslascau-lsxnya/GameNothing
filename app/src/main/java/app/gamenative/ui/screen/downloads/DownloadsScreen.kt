@@ -92,6 +92,9 @@ import app.gamenative.ui.screen.settings.ContainerStorageManagerContent
 import app.gamenative.ui.screen.settings.ContainerStorageManagerTransientUi
 import app.gamenative.ui.screen.settings.rememberContainerStorageManagerUiState
 import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.utils.HapticManager
+import app.gamenative.utils.hapticClickable
+import app.gamenative.utils.hapticSelectable
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
 import kotlinx.coroutines.delay
@@ -384,7 +387,7 @@ private fun DownloadsTabRow(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(16.dp))
-                    .selectable(
+                    .hapticSelectable(
                         selected = isSelected,
                         onClick = { onSectionSelected(section) },
                     ),
@@ -468,7 +471,7 @@ private fun DownloadsSidebarItem(
                 shape = RoundedCornerShape(18.dp),
             )
             .focusRequester(focusRequester)
-            .selectable(
+            .hapticSelectable(
                 selected = selected,
                 interactionSource = interactionSource,
                 indication = null,
@@ -531,6 +534,28 @@ private fun DownloadsContent(
     Column(
         modifier = modifier.fillMaxSize(),
     ) {
+        // Nothing OS styled global download progress bar
+        val globalProgress = if (items.isNotEmpty() && activeCount > 0) {
+            items.filter { it.status == DownloadItemStatus.DOWNLOADING }
+                .map { it.progress ?: 0f }
+                .average().toFloat().coerceIn(0f, 1f)
+        } else 0f
+
+        val globalSpeed = items.firstNotNullOfOrNull {
+            it.statusMessage?.let { msg ->
+                """(\d+\.?\d*\s*[KMG]?B/s)""".toRegex().find(msg)?.value
+            }
+        } ?: ""
+
+        NothingDownloadBar(
+            progress = globalProgress,
+            downloadSpeedText = globalSpeed,
+            accentColor = PluviaTheme.colors.accentPurple,
+            modifier = Modifier
+                .padding(bottom = 16.dp)
+                .height(48.dp)
+        )
+
         Text(
             text = stringResource(
                 R.string.downloads_summary,
@@ -619,7 +644,10 @@ private fun DownloadsToolbarButton(
     val accentColor = PluviaTheme.colors.accentPurple
 
     FilledTonalButton(
-        onClick = onClick,
+        onClick = {
+            HapticManager.trigger(HapticManager.HapticType.CLICK)
+            onClick()
+        },
         enabled = enabled,
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
@@ -685,11 +713,11 @@ private fun BackButton(
                     Modifier.border(1.dp, PluviaTheme.colors.borderDefault.copy(alpha = 0.3f), CircleShape)
                 },
             )
-            .selectable(
+            .hapticSelectable(
                 selected = isFocused,
                 interactionSource = interactionSource,
-                indication = null,
                 onClick = onClick,
+                type = HapticManager.HapticType.CLICK,
             ),
         contentAlignment = Alignment.Center,
     ) {
@@ -818,16 +846,28 @@ private fun DownloadItemCard(
                 }
 
                 item.progress?.let { progress ->
-                    Spacer(modifier = Modifier.height(8.dp))
-                    LinearProgressIndicator(
-                        progress = { progress.coerceIn(0f, 1f) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp)),
-                        color = progressColor,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    if (item.status == DownloadItemStatus.DOWNLOADING) {
+                        val speedText = item.statusMessage?.let { msg ->
+                            """(\d+\.?\d*\s*[KMG]?B/s)""".toRegex().find(msg)?.value
+                        } ?: ""
+                        NothingDownloadBar(
+                            progress = progress,
+                            downloadSpeedText = speedText,
+                            accentColor = progressColor,
+                            modifier = Modifier.height(40.dp)
+                        )
+                    } else {
+                        LinearProgressIndicator(
+                            progress = { progress.coerceIn(0f, 1f) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp)),
+                            color = progressColor,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -987,7 +1027,7 @@ private fun GameArtworkButton(
                 },
                 shape = RoundedCornerShape(10.dp),
             )
-            .selectable(
+            .hapticSelectable(
                 selected = isFocused,
                 interactionSource = interactionSource,
                 indication = null,
@@ -1137,7 +1177,7 @@ private fun DownloadActionButton(
                 },
                 shape = CircleShape,
             )
-            .selectable(
+            .hapticSelectable(
                 selected = isFocused,
                 interactionSource = interactionSource,
                 indication = null,
