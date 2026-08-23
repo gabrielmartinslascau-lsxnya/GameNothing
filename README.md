@@ -2,11 +2,11 @@
 
 <img width="1041" height="420" alt="51448" src="https://github.com/user-attachments/assets/ce498938-85ca-4e13-b04c-0d6021b45c89" />
 
-Emulate any game on your phone or Ayn "pocket pc", right now! just a simple install, and you will have custom built UI options, aggressive performance options, colour it how you like, and more coming soon!
+Emulate any game on your phone or your Ayn device, right now! just a simple install, and you will have custom built UI options, aggressive performance options, colour it how you like, and more coming soon!
 
 log-in with steam for example, just download, and play. online or offline!
 
-**here's what GameNothing will bring for you (v0.1.3 or later include *all* settings listed):**
+**here's what GameNothing will bring for you (v0.1.2 or later include *all* settings listed):**
 
 
 <img width="1260" height="1482" alt="51450" src="https://github.com/user-attachments/assets/67ecd602-1a9b-4bf8-9b4c-356a39b2d7ad" />
@@ -46,9 +46,9 @@ what to expect in the future :
 | version | key features | when |
 | :--- | :--- | :--- |
 | **BETA v0.1.0** | Very first official launch. with nothing® style font, glass panels, animations, and colour picker with 6 colours, together with a screen refresh rate slider, and ram viewer | outdated |
-| **BETA v0.1.1** | improved colour picker, new custom "legion" logo, fixed bugs, better adjustable slider on glass panels, better refresh rate slider, improved floating ram viewer | latest |
-| **BETA v0.1.2** | the biggest update to date! complete "legion" logo redesign, introducing haptics (adjustable), introducing "true glass" to glass panels more fonts to choose, introducing a procedurally generated loading screen on app launch, glass panels now affect the quick menu in-game, you can now change the colours, glass effects, or animations, while in-game, new nothing style download bar when downloading games, less crashes or soflocks, and faster responses, with a few ram optimisations and loops | early release - (bugged release, but should've been released). stable release - 23-25|
-| **BETA v0.1.3** | more colours to the colour picker, and possibly some game optimization or tweaks together with additions or redesigns | next week |
+| **BETA v0.1.1** | improved colour picker, new custom "legion" logo, fixed bugs, better adjustable slider on glass panels, better refresh rate slider, improved floating ram viewer | outdated/last stable release|
+| **BETA v0.1.2** | the biggest update to date! NEW "legion" logo redesign, NEW haptics feature, NEW controller support, NEW launch animation, 4 NEW colours, BETTER sliders, instant responses, NEW agressive caching feature (cache view), IMPROVED tutorial, IMPROVED Hz slider, IMPROVED game launch times, IMPROVED response rates, NEW glow effects, BETTER colour saturation, OPTIMIZED scrolling, MANY big fixes and common crashing | LAUNCHED !|
+| **BETA v0.1.3** | possibly some game optimization or tweaks together with additions or redesigns | next week |
 | **official 1.0 launch** | to see in the future... | future |
 
 
