@@ -2,29 +2,32 @@
 
 <img width="1041" height="420" alt="51448" src="https://github.com/user-attachments/assets/ce498938-85ca-4e13-b04c-0d6021b45c89" />
 
-Native PC gaming with Steam, Epic, GOG and Amazon integrations on Android. but a LOT better looking. with a few extras of my own, LSX special
+Emulate any game on your phone or Ayn "pocket pc", right now! just a simple install, and you will have custom built UI options, aggressive performance options, colour it how you like, and more coming soon!
 
-emulate any game, right now, on your phone. just a simple install, and custom built UI options, and more coming soon
 log-in with steam for example, just download, and play. online or offline!
-here's what GameNothing will bring for you :
+
+**here's what GameNothing will bring for you (v0.1.3 or later include *all* settings listed):**
 
 
 <img width="1260" height="1482" alt="51450" src="https://github.com/user-attachments/assets/67ecd602-1a9b-4bf8-9b4c-356a39b2d7ad" />
 
-- more animations
-- glass panel UI
-- colour picker
+- choose your animations
+- glass panels
+- true glass panels (realistic blur effect)
+- all with adjustable transparency / blurriness slider
+- colour picker (10 colours on everything)
 
 <img width="1260" height="843" alt="51452" src="https://github.com/user-attachments/assets/cbb696b6-a4bf-4404-9ff9-679202124084" />
 
-- haptics (in progress!)
-- Nothing ® style font
+- haptics (3 modes)
+- Nothing style font
+- Nothing Ndot style font
 
 <img width="1222" height="1447" alt="51456" src="https://github.com/user-attachments/assets/1b7edf09-9537-42ca-b266-8e2a184e59d5" />
 
 - aggressive caching
-- ram viewer
-- refresh rate control with 144hz support
+- ram viewer "bubble"
+- refresh rate control up to 144hz for fluid gaming
 
 <img width="908" height="901" alt="51458" src="https://github.com/user-attachments/assets/edb8cc01-4792-446e-b3f7-4a904f53d2fe" />
 
