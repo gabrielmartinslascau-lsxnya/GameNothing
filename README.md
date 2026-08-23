@@ -47,7 +47,7 @@ what to expect in the future :
 | :--- | :--- | :--- |
 | **BETA v0.1.0** | Very first official launch. with nothing® style font, glass panels, animations, and colour picker with 6 colours, together with a screen refresh rate slider, and ram viewer | outdated |
 | **BETA v0.1.1** | improved colour picker, new custom "legion" logo, fixed bugs, better adjustable slider on glass panels, better refresh rate slider, improved floating ram viewer | outdated/last stable release|
-| **BETA v0.1.2** | the biggest update to date! NEW "legion" logo redesign, NEW haptics feature, NEW controller support, NEW launch animation, 4 NEW colours, BETTER sliders, instant responses, NEW agressive caching feature (cache view), IMPROVED tutorial, IMPROVED Hz slider, IMPROVED game launch times, IMPROVED response rates, NEW glow effects, BETTER colour saturation, OPTIMIZED scrolling, MANY big fixes and common crashing | LAUNCHED !|
+| **BETA v0.1.2** | the biggest update to date! NEW "legion" logo redesign, NEW haptics feature, NEW controller support, NEW launch animation, 4 NEW colours, BETTER sliders, instant responses, NEW agressive caching feature (cache view), IMPROVED tutorial, IMPROVED Hz slider, IMPROVED game launch times, IMPROVED response rates, NEW glow effects, BETTER colour saturation, OFICIALLY changed the name from "gamenative-lsx" to "GameNothing" in the emulator, OPTIMIZED scrolling, MANY big fixes and common crashing | LAUNCHED !|
 | **BETA v0.1.3** | possibly some game optimization or tweaks together with additions or redesigns | next week |
 | **official 1.0 launch** | to see in the future... | future |
 
