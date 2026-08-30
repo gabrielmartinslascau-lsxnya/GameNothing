@@ -39,10 +39,17 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import timber.log.Timber
 
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+
 /**
  * A universal Preference Manager that can be used anywhere within gamenative.
  */
 object PrefManager {
+
+    private val cache = ConcurrentHashMap<String, Any>()
+    private val initLatch = CountDownLatch(1)
 
     private val Context.datastore by preferencesDataStore(
         name = "PluviaPreferences",
@@ -59,31 +66,60 @@ object PrefManager {
     private lateinit var dataStore: DataStore<Preferences>
 
     fun init(context: Context) {
+        if (::dataStore.isInitialized) return
         dataStore = context.datastore
 
-        // Note: Should remove after a few release versions. we've moved to encrypted values.
-        val oldPassword = stringPreferencesKey("password")
-        removePref(oldPassword)
-
-        val oldAccessToken = stringPreferencesKey("access_token")
-        val oldRefreshToken = stringPreferencesKey("refresh_token")
-        getPref(oldAccessToken, "").let {
-            if (it.isNotEmpty()) {
-                Timber.i("Converting old access token to encrypted")
-                accessToken = it
-                removePref(oldAccessToken)
-            }
-        }
-        getPref(oldRefreshToken, "").let {
-            if (it.isNotEmpty()) {
-                Timber.i("Converting old refresh token to encrypted")
-                refreshToken = it
-                removePref(oldRefreshToken)
+        scope.launch {
+            try {
+                val prefs = dataStore.data.first()
+                prefs.asMap().forEach { (key, value) ->
+                    cache[key.name] = value
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to prime preferences cache")
+            } finally {
+                initLatch.countDown()
             }
         }
 
-        // Initialize reactive states
+        // Background migration and cleanup
+        scope.launch {
+            awaitInit()
+
+            // Note: Should remove after a few release versions. we've moved to encrypted values.
+            val oldPassword = stringPreferencesKey("password")
+            removePref(oldPassword)
+
+            val oldAccessToken = stringPreferencesKey("access_token")
+            val oldRefreshToken = stringPreferencesKey("refresh_token")
+            getPref(oldAccessToken, "").let {
+                if (it.isNotEmpty()) {
+                    Timber.i("Converting old access token to encrypted")
+                    accessToken = it
+                    removePref(oldAccessToken)
+                }
+            }
+            getPref(oldRefreshToken, "").let {
+                if (it.isNotEmpty()) {
+                    Timber.i("Converting old refresh token to encrypted")
+                    refreshToken = it
+                    removePref(oldRefreshToken)
+                }
+            }
+        }
+
+        // Initialize reactive states - non-blocking fallback if latch times out
         _fontType = getFontTypeSync()
+    }
+
+    private fun awaitInit() {
+        try {
+            if (!initLatch.await(2, TimeUnit.SECONDS)) {
+                Timber.w("Preferences init timed out, falling back to disk reads")
+            }
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
     }
 
     private fun getFontTypeSync(): FontType {
@@ -102,6 +138,7 @@ object PrefManager {
     fun clearPreferences() {
         scope.launch {
             dataStore.edit { it.clear() }
+            cache.clear()
         }
     }
 
@@ -123,6 +160,18 @@ object PrefManager {
                 pref.remove(LAST_PICS_CHANGE_NUMBER)
                 pref.remove(STEAM_GAMES_COUNT)
             }
+            // Update cache
+            cache.remove(USER_NAME.name)
+            cache.remove(ACCESS_TOKEN_ENC.name)
+            cache.remove(REFRESH_TOKEN_ENC.name)
+            cache.remove(CLIENT_ID.name)
+            cache.remove(PERSONA_STATE.name)
+            cache.remove(STEAM_USER_ACCOUNT_ID.name)
+            cache.remove(STEAM_USER_STEAM_ID_64.name)
+            cache.remove(STEAM_USER_AVATAR_HASH.name)
+            cache.remove(STEAM_USER_NAME.name)
+            cache.remove(LAST_PICS_CHANGE_NUMBER.name)
+            cache.remove(STEAM_GAMES_COUNT.name)
         }
     }
 
@@ -138,21 +187,57 @@ object PrefManager {
     fun setFloat(key: String, value: Float): Unit =
         setPref(floatPreferencesKey(key), value)
 
-    @Suppress("SameParameterValue")
-    private fun <T> getPref(key: Preferences.Key<T>, defaultValue: T): T = runBlocking {
-        dataStore.data.first()[key] ?: defaultValue
+    @Suppress("UNCHECKED_CAST")
+    private fun <T> getPref(key: Preferences.Key<T>, defaultValue: T): T {
+        cache[key.name]?.let { return it as T }
+
+        // If not in cache, we might be early in boot. Try to wait briefly for prime.
+        if (initLatch.count > 0) {
+            awaitInit()
+            cache[key.name]?.let { return it as T }
+        }
+
+        val value = runBlocking {
+            try {
+                dataStore.data.first()[key] ?: defaultValue
+            } catch (e: Exception) {
+                defaultValue
+            }
+        }
+        if (value != null) cache[key.name] = value as Any
+        return value
     }
 
-    @Suppress("SameParameterValue")
-    private fun <T> setPref(key: Preferences.Key<T>, value: T) {
-        scope.launch {
-            dataStore.edit { pref -> pref[key] = value }
+    private fun <T> setPref(key: Preferences.Key<T>, value: T?) {
+        if (value != null) {
+            cache[key.name] = value as Any
+            scope.launch {
+                try {
+                    dataStore.edit { pref -> pref[key] = value }
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to save preference ${key.name}")
+                }
+            }
+        } else {
+            cache.remove(key.name)
+            scope.launch {
+                try {
+                    dataStore.edit { pref -> pref.remove(key) }
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to remove preference ${key.name}")
+                }
+            }
         }
     }
 
     private fun <T> removePref(key: Preferences.Key<T>) {
+        cache.remove(key.name)
         scope.launch {
-            dataStore.edit { pref -> pref.remove(key) }
+            try {
+                dataStore.edit { pref -> pref.remove(key) }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to remove preference ${key.name}")
+            }
         }
     }
 
@@ -363,7 +448,7 @@ object PrefManager {
     var quickMenuLastTab: Int
         get() = getPref(QUICK_MENU_LAST_TAB, 0)
         set(value) {
-            setPref(QUICK_MENU_LAST_TAB, value.coerceIn(0, 6))
+            setPref(QUICK_MENU_LAST_TAB, value.coerceIn(0, 8))
         }
 
     private val SHOW_FPS = booleanPreferencesKey("show_fps")
@@ -864,10 +949,20 @@ object PrefManager {
     // Special: Because null value.
     private val CLIENT_ID = longPreferencesKey("client_id")
     var clientId: Long?
-        get() = runBlocking { dataStore.data.first()[CLIENT_ID] }
+        get() = runBlocking {
+            try {
+                dataStore.data.first()[CLIENT_ID]
+            } catch (e: Exception) {
+                null
+            }
+        }
         set(value) {
             scope.launch {
-                dataStore.edit { pref -> pref[CLIENT_ID] = value!! }
+                try {
+                    dataStore.edit { pref -> if (value != null) pref[CLIENT_ID] = value else pref.remove(CLIENT_ID) }
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to save client_id")
+                }
             }
         }
 
@@ -1167,6 +1262,14 @@ object PrefManager {
         get() = getPref(SHOW_GAMEPAD_HINTS, true)
         set(value) {
             setPref(SHOW_GAMEPAD_HINTS, value)
+        }
+
+    // Style of the download progress bars
+    private val DOWNLOAD_BAR_STYLE = stringPreferencesKey("download_bar_style")
+    var downloadBarStyle: app.gamenative.enums.DownloadBarStyle
+        get() = app.gamenative.enums.DownloadBarStyle.fromKey(getPref(DOWNLOAD_BAR_STYLE, app.gamenative.enums.DownloadBarStyle.NOTHING.key))
+        set(value) {
+            setPref(DOWNLOAD_BAR_STYLE, value.key)
         }
 
     private val ITEMS_PER_PAGE = intPreferencesKey("items_per_page")

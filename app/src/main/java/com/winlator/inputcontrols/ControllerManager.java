@@ -101,12 +101,13 @@ public class ControllerManager {
     public void scanForDevices() {
         detectedDevices.clear();
         int[] deviceIds = inputManager.getInputDeviceIds();
+        if (deviceIds == null) return;
         Set<String> present = new HashSet<>();
         for (int deviceId : deviceIds) {
             InputDevice device = inputManager.getInputDevice(deviceId);
             // Some handhelds expose built-in controls as virtual devices, so
             // accept any device that reports a real gamepad/joystick shape.
-            if (device != null && isGameController(device)) {
+            if (device != null && isGameController(device) && device.getDescriptor() != null) {
                 detectedDevices.add(device);
                 String ident = getDeviceIdentifier(device);
                 knownDeviceIdentifiers.put(deviceId, ident);
@@ -428,6 +429,7 @@ public class ControllerManager {
         scanForDevices();
         boolean changed = false;
         for (InputDevice device : detectedDevices) {
+            if (device == null) continue;
             String deviceIdentifier = getDeviceIdentifier(device);
             if (deviceIdentifier == null || getSlotForDevice(device.getId()) >= 0) {
                 continue;

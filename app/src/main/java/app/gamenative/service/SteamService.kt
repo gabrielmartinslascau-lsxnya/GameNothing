@@ -349,6 +349,7 @@ class SteamService : Service(), IChallengeUrlChanged {
             private set
 
         fun clearCachedAchievements() {
+            if (PrefManager.aggressiveCaching) return
             cachedAchievements = null
             cachedAchievementsAppId = null
         }
@@ -1974,8 +1975,12 @@ class SteamService : Service(), IChallengeUrlChanged {
                         Timber.i("maxDecompress: $maxDecompress")
 
                         chunkStagingRedirectDir?.apply {
-                            deleteRecursively()
-                            mkdirs()
+                            if (!PrefManager.aggressiveCaching) {
+                                deleteRecursively()
+                                mkdirs()
+                            } else if (!exists()) {
+                                mkdirs()
+                            }
                         }
 
                         // Create DepotDownloader instance
@@ -3015,6 +3020,10 @@ class SteamService : Service(), IChallengeUrlChanged {
         }
 
         private fun clearUserData(clearCloudSyncState: Boolean = false) {
+            if (PrefManager.aggressiveCaching) {
+                Timber.i("[Aggressive Caching] Skipping user data cleanup on logout to prevent stutters.")
+                return
+            }
             PrefManager.clearSteamSessionPreferences()
             instance?.clearPendingSync()
             clearDatabase(clearCloudSyncState = clearCloudSyncState)

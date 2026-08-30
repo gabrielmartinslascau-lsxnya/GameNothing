@@ -82,6 +82,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gamenative.R
 import app.gamenative.data.GameSource
 import app.gamenative.data.LibraryItem
+import app.gamenative.enums.DownloadBarStyle
 import app.gamenative.ui.component.dialog.MessageDialog
 import app.gamenative.ui.data.DownloadItemState
 import app.gamenative.ui.data.DownloadItemStatus
@@ -120,6 +121,7 @@ fun HomeDownloadsScreen(
     onClickPlay: (String, Boolean) -> Unit,
     onTestGraphics: (String) -> Unit,
     onPlayWithDiagnostics: (String) -> Unit,
+    downloadBarStyle: DownloadBarStyle = DownloadBarStyle.NOTHING,
     viewModel: DownloadsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -241,6 +243,7 @@ fun HomeDownloadsScreen(
                     when (selectedSection) {
                         DownloadsSection.Downloads -> DownloadsContent(
                             state = state,
+                            downloadBarStyle = downloadBarStyle,
                             onResumeDownload = viewModel::onResumeDownload,
                             onPauseDownload = viewModel::onPauseDownload,
                             onCancelDownload = viewModel::onCancelDownload,
@@ -510,6 +513,7 @@ private fun DownloadsSidebarItem(
 @Composable
 private fun DownloadsContent(
     state: DownloadsState,
+    downloadBarStyle: DownloadBarStyle,
     onResumeDownload: (DownloadItemState) -> Unit,
     onPauseDownload: (DownloadItemState) -> Unit,
     onCancelDownload: (DownloadItemState) -> Unit,
@@ -550,6 +554,7 @@ private fun DownloadsContent(
         NothingDownloadBar(
             progress = globalProgress,
             downloadSpeedText = globalSpeed,
+            style = downloadBarStyle,
             accentColor = PluviaTheme.colors.accentPurple,
             modifier = Modifier
                 .padding(bottom = 16.dp)
@@ -618,6 +623,7 @@ private fun DownloadsContent(
                 ) { item ->
                     DownloadItemCard(
                         item = item,
+                        downloadBarStyle = downloadBarStyle,
                         onOpenGame = { onOpenGame(item) },
                         onResume = { onResumeDownload(item) },
                         onPause = { onPauseDownload(item) },
@@ -761,6 +767,7 @@ private fun EmptyDownloadsContent(
 @Composable
 private fun DownloadItemCard(
     item: DownloadItemState,
+    downloadBarStyle: DownloadBarStyle,
     onOpenGame: () -> Unit,
     onResume: () -> Unit,
     onPause: () -> Unit,
@@ -854,6 +861,7 @@ private fun DownloadItemCard(
                         NothingDownloadBar(
                             progress = progress,
                             downloadSpeedText = speedText,
+                            style = downloadBarStyle,
                             accentColor = progressColor,
                             modifier = Modifier.height(40.dp)
                         )

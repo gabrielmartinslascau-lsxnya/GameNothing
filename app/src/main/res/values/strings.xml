@@ -1192,7 +1192,7 @@
     <string name="container_storage_unknown_error">Unknown error</string>
 
     <!-- Login Screen -->
-    <string name="login_app_name">GameNative-LSX</string>
+    <string name="login_app_name">GameNothing</string>
     <string name="login_privacy_policy">Privacy Policy</string>
     <string name="login_welcome_back">Welcome Back</string>
     <string name="login_subtitle">Sign in to access your Steam library</string>
@@ -2360,8 +2360,16 @@
     <string name="settings_looks_true_glass_title" translatable="false">True Glass</string>
     <string name="settings_looks_true_glass_subtitle" translatable="false">Add a realistic blur effect to panels (Android 12+)</string>
     <string name="settings_looks_font_type_title" translatable="false">Font Type</string>
+    <string name="settings_looks_download_bar_style_title" translatable="false">Download Bar Style</string>
+    <string name="download_bar_style_nothing" translatable="false">Nothing</string>
+    <string name="download_bar_style_normal" translatable="false">Normal</string>
     <string name="font_type_ndot" translatable="false">Ndot</string>
     <string name="font_type_normal" translatable="false">Normal</string>
 
     <string name="xr_refresh_rate">VR Refresh Rate</string>
+    <string name="settings_looks_refresh_rate">Refresh Rate</string>
+    <string name="settings_thermal_title">Heat Control</string>
+    <string name="settings_thermal_threshold">Temp Threshold (°C)</string>
+    <string name="settings_thermal_limit">Performance Cap (%)</string>
+    <string name="settings_thermal_current">Current Temp: %1.1f°C</string>
 </resources>

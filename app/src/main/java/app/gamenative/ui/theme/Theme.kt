@@ -1,6 +1,8 @@
 package app.gamenative.ui.theme
 
 import android.app.Activity
+import android.os.Build
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -9,7 +11,11 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.asComposeRenderEffect
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import app.gamenative.PrefManager
@@ -22,10 +28,29 @@ import com.materialkolor.PaletteStyle
  */
 fun String.toColor(): Color {
     return try {
-        Color(android.graphics.Color.parseColor(this))
+        val color = Color(android.graphics.Color.parseColor(this))
+        // Apply 20% desaturation to raw colors from Prefs
+        color.desaturated(0.8f)
     } catch (e: Exception) {
         Color.Unspecified
     }
+}
+
+/**
+ * Extension to desaturate a Color.
+ */
+fun Color.desaturated(fraction: Float): Color {
+    val luminance = 0.2126f * red + 0.7152f * green + 0.0722f * blue
+    return Color(
+        red = lerp(luminance, red, fraction),
+        green = lerp(luminance, green, fraction),
+        blue = lerp(luminance, blue, fraction),
+        alpha = alpha
+    )
+}
+
+private fun lerp(start: Float, stop: Float, fraction: Float): Float {
+    return (1 - fraction) * start + fraction * stop
 }
 
 /**
@@ -258,11 +283,25 @@ fun PluviaTheme(
     }
 
     CompositionLocalProvider(LocalPluviaColors provides pluviaColors) {
-        MaterialTheme(
-            colorScheme = colorScheme,
-            typography = getPluviaTypography(),
-            content = content,
-        )
+        val desatModifier = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            Modifier.graphicsLayer {
+                // Apply a global 15% desaturation via ColorMatrix
+                val desatMatrix = ColorMatrix().apply {
+                    setToSaturation(0.85f)
+                }
+                renderEffect = android.graphics.RenderEffect.createColorFilterEffect(
+                    android.graphics.ColorMatrixColorFilter(desatMatrix.values)
+                ).asComposeRenderEffect()
+            }
+        } else Modifier
+
+        Box(modifier = desatModifier) {
+            MaterialTheme(
+                colorScheme = colorScheme,
+                typography = getPluviaTypography(),
+                content = content,
+            )
+        }
     }
 }
 

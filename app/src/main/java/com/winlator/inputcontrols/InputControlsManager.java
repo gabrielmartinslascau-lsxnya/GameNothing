@@ -143,7 +143,11 @@ public class InputControlsManager {
         if (files != null) {
             for (File file : files) {
                 ControlsProfile profile = loadProfile(context, file);
-                if (profile == null) continue;
+                if (profile == null) {
+                    Log.w("InputControlsManager", "Profile file is corrupted, deleting: " + file.getName());
+                    file.delete();
+                    continue;
+                }
                 if (!(ignoreTemplates && profile.isTemplate())) profiles.add(profile);
                 maxProfileId = Math.max(maxProfileId, profile.id);
             }

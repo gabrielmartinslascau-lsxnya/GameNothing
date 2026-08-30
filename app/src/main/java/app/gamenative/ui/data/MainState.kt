@@ -29,6 +29,7 @@ data class MainState(
     val mainColor: String = "#9C27B0",
     val wallpaperColor: String = "#121416",
     val maxRefreshRate: Int = 60,
+    val refreshRateEnabled: Boolean = false,
 
     val jigglyAnimations: Boolean = true,
     val glassPanels: Boolean = false,
@@ -37,6 +38,7 @@ data class MainState(
     val glassBlurIntensity: Float = 16f,
     val glassColor: String = "#FFFFFF",
     val fontType: FontType = FontType.NDOT,
+    val downloadBarStyle: app.gamenative.enums.DownloadBarStyle = app.gamenative.enums.DownloadBarStyle.NOTHING,
 
     // Connection state for background reconnection
     // Default to DISCONNECTED - service will start and set to CONNECTING

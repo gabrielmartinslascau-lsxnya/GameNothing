@@ -11,6 +11,7 @@ import android.graphics.Color.TRANSPARENT
 import android.hardware.input.InputManager
 import android.os.Build
 import android.os.Bundle
+import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.OrientationEventListener
@@ -61,6 +62,7 @@ import com.winlator.inputcontrols.ControllerManager
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.EnumSet
 import kotlin.math.abs
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okio.Path.Companion.toOkioPath
 import timber.log.Timber
@@ -145,15 +147,70 @@ class MainActivity : ComponentActivity() {
     private var controllerInputManager: InputManager? = null
     private val controllerDeviceListener = object : InputManager.InputDeviceListener {
         override fun onInputDeviceAdded(deviceId: Int) {
+            val device = InputDevice.getDevice(deviceId)
+            if (isGamepad(device)) {
+                handleControllerConnected()
+            }
+            updateOrientationForController()
             ControllerManager.getInstance().onDeviceConnected(deviceId)
         }
 
         override fun onInputDeviceRemoved(deviceId: Int) {
+            updateOrientationForController()
             ControllerManager.getInstance().onDeviceDisconnected(deviceId)
         }
 
         override fun onInputDeviceChanged(deviceId: Int) {
+            updateOrientationForController()
             ControllerManager.getInstance().onDeviceConnected(deviceId)
+        }
+    }
+
+    private fun isGamepad(device: android.view.InputDevice?): Boolean =
+        device != null && (device.sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
+                device.sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK)
+
+    private var isControllerTransitioning = false
+
+    private fun handleControllerConnected() {
+        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val isCarousel = PrefManager.libraryLayout == app.gamenative.ui.enums.PaneType.CAROUSEL
+
+        if (isLandscape && isCarousel) return
+        if (isControllerTransitioning) return
+
+        isControllerTransitioning = true
+        Timber.i("[Controller] Gamepad detected. Locking landscape and triggering transition.")
+
+        // 1. Force carousel mode
+        PrefManager.libraryLayout = app.gamenative.ui.enums.PaneType.CAROUSEL
+
+        // 2. Force landscape orientation
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+
+        // 3. Trigger 2s premium transition in ViewModel (survives activity recreation)
+        PluviaApp.events.emit(AndroidEvent.TriggerControllerTransition)
+
+        lifecycleScope.launch {
+            delay(1000)
+            isControllerTransitioning = false
+        }
+    }
+
+    private fun isGamepadConnected(): Boolean {
+        val deviceIds = InputDevice.getDeviceIds() ?: return false
+        for (id in deviceIds) {
+            val device = InputDevice.getDevice(id)
+            if (device != null && isGamepad(device)) return true
+        }
+        return false
+    }
+
+    private fun updateOrientationForController() {
+        if (isGamepadConnected()) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        } else {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         }
     }
 
@@ -168,6 +225,10 @@ class MainActivity : ComponentActivity() {
     private var appImageLoader: ImageLoader? = null
 
     private fun releaseImageCaches() {
+        if (PrefManager.aggressiveCaching) {
+            Timber.i("[Aggressive Caching] Skipping cover-art cache release to maintain UI responsiveness.")
+            return
+        }
         appImageLoader?.memoryCache?.clear()
     }
 
@@ -217,6 +278,7 @@ class MainActivity : ComponentActivity() {
         ControllerManager.getInstance().init(applicationContext)
         controllerInputManager = getSystemService(Context.INPUT_SERVICE) as InputManager
         controllerInputManager?.registerInputDeviceListener(controllerDeviceListener, null)
+        updateOrientationForController()
 
         ContainerUtils.setContainerDefaults(applicationContext)
 
@@ -705,9 +767,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setOrientationTo(orientation: Int, conformTo: EnumSet<Orientation>) {
-        if (isHeadset(this)) {
-            if (requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) {
-                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        if (isHeadset(this) || isGamepadConnected()) {
+            if (requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE) {
+                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
             }
             return
         }

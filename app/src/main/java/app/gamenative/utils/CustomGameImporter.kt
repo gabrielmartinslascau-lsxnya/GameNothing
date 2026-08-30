@@ -73,43 +73,64 @@ object CustomGameImporter {
         deleteSource: Boolean,
         onBytes: (Long, String) -> Unit,
     ) {
-        for (child in src.listFiles()) {
+        val children = runCatching { src.listFiles() }.getOrElse { emptyArray() }
+        for (child in children) {
             coroutineContext.ensureActive()
+            if (!child.exists()) continue
+
             val childName = sanitizeName(child.name)
             if (child.isDirectory) {
                 val subDir = File(dest, childName)
                 subDir.mkdirs()
                 moveTree(context, child, subDir, deleteSource, onBytes)
-                if (deleteSource && !child.delete()) {
-                    Timber.tag("CustomGameImporter").w("Could not remove source folder ${child.uri}")
+                if (deleteSource) {
+                    runCatching {
+                        if (!child.delete()) {
+                            Timber.tag("CustomGameImporter").w("Could not remove source folder ${child.uri}")
+                        }
+                    }
                 }
             } else {
                 val expected = child.length()
                 val outFile = File(dest, childName)
                 var written = 0L
-                val input = context.contentResolver.openInputStream(child.uri)
-                if (input == null) {
-                    throw java.io.IOException("Could not open ${child.uri}")
-                }
-                input.use { ins ->
-                    outFile.outputStream().use { output ->
-                        val buf = ByteArray(1 shl 16)
-                        while (true) {
-                            coroutineContext.ensureActive()
-                            val n = ins.read(buf)
-                            if (n < 0) break
-                            output.write(buf, 0, n)
-                            written += n
-                            onBytes(n.toLong(), childName)
+                val input = runCatching { context.contentResolver.openInputStream(child.uri) }
+                    .onFailure { e ->
+                        if (e is kotlinx.coroutines.CancellationException) throw e
+                        Timber.tag("CustomGameImporter").w(e, "Failed to open ${child.uri}")
+                    }
+                    .getOrNull() ?: continue
+
+                runCatching {
+                    input.use { ins ->
+                        outFile.outputStream().use { output ->
+                            val buf = ByteArray(1 shl 16)
+                            while (true) {
+                                coroutineContext.ensureActive()
+                                val n = ins.read(buf)
+                                if (n < 0) break
+                                output.write(buf, 0, n)
+                                written += n
+                                onBytes(n.toLong(), childName)
+                            }
                         }
                     }
+                }.onFailure { e ->
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    Timber.tag("CustomGameImporter").e(e, "Error copying $childName")
                 }
+
                 if (expected > 0 && written != expected) {
                     outFile.delete()
-                    throw java.io.IOException("Size mismatch for $childName: $written of $expected bytes")
+                    Timber.tag("CustomGameImporter").w("Size mismatch for $childName: $written of $expected bytes")
+                    continue
                 }
-                if (deleteSource && !child.delete()) {
-                    Timber.tag("CustomGameImporter").w("Could not delete source file ${child.uri}")
+                if (deleteSource) {
+                    runCatching {
+                        if (!child.delete()) {
+                            Timber.tag("CustomGameImporter").w("Could not delete source file ${child.uri}")
+                        }
+                    }
                 }
             }
         }

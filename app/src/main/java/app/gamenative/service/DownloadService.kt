@@ -92,11 +92,17 @@ object DownloadService {
 
     private fun getSubdirectories(path: String): MutableList<String> {
         // Names of immediate subdirectories
-        val subDir = File(path).list { dir, name -> File(dir, name).isDirectory }
-        if (subDir == null) {
-            return emptyList<String>().toMutableList()
+        return runCatching {
+            val root = File(path)
+            if (!root.exists() || !root.isDirectory) return@runCatching emptyList<String>().toMutableList()
+            val subDir = root.list { dir, name ->
+                runCatching { File(dir, name).isDirectory }.getOrDefault(false)
+            }
+            subDir?.toMutableList() ?: mutableListOf()
+        }.getOrElse { e ->
+            Timber.tag("DownloadService").w(e, "Failed to list subdirectories of $path")
+            mutableListOf()
         }
-        return subDir.toMutableList()
     }
 
     fun getSizeFromStoreDisplay(appId: Int, branch: String = "public"): String {

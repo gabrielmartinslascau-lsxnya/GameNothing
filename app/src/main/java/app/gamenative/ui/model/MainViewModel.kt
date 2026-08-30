@@ -13,11 +13,13 @@ import app.gamenative.data.LibraryPlayHistory
 import app.gamenative.db.dao.LibraryPlayHistoryDao
 import app.gamenative.di.IAppTheme
 import app.gamenative.enums.AppTheme
+import app.gamenative.enums.DownloadBarStyle
 import app.gamenative.enums.FontType
 import app.gamenative.enums.LoginResult
 import app.gamenative.enums.PathType
 import app.gamenative.events.AndroidEvent
 import app.gamenative.events.SteamEvent
+import app.gamenative.powercontrol.PowerManager
 import app.gamenative.service.ActiveGameRegistry
 import app.gamenative.service.SteamService
 import app.gamenative.service.amazon.AmazonService
@@ -236,6 +238,10 @@ class MainViewModel @Inject constructor(
         setShowBootingSplash(false)
     }
 
+    private val onTriggerControllerTransition: (AndroidEvent.TriggerControllerTransition) -> Unit = {
+        triggerControllerTransition()
+    }
+
     private var bootingSplashTimeoutJob: Job? = null
     private var connectionTimeoutJob: Job? = null
 
@@ -263,7 +269,16 @@ class MainViewModel @Inject constructor(
                 launchedAppId = "",
                 currentScreen = restoredScreen,
                 connectionState = initialConnectionState,
+                refreshRateEnabled = PrefManager.refreshRateEnabled
             )
+        }
+
+        // Controller Detection on Startup
+        viewModelScope.launch {
+            delay(500) // Wait for sensors/input to settle
+            if (isAnyGamepadConnected()) {
+                triggerControllerTransition()
+            }
         }
 
         // Register event handlers
@@ -271,6 +286,7 @@ class MainViewModel @Inject constructor(
         PluviaApp.events.on<AndroidEvent.ExternalGameLaunch, Unit>(onExternalGameLaunch)
         PluviaApp.events.on<AndroidEvent.SetBootingSplashText, Unit>(onSetBootingSplashText)
         PluviaApp.events.on<AndroidEvent.ClearBootingSplash, Unit>(onClearBootingSplash)
+        PluviaApp.events.on<AndroidEvent.TriggerControllerTransition, Unit>(onTriggerControllerTransition)
         PluviaApp.events.on<SteamEvent.Connected, Unit>(onSteamConnected)
         PluviaApp.events.on<SteamEvent.Disconnected, Unit>(onSteamDisconnected)
         PluviaApp.events.on<SteamEvent.RemotelyDisconnected, Unit>(onRemotelyDisconnected)
@@ -351,6 +367,12 @@ class MainViewModel @Inject constructor(
                 _state.update { it.copy(fontType = value) }
             }
         }
+
+        viewModelScope.launch {
+            appTheme.downloadBarStyleFlow.collect { value ->
+                _state.update { it.copy(downloadBarStyle = value) }
+            }
+        }
     }
 
     override fun onCleared() {
@@ -358,6 +380,7 @@ class MainViewModel @Inject constructor(
         PluviaApp.events.off<AndroidEvent.ExternalGameLaunch, Unit>(onExternalGameLaunch)
         PluviaApp.events.off<AndroidEvent.SetBootingSplashText, Unit>(onSetBootingSplashText)
         PluviaApp.events.off<AndroidEvent.ClearBootingSplash, Unit>(onClearBootingSplash)
+        PluviaApp.events.off<AndroidEvent.TriggerControllerTransition, Unit>(onTriggerControllerTransition)
         PluviaApp.events.off<SteamEvent.Connected, Unit>(onSteamConnected)
         PluviaApp.events.off<SteamEvent.Disconnected, Unit>(onSteamDisconnected)
         PluviaApp.events.off<SteamEvent.RemotelyDisconnected, Unit>(onRemotelyDisconnected)
@@ -385,7 +408,9 @@ class MainViewModel @Inject constructor(
     }
 
     fun setMaxRefreshRate(value: Int) {
+        PrefManager.refreshRateEnabled = true
         appTheme.maxRefreshRate = value
+        _state.update { it.copy(refreshRateEnabled = true) }
     }
 
     fun setJigglyAnimations(value: Boolean) {
@@ -414,6 +439,10 @@ class MainViewModel @Inject constructor(
 
     fun setFontType(value: FontType) {
         appTheme.fontType = value
+    }
+
+    fun setDownloadBarStyle(value: DownloadBarStyle) {
+        appTheme.downloadBarStyle = value
     }
 
     fun setAnnoyingDialogShown(value: Boolean) {
@@ -826,7 +855,7 @@ class MainViewModel @Inject constructor(
 
             val gameId = ContainerUtils.extractGameIdFromContainerId(appId)
 
-            SteamService.getAppInfoOf(gameId)?.let { appInfo ->
+            SteamService.getAppInfoOf(gameId)?.let { _ ->
                 if (ActiveGameRegistry.get()?.appId == gameId) {
                     return@launch
                 }
@@ -884,6 +913,17 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun triggerControllerTransition() {
+        if (_state.value.showBootingSplash) return
+
+        viewModelScope.launch {
+            setBootingSplashText("Controller Connected...")
+            setShowBootingSplash(true)
+            delay(2000)
+            setShowBootingSplash(false)
+        }
+    }
+
     fun onGameLaunchError(error: String) {
         viewModelScope.launch {
             // Hide the splash screen if it's still showing
@@ -896,6 +936,14 @@ class MainViewModel @Inject constructor(
 
             // You could also show an error dialog here if needed
             Timber.tag("MainViewModel").e("Game launch error: $error")
+        }
+    }
+
+    private fun isAnyGamepadConnected(): Boolean {
+        return android.view.InputDevice.getDeviceIds().any { id ->
+            val device = android.view.InputDevice.getDevice(id)
+            device != null && (device.sources and android.view.InputDevice.SOURCE_GAMEPAD == android.view.InputDevice.SOURCE_GAMEPAD ||
+                    device.sources and android.view.InputDevice.SOURCE_JOYSTICK == android.view.InputDevice.SOURCE_JOYSTICK)
         }
     }
 }

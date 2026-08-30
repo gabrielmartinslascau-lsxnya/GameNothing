@@ -41,7 +41,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.gamenative.PrefManager
+import app.gamenative.ui.theme.LocalLooksState
 import app.gamenative.ui.theme.PluviaGlassPanel
+import app.gamenative.ui.theme.glassContentColor
 import app.gamenative.utils.HapticManager
 import app.gamenative.utils.hapticClickable
 import kotlinx.coroutines.delay
@@ -72,7 +74,8 @@ fun BoxScope.RamViewerOverlay() {
         }
     }
 
-    val isGlass = PrefManager.glassPanels
+    val looks = LocalLooksState.current
+    val contentColor = glassContentColor()
 
     Box(
         modifier = Modifier
@@ -101,7 +104,7 @@ fun BoxScope.RamViewerOverlay() {
                     Icon(
                         imageVector = Icons.Default.Memory,
                         contentDescription = "RAM",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = looks.mainColor,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -113,7 +116,7 @@ fun BoxScope.RamViewerOverlay() {
                     Icon(
                         imageVector = Icons.Default.Memory,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = looks.mainColor,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -121,7 +124,7 @@ fun BoxScope.RamViewerOverlay() {
                         Text(
                             text = "RAM Usage",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.6f)
+                            color = contentColor.copy(alpha = 0.6f)
                         )
                         Text(
                             text = ramUsage,
@@ -129,7 +132,7 @@ fun BoxScope.RamViewerOverlay() {
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp
                             ),
-                            color = Color.White
+                            color = contentColor
                         )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
@@ -137,14 +140,14 @@ fun BoxScope.RamViewerOverlay() {
                         modifier = Modifier
                             .size(24.dp)
                             .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.1f))
+                            .background(contentColor.copy(alpha = 0.1f))
                             .hapticClickable { isMinimized = true },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Remove,
                             contentDescription = "Minimize",
-                            tint = Color.White,
+                            tint = contentColor,
                             modifier = Modifier.size(14.dp)
                         )
                     }

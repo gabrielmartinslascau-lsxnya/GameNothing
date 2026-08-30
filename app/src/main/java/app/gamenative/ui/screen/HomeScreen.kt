@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.gamenative.enums.DownloadBarStyle
 import app.gamenative.ui.enums.HomeDestination
 import app.gamenative.ui.model.HomeViewModel
 import app.gamenative.ui.screen.downloads.HomeDownloadsScreen
@@ -29,6 +30,7 @@ fun HomeScreen(
     onGoOnline: () -> Unit,
     isOffline: Boolean = false,
     isSteamConnected: Boolean = false,
+    downloadBarStyle: DownloadBarStyle = DownloadBarStyle.NOTHING,
 ) {
     val homeState by viewModel.homeState.collectAsStateWithLifecycle()
 
@@ -61,6 +63,7 @@ fun HomeScreen(
             onClickPlay = onClickPlay,
             onTestGraphics = onTestGraphics,
             onPlayWithDiagnostics = onPlayWithDiagnostics,
+            downloadBarStyle = downloadBarStyle,
         )
     }
 }

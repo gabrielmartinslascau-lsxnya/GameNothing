@@ -60,7 +60,8 @@ public class ContainerManager {
                             String configContent = FileUtils.readString(configFile);
 
                             if (configContent == null || configContent.trim().isEmpty()) {
-                                Log.w("ContainerManager", "Container config file is null or empty, skipping: " + containerId);
+                                Log.w("ContainerManager", "Container config file is null or empty, deleting: " + containerId);
+                                FileUtils.delete(file);
                                 continue;
                             }
 
@@ -69,7 +70,8 @@ public class ContainerManager {
                             containers.add(container);
                         } catch (Exception e) {
                             // Catch ALL exceptions (NullPointerException, JSONException, etc.)
-                            Log.w("ContainerManager", "Could not load container " + containerId + ": " + e.getMessage());
+                            Log.w("ContainerManager", "Could not load container " + containerId + ", deleting corrupted file: " + e.getMessage());
+                            FileUtils.delete(new File(homeDir, ImageFs.USER+"-"+containerId));
                             // Continue loading other containers
                         }
                     }

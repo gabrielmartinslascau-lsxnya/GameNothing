@@ -651,6 +651,7 @@ class EpicManager @Inject constructor(
     }
 
     suspend fun deleteAllNonInstalledGames() {
+        if (PrefManager.aggressiveCaching) return
         withContext(Dispatchers.IO) {
             epicGameDao.deleteAllNonInstalledGames()
         }

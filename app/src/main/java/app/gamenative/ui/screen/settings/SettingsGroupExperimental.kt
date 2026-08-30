@@ -13,7 +13,9 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,24 +35,46 @@ import com.alorma.compose.settings.ui.SettingsGroup
 import com.alorma.compose.settings.ui.SettingsSwitch
 import kotlin.math.roundToInt
 
+import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.ui.platform.LocalContext
+import java.io.File
+import java.util.Locale
+
 @Composable
 fun SettingsGroupExperimental(viewModel: MainViewModel) {
     SettingsGroup {
-        val contentColor = glassContentColor()
         val state by viewModel.state.collectAsStateWithLifecycle()
+        val context = LocalContext.current
 
         var aggressiveCaching by remember { mutableStateOf(PrefManager.aggressiveCaching) }
         var ramViewerEnabled by remember { mutableStateOf(PrefManager.ramViewerEnabled) }
+        var cacheSizeMb by remember { mutableDoubleStateOf(0.0) }
+
+        LaunchedEffect(Unit) {
+            val totalSize = calculateDirSize(context.cacheDir) +
+                          calculateDirSize(File(context.filesDir, "image_cache")) +
+                          calculateDirSize(context.codeCacheDir)
+            cacheSizeMb = totalSize / (1024.0 * 1024.0)
+        }
 
         HapticSettingsSwitch(
             colors = settingsTileColors(),
             state = aggressiveCaching,
             title = { Text(text = "Aggressive Caching") },
-            subtitle = { Text(text = "Speed up loading times by caching more aggressively.") },
+            subtitle = {
+                Column {
+                    Text(text = "Speed up loading times by never clearing the app cache.")
+                    Text(
+                        text = String.format(Locale.US, "Current Cache: %.1f MB", cacheSizeMb),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                    )
+                }
+            },
             onCheckedChange = {
                 aggressiveCaching = it
                 PrefManager.aggressiveCaching = it
-            },
+            }
         )
 
         HapticSettingsSwitch(
@@ -103,12 +127,11 @@ fun SettingsGroupExperimental(viewModel: MainViewModel) {
                         value = animatedIndex,
                         onValueChange = {
                             sliderIndex = it
+                            val index = it.roundToInt()
+                            viewModel.setMaxRefreshRate(hzOptions[index])
                         },
                         onValueChangeFinished = {
                             HapticManager.trigger(HapticManager.HapticType.CLICK)
-                            val finalIndex = sliderIndex.roundToInt()
-                            sliderIndex = finalIndex.toFloat()
-                            viewModel.setMaxRefreshRate(hzOptions[finalIndex])
                         },
                         valueRange = 0f..(hzOptions.size - 1).toFloat(),
                         steps = hzOptions.size - 2,
@@ -130,4 +153,12 @@ fun SettingsGroupExperimental(viewModel: MainViewModel) {
             }
         }
     }
+}
+
+private fun calculateDirSize(dir: File): Long {
+    var size = 0L
+    dir.listFiles()?.forEach { file ->
+        size += if (file.isDirectory) calculateDirSize(file) else file.length()
+    }
+    return size
 }

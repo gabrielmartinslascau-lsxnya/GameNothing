@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -36,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -58,6 +61,9 @@ import app.gamenative.ui.model.MainViewModel
 import app.gamenative.ui.theme.PluviaGlassPanel
 import app.gamenative.ui.theme.glassContentColor
 import app.gamenative.ui.theme.toColor
+import app.gamenative.ui.component.settings.HapticSettingsSwitch
+import app.gamenative.ui.theme.settingsTileColorsAlt
+import app.gamenative.utils.HapticManager
 
 @Composable
 fun TutorialScreen(
@@ -107,12 +113,30 @@ fun TutorialScreen(
                         1 -> GlassCustomizationPage(
                             viewModel = viewModel,
                             mainColor = state.mainColor,
-                            wallpaperColor = state.wallpaperColor
+                            wallpaperColor = state.wallpaperColor,
+                            glassPanels = state.glassPanels
                         )
                         2 -> TutorialPage(
                             icon = Icons.Default.Speed,
                             title = "Performance Tips",
-                            description = "For the most reliable experience across most games, we recommend using Proton 11 and DXVK 2.4.1. You can configure these in the Container Settings for each game."
+                            description = "For the most reliable experience across most games, we recommend using Proton 11 ARM + DXVK 2.7.1 GPLAsync + 2GB VRAM + FEX 2608. You can configure these in the Container Settings for each game."
+                        )
+                        3 -> PerformanceTuningPage()
+                        4 -> RealityCheckPage()
+                        5 -> TutorialPage(
+                            icon = Icons.Default.AutoFixHigh,
+                            title = "Cloud Sync",
+                            description = "Your game saves are automatically synced to the cloud whenever you close a game. This ensures your progress is safe across all your devices."
+                        )
+                        6 -> TutorialPage(
+                            icon = Icons.Default.Settings,
+                            title = "Sidebar Features",
+                            description = "While in-game, you can access the Sidebar to adjust the Refresh Rate and monitor your device's heat. These standalone drawers allow for quick tuning without leaving your game."
+                        )
+                        7 -> TutorialPage(
+                            icon = Icons.Default.Settings,
+                            title = "Community Configs",
+                            description = "Can't get a game to work? Check the Community Configs button on the game detail page. Other users have shared their best-working settings for your specific hardware."
                         )
                     }
                 }
@@ -142,7 +166,7 @@ fun TutorialScreen(
 
                 // Page Indicator
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    repeat(3) { index ->
+                    repeat(8) { index ->
                         Box(
                             modifier = Modifier
                                 .size(8.dp)
@@ -155,11 +179,11 @@ fun TutorialScreen(
                 // Next/Get Started Button
                 Button(
                     onClick = {
-                        if (currentPage < 2) currentPage++ else onComplete()
+                        if (currentPage < 7) currentPage++ else onComplete()
                     }
                 ) {
-                    Text(if (currentPage < 2) "Next" else "Get Started")
-                    if (currentPage < 2) {
+                    Text(if (currentPage < 7) "Next" else "Get Started")
+                    if (currentPage < 7) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
                     }
@@ -219,7 +243,8 @@ private fun TutorialPage(
 private fun GlassCustomizationPage(
     viewModel: MainViewModel,
     mainColor: String,
-    wallpaperColor: String
+    wallpaperColor: String,
+    glassPanels: Boolean
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -250,7 +275,19 @@ private fun GlassCustomizationPage(
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        HapticSettingsSwitch(
+            colors = settingsTileColorsAlt(),
+            state = glassPanels,
+            title = { Text(text = "Glass Panels", color = Color.White) },
+            subtitle = { Text(text = "Enable frosted glass effects", color = Color.White.copy(alpha = 0.6f)) },
+            onCheckedChange = {
+                viewModel.setGlassPanels(it)
+            }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
 
         Text(
             text = "Your App, Your Style",
@@ -271,25 +308,38 @@ private fun GlassCustomizationPage(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Simple Color Picker
+        // Two-row Color Picker with 10 Colors
         val colors = listOf(
             "#E91E63" to "Cherry",
+            "#FF9800" to "Orange",
             "#4CAF50" to "Forest",
+            "#00BCD4" to "Cyan",
             "#2196F3" to "Ice",
             "#9C27B0" to "Violet",
+            "#9E9E9E" to "Steel",
+            "#607D8B" to "Slate",
             "#FFFFFF" to "Frost",
             "#000000" to "Volcanic"
         )
 
         Text("Main Colour", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.5f))
         Spacer(modifier = Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            colors.forEach { (hex, _) ->
-                ColorPill(
-                    hex = hex,
-                    selected = hex == mainColor,
-                    onClick = { viewModel.setMainColor(hex) }
-                )
+
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            val chunkedMain = colors.chunked(5)
+            chunkedMain.forEach { rowColors ->
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    rowColors.forEach { (hex, _) ->
+                        ColorPill(
+                            hex = hex,
+                            selected = hex == mainColor,
+                            onClick = {
+                                HapticManager.trigger(HapticManager.HapticType.CLICK)
+                                viewModel.setMainColor(hex)
+                            }
+                        )
+                    }
+                }
             }
         }
 
@@ -297,15 +347,100 @@ private fun GlassCustomizationPage(
 
         Text("Wallpaper Colour", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.5f))
         Spacer(modifier = Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            colors.forEach { (hex, _) ->
-                ColorPill(
-                    hex = hex,
-                    selected = hex == wallpaperColor,
-                    onClick = { viewModel.setWallpaperColor(hex) }
-                )
+
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            val chunkedWallpaper = colors.chunked(5)
+            chunkedWallpaper.forEach { rowColors ->
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    rowColors.forEach { (hex, _) ->
+                        ColorPill(
+                            hex = hex,
+                            selected = hex == wallpaperColor,
+                            onClick = {
+                                HapticManager.trigger(HapticManager.HapticType.CLICK)
+                                viewModel.setWallpaperColor(hex)
+                            }
+                        )
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun PerformanceTuningPage() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "Performance Tuning",
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+            color = Color.White,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Finding the right balance between battery and performance is key. Here is your cheat sheet:",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White.copy(alpha = 0.8f),
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        val tuningInfo = listOf(
+            "Ultra-Eco (3 Cores)" to "Either you're desperate to save battery or you genuinely don't care about FPS. Built for basic 2D pixel games or emergency survival when you're on 5%.",
+            "Eco (4 Cores)" to "You're trying to save battery, but you still care about playability. Keeps the phone cool and gives you decent framerates in lighter games.",
+            "Balanced (6 Cores)" to "It's balanced, what can I say? Turns off the prime core so you can jump from 480p to 720p without killing your battery life.",
+            "Performance (8 Cores)" to "Pretty obvious—all 8 cores unlocked for max power in heavy 3D games. Just don't expect more than 3 hours on 100% battery."
+        )
+
+        tuningInfo.forEach { (title, desc) ->
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+                    .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                    .padding(12.dp)
+            ) {
+                Text(text = title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(text = desc, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun RealityCheckPage() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(text = ":)", style = MaterialTheme.typography.displayLarge, color = MaterialTheme.colorScheme.primary)
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "Many games will not run at all, either because of genuine lack of support, or just because your SoC just can't handle it. And no matter what you try, it can appear in the task manager, use all your ram, but it will never load. When you see this, it's best to give up.",
+            style = MaterialTheme.typography.bodyLarge,
+            color = Color.White,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(text = ":'(", style = MaterialTheme.typography.displayLarge, color = MaterialTheme.colorScheme.error)
     }
 }
 

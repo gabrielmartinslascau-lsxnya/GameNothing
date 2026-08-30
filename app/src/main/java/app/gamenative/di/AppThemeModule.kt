@@ -53,6 +53,9 @@ interface IAppTheme {
 
     val fontTypeFlow: StateFlow<FontType>
     var fontType: FontType
+
+    val downloadBarStyleFlow: StateFlow<app.gamenative.enums.DownloadBarStyle>
+    var downloadBarStyle: app.gamenative.enums.DownloadBarStyle
 }
 
 class AppThemeImpl : IAppTheme {
@@ -92,6 +95,9 @@ class AppThemeImpl : IAppTheme {
 
     override val fontTypeFlow: MutableStateFlow<FontType> = MutableStateFlow(PrefManager.fontType)
     override var fontType: FontType by FontTypeDelegate()
+
+    override val downloadBarStyleFlow: MutableStateFlow<app.gamenative.enums.DownloadBarStyle> = MutableStateFlow(PrefManager.downloadBarStyle)
+    override var downloadBarStyle: app.gamenative.enums.DownloadBarStyle by DownloadBarStyleDelegate()
 
     inner class AppThemeDelegate : ReadWriteProperty<Any, AppTheme> {
         override fun getValue(thisRef: Any, property: KProperty<*>): AppTheme = PrefManager.appTheme
@@ -186,6 +192,14 @@ class AppThemeImpl : IAppTheme {
         override fun setValue(thisRef: Any, property: KProperty<*>, value: FontType) {
             fontTypeFlow.value = value
             PrefManager.fontType = value
+        }
+    }
+
+    inner class DownloadBarStyleDelegate : ReadWriteProperty<Any, app.gamenative.enums.DownloadBarStyle> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): app.gamenative.enums.DownloadBarStyle = PrefManager.downloadBarStyle
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: app.gamenative.enums.DownloadBarStyle) {
+            downloadBarStyleFlow.value = value
+            PrefManager.downloadBarStyle = value
         }
     }
 }

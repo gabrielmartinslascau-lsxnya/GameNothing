@@ -51,119 +51,115 @@ import kotlin.math.roundToInt
 
 @Composable
 fun SettingsGroupLooks(viewModel: MainViewModel) {
-    SettingsGroup {
-        var jigglyAnimations by rememberSaveable { mutableStateOf(PrefManager.jigglyAnimations) }
-        var glassPanels by rememberSaveable { mutableStateOf(PrefManager.glassPanels) }
+    val state by viewModel.state.collectAsStateWithLifecycle()
 
+    SettingsGroup {
         HapticSettingsSwitch(
             colors = settingsTileColors(),
-            state = jigglyAnimations,
+            state = state.jigglyAnimations,
             title = { Text(text = stringResource(R.string.settings_looks_jiggly_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_looks_jiggly_subtitle)) },
             onCheckedChange = {
-                jigglyAnimations = it
-                PrefManager.jigglyAnimations = it
+                viewModel.setJigglyAnimations(it)
             },
         )
 
         Column {
             HapticSettingsSwitch(
                 colors = settingsTileColorsAlt(),
-                state = glassPanels,
+                state = state.glassPanels,
                 title = { Text(text = stringResource(R.string.settings_looks_glass_title)) },
                 subtitle = { Text(text = stringResource(R.string.settings_looks_glass_subtitle)) },
                 onCheckedChange = {
-                    glassPanels = it
-                    PrefManager.glassPanels = it
+                    viewModel.setGlassPanels(it)
                 },
             )
 
             AnimatedVisibility(
-                visible = glassPanels,
+                visible = state.glassPanels,
                 enter = expandVertically() + fadeIn(),
                 exit = shrinkVertically() + fadeOut()
             ) {
                 Column {
-                    var trueGlassEnabled by rememberSaveable { mutableStateOf(PrefManager.trueGlassEnabled) }
                     HapticSettingsSwitch(
                         colors = settingsTileColorsAlt(),
-                        state = trueGlassEnabled,
+                        state = state.trueGlassEnabled,
                         title = { Text(text = stringResource(R.string.settings_looks_true_glass_title)) },
                         subtitle = { Text(text = stringResource(R.string.settings_looks_true_glass_subtitle)) },
                         onCheckedChange = {
-                            trueGlassEnabled = it
-                            PrefManager.trueGlassEnabled = it
+                            viewModel.setTrueGlassEnabled(it)
                         },
                     )
 
-                    var transparency by remember { mutableFloatStateOf(PrefManager.glassTransparency) }
-                    var blurIntensity by remember { mutableFloatStateOf(PrefManager.glassBlurIntensity) }
                     val contentColor = glassContentColor()
 
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                         Text(
-                            text = if (trueGlassEnabled) "Blur Intensiveness" else "Glass Transparency",
+                            text = if (state.trueGlassEnabled) "Blur Intensiveness" else "Glass Transparency",
                             style = MaterialTheme.typography.bodyMedium,
                             color = contentColor
                         )
-                        if (trueGlassEnabled) {
+                        if (state.trueGlassEnabled) {
                             Slider(
-                                value = blurIntensity,
-                                onValueChange = { blurIntensity = it },
-                                onValueChangeFinished = { PrefManager.glassBlurIntensity = blurIntensity },
+                                value = state.glassBlurIntensity,
+                                onValueChange = { viewModel.setGlassBlurIntensity(it) },
                                 valueRange = 5f..50f
                             )
                             Text(
-                                text = "${blurIntensity.roundToInt()}px",
+                                text = "${state.glassBlurIntensity.roundToInt()}px",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary
                             )
                         } else {
                             Slider(
-                                value = transparency,
-                                onValueChange = { transparency = it },
-                                onValueChangeFinished = { PrefManager.glassTransparency = transparency },
+                                value = state.glassTransparency,
+                                onValueChange = { viewModel.setGlassTransparency(it) },
                                 valueRange = 0.05f..0.8f
                             )
                             Text(
-                                text = "${(transparency * 100).roundToInt()}%",
+                                text = "${(state.glassTransparency * 100).roundToInt()}%",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
 
-                    var glassColor by rememberSaveable { mutableStateOf(PrefManager.glassColor) }
                     ColorSelectionRow(
                         title = "Glass Colour",
-                        currentColor = glassColor,
+                        currentColor = state.glassColor,
                         onColorSelected = {
-                            glassColor = it
-                            PrefManager.glassColor = it
+                            viewModel.setGlassColor(it)
                         }
                     )
                 }
             }
         }
 
-        var currentFontType by rememberSaveable { mutableStateOf(PrefManager.fontType) }
         val fontOptions = FontType.entries.map { stringResource(it.labelResId) }
 
         SettingsListDropdown(
             colors = settingsTileColorsAlt(),
-            value = currentFontType.ordinal,
+            value = state.fontType.ordinal,
             items = fontOptions,
             onItemSelected = { index ->
-                val newFont = FontType.entries[index]
-                currentFontType = newFont
-                PrefManager.fontType = newFont
+                viewModel.setFontType(FontType.entries[index])
             },
             title = { Text(text = stringResource(R.string.settings_looks_font_type_title)) }
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        val downloadBarStyleOptions = app.gamenative.enums.DownloadBarStyle.entries.map { stringResource(it.labelResId) }
 
-        val state by viewModel.state.collectAsStateWithLifecycle()
+        SettingsListDropdown(
+            colors = settingsTileColorsAlt(),
+            value = state.downloadBarStyle.ordinal,
+            items = downloadBarStyleOptions,
+            onItemSelected = { index ->
+                viewModel.setDownloadBarStyle(app.gamenative.enums.DownloadBarStyle.entries[index])
+            },
+            title = { Text(text = stringResource(R.string.settings_looks_download_bar_style_title)) }
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         ColorSelectionRow(
             title = "Main Colour",
@@ -193,9 +189,13 @@ private fun ColorSelectionRow(
     val contentColor = glassContentColor()
     val colors = listOf(
         "#E91E63" to "Cherry",
+        "#FF9800" to "Orange",
         "#4CAF50" to "Forest",
+        "#00BCD4" to "Cyan",
         "#2196F3" to "Ice",
         "#9C27B0" to "Violet",
+        "#9E9E9E" to "Steel",
+        "#607D8B" to "Slate",
         "#FFFFFF" to "Frost",
         "#000000" to "Volcanic"
     )
@@ -227,36 +227,54 @@ private fun ColorSelectionRow(
         }
 
         AnimatedVisibility(visible = expanded) {
-            Row(
+            Column(
                 modifier = Modifier
                     .padding(top = 16.dp)
                     .fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                colors.forEach { (hex, name) ->
-                    val isSelected = hex == currentColor
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.clickable { onColorSelected(hex) }
+                // Two rows of colors
+                val chunkedColors = colors.chunked(5)
+                chunkedColors.forEach { rowColors ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(hex.toColor())
-                                .border(
-                                    width = if (isSelected) 3.dp else 1.dp,
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else contentColor.copy(alpha = 0.1f),
-                                    shape = CircleShape
+                        rowColors.forEach { (hex, name) ->
+                            val isSelected = hex == currentColor
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { onColorSelected(hex) }
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(hex.toColor())
+                                        .border(
+                                            width = if (isSelected) 3.dp else 1.dp,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else contentColor.copy(alpha = 0.1f),
+                                            shape = CircleShape
+                                        )
                                 )
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = name,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = contentColor.copy(alpha = if (isSelected) 1f else 0.6f),
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                        )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = name,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = contentColor.copy(alpha = if (isSelected) 1f else 0.6f),
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                        // Fill empty spaces in the last row if it's shorter
+                        if (rowColors.size < 5) {
+                            repeat(5 - rowColors.size) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
                     }
                 }
             }

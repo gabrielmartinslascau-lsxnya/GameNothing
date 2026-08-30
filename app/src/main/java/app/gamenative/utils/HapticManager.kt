@@ -14,6 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import app.gamenative.PrefManager
 
+import android.view.InputDevice
+
 object HapticManager {
     private var vibrator: Vibrator? = null
 
@@ -33,29 +35,7 @@ object HapticManager {
         LONG    // 1s preview
     }
 
-    /**
-     * Triggers a haptic feedback effect.
-     */
-    fun trigger(type: HapticType, intensityOverride: Int? = null) {
-        if (!PrefManager.hapticsEnabled) return
-        val v = vibrator ?: return
-
-        val intensity = intensityOverride ?: PrefManager.hapticIntensity
-
-        // Tuned mapping for better "Feeling"
-        // Increased amplitudes for more impact
-        val amplitude = when (intensity) {
-            1 -> 80
-            2 -> 180
-            else -> 255
-        }
-
-        val duration = when (intensity) {
-            1 -> 15L
-            2 -> 35L
-            else -> 60L
-        }
-
+    private fun performVibration(v: Vibrator, type: HapticType, duration: Long, amplitude: Int) {
         when (type) {
             HapticType.CLICK -> {
                 v.vibrate(VibrationEffect.createOneShot(duration, amplitude))
@@ -69,6 +49,56 @@ object HapticManager {
             HapticType.LONG -> {
                 v.vibrate(VibrationEffect.createOneShot(1000, amplitude))
             }
+        }
+    }
+
+    /**
+     * Triggers a haptic feedback effect.
+     */
+    fun trigger(type: HapticType, intensityOverride: Int? = null) {
+        if (!PrefManager.hapticsEnabled) return
+
+        val intensity = intensityOverride ?: PrefManager.hapticIntensity
+        val amplitude = when (intensity) {
+            1 -> 80
+            2 -> 180
+            else -> 255
+        }
+        val duration = when (intensity) {
+            1 -> 15L
+            2 -> 35L
+            else -> 60L
+        }
+
+        // 1. Try to vibrate connected game controllers
+        var controllerVibrated = false
+        val deviceIds = InputDevice.getDeviceIds()
+        for (id in deviceIds) {
+            val device = InputDevice.getDevice(id)
+            if (device != null && (device.sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
+                    device.sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK)) {
+
+                val v = try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        device.vibratorManager.defaultVibrator
+                    } else {
+                        @Suppress("DEPRECATION")
+                        device.vibrator
+                    }
+                } catch (_: Exception) {
+                    null
+                }
+
+                if (v != null && v.hasVibrator()) {
+                    performVibration(v, type, duration, amplitude)
+                    controllerVibrated = true
+                }
+            }
+        }
+
+        // 2. Fallback to phone vibrator only if no controller vibrated
+        if (!controllerVibrated) {
+            vibrator?.let { performVibration(it, type, duration, amplitude) }
         }
     }
 }

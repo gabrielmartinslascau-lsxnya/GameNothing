@@ -81,17 +81,18 @@ public class ExternalController {
     public int getDeviceId() {
         if (this.deviceId == -1) {
             int[] deviceIds = InputDevice.getDeviceIds();
+            if (deviceIds == null) return -1;
             int length = deviceIds.length;
             int i = 0;
             while (true) {
                 if (i < length) {
                     int deviceId = deviceIds[i];
-                InputDevice device = InputDevice.getDevice(deviceId);
-                    if (device == null || !device.getDescriptor().equals(this.id)) {
+                    InputDevice device = InputDevice.getDevice(deviceId);
+                    if (device == null || device.getDescriptor() == null || !device.getDescriptor().equals(this.id)) {
                         i++;
                     } else {
-                    this.deviceId = deviceId;
-                    break;
+                        this.deviceId = deviceId;
+                        break;
                     }
                 } else {
                     break;
@@ -102,9 +103,11 @@ public class ExternalController {
     }
 
     public boolean isConnected() {
-        for (int deviceId : InputDevice.getDeviceIds()) {
+        int[] deviceIds = InputDevice.getDeviceIds();
+        if (deviceIds == null) return false;
+        for (int deviceId : deviceIds) {
             InputDevice device = InputDevice.getDevice(deviceId);
-            if (device != null && device.getDescriptor().equals(this.id)) {
+            if (device != null && device.getDescriptor() != null && device.getDescriptor().equals(this.id)) {
                 return true;
             }
         }
@@ -320,9 +323,10 @@ public class ExternalController {
     public static ArrayList<ExternalController> getControllers() {
         int[] deviceIds = InputDevice.getDeviceIds();
         ArrayList<ExternalController> controllers = new ArrayList<>();
+        if (deviceIds == null) return controllers;
         for (int i = deviceIds.length-1; i >= 0; i--) {
             InputDevice device = InputDevice.getDevice(deviceIds[i]);
-            if (isGameController(device)) {
+            if (isGameController(device) && device.getDescriptor() != null) {
                 ExternalController controller = new ExternalController();
                 controller.setId(device.getDescriptor());
                 controller.setName(device.getName());

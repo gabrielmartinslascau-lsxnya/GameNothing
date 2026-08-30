@@ -51,20 +51,17 @@ fun HapticSettingsSwitch(
     state: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
     SettingsSwitch(
-        modifier = modifier.hapticClickable(
-            enabled = enabled,
-            interactionSource = interactionSource,
-            type = HapticManager.HapticType.CLICK,
-            onClick = { onCheckedChange(!state) }
-        ),
+        modifier = modifier,
         colors = colors,
         icon = icon,
         title = title,
         subtitle = subtitle,
         enabled = enabled,
         state = state,
-        onCheckedChange = { } // Already handled by hapticClickable
+        onCheckedChange = {
+            HapticManager.trigger(HapticManager.HapticType.CLICK)
+            onCheckedChange(it)
+        }
     )
 }

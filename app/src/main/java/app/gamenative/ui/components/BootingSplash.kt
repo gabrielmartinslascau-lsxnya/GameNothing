@@ -8,7 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -125,16 +125,6 @@ fun BootingSplash(
             label = "logoScale",
         )
 
-        val shimmerPosition by infiniteTransition.animateFloat(
-            initialValue = -0.3f,
-            targetValue = 1.3f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(1500, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart,
-            ),
-            label = "shimmer",
-        )
-
         val particlePhase by infiniteTransition.animateFloat(
             initialValue = 0f,
             targetValue = 360f,
@@ -225,7 +215,7 @@ fun BootingSplash(
                 ) {
                     // Glow layer (blurred behind)
                     Text(
-                        text = "GameNative-LSX",
+                        text = "GameNothing",
                         style = MaterialTheme.typography.displaySmall.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 36.sp,
@@ -240,7 +230,7 @@ fun BootingSplash(
 
                     // Main logo text
                     Text(
-                        text = "GameNative-LSX",
+                        text = "GameNothing",
                         style = MaterialTheme.typography.displaySmall.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 36.sp,
@@ -259,13 +249,7 @@ fun BootingSplash(
 
                 Spacer(modifier = Modifier.height(28.dp))
 
-                ProgressBar(
-                    progress = progress,
-                    shimmerPosition = shimmerPosition,
-                    modifier = Modifier
-                        .fillMaxWidth(0.7f)
-                        .height(4.dp),
-                )
+                DotsLoadingIndicator()
 
                 Spacer(modifier = Modifier.height(20.dp))
 
@@ -334,6 +318,49 @@ fun BootingSplash(
 }
 
 @Composable
+private fun DotsLoadingIndicator() {
+    val infiniteTransition = rememberInfiniteTransition(label = "dotsTransition")
+    val dotCount = 3
+    val dotSize = 10.dp
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        repeat(dotCount) { index ->
+            val delay = index * 200
+            val scale by infiniteTransition.animateFloat(
+                initialValue = 0.5f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(600, delayMillis = delay, easing = EaseInOutSine),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "dotScale_$index"
+            )
+            val alpha by infiniteTransition.animateFloat(
+                initialValue = 0.3f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(600, delayMillis = delay, easing = EaseInOutSine),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "dotAlpha_$index"
+            )
+
+            Box(
+                modifier = Modifier
+                    .size(dotSize)
+                    .scale(scale)
+                    .alpha(alpha)
+                    .clip(CircleShape)
+                    .background(Color.White)
+            )
+        }
+    }
+}
+
+@Composable
 private fun AmbientParticles(
     phase: Float,
     modifier: Modifier = Modifier,
@@ -380,60 +407,6 @@ private data class ParticleData(
     val speed: Float,
     val phaseOffset: Float,
 )
-
-@Composable
-private fun ProgressBar(
-    progress: Float,
-    shimmerPosition: Float,
-    modifier: Modifier = Modifier,
-) {
-    val isIndeterminate = progress < 0f
-    val actualProgress = if (isIndeterminate) 1f else progress.coerceIn(0f, 1f)
-
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(2.dp))
-            .background(PluviaTheme.colors.borderDefault.copy(alpha = 0.3f)),
-    ) {
-        // Progress fill with gradient
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .fillMaxWidth(actualProgress)
-                .clip(RoundedCornerShape(2.dp))
-                .background(
-                    Brush.horizontalGradient(
-                        colors = BrandGradient,
-                    ),
-                ),
-        )
-
-        // Shimmer overlay
-        if (isIndeterminate || progress > 0f) {
-            Canvas(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(2.dp)),
-            ) {
-                val shimmerWidth = size.width * 0.3f
-                val shimmerStart = (shimmerPosition * size.width) - shimmerWidth
-                val shimmerEnd = shimmerStart + shimmerWidth
-
-                drawRect(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            Color.White.copy(alpha = 0.4f),
-                            Color.Transparent,
-                        ),
-                        startX = shimmerStart,
-                        endX = shimmerEnd,
-                    ),
-                )
-            }
-        }
-    }
-}
 
 @Preview(name = "BootingSplash - Indeterminate")
 @Composable

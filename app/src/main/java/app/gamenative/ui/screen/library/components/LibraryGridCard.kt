@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -196,6 +197,13 @@ internal fun GridViewCard(
                     shape = cardShape,
                 )
                 .then(favoriteSemantics)
+                .then(
+                    if (isItemFocused) {
+                        Modifier.border(4.dp, Color.White, cardShape)
+                    } else {
+                        Modifier
+                    }
+                )
                 .hapticClickable(
                     onClick = onClick,
                     interactionSource = interactionSource,

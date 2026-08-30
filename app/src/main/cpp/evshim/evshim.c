@@ -325,6 +325,11 @@ static void *vjoy_updater(void *arg)
     int idx = (int)(intptr_t)arg;
     struct gamepad_io *s = shm[idx];
 
+    if (!s) {
+        LOGE("evshim: vjoy_updater P%d started with NULL shm\n", idx);
+        return NULL;
+    }
+
     LOGI("evshim: vjoy_updater P%d running (PID %d)\n", idx, getpid());
 
     uint32_t last_seq = atomic_load_explicit(&s->seq, memory_order_acquire);
@@ -346,8 +351,18 @@ static void *vjoy_updater(void *arg)
     for (;;) {
         struct gamepad_io snap;
 
+        // Guard against vanishing shared memory or invalid state
+        if (!s) break;
+
         if (try_read_state(s, &last_seq, &snap)) {
-            int connected = atomic_load_explicit(&s->connected, memory_order_acquire) != 0;
+            uint32_t conn_val = atomic_load_explicit(&s->connected, memory_order_acquire);
+            if (conn_val == 0xDEADBEEF) {
+                LOGI("evshim: P%d shutdown signal received, exiting\n", idx);
+                set_vjoy_connected(idx, 0);
+                break;
+            }
+
+            int connected = conn_val != 0;
             if (connected != last_connected) {
                 set_vjoy_connected(idx, connected);
                 last_connected = connected;
@@ -361,7 +376,12 @@ static void *vjoy_updater(void *arg)
             continue;
         }
 
-        syscall(SYS_futex, &s->seq, FUTEX_WAIT, last_seq, tsp, NULL, 0);
+        if (syscall(SYS_futex, &s->seq, FUTEX_WAIT, last_seq, tsp, NULL, 0) < 0) {
+            if (errno == ENOSYS || errno == EFAULT) {
+                LOGE("evshim: P%d futex wait failed (errno=%d), memory might have vanished\n", idx, errno);
+                break;
+            }
+        }
     }
 
     return NULL;
@@ -458,7 +478,12 @@ Java_com_winlator_winhandler_WinHandler_waitForRumble(JNIEnv *env, jclass cls, j
     }
 
     // sleep until Wine triggers OnRumble or teardown signaled
-    syscall(SYS_futex, &shm[idx]->rumble_seq, FUTEX_WAIT, current_seq, NULL, NULL, 0);
+    if (syscall(SYS_futex, &shm[idx]->rumble_seq, FUTEX_WAIT, current_seq, NULL, NULL, 0) < 0) {
+        if (errno == EFAULT) {
+            ALOGE("evshim: waitForRumble P%d memory fault, vanishing shm\n", idx);
+            return last_seq;
+        }
+    }
 
     return atomic_load_explicit(&shm[idx]->rumble_seq, memory_order_acquire);
 }
@@ -467,6 +492,13 @@ JNIEXPORT void JNICALL
 Java_com_winlator_winhandler_WinHandler_rumbleTeardown(JNIEnv *env, jclass cls, jint idx)
 {
     if (idx < 0 || idx >= MAX_GAMEPADS || !shm[idx]) return;
+
+    // Signal shutdown to Wine process via 'connected' field
+    atomic_store_explicit(&shm[idx]->connected, 0xDEADBEEF, memory_order_release);
+    atomic_fetch_add_explicit(&shm[idx]->seq, 1u, memory_order_release);
+    syscall(SYS_futex, &shm[idx]->seq, FUTEX_WAKE, INT_MAX, NULL, NULL, 0);
+
+    // Wake up Java poller thread
     atomic_fetch_add_explicit(&shm[idx]->rumble_seq, 1u, memory_order_release);
     syscall(SYS_futex, &shm[idx]->rumble_seq, FUTEX_WAKE, INT_MAX, NULL, NULL, 0);
 }

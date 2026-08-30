@@ -9,7 +9,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -99,6 +98,7 @@ import app.gamenative.ui.theme.PTMonoFontFamily
 import android.os.Build
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.powercontrol.PowerManager
@@ -160,6 +160,7 @@ enum class QuickMenuTab(val labelResId: Int, val icon: ImageVector) {
     INVITE(R.string.steam_invite_tab_title, Icons.Default.PersonAdd),
     EFFECTS(R.string.screen_effects, Icons.Default.AutoFixHigh),
     CONTROLLER(R.string.quick_menu_tab_controller, Icons.Default.Gamepad),
+    REFRESH_RATE(R.string.settings_looks_refresh_rate, Icons.Default.Palette),
     TOOLS(R.string.task_manager, Icons.Default.BarChart),
     IMMERSIVE(R.string.quick_menu_tab_immersive, Icons.Default.ViewInAr);
 
@@ -389,11 +390,11 @@ fun QuickMenu(
                 val looks = LocalLooksState.current
                 val shape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
 
-                Box(
+                PluviaGlassPanel(
                     modifier = Modifier
                         .width(panelWidth)
-                        .fillMaxHeight()
-                        .quickMenuBackground(looks, shape)
+                        .fillMaxHeight(),
+                    shape = shape
                 ) {
                     Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
                         Row(modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
@@ -427,7 +428,8 @@ fun QuickMenu(
                                         QuickMenuTab.EFFECTS -> { if (renderer != null) ScreenEffectsTabContent(renderer = renderer, container = container, modifier = Modifier.fillMaxSize(), firstItemFocusRequester = effectsItemFocusRequester, scrollState = effectsScrollState) else if (glRenderer != null) GLScreenEffectsTabContent(renderer = glRenderer, container = container, modifier = Modifier.fillMaxSize(), firstItemFocusRequester = effectsItemFocusRequester, scrollState = effectsScrollState) }
                                         QuickMenuTab.POWER -> PowerControlQuickMenuTab(focusRequester = powerItemFocusRequester, modifier = Modifier.fillMaxSize())
                                         QuickMenuTab.TOOLS -> ToolsQuickMenuTab(processes = wineProcesses, isLoadingProcesses = isWineProcessesLoading, onEndProcess = onEndWineProcess, firstItemFocusRequester = toolsItemFocusRequester, modifier = Modifier.fillMaxSize())
-                                        QuickMenuTab.IMMERSIVE -> immersiveHooks?.controls?.let { ImmersiveQuickMenuTab(controls = it, scrollState = immersiveScrollState, focusRequester = immersiveItemFocusRequester, modifier = Modifier.fillMaxSize()) }
+                                        QuickMenuTab.REFRESH_RATE -> RefreshRateQuickMenuTab(viewModel = viewModel, modifier = Modifier.fillMaxSize())
+                                        QuickMenuTab.IMMERSIVE -> immersiveScrollState?.let { ImmersiveQuickMenuTab(controls = immersiveHooks!!.controls, scrollState = it, focusRequester = immersiveItemFocusRequester, modifier = Modifier.fillMaxSize()) }
                                         else -> Column(modifier = Modifier.fillMaxSize().verticalScroll(controllerScrollState).focusGroup(), verticalArrangement = Arrangement.spacedBy(4.dp)) { controllerItems.forEachIndexed { index, item -> QuickMenuItemRow(item = item, isActive = item.id in activeToggleIds, onClick = { if (onItemSelected(item.id)) onDismiss() }, focusRequester = if (index == 0) controllerItemFocusRequester else null, secondaryIcon = if ((item.id == QuickMenuAction.TOUCHSCREEN_MODE && isTouchscreenModeActive) || (item.id == QuickMenuAction.SHOOTER_MODE && isShooterModeActive)) Icons.Default.Settings else null, secondaryContentDescriptionResId = if (item.id == QuickMenuAction.TOUCHSCREEN_MODE) R.string.gesture_settings_title else R.string.shooter_mode_settings_title, onSecondaryClick = if (item.id == QuickMenuAction.TOUCHSCREEN_MODE) onTouchGestureSettingsClick else onShooterModeSettingsClick) } }
                                     }
                                 }
@@ -714,14 +716,14 @@ private fun LooksQuickMenuTab(
                     },
                     progress = looks.glassTransparencyOrBlur,
                     onDecrease = {
-                        val newValue = (looks.glassTransparencyOrBlur - 0.05f).coerceIn(0f, 1f)
-                        if (looks.isTrueGlassEnabled) viewModel.setGlassBlurIntensity(5f + newValue * 45f)
-                        else viewModel.setGlassTransparency(0.05f + newValue * 0.75f)
+                        val newNormalized = (looks.glassTransparencyOrBlur - 0.05f).coerceIn(0f, 1f)
+                        if (looks.isTrueGlassEnabled) viewModel.setGlassBlurIntensity(5f + newNormalized * 45f)
+                        else viewModel.setGlassTransparency(0.05f + newNormalized * 0.75f)
                     },
                     onIncrease = {
-                        val newValue = (looks.glassTransparencyOrBlur + 0.05f).coerceIn(0f, 1f)
-                        if (looks.isTrueGlassEnabled) viewModel.setGlassBlurIntensity(5f + newValue * 45f)
-                        else viewModel.setGlassTransparency(0.05f + newValue * 0.75f)
+                        val newNormalized = (looks.glassTransparencyOrBlur + 0.05f).coerceIn(0f, 1f)
+                        if (looks.isTrueGlassEnabled) viewModel.setGlassBlurIntensity(5f + newNormalized * 45f)
+                        else viewModel.setGlassTransparency(0.05f + newNormalized * 0.75f)
                     },
                     accentColor = looks.mainColor
                 )
@@ -782,9 +784,13 @@ private fun QuickMenuColorPickerRow(
     val contentColor = glassContentColor()
     val colors = listOf(
         "#E91E63" to "Cherry",
+        "#FF9800" to "Orange",
         "#4CAF50" to "Forest",
+        "#00BCD4" to "Cyan",
         "#2196F3" to "Ice",
         "#9C27B0" to "Violet",
+        "#9E9E9E" to "Steel",
+        "#607D8B" to "Slate",
         "#FFFFFF" to "Frost",
         "#000000" to "Volcanic"
     )
@@ -820,36 +826,54 @@ private fun QuickMenuColorPickerRow(
         }
 
         AnimatedVisibility(visible = expanded) {
-            Row(
+            Column(
                 modifier = Modifier
                     .padding(top = 16.dp)
                     .fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                colors.forEach { (hex, name) ->
-                    val isSelected = hex.toColor() == currentColor
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.hapticClickable { onColorSelected(hex) }
+                // Two rows of colors
+                val chunkedColors = colors.chunked(5)
+                chunkedColors.forEach { rowColors ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(hex.toColor())
-                                .border(
-                                    width = if (isSelected) 3.dp else 1.dp,
-                                    color = if (isSelected) accentColor else contentColor.copy(alpha = 0.1f),
-                                    shape = CircleShape
+                        rowColors.forEach { (hex, name) ->
+                            val isSelected = hex.toColor() == currentColor
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .hapticClickable { onColorSelected(hex) }
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(hex.toColor())
+                                        .border(
+                                            width = if (isSelected) 3.dp else 1.dp,
+                                            color = if (isSelected) accentColor else contentColor.copy(alpha = 0.1f),
+                                            shape = CircleShape
+                                        )
                                 )
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = name,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = contentColor.copy(alpha = if (isSelected) 1f else 0.6f),
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                        )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = name,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = contentColor.copy(alpha = if (isSelected) 1f else 0.6f),
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                        // Fill empty spaces in the last row if it's shorter
+                        if (rowColors.size < 5) {
+                            repeat(5 - rowColors.size) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
                     }
                 }
             }
@@ -858,41 +882,43 @@ private fun QuickMenuColorPickerRow(
 }
 
 @Composable
-fun Modifier.quickMenuBackground(
-    looks: LooksState,
-    shape: androidx.compose.ui.graphics.Shape
-): Modifier {
-    return when {
-        // Condition C: True Glass ON
-        looks.isTrueGlassEnabled -> {
-            val radius = 5f + (looks.glassTransparencyOrBlur * 45f)
-            this.graphicsLayer {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    renderEffect = android.graphics.RenderEffect.createBlurEffect(
-                        radius, radius, android.graphics.Shader.TileMode.CLAMP
-                    ).asComposeRenderEffect()
-                }
-                compositingStrategy = CompositingStrategy.Offscreen
-            }
-            .background(looks.glassColor.copy(alpha = 0.15f), shape)
-            .clip(shape)
-        }
-        // Condition B: Glass ON, True Glass OFF
-        looks.isGlassEnabled -> {
-            val alpha = 0.05f + (looks.glassTransparencyOrBlur * 0.75f)
-            this.background(looks.glassColor.copy(alpha = alpha), shape)
-                .clip(shape)
-        }
-        // Condition A: Glass OFF
-        else -> {
-            this.background(looks.wallpaperColor, shape)
-                .clip(shape)
-        }
+private fun RefreshRateQuickMenuTab(
+    viewModel: MainViewModel,
+    modifier: Modifier = Modifier
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val accentColor = LocalLooksState.current.mainColor
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier = modifier
+            .verticalScroll(scrollState)
+            .focusGroup(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        QuickMenuSectionHeader(title = stringResource(R.string.settings_looks_refresh_rate))
+
+        val hzOptions = listOf(30, 60, 90, 120, 144)
+        val currentHz = state.maxRefreshRate
+
+        QuickMenuAdjustmentRow(
+            title = "Target Hz",
+            valueText = "$currentHz Hz",
+            progress = (hzOptions.indexOf(currentHz).toFloat() / (hzOptions.size - 1)).coerceIn(0f, 1f),
+            onDecrease = {
+                val currentIndex = hzOptions.indexOf(currentHz)
+                if (currentIndex > 0) viewModel.setMaxRefreshRate(hzOptions[currentIndex - 1])
+            },
+            onIncrease = {
+                val currentIndex = hzOptions.indexOf(currentHz)
+                if (currentIndex < hzOptions.size - 1) viewModel.setMaxRefreshRate(hzOptions[currentIndex + 1])
+            },
+            accentColor = accentColor
+        )
     }
 }
 
 @Preview(showBackground = true, backgroundColor = 0xFF000000)
-
 @Composable
 private fun Preview_QuickMenu() {
     PluviaTheme { Box(modifier = Modifier.fillMaxSize()) { QuickMenu(isVisible = true, onDismiss = {}, onItemSelected = { false }, hasPhysicalController = false) } }

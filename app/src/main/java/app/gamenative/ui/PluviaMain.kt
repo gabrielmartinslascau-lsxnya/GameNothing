@@ -3,6 +3,8 @@ package app.gamenative.ui
 import android.content.Context
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -32,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
@@ -296,6 +299,7 @@ fun PluviaMain(
     lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
 ) {
     val context = LocalContext.current
+    val config = androidx.compose.ui.platform.LocalConfiguration.current
     val uriHandler = LocalUriHandler.current
     val scope = rememberCoroutineScope()
 
@@ -688,6 +692,26 @@ fun PluviaMain(
         }
     }
 
+    LaunchedEffect(state.isSteamConnected, state.currentScreen, SteamService.isLoggedIn) {
+        // Handle navigation when already logged in or after successful login
+        if (PlatformAuthUtils.isSignedInToAnyPlatform(context) && !SteamService.keepAlive) {
+            val baseRoute = viewModel.getPersistedRoute() ?: PluviaScreen.Home.route
+            val targetRoute = if (SteamService.isLoggedIn) {
+                baseRoute
+            } else {
+                if (baseRoute.startsWith(PluviaScreen.Home.route)) {
+                    PluviaScreen.Home.route + "?offline=true"
+                } else {
+                    baseRoute
+                }
+            }
+
+            if (state.currentScreen == PluviaScreen.LoginUser) {
+                navController.navigateFromLoginIfNeeded(targetRoute, "LoginSuccess")
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             // Only attempt reconnection if not already connected/connecting and not in offline mode
@@ -708,8 +732,6 @@ fun PluviaMain(
             ) {
                 Timber.tag("GOG").d("[PluviaMain]: Starting GOGService for logged-in user")
                 app.gamenative.service.gog.GOGService.start(context)
-            } else {
-                Timber.tag("GOG").d("GOG SERVICE Not going to start: ${app.gamenative.service.gog.GOGService.isRunning}")
             }
 
             // Start EpicService if user has Epic credentials
@@ -726,23 +748,6 @@ fun PluviaMain(
             ) {
                 Timber.d("[PluviaMain]: Starting AmazonService for logged-in user")
                 AmazonService.start(context)
-            }
-
-            // Handle navigation when already logged in (e.g., app resumed with active session)
-            // Only navigate if currently on LoginUser screen to avoid disrupting user's current view
-            if (PlatformAuthUtils.isSignedInToAnyPlatform(context) && !SteamService.keepAlive) {
-                val baseRoute = viewModel.getPersistedRoute() ?: PluviaScreen.Home.route
-                val targetRoute = if (SteamService.isLoggedIn) {
-                    baseRoute
-                } else {
-                    // Non-Steam platforms: ensure offline param for Home
-                    if (baseRoute.startsWith(PluviaScreen.Home.route)) {
-                        PluviaScreen.Home.route + "?offline=true"
-                    } else {
-                        baseRoute
-                    }
-                }
-                navController.navigateFromLoginIfNeeded(targetRoute, "ResumeSession")
             }
         }
     }
@@ -1164,30 +1169,58 @@ fun PluviaMain(
         isAmoled = (state.appTheme == AppTheme.AMOLED),
         style = state.paletteStyle,
     ) {
-        val looksState = LooksState(
-            isJigglyAnimations = state.jigglyAnimations,
-            isGlassEnabled = state.glassPanels,
-            isTrueGlassEnabled = state.trueGlassEnabled,
-            glassTransparencyOrBlur = if (state.trueGlassEnabled) {
-                (state.glassBlurIntensity - 5f) / 45f // 5-50 -> 0-1
-            } else {
-                (state.glassTransparency - 0.05f) / 0.75f // 0.05-0.8 -> 0-1
-            },
-            glassColor = state.glassColor.toColor(),
-            fontType = when (state.fontType) {
-                FontType.NDOT -> NdotFontFamily
-                FontType.NORMAL -> PTMonoFontFamily
-            },
-            mainColor = state.mainColor.toColor(),
-            wallpaperColor = state.wallpaperColor.toColor()
-        )
+        // OPTIMIZATION: Remember the looksState to prevent app-wide recomposition
+        // when unrelated state changes (like download progress).
+        val looksState = remember(
+            state.jigglyAnimations,
+            state.glassPanels,
+            state.trueGlassEnabled,
+            state.glassBlurIntensity,
+            state.glassTransparency,
+            state.glassColor,
+            state.fontType,
+            state.mainColor,
+            state.wallpaperColor
+        ) {
+            val mainColorParsed = state.mainColor.toColor()
+            val wallpaperColorParsed = state.wallpaperColor.toColor()
+
+            val glassColorParsed = state.glassColor.toColor()
+
+            LooksState(
+                isJigglyAnimations = state.jigglyAnimations,
+                isGlassEnabled = state.glassPanels,
+                isTrueGlassEnabled = state.trueGlassEnabled,
+                glassTransparencyOrBlur = if (state.trueGlassEnabled) {
+                    (state.glassBlurIntensity - 5f) / 45f // 5-50 -> 0-1
+                } else {
+                    (state.glassTransparency - 0.05f) / 0.75f // 0.05-0.8 -> 0-1
+                },
+                glassColor = if (glassColorParsed != Color.Unspecified) glassColorParsed else Color.White,
+                fontType = when (state.fontType) {
+                    FontType.NDOT -> NdotFontFamily
+                    FontType.NORMAL -> PTMonoFontFamily
+                },
+                mainColor = if (mainColorParsed != Color.Unspecified) mainColorParsed else Color(0xFF8B5CF6),
+                wallpaperColor = if (wallpaperColorParsed != Color.Unspecified) {
+                    wallpaperColorParsed.let { base ->
+                        base.copy(
+                            red = (base.red * 0.15f + 0.05f).coerceIn(0f, 1f),
+                            green = (base.green * 0.15f + 0.05f).coerceIn(0f, 1f),
+                            blue = (base.blue * 0.15f + 0.05f).coerceIn(0f, 1f),
+                            alpha = 1f
+                        )
+                    }
+                } else Color.Black
+            )
+        }
 
         androidx.compose.runtime.CompositionLocalProvider(LocalLooksState provides looksState) {
-            val window = (context as? Activity)?.window
-            LaunchedEffect(state.maxRefreshRate) {
+            val window = (context as? android.app.Activity)?.window
+            LaunchedEffect(state.maxRefreshRate, state.refreshRateEnabled) {
                 window?.let {
                     val lp = it.attributes
-                    val targetHz = if (PrefManager.refreshRateEnabled) state.maxRefreshRate.toFloat() else 60f
+                    val targetHz = if (state.refreshRateEnabled) state.maxRefreshRate.toFloat() else 60f
                     lp.preferredRefreshRate = targetHz
                     it.attributes = lp
                     Timber.i("Applied experimental preferredRefreshRate: $targetHz Hz")
@@ -1378,7 +1411,9 @@ fun PluviaMain(
                             connectionState = state.connectionState,
                             onRetryConnection = viewModel::retryConnection,
                             onContinueOffline = {
-                                navController.navigate(PluviaScreen.Home.route + "?offline=true")
+                                navController.navigate(PluviaScreen.Home.route + "?offline=true") {
+                                    popUpTo(PluviaScreen.LoginUser.route) { inclusive = true }
+                                }
                             },
                             onPlatformSignedIn = {
                                 navController.navigate(PluviaScreen.Home.route + "?offline=true") {
@@ -1448,7 +1483,7 @@ fun PluviaMain(
                                     setLoadingDialogVisible = viewModel::setLoadingDialogVisible,
                                     setLoadingProgress = viewModel::setLoadingDialogProgress,
                                     setLoadingMessage = viewModel::setLoadingDialogMessage,
-                                    setMessageDialogState = { msgDialogState = it },
+                                    setMessageDialogState = { state: MessageDialogState -> msgDialogState = state },
                                     onSuccess = viewModel::launchApp,
                                     isOffline = isOffline,
                                     bootToContainer = asContainer,
@@ -1466,7 +1501,7 @@ fun PluviaMain(
                                     setLoadingDialogVisible = viewModel::setLoadingDialogVisible,
                                     setLoadingProgress = viewModel::setLoadingDialogProgress,
                                     setLoadingMessage = viewModel::setLoadingDialogMessage,
-                                    setMessageDialogState = { msgDialogState = it },
+                                    setMessageDialogState = { state: MessageDialogState -> msgDialogState = state },
                                     onSuccess = viewModel::launchApp,
                                     isOffline = isOffline,
                                     bootToContainer = true,
@@ -1485,7 +1520,7 @@ fun PluviaMain(
                                     setLoadingDialogVisible = viewModel::setLoadingDialogVisible,
                                     setLoadingProgress = viewModel::setLoadingDialogProgress,
                                     setLoadingMessage = viewModel::setLoadingDialogMessage,
-                                    setMessageDialogState = { msgDialogState = it },
+                                    setMessageDialogState = { state: MessageDialogState -> msgDialogState = state },
                                     onSuccess = viewModel::launchApp,
                                     isOffline = isOffline,
                                     bootToContainer = false,
@@ -1518,6 +1553,7 @@ fun PluviaMain(
                             },
                             isOffline = isOffline,
                             isSteamConnected = state.isSteamConnected,
+                            downloadBarStyle = state.downloadBarStyle,
                         )
                     }
 
@@ -1639,7 +1675,6 @@ fun PluviaMain(
     }
 }
 }
-
 
 fun preLaunchApp(
     context: Context,

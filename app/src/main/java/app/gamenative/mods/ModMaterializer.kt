@@ -10,8 +10,10 @@ import java.io.FileInputStream
 import java.io.IOException
 import java.nio.file.Files
 import java.security.MessageDigest
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 
 data class ModPlacementConflict(
     val sourcePath: String,
@@ -391,9 +393,13 @@ object ModMaterializer {
     private fun resolveCaseInsensitive(root: File, path: String): File? {
         var current = root
         path.split('/').filter { it.isNotBlank() }.forEach { segment ->
-            current = current.listFiles()
-                ?.firstOrNull { it.name.equals(segment, ignoreCase = true) }
-                ?: return null
+            current = runCatching {
+                if (!current.exists() || !current.isDirectory) return@runCatching null
+                current.listFiles()?.firstOrNull { it.name.equals(segment, ignoreCase = true) }
+            }.onFailure { e ->
+                if (e is CancellationException) throw e
+                Timber.tag("ModMaterializer").w(e, "Error resolving segment $segment in ${current.path}")
+            }.getOrNull() ?: return null
         }
         return current
     }

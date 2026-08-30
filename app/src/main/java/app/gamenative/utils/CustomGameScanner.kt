@@ -158,16 +158,18 @@ object CustomGameScanner {
         val folder = File(folderPath)
         if (!folder.exists() || !folder.isDirectory) return null
 
-        val steamGridLogo = folder.listFiles { file ->
-            file.isFile &&
-                file.name.startsWith("steamgriddb_logo", ignoreCase = true) &&
-                (
-                    file.name.endsWith(".png", ignoreCase = true) ||
-                        file.name.endsWith(".jpg", ignoreCase = true) ||
-                        file.name.endsWith(".webp", ignoreCase = true)
-                    )
-        }?.firstOrNull()
-        if (steamGridLogo != null) {
+        val steamGridLogo = runCatching {
+            folder.listFiles { file ->
+                file.isFile &&
+                    file.name.startsWith("steamgriddb_logo", ignoreCase = true) &&
+                    (
+                        file.name.endsWith(".png", ignoreCase = true) ||
+                            file.name.endsWith(".jpg", ignoreCase = true) ||
+                            file.name.endsWith(".webp", ignoreCase = true)
+                        )
+            }
+        }.getOrNull()?.firstOrNull()
+        if (steamGridLogo != null && steamGridLogo.exists()) {
             Timber.tag("CustomGameScanner").d("Found SteamGridDB logo: ${steamGridLogo.absolutePath}")
             return steamGridLogo.absolutePath
         }
@@ -315,29 +317,35 @@ object CustomGameScanner {
     private fun findCoverByBaseNames(folder: File, baseNames: List<String>): String? {
         if (!folder.exists() || !folder.isDirectory) return null
         val extensions = listOf("png", "jpg", "jpeg", "webp")
-        val files = folder.listFiles { f -> f.isFile } ?: return null
+        val files = runCatching { folder.listFiles { f -> f.isFile } }.getOrNull() ?: return null
         for (base in baseNames) {
             val match = files.filter { file ->
-                extensions.any { ext -> file.name.equals("$base.$ext", ignoreCase = true) }
+                runCatching {
+                    extensions.any { ext -> file.name.equals("$base.$ext", ignoreCase = true) }
+                }.getOrDefault(false)
             }.minByOrNull { file ->
                 // Rank by extension preference so e.g. cover.png wins over cover.jpg.
                 val ext = file.name.substringAfterLast('.', "").lowercase()
                 extensions.indexOf(ext).let { if (it == -1) Int.MAX_VALUE else it }
             }
-            if (match != null) return Uri.fromFile(match).toString()
+            if (match != null && match.exists()) return Uri.fromFile(match).toString()
         }
         return null
     }
 
     // Shared helper for .ico/.png heuristic
     private fun findNearbyImageIcon(folder: File, uniqueExeRel: String?): String? {
-        fun File.icoFiles(): List<File> = this.listFiles { f ->
-            f.isFile && (f.name.endsWith(".ico", ignoreCase = true) || f.name.endsWith(".png", ignoreCase = true))
-        }?.toList() ?: emptyList()
+        fun File.icoFiles(): List<File> = runCatching {
+            this.listFiles { f ->
+                f.isFile && (f.name.endsWith(".ico", ignoreCase = true) || f.name.endsWith(".png", ignoreCase = true))
+            }?.toList() ?: emptyList()
+        }.getOrElse { emptyList() }
 
         val rootIcons = folder.icoFiles()
-        val subdirIcons = folder.listFiles { f -> f.isDirectory }?.flatMap { it.icoFiles() } ?: emptyList()
-        val allIcons = (rootIcons + subdirIcons)
+        val subdirIcons = runCatching {
+            folder.listFiles { f -> f.isDirectory }?.flatMap { it.icoFiles() } ?: emptyList()
+        }.getOrElse { emptyList() }
+        val allIcons = (rootIcons + subdirIcons).filter { it.exists() }
         if (allIcons.isEmpty()) {
             Timber.tag("CustomGameScanner").d("findNearbyImageIcon - No icon files found in $folder")
             return null
@@ -412,8 +420,13 @@ object CustomGameScanner {
         val gameFolderPath = ContainerUtils.getADrivePath(container.drives) ?: return ""
         val exe = container.executablePath
         if (exe.isNotEmpty()) {
-            val fullPath = File(gameFolderPath, exe.replace('\\', File.separatorChar))
-            if (fullPath.exists() && fullPath.isFile) return exe
+            runCatching {
+                val fullPath = File(gameFolderPath, exe.replace('\\', File.separatorChar))
+                if (fullPath.exists() && fullPath.isFile) return exe
+            }.onFailure { e ->
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                Timber.tag("CustomGameScanner").w(e, "Error checking executable path: $exe")
+            }
             // Stale or missing path — fall through to auto-detect
         }
         return findUniqueExeRelativeToFolder(gameFolderPath) ?: ""
@@ -422,30 +435,32 @@ object CustomGameScanner {
     fun findUniqueExeRelativeToFolder(folder: File): String? {
         if (!folder.exists() || !folder.isDirectory) return null
 
-        fun File.isValidExe(): Boolean = this.isFile &&
-            this.name.endsWith(".exe", ignoreCase = true) &&
-            !this.name.startsWith("unins", ignoreCase = true)
-
         val candidates = mutableListOf<String>()
 
-        folder.listFiles { f ->
-            f.isFile &&
-                f.name.endsWith(".exe", ignoreCase = true) &&
-                !f.name.startsWith("unins", ignoreCase = true)
-        }?.forEach { f ->
-            candidates.add(f.name)
-        }
-
-        val subDirs = folder.listFiles { f -> f.isDirectory } ?: emptyArray()
-        for (sd in subDirs) {
-            sd.listFiles { f ->
+        runCatching {
+            folder.listFiles { f ->
                 f.isFile &&
                     f.name.endsWith(".exe", ignoreCase = true) &&
                     !f.name.startsWith("unins", ignoreCase = true)
             }?.forEach { f ->
-                val rel = sd.name + "/" + f.name
-                candidates.add(rel)
+                candidates.add(f.name)
             }
+
+            val subDirs = folder.listFiles { f -> f.isDirectory } ?: emptyArray()
+            for (sd in subDirs) {
+                if (!sd.exists()) continue
+                sd.listFiles { f ->
+                    f.isFile &&
+                        f.name.endsWith(".exe", ignoreCase = true) &&
+                        !f.name.startsWith("unins", ignoreCase = true)
+                }?.forEach { f ->
+                    val rel = sd.name + "/" + f.name
+                    candidates.add(rel)
+                }
+            }
+        }.onFailure { e ->
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            Timber.tag("CustomGameScanner").w(e, "Error finding unique exe in ${folder.path}")
         }
 
         // Keep only unique items
@@ -465,30 +480,32 @@ object CustomGameScanner {
     fun findAllValidExeFiles(folder: File): List<String> {
         if (!folder.exists() || !folder.isDirectory) return emptyList()
 
-        fun File.isValidExe(): Boolean = this.isFile &&
-            this.name.endsWith(".exe", ignoreCase = true) &&
-            !this.name.startsWith("unins", ignoreCase = true)
-
         val candidates = mutableListOf<String>()
 
-        folder.listFiles { f ->
-            f.isFile &&
-                f.name.endsWith(".exe", ignoreCase = true) &&
-                !f.name.startsWith("unins", ignoreCase = true)
-        }?.forEach { f ->
-            candidates.add(f.name)
-        }
-
-        val subDirs = folder.listFiles { f -> f.isDirectory } ?: emptyArray()
-        for (sd in subDirs) {
-            sd.listFiles { f ->
+        runCatching {
+            folder.listFiles { f ->
                 f.isFile &&
                     f.name.endsWith(".exe", ignoreCase = true) &&
                     !f.name.startsWith("unins", ignoreCase = true)
             }?.forEach { f ->
-                val rel = sd.name + "/" + f.name
-                candidates.add(rel)
+                candidates.add(f.name)
             }
+
+            val subDirs = folder.listFiles { f -> f.isDirectory } ?: emptyArray()
+            for (sd in subDirs) {
+                if (!sd.exists()) continue
+                sd.listFiles { f ->
+                    f.isFile &&
+                        f.name.endsWith(".exe", ignoreCase = true) &&
+                        !f.name.startsWith("unins", ignoreCase = true)
+                }?.forEach { f ->
+                    val rel = sd.name + "/" + f.name
+                    candidates.add(rel)
+                }
+            }
+        }.onFailure { e ->
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            Timber.tag("CustomGameScanner").w(e, "Error finding all valid exes in ${folder.path}")
         }
 
         return candidates.distinct()
@@ -566,15 +583,20 @@ object CustomGameScanner {
         val existingAppIds = mutableSetOf<String>()
 
         for (folderPath in candidateFolders()) {
-            // Filter by query if provided
-            if (q.isNotEmpty()) {
-                val folderName = File(folderPath).name
-                if (!folderName.contains(q, ignoreCase = true)) continue
-            }
+            runCatching {
+                // Filter by query if provided
+                if (q.isNotEmpty()) {
+                    val folderName = File(folderPath).name
+                    if (!folderName.contains(q, ignoreCase = true)) return@runCatching
+                }
 
-            val item = createLibraryItemFromFolder(folderPath)
-            if (item != null && existingAppIds.add(item.appId)) {
-                items.add(item.copy(index = indexCounter++))
+                val item = createLibraryItemFromFolder(folderPath)
+                if (item != null && existingAppIds.add(item.appId)) {
+                    items.add(item.copy(index = indexCounter++))
+                }
+            }.onFailure { e ->
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                Timber.tag("CustomGameScanner").w(e, "Failed to scan folder: $folderPath")
             }
         }
 
@@ -593,7 +615,15 @@ object CustomGameScanner {
         val folders = LinkedHashSet<String>()
         folders.addAll(PrefManager.customGameManualFolders)
         for (root in scanRootPaths) {
-            File(root).listFiles { f -> f.isDirectory }?.forEach { folders.add(it.absolutePath) }
+            runCatching {
+                val rootFile = File(root)
+                if (rootFile.exists() && rootFile.isDirectory) {
+                    rootFile.listFiles { f -> f.isDirectory }?.forEach { folders.add(it.absolutePath) }
+                }
+            }.onFailure { e ->
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                Timber.tag("CustomGameScanner").w(e, "Failed to scan root: $root")
+            }
         }
         return folders
     }
@@ -603,9 +633,11 @@ object CustomGameScanner {
 
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             try {
-                val hasExtractedIcon = folder.listFiles { file ->
-                    file.isFile && file.name.endsWith(".extracted.ico", ignoreCase = true)
-                }?.isNotEmpty() == true
+                val hasExtractedIcon = runCatching {
+                    folder.listFiles { file ->
+                        file.isFile && file.name.endsWith(".extracted.ico", ignoreCase = true)
+                    }
+                }.getOrNull()?.isNotEmpty() == true
 
                 if (!hasExtractedIcon) {
                     val uniqueExeRel = findUniqueExeRelativeToFolder(folder)
@@ -622,6 +654,7 @@ object CustomGameScanner {
                     }
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Timber.tag("CustomGameScanner").d(e, "Icon extraction failed for ${folder.name}")
             }
         }
@@ -629,7 +662,8 @@ object CustomGameScanner {
 
     fun createLibraryItemFromFolder(folderPath: String): LibraryItem? {
         val folder = File(folderPath)
-        if (!folder.exists() || !folder.isDirectory) {
+        val exists = runCatching { folder.exists() && folder.isDirectory }.getOrDefault(false)
+        if (!exists) {
             Timber.tag("CustomGameScanner").w("Folder does not exist or is not a directory: $folderPath")
             return null
         }

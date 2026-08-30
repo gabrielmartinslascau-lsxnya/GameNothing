@@ -257,7 +257,12 @@ private fun initialFpsLimiterTarget(container: Container): Int =
 
 private fun detectMaxRefreshRateHz(context: Context, attachedView: View?): Int {
     val display = attachedView?.display
-        ?: context.display
+        ?: if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            context.display
+        } else {
+            @Suppress("DEPRECATION")
+            (context.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager).defaultDisplay
+        }
         ?: ContextCompat.getSystemService(context, DisplayManager::class.java)?.getDisplay(Display.DEFAULT_DISPLAY)
 
     val refreshRate = when {
@@ -2032,7 +2037,14 @@ fun XServerScreen(
                         })
 
                         // Add invisible IME receiver to capture system keyboard input when keyboard is on external display
-                        val imeDisplayContext = context.display?.let { display ->
+                        val displayCompat = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            context.display
+                        } else {
+                            @Suppress("DEPRECATION")
+                            (context.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager).defaultDisplay
+                        }
+
+                        val imeDisplayContext = displayCompat?.let { display ->
                             context.createDisplayContext(display)
                         } ?: context
 
@@ -5261,6 +5273,13 @@ private suspend fun extractGraphicsDriverComponent(
     rootDir: File,
     onExtractFileListener: OnExtractFileListener? = null,
 ) {
+    val chmodListener = OnExtractFileListener { file, size ->
+        if (file?.name?.endsWith(".so") == true) {
+            com.winlator.core.FileUtils.chmod(file, 493) // 0755
+        }
+        onExtractFileListener?.onExtractFile(file, size) ?: file
+    }
+
     val componentFile = GraphicsDriverDownloader.ensureGraphicsDriverAvailable(context, componentId) { progress ->
         Timber.d("Downloading graphics driver $componentId: ${(progress * 100).toInt()}%")
     }
@@ -5270,7 +5289,7 @@ private suspend fun extractGraphicsDriverComponent(
         Timber.d("Extracting graphics driver $componentId from bundled assets")
         TarCompressorUtils.extract(
             TarCompressorUtils.Type.ZSTD, context.assets,
-            "graphics_driver/$componentId.tzst", rootDir, onExtractFileListener,
+            "graphics_driver/$componentId.tzst", rootDir, chmodListener,
         )
     } else {
         // Modern variant: use downloaded file
@@ -5282,7 +5301,7 @@ private suspend fun extractGraphicsDriverComponent(
         }
         TarCompressorUtils.extract(
             extractType, componentFile,
-            rootDir, onExtractFileListener,
+            rootDir, chmodListener,
         )
     }
 }
@@ -5785,13 +5804,27 @@ private suspend fun extractGraphicsDriverFiles(
             envVars.put("MESA_VK_WSI_DEBUG", "sw")
         }
 
-        if (currentWrapperVersion.lowercase(Locale.getDefault())
-                .contains("turnip") &&
-            isAdrenotoolsTurnip == "0"
-        ) {
-            envVars.put("VK_ICD_FILENAMES", imageFs.getShareDir().path + "/vulkan/icd.d/freedreno_icd.aarch64.json")
+        val shareDir = imageFs.getShareDir()
+        val icdDir = if (shareDir != null) File(shareDir, "vulkan/icd.d") else null
+        val customIcdFiles = icdDir?.listFiles { _, name -> name.endsWith(".json") }
+
+        if (!customIcdFiles.isNullOrEmpty()) {
+            // Find the most appropriate ICD file
+            val targetIcd = customIcdFiles.find {
+                it.name.contains("freedreno") && (currentWrapperVersion?.lowercase()?.contains("turnip") == true)
+            } ?: customIcdFiles.find { it.name.contains("wrapper") } ?: customIcdFiles.first()
+
+            Timber.tag("GraphicsDriver").d("Using ICD manifest: ${targetIcd.absolutePath}")
+            envVars.put("VK_ICD_FILENAMES", targetIcd.absolutePath)
         } else {
-            envVars.put("VK_ICD_FILENAMES", imageFs.getShareDir().path + "/vulkan/icd.d/wrapper_icd.aarch64.json")
+            // Fallback to defaults
+            if ((currentWrapperVersion?.lowercase(Locale.getDefault())?.contains("turnip") == true) &&
+                isAdrenotoolsTurnip == "0"
+            ) {
+                envVars.put("VK_ICD_FILENAMES", (shareDir?.path ?: "") + "/vulkan/icd.d/freedreno_icd.aarch64.json")
+            } else {
+                envVars.put("VK_ICD_FILENAMES", (shareDir?.path ?: "") + "/vulkan/icd.d/wrapper_icd.aarch64.json")
+            }
         }
         envVars.put("GALLIUM_DRIVER", "zink")
         envVars.put("LIBGL_KOPPER_DISABLE", "true")
@@ -5817,23 +5850,24 @@ private suspend fun extractGraphicsDriverFiles(
                 val wrapperComponentId = mainWrapperSelection.lowercase(Locale.getDefault())
                 Log.d("GraphicsDriverExtraction", "WRAPPER selection changed or first boot. Extracting: $wrapperComponentId")
                 try {
-                    val wrapperContentsManager = ContentsManager(context)
+                    val wrapperContentsManager = ContentsManager(context.applicationContext)
                     val wrapperProfile: ContentProfile? =
                         wrapperContentsManager.getProfileByEntryName(wrapperComponentId)
                     if (wrapperProfile != null) {
                         Timber.d("Applying user-defined wrapper content profile: $wrapperComponentId")
-                        wrapperContentsManager.applyContent(wrapperProfile)
+                        withContext(Dispatchers.IO) {
+                            wrapperContentsManager.applyContent(wrapperProfile)
+                        }
                     } else {
-                        extractGraphicsDriverComponent(context, wrapperComponentId, rootDir!!)
+                        extractGraphicsDriverComponent(context.applicationContext, wrapperComponentId, rootDir!!)
                     }
                     // After success, save the new version so we don't re-extract next time.
                     container.putExtra("lastInstalledMainWrapper", mainWrapperSelection)
                     container.saveData()
                 } catch (e: Exception) {
-                    throw IllegalStateException(
-                        "Failed to install graphics driver '$wrapperComponentId'. An internet connection is required the first time this driver is used.",
-                        e,
-                    )
+                    Timber.tag("GraphicsDriver").e(e, "Failed to install graphics driver '$wrapperComponentId'")
+                    // Non-fatal fallback - don't update lastInstalledMainWrapper so it retries or reverts
+                    app.gamenative.ui.util.SnackbarManager.show("Failed to load custom driver: ${e.message}")
                 }
                 Log.d("XServerDisplayActivity", "First time container boot, extracting extra_libs.tzst")
                 extractGraphicsDriverComponent(context, "extra_libs", rootDir!!)

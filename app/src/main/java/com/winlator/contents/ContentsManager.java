@@ -600,26 +600,26 @@ public class ContentsManager {
         if (type != null && profilesMap.get(type) != null) {
             List<ContentProfile> profiles = profilesMap.get(type);
             Log.d("ContentsManager", "   Found " + profiles.size() + " profiles of type " + type);
-    
+
             String keyLower = lowerVersionName;
-    
+
             for (ContentProfile profile : profiles) {
                 String verName = (profile.verName != null) ? profile.verName : "";
                 String verLower = verName.toLowerCase();
-    
+
                 String typeAndVer = profile.type.toString() + "-" + verName;
                 String typeAndVerLower = typeAndVer.toLowerCase();
-    
+
                 String fullEntry = ContentsManager.getEntryName(profile);
                 String fullEntryLower = fullEntry.toLowerCase();
-    
+
                 Log.d(
                     "ContentsManager",
                     "   Checking profile: verName='" + profile.verName +
                             "', typeAndVer='" + typeAndVer +
                             "', fullEntry='" + fullEntry + "'"
                 );
-    
+
                 if (keyLower.equals(verLower) ||
                     keyLower.equals(typeAndVerLower) ||
                     keyLower.equals(fullEntryLower)) {
@@ -627,7 +627,7 @@ public class ContentsManager {
                     return profile;
                 }
             }
-    
+
             Log.d("ContentsManager", "   ❌ No matching profile found in primary lookup");
         } else {
             Log.d("ContentsManager", "   ❌ Type is null or no profiles for this type");
@@ -676,8 +676,8 @@ public class ContentsManager {
                 targetFile.delete();
                 FileUtils.copy(sourceFile, targetFile);
 
-                if (profile.type == ContentProfile.ContentType.CONTENT_TYPE_BOX64) {
-                    Log.d("ContentsManager", "found box64 profile type - running chmod on " + targetFile);
+                if (profile.type == ContentProfile.ContentType.CONTENT_TYPE_BOX64 || targetFile.getName().endsWith(".so")) {
+                    Log.d("ContentsManager", "Applying chmod 0755 to: " + targetFile.getName());
                     FileUtils.chmod(targetFile, 0755);
                 }
             }

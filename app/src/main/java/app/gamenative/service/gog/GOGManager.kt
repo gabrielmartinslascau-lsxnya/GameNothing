@@ -8,6 +8,7 @@ import app.gamenative.data.GOGGame
 import app.gamenative.data.GameSource
 import app.gamenative.data.LaunchInfo
 import app.gamenative.data.LibraryItem
+import app.gamenative.PrefManager
 import app.gamenative.db.dao.GOGGameDao
 import app.gamenative.enums.Marker
 import app.gamenative.enums.PathType
@@ -109,6 +110,7 @@ class GOGManager @Inject constructor(
     }
 
     suspend fun deleteAllNonInstalledGames() {
+        if (PrefManager.aggressiveCaching) return
         withContext(Dispatchers.IO) {
             gogGameDao.deleteAllNonInstalledGames()
         }

@@ -355,7 +355,15 @@ private fun LibraryScreenContent(
     var selectedAppId by remember { mutableStateOf<String?>(null) }
     val carouselListState = rememberLazyListState()
     val isViewWide = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    var currentPaneType by remember { mutableStateOf(PrefManager.libraryLayout) }
+    var currentPaneType by rememberSaveable { mutableStateOf(PrefManager.libraryLayout) }
+
+    LaunchedEffect(isGameControllerConnected()) {
+        if (isGameControllerConnected()) {
+            currentPaneType = PaneType.CAROUSEL
+            PrefManager.libraryLayout = PaneType.CAROUSEL
+        }
+    }
+
     var recDisclosureShown by remember { mutableStateOf(PrefManager.recDisclosureShown) }
     var showRecTeaserDialog by remember { mutableStateOf(false) }
     val onRecTeaserTapped = {

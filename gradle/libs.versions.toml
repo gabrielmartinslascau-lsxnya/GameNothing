@@ -1,6 +1,6 @@
 [versions]
 activityCompose = "1.10.0" # https://mvnrepository.com/artifact/androidx.activity/activity-compose
-agp = "8.13.2" # https://mvnrepository.com/artifact/com.android.application/com.android.application.gradle.plugin
+agp = "9.3.0" # https://mvnrepository.com/artifact/com.android.application/com.android.application.gradle.plugin
 apache-compress = "1.28.0" # https://mvnrepository.com/artifact/org.apache.commons/commons-compress
 apng = "3.0.2" # https://mvnrepository.com/artifact/com.github.penfeizhou.android.animation/apng
 composeBom = "2025.01.01" # https://mvnrepository.com/artifact/androidx.compose/compose-bom
@@ -16,9 +16,9 @@ javasteam = "1.8.0.1-26-SNAPSHOT" # https://github.com/joshuatam/JavaSteam/tree/
 json = "1.8.0" # https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-serialization-json
 junit = "4.13.2" # https://mvnrepository.com/artifact/junit/junit
 junitVersion = "1.2.1" # https://mvnrepository.com/artifact/androidx.test.ext/junit
-kotlin = "2.1.21" # https://mvnrepository.com/artifact/org.jetbrains.kotlin.android/org.jetbrains.kotlin.android.gradle.plugin
+kotlin = "2.2.10" # https://mvnrepository.com/artifact/org.jetbrains.kotlin.android/org.jetbrains.kotlin.android.gradle.plugin
 kotlinter = "5.0.1" # https://plugins.gradle.org/plugin/org.jmailen.kotlinter
-ksp = "2.1.21-2.0.2" # https://mvnrepository.com/artifact/com.google.devtools.ksp/symbol-processing-api
+ksp = "2.3.6" # https://mvnrepository.com/artifact/com.google.devtools.ksp/symbol-processing-api
 landscapistCoil = "2.4.6" # https://mvnrepository.com/artifact/com.github.skydoves/landscapist-coil
 libarchive-android = "1.1.6" # https://mvnrepository.com/artifact/me.zhanghai.android.libarchive/library
 media3 = "1.9.1" # https://mvnrepository.com/artifact/androidx.media3/media3-exoplayer

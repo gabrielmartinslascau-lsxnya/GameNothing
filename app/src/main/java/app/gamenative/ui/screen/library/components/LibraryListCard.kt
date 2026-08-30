@@ -3,6 +3,7 @@ package app.gamenative.ui.screen.library.components
 import android.content.Context
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -121,7 +122,14 @@ internal fun ListViewCard(
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
-            .focusRing(interactionSource, shape),
+            .focusRing(interactionSource, shape)
+            .then(
+                if (isItemFocused) {
+                    Modifier.border(3.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.8f), shape)
+                } else {
+                    Modifier
+                }
+            ),
     ) {
         Card(
             modifier = Modifier

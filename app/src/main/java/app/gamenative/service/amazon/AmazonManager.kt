@@ -88,6 +88,7 @@ class AmazonManager @Inject constructor(
 
     /** Delete all non-installed Amazon games on logout. */
     suspend fun deleteAllNonInstalledGames() = withContext(Dispatchers.IO) {
+        if (app.gamenative.PrefManager.aggressiveCaching) return@withContext
         amazonGameDao.deleteAllNonInstalledGames()
         Timber.i("[Amazon] Deleted all non-installed games from DB")
     }
