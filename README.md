@@ -2,6 +2,8 @@
 
 <img width="1041" height="420" alt="51448" src="https://github.com/user-attachments/assets/ce498938-85ca-4e13-b04c-0d6021b45c89" />
 
+(hi, lax here, this is a note for the month, 0.1.3 may be heavily delayed because of code conteadictions and a new app softlock I discovered, that if you delete any files that the emulator has read, it will break even if the files, images, or .zip files are completely useless, this is just a note because I lost 110gb of games in 3 seconds. so **please** do NOT delete anything that the emulator has access to or else you will have to reinstall everything, no, clearing cache does not work, it's a permanent crash, you really will have to re-install everything. don't do the same mistake like me before I patch this!!!!)
+
 Emulate any game on your phone or your Ayn device, right now! just a simple install, and you will have custom built UI options, aggressive performance options, colour it how you like, and more coming soon!
 
 log-in with steam for example, just download, and play. online or offline!
