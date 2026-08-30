@@ -943,6 +943,11 @@
     <string name="settings_language_restart_confirm">Uruchom ponownie</string>
     <string name="settings_language_changing">Zmiana języka i ponowne uruchamianie...</string>
 
+    <!-- Settings: Performance Group -->
+    <string name="settings_performance_title">Wydajność</string>
+    <string name="settings_performance_power_control_title">Kontrola wydajności</string>
+    <string name="settings_performance_power_control_subtitle">Domyślnie włącz kontrolę wydajności w grze (włączone na testowanych urządzeniach: AYN Odin 3, Retroid Pocket 6/Nova)</string>
+
     <!-- Settings: Emulation Group -->
     <string name="settings_emulation_title">Emulacja</string>
     <string name="settings_emulation_orientations_title">Dozwolone orientacje</string>
@@ -2285,6 +2290,8 @@
     <string name="power_control_auto_tuning_desc">Stabilniejsza wydajność, dłuższy czas pracy baterii, mniej ciepła: automatycznie dostraja CPU i GPU do gry. Zweryfikowano na Retroid Pocket 6.</string>
     <string name="power_control_adaptive_fps">Automatyczna redukcja FPS</string>
     <string name="power_control_adaptive_fps_desc">Obniża limit FPS, gdy gra nie może go osiągnąć, aby zapewnić stabilne tempo klatek. Zweryfikowano na Retroid Pocket 6.</string>
+    <string name="power_control_enable">Zarządzanie energią w grze</string>
+    <string name="power_control_enable_desc">Przejmij kontrolę nad taktowaniem CPU/GPU od systemu</string>
     <string name="power_control_tuning_mode">Tryb dostrajania</string>
     <string name="power_control_tuning_mode_per_cluster">Na klaster (zweryfikowano na Retroid Pocket 6)</string>
     <string name="power_control_tuning_mode_whole_cpu">Regulator PID</string>
@@ -2321,4 +2328,19 @@
     <string name="immersive_onboarding_pointer_toggle">Kliknij dwukrotnie gałkę, aby przełączyć między padem Xbox a wskaźnikiem XR</string>
     <string name="immersive_mode_xr_pointer">Tryb wskaźnika XR</string>
     <string name="immersive_mode_xbox">Tryb pada Xbox</string>
+    <string name="tab_favorites">Ulubione</string>
+    <string name="favorites_empty_title">Brak ulubionych</string>
+    <string name="favorites_empty_message">Otwórz menu szczegółów gry, aby dodać ją do ulubionych, albo naciśnij lewy przycisk główny kontrolera, gdy gra jest zaznaczona (X na Xbox, Kwadrat na PlayStation lub Y w układzie Nintendo).</string>
+    <string name="favorites_empty_action">Przeglądaj wszystkie gry</string>
+    <string name="favorites_empty_filtered_title">Brak ulubionych do wyświetlenia</string>
+    <string name="favorites_empty_filtered_message">Żadna ulubiona gra nie pasuje do bieżącego wyszukiwania ani filtrów lub nie jest dostępna w bibliotece.</string>
+    <string name="option_add_to_favorites">Dodaj do ulubionych</string>
+    <string name="option_remove_from_favorites">Usuń z ulubionych</string>
+    <string name="favorite_add_named">Dodaj %1$s do ulubionych</string>
+    <string name="favorite_remove_named">Usuń %1$s z ulubionych</string>
+    <string name="favorite_removed">Usunięto z ulubionych</string>
+    <string name="favorite_removed_named">Usunięto %1$s z ulubionych</string>
+    <string name="favorite_added">Dodano do ulubionych</string>
+    <string name="favorite_added_named">Dodano %1$s do ulubionych</string>
+    <string name="xr_refresh_rate">Częstotliwość odświeżania VR</string>
 </resources>

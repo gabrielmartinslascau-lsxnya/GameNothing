@@ -1107,6 +1107,11 @@ https://gamenative.app
     <string name="settings_emulation_default_config_subtitle">Начальные настройки контейнера для каждой игры (не влияет на уже установленные игры)</string>
     <string name="settings_emulation_default_config_title">Изменить конфигурацию по умолчанию</string>
     <string name="settings_emulation_driver_manager_subtitle">Установить или удалить пользовательские пакеты графических драйверов</string>
+    <!-- Settings: Performance Group -->
+    <string name="settings_performance_title">Производительность</string>
+    <string name="settings_performance_power_control_title">Управление производительностью</string>
+    <string name="settings_performance_power_control_subtitle">Включать управление производительностью в игре по умолчанию (включено на протестированных устройствах: AYN Odin 3, Retroid Pocket 6/Nova)</string>
+
     <string name="settings_emulation_driver_manager_title">Менеджер драйверов</string>
     <string name="settings_emulation_orientations_subtitle">Выберите, какие ориентации можно повернуть во время игры</string>
     <string name="settings_emulation_orientations_title">Разрешённые ориентации</string>
@@ -2213,6 +2218,8 @@ https://gamenative.app
     <string name="power_control_auto_tuning_desc">Более стабильная производительность, дольше работа от батареи, меньше нагрев: автоматически настраивает CPU и GPU под игру. Проверено на Retroid Pocket 6.</string>
     <string name="power_control_adaptive_fps">Автоматическое снижение FPS</string>
     <string name="power_control_adaptive_fps_desc">Снижает предел FPS, если игра не может его достичь, для стабильного темпа кадров. Проверено на Retroid Pocket 6.</string>
+    <string name="power_control_enable">Управление питанием в игре</string>
+    <string name="power_control_enable_desc">Перехватывает управление частотами CPU/GPU у ОС</string>
     <string name="power_control_tuning_mode">Режим настройки</string>
     <string name="power_control_tuning_mode_per_cluster">По кластерам (проверено на Retroid Pocket 6)</string>
     <string name="power_control_tuning_mode_whole_cpu">ПИД-регулятор</string>
@@ -2249,4 +2256,19 @@ https://gamenative.app
     <string name="immersive_onboarding_pointer_toggle">Дважды нажмите стик, чтобы переключиться между геймпадом Xbox и XR-указателем</string>
     <string name="immersive_mode_xr_pointer">Режим XR-указателя</string>
     <string name="immersive_mode_xbox">Режим геймпада Xbox</string>
+    <string name="tab_favorites">Избранное</string>
+    <string name="favorites_empty_title">Пока нет избранного</string>
+    <string name="favorites_empty_message">Откройте меню сведений об игре, чтобы добавить её в избранное, или нажмите левую лицевую кнопку контроллера, когда игра выделена (X на Xbox, квадрат на PlayStation или Y при раскладке Nintendo).</string>
+    <string name="favorites_empty_action">Просмотреть все игры</string>
+    <string name="favorites_empty_filtered_title">Нет избранного для показа</string>
+    <string name="favorites_empty_filtered_message">Нет избранных игр, соответствующих текущему поиску или фильтрам или доступных в вашей библиотеке.</string>
+    <string name="option_add_to_favorites">Добавить в избранное</string>
+    <string name="option_remove_from_favorites">Удалить из избранного</string>
+    <string name="favorite_add_named">Добавить %1$s в избранное</string>
+    <string name="favorite_remove_named">Удалить %1$s из избранного</string>
+    <string name="favorite_removed">Удалено из избранного</string>
+    <string name="favorite_removed_named">%1$s удалено из избранного</string>
+    <string name="favorite_added">Добавлено в избранное</string>
+    <string name="favorite_added_named">%1$s добавлено в избранное</string>
+    <string name="xr_refresh_rate">Частота обновления VR</string>
 </resources>

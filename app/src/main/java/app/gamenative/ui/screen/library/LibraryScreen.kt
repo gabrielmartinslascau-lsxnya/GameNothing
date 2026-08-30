@@ -89,6 +89,7 @@ import app.gamenative.PluviaApp
 import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.data.GameCompatibilityStatus
+import app.gamenative.data.FavoritesManager
 import app.gamenative.data.GameSource
 import app.gamenative.data.LibraryItem
 import app.gamenative.events.AndroidEvent
@@ -117,11 +118,13 @@ import app.gamenative.ui.screen.auth.GOGOAuthActivity
 import app.gamenative.ui.screen.library.components.LibraryCarouselPane
 import app.gamenative.ui.screen.library.components.LibraryDetailPane
 import app.gamenative.ui.screen.library.components.LibraryListPane
+import app.gamenative.ui.screen.library.components.LibraryFavoritesEmptyState
+import app.gamenative.ui.screen.library.components.RecommendationDisclosureDialog
 import app.gamenative.ui.screen.library.components.LibraryOptionsPanel
 import app.gamenative.ui.screen.library.components.LibrarySearchBar
 import app.gamenative.ui.screen.library.components.LibrarySourceNotLoggedInSplash
 import app.gamenative.ui.screen.library.components.LibraryTabBar
-import app.gamenative.ui.screen.library.components.RecommendationDisclosureDialog
+import app.gamenative.ui.screen.library.components.toggleFavorite
 import app.gamenative.ui.screen.library.components.SystemMenu
 import app.gamenative.utils.hapticClickable
 import app.gamenative.utils.hapticSelectable
@@ -390,6 +393,8 @@ private fun LibraryScreenContent(
     var wasOptionsPanelOpen by remember { mutableStateOf(false) }
     // Keep a stable reference to the selected item so detail view doesn't disappear during list refresh/pagination.
     var selectedLibraryItem by remember { mutableStateOf<LibraryItem?>(null) }
+    val favorites by FavoritesManager.favorites.collectAsStateWithLifecycle()
+    val favoritesLoaded by FavoritesManager.loaded.collectAsStateWithLifecycle()
     val filterFabExpanded by remember(currentPaneType, listState, carouselListState) {
         derivedStateOf {
             if (currentPaneType == PaneType.CAROUSEL) {
@@ -495,6 +500,22 @@ private fun LibraryScreenContent(
         try {
             rootFocusRequester.requestFocus()
         } catch (_: IllegalStateException) {}
+    }
+
+    fun focusedLibraryItem(): LibraryItem? {
+        if (state.currentTab == LibraryTab.RECOMMENDED) return null
+        val focusedIndex = if (currentPaneType == PaneType.CAROUSEL) {
+            currentCarouselFocusTargetIndex()
+        } else {
+            gridFocusTargetListIndex
+        }
+        return state.appInfoList.getOrNull(focusedIndex)?.takeUnless { it.isRecommended }
+    }
+
+    fun toggleFocusedFavorite(): Boolean {
+        val item = focusedLibraryItem() ?: return false
+        toggleFavorite(context, item.appId, item.name)
+        return true
     }
 
     val storagePermissionLauncher = rememberLauncherForActivityResult(
@@ -950,11 +971,15 @@ private fun LibraryScreenContent(
                             }
                         }
 
-                        // X button - add custom game
+                        // X button - toggle favorite for the focused game
                         KeyEvent.KEYCODE_BUTTON_X -> {
-                            if (selectedAppId == null && !state.isSearching && !state.isOptionsPanelOpen && !isSystemMenuOpen) {
-                                onAddCustomGameClick()
-                                true
+                            if (selectedAppId == null &&
+                                !state.isSearching &&
+                                !state.isOptionsPanelOpen &&
+                                !isSystemMenuOpen &&
+                                !tabBarHasFocus
+                            ) {
+                                toggleFocusedFavorite()
                             } else {
                                 false
                             }
@@ -1004,7 +1029,98 @@ private fun LibraryScreenContent(
                                 PrefManager.recTeaserDismissedDay = System.currentTimeMillis() / (24L * 60 * 60 * 1000)
                                 showRecTeaserDialog = false
                             },
-                            source = "hero",
+                        )
+                    }
+                }
+                val showEmptyStateSplash = when (state.currentTab) {
+                    LibraryTab.STEAM -> !SteamUtils.hasStoredCredentials() && !state.isLoading
+                    LibraryTab.GOG -> !GOGService.hasStoredCredentials(context)
+                    LibraryTab.EPIC -> !EpicService.hasStoredCredentials(context)
+                    LibraryTab.AMAZON -> !AmazonService.hasStoredCredentials(context)
+                    LibraryTab.LOCAL -> PrefManager.customGamesCount == 0
+                    else -> false
+                }
+                // Favorites tab has its own empty state. Only show it once favorites have loaded and
+                // the list has settled, so a genuinely empty tab is explained instead of flashing a
+                // blank screen (or the empty message before stored favorites arrive).
+                val showFavoritesEmptyState = state.currentTab == LibraryTab.FAVORITES &&
+                    favoritesLoaded && !state.isLoading && state.appInfoList.isEmpty()
+                if (showEmptyStateSplash) {
+                    val (messageResId, buttonResId, onAction) = when (state.currentTab) {
+                        LibraryTab.STEAM -> Triple(
+                            R.string.library_source_not_logged_in_steam,
+                            R.string.steam_sign_in,
+                            onGoOnline,
+                        )
+                        LibraryTab.GOG -> Triple(
+                            R.string.library_source_not_logged_in_gog,
+                            R.string.gog_settings_login_title,
+                            { gogOAuthLauncher.launch(Intent(context, GOGOAuthActivity::class.java)) },
+                        )
+                        LibraryTab.EPIC -> Triple(
+                            R.string.library_source_not_logged_in_epic,
+                            R.string.epic_settings_login_title,
+                            { epicOAuthLauncher.launch(Intent(context, EpicOAuthActivity::class.java)) },
+                        )
+                        LibraryTab.AMAZON -> Triple(
+                            R.string.library_source_not_logged_in_amazon,
+                            R.string.amazon_settings_login_title,
+                            { amazonOAuthLauncher.launch(Intent(context, AmazonOAuthActivity::class.java)) },
+                        )
+                        LibraryTab.LOCAL -> Triple(
+                            R.string.library_source_no_custom_games,
+                            R.string.add_custom_game_dialog_title,
+                            onAddCustomGameClick,
+                        )
+                        else -> throw IllegalStateException("showEmptyStateSplash is true only for Steam/GOG/Epic/Amazon/LOCAL")
+                    }
+                    LibrarySourceNotLoggedInSplash(
+                        messageResId = messageResId,
+                        signInButtonLabelResId = buttonResId,
+                        onSignInClick = onAction,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else if (showFavoritesEmptyState) {
+                    if (favorites.isEmpty()) {
+                        LibraryFavoritesEmptyState(
+                            titleResId = R.string.favorites_empty_title,
+                            messageResId = R.string.favorites_empty_message,
+                            actionLabelResId = R.string.favorites_empty_action,
+                            onAction = { onTabChanged(LibraryTab.ALL) },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        // Favorites exist but none are visible — filtered out by the current search
+                        // or unavailable (source logged out / game removed).
+                        LibraryFavoritesEmptyState(
+                            titleResId = R.string.favorites_empty_filtered_title,
+                            messageResId = R.string.favorites_empty_filtered_message,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                } else {
+                    // Library list (content scrolls behind tab bar)
+                    if (currentPaneType == PaneType.CAROUSEL) {
+                        LibraryCarouselPane(
+                            state = state,
+                            listState = carouselListState,
+                            onPageChange = onPageChange,
+                            onNavigate = { appId ->
+                                val item = state.appInfoList.find { it.appId == appId }
+                                if (item?.isRecTeaser == true) {
+                                    if (!item.isRecLoading && !recDisclosureShown) {
+                                        onRecTeaserTapped()
+                                    }
+                                } else {
+                                    selectedAppId = appId
+                                    selectedLibraryItem = item
+                                }
+                            },
+                            onRefresh = onRefresh,
+                            modifier = Modifier.fillMaxSize(),
+                            firstCarouselItemFocusRequester = carouselFocusRequester,
+                            focusTargetListIndex = currentCarouselFocusTargetIndex(),
+                            onFocusedIndexChanged = { carouselFocusTargetListIndex = it },
                         )
                     }
 
@@ -1042,6 +1158,12 @@ private fun LibraryScreenContent(
                             LibraryTab.LOCAL -> PrefManager.customGamesCount == 0
                             else -> false
                         }
+                        // Favorites tab has its own empty state. Only show it once favorites have loaded and
+                        // the list has settled, so a genuinely empty tab is explained instead of flashing a
+                        // blank screen (or the empty message before stored favorites arrive).
+                        val showFavoritesEmptyState = state.currentTab == LibraryTab.FAVORITES &&
+                            favoritesLoaded && !state.isLoading && state.appInfoList.isEmpty()
+
                         if (showEmptyStateSplash) {
                             val (messageResId, buttonResId, onAction) = when (state.currentTab) {
                                 LibraryTab.STEAM -> Triple(R.string.library_source_not_logged_in_steam, R.string.steam_sign_in, onGoOnline)
@@ -1059,6 +1181,24 @@ private fun LibraryScreenContent(
                                     modifier = Modifier.fillMaxSize(),
                                 )
                             }
+                        } else if (showFavoritesEmptyState) {
+                            if (favorites.isEmpty()) {
+                                LibraryFavoritesEmptyState(
+                                    titleResId = R.string.favorites_empty_title,
+                                    messageResId = R.string.favorites_empty_message,
+                                    actionLabelResId = R.string.favorites_empty_action,
+                                    onAction = { onTabChanged(LibraryTab.ALL) },
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            } else {
+                                // Favorites exist but none are visible — filtered out by the current search
+                                // or unavailable (source logged out / game removed).
+                                LibraryFavoritesEmptyState(
+                                    titleResId = R.string.favorites_empty_filtered_title,
+                                    messageResId = R.string.favorites_empty_filtered_message,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
                         } else {
                             if (currentPaneType == PaneType.CAROUSEL) {
                                 LibraryCarouselPane(
@@ -1069,8 +1209,7 @@ private fun LibraryScreenContent(
                                         val item = state.appInfoList.find { it.appId == appId }
                                         if (item?.isRecTeaser == true) {
                                             if (!item.isRecLoading && !PrefManager.recDisclosureShown) {
-                                                if (PrefManager.usageAnalyticsEnabled) PostHog.capture(event = "rec_teaser_tapped")
-                                                showRecTeaserDialog = true
+                                                onRecTeaserTapped()
                                             }
                                         } else {
                                             selectedAppId = appId
@@ -1095,8 +1234,7 @@ private fun LibraryScreenContent(
                                         val item = state.appInfoList.find { it.appId == appId }
                                         if (item?.isRecTeaser == true) {
                                             if (!item.isRecLoading && !PrefManager.recDisclosureShown) {
-                                                if (PrefManager.usageAnalyticsEnabled) PostHog.capture(event = "rec_teaser_tapped")
-                                                showRecTeaserDialog = true
+                                                onRecTeaserTapped()
                                             }
                                         } else {
                                             selectedAppId = appId
@@ -1105,6 +1243,7 @@ private fun LibraryScreenContent(
                                     },
                                     onRefresh = onRefresh,
                                     modifier = Modifier.fillMaxSize(),
+                                    onFocusedIndexChanged = { gridFocusTargetListIndex = it },
                                 )
                             }
                         }
@@ -1278,6 +1417,7 @@ private fun LibraryScreenContent(
                         currentTab = state.currentTab,
                         tabCounts = mapOf(
                             LibraryTab.ALL to state.allCount,
+                            LibraryTab.FAVORITES to state.favoritesCount,
                             LibraryTab.STEAM to state.steamCount,
                             LibraryTab.GOG to state.gogCount,
                             LibraryTab.EPIC to state.epicCount,
@@ -1373,12 +1513,18 @@ private fun LibraryScreenContent(
                         labelResId = R.string.search,
                         onClick = { onIsSearching(true) },
                     ),
-                ) + listOf(
-                    GamepadAction(
-                        button = GamepadButton.X,
-                        labelResId = R.string.action_add_game,
-                        onClick = onAddCustomGameClick,
-                    ),
+                ) + listOfNotNull(
+                    focusedLibraryItem()?.let { item ->
+                        GamepadAction(
+                            button = GamepadButton.X,
+                            labelResId = if (item.appId in favorites) {
+                                R.string.option_remove_from_favorites
+                            } else {
+                                R.string.option_add_to_favorites
+                            },
+                            onClick = { toggleFocusedFavorite() },
+                        )
+                    },
                 )
             }
 

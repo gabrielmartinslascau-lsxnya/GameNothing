@@ -65,7 +65,7 @@ android {
         buildConfigField("boolean", "MODERN_XR", "false")
 
         versionCode = 21
-        versionName = "1.1.1"
+        versionName = "1.2.0"
 
         buildConfigField("boolean", "GOLD", "false")
         fun secret(name: String) =
@@ -258,12 +258,14 @@ android {
         }
         getByName("legacyXr") {
             java.srcDir("src/nonXr/java")
-            manifest.srcFile("src/legacy/AndroidManifest.xml")
+            // Superset of src/legacy/AndroidManifest.xml plus the immersive VR entries —
+            // keep the shared parts in sync with that file.
+            manifest.srcFile("src/legacyXr/AndroidManifest.xml")
             assets {
                 srcDirs("src/legacy/assets", "src/main/assets")
             }
             jniLibs {
-                srcDirs("src/legacy/jniLibs")
+                srcDirs("src/legacy/jniLibs", "src/legacyXr/jniLibs")
             }
         }
         getByName("modern") {

@@ -752,6 +752,11 @@
     <string name="settings_language_restart_confirm">Genstart</string>
     <string name="settings_language_changing">Ændrer sprog og genstarter...</string>
 
+    <!-- Settings: Performance Group -->
+    <string name="settings_performance_title">Ydeevne</string>
+    <string name="settings_performance_power_control_title">Strømstyring</string>
+    <string name="settings_performance_power_control_subtitle">Aktivér strømstyring i spil som standard (aktiveret på testede enheder: AYN Odin 3, Retroid Pocket 6/Nova)</string>
+
     <!-- Settings: Emulation Group -->
     <string name="settings_emulation_title">Emulering</string>
     <string name="settings_emulation_orientations_title">Tilladte orienteringer</string>
@@ -2151,6 +2156,8 @@
     <string name="power_control_auto_tuning_desc">Mere stabil ydelse, længere batteritid, mindre varme: justerer automatisk CPU og GPU til dit spil. Verificeret på Retroid Pocket 6.</string>
     <string name="power_control_adaptive_fps">Automatisk FPS-reduktion</string>
     <string name="power_control_adaptive_fps_desc">Sænker FPS-grænsen, når spillet ikke kan nå den, for en stabil billedtakt. Verificeret på Retroid Pocket 6.</string>
+    <string name="power_control_enable">Strømstyring i spil</string>
+    <string name="power_control_enable_desc">Overtag CPU/GPU-klokstyring fra styresystemet</string>
     <string name="power_control_tuning_mode">Justeringstilstand</string>
     <string name="power_control_tuning_mode_per_cluster">Pr. klynge (verificeret på Retroid Pocket 6)</string>
     <string name="power_control_tuning_mode_whole_cpu">PID-regulator</string>
@@ -2187,4 +2194,19 @@
     <string name="immersive_onboarding_pointer_toggle">Dobbeltklik på et joystick for at skifte mellem Xbox-controller og XR-pointer</string>
     <string name="immersive_mode_xr_pointer">XR-pointertilstand</string>
     <string name="immersive_mode_xbox">Xbox-controllertilstand</string>
+    <string name="tab_favorites">Favoritter</string>
+    <string name="favorites_empty_title">Ingen favoritter endnu</string>
+    <string name="favorites_empty_message">Åbn spillets detaljemenu for at føje det til favoritter, eller tryk på controllerens venstre frontknap, mens et spil er i fokus (X på Xbox, firkant på PlayStation eller Y på Nintendo-layout).</string>
+    <string name="favorites_empty_action">Gennemse alle spil</string>
+    <string name="favorites_empty_filtered_title">Ingen favoritter at vise</string>
+    <string name="favorites_empty_filtered_message">Ingen favoritspil matcher den aktuelle søgning eller filtre eller er tilgængelige i dit bibliotek.</string>
+    <string name="option_add_to_favorites">Føj til favoritter</string>
+    <string name="option_remove_from_favorites">Fjern fra favoritter</string>
+    <string name="favorite_add_named">Føj %1$s til favoritter</string>
+    <string name="favorite_remove_named">Fjern %1$s fra favoritter</string>
+    <string name="favorite_removed">Fjernet fra favoritter</string>
+    <string name="favorite_removed_named">Fjernede %1$s fra favoritter</string>
+    <string name="favorite_added">Føjet til favoritter</string>
+    <string name="favorite_added_named">Føjede %1$s til favoritter</string>
+    <string name="xr_refresh_rate">VR-opdateringsfrekvens</string>
 </resources>

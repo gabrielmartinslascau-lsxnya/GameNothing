@@ -942,6 +942,11 @@
     <string name="settings_language_restart_confirm">Reiniciar</string>
     <string name="settings_language_changing">Cambiando idioma y reiniciando…</string>
 
+    <!-- Settings: Performance Group -->
+    <string name="settings_performance_title">Rendimiento</string>
+    <string name="settings_performance_power_control_title">Control de rendimiento</string>
+    <string name="settings_performance_power_control_subtitle">Activa el control de rendimiento en el juego de forma predeterminada (activado en dispositivos probados: AYN Odin 3, Retroid Pocket 6/Nova)</string>
+
     <!-- Settings: Emulation Group -->
     <string name="settings_emulation_title">Emulación</string>
     <string name="settings_emulation_orientations_title">Orientaciones de pantalla permitidas</string>
@@ -2279,6 +2284,8 @@
     <string name="power_control_auto_tuning_desc">Rendimiento más estable, mayor duración de batería, menos calor: ajusta automáticamente la CPU y la GPU para tu juego. Verificado en Retroid Pocket 6.</string>
     <string name="power_control_adaptive_fps">Reducción automática de FPS</string>
     <string name="power_control_adaptive_fps_desc">Reduce el límite de FPS cuando el juego no puede alcanzarlo, para un ritmo estable. Verificado en Retroid Pocket 6.</string>
+    <string name="power_control_enable">Control de energía en el juego</string>
+    <string name="power_control_enable_desc">Toma el control de las frecuencias de CPU/GPU desde el sistema</string>
     <string name="power_control_tuning_mode">Modo de ajuste</string>
     <string name="power_control_tuning_mode_per_cluster">Por clúster (verificado en Retroid Pocket 6)</string>
     <string name="power_control_tuning_mode_whole_cpu">Controlador PID</string>
@@ -2315,4 +2322,19 @@
     <string name="immersive_onboarding_pointer_toggle">Haz doble clic en un joystick para cambiar entre mando Xbox y puntero XR</string>
     <string name="immersive_mode_xr_pointer">Modo puntero XR</string>
     <string name="immersive_mode_xbox">Modo mando Xbox</string>
+    <string name="tab_favorites">Favoritos</string>
+    <string name="favorites_empty_title">Aún no hay favoritos</string>
+    <string name="favorites_empty_message">Abre el menú de detalles del juego para añadirlo a favoritos, o pulsa el botón frontal izquierdo del mando mientras el juego está seleccionado (X en Xbox, Cuadrado en PlayStation o Y en mandos con distribución Nintendo).</string>
+    <string name="favorites_empty_action">Ver todos los juegos</string>
+    <string name="favorites_empty_filtered_title">No hay favoritos para mostrar</string>
+    <string name="favorites_empty_filtered_message">Ningún juego favorito coincide con la búsqueda o los filtros actuales o está disponible en tu biblioteca.</string>
+    <string name="option_add_to_favorites">Añadir a favoritos</string>
+    <string name="option_remove_from_favorites">Quitar de favoritos</string>
+    <string name="favorite_add_named">Añadir %1$s a favoritos</string>
+    <string name="favorite_remove_named">Quitar %1$s de favoritos</string>
+    <string name="favorite_removed">Quitado de favoritos</string>
+    <string name="favorite_removed_named">%1$s quitado de favoritos</string>
+    <string name="favorite_added">Añadido a favoritos</string>
+    <string name="favorite_added_named">%1$s añadido a favoritos</string>
+    <string name="xr_refresh_rate">Frecuencia de actualización de RV</string>
 </resources>

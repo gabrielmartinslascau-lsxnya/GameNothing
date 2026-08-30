@@ -110,6 +110,12 @@
     <string name="tab_recommended">Recommended</string>
     <string name="gog_rec_empty">Add or play some games to get GOG recommendations based on your library.</string>
     <string name="tab_all">All</string>
+    <string name="tab_favorites">Favorites</string>
+    <string name="favorites_empty_title">No favorites yet</string>
+    <string name="favorites_empty_message">Open a game’s details menu to add it to favorites, or press the controller’s west face button while a game is focused (X on Xbox, Square on PlayStation, or Y on Nintendo-style layouts).</string>
+    <string name="favorites_empty_action">Browse all games</string>
+    <string name="favorites_empty_filtered_title">No favorites to show</string>
+    <string name="favorites_empty_filtered_message">No favorite games match the current search or filters, or are available in your library.</string>
     <string name="tab_steam">Steam</string>
     <string name="tab_gog">GOG</string>
     <string name="tab_epic">Epic</string>
@@ -1044,6 +1050,11 @@
     <string name="settings_language_restart_confirm">Restart</string>
     <string name="settings_language_changing">Changing language and restarting...</string>
 
+    <!-- Settings: Performance Group -->
+    <string name="settings_performance_title">Performance</string>
+    <string name="settings_performance_power_control_title">Power Control</string>
+    <string name="settings_performance_power_control_subtitle">Enable in-game power control by default (enabled on tested devices: AYN Odin 3, Retroid Pocket 6/Nova)</string>
+
     <!-- Settings: Emulation Group -->
     <string name="settings_emulation_title">Emulation</string>
     <string name="settings_emulation_orientations_title">Allowed Orientations</string>
@@ -1708,6 +1719,14 @@
     <string name="option_reset_to_defaults">Reset container</string>
     <string name="option_get_support">Get support</string>
     <string name="option_submit_feedback">Submit feedback</string>
+    <string name="option_add_to_favorites">Favorite</string>
+    <string name="option_remove_from_favorites">Unfavorite</string>
+    <string name="favorite_add_named">Favorite %1$s</string>
+    <string name="favorite_remove_named">Unfavorite %1$s</string>
+    <string name="favorite_added">Added to favorites</string>
+    <string name="favorite_added_named">Added %1$s to favorites</string>
+    <string name="favorite_removed">Removed from favorites</string>
+    <string name="favorite_removed_named">Removed %1$s from favorites</string>
     <string name="option_reset_drm">Reset DRM</string>
     <string name="option_use_known_config">Use known config</string>
     <string name="option_browse_community_configs">Browse community configs</string>
@@ -2301,6 +2320,8 @@
     <string name="power_control_auto_tuning_desc">More stable performance, longer battery life, less heat: automatically tunes CPU and GPU for your game. Verified on Retroid Pocket 6.</string>
     <string name="power_control_adaptive_fps">Automatic FPS reduction</string>
     <string name="power_control_adaptive_fps_desc">Lowers the FPS cap when the game cannot reach it, for stable pacing. Verified on Retroid Pocket 6.</string>
+    <string name="power_control_enable">In-Game Power Control</string>
+    <string name="power_control_enable_desc">Take over CPU/GPU clock control from the OS</string>
     <string name="power_control_tuning_mode">Tuning Mode</string>
     <string name="power_control_tuning_mode_per_cluster">Per-cluster (verified on Retroid Pocket 6)</string>
     <string name="power_control_tuning_mode_whole_cpu">PID Controller</string>
@@ -2341,4 +2362,6 @@
     <string name="settings_looks_font_type_title" translatable="false">Font Type</string>
     <string name="font_type_ndot" translatable="false">Ndot</string>
     <string name="font_type_normal" translatable="false">Normal</string>
+
+    <string name="xr_refresh_rate">VR Refresh Rate</string>
 </resources>

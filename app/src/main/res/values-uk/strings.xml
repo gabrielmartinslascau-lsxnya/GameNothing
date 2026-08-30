@@ -929,6 +929,11 @@
     <string name="settings_language_restart_confirm">Перезапустити</string>
     <string name="settings_language_changing">Зміна мови та перезапуск...</string>
 
+    <!-- Settings: Performance Group -->
+    <string name="settings_performance_title">Продуктивність</string>
+    <string name="settings_performance_power_control_title">Керування живленням</string>
+    <string name="settings_performance_power_control_subtitle">Вмикати керування живленням у грі за замовчуванням (увімкнено на перевірених пристроях: AYN Odin 3, Retroid Pocket 6/Nova)</string>
+
     <!-- Settings: Emulation Group -->
     <string name="settings_emulation_title">Емуляція</string>
     <string name="settings_emulation_orientations_title">Дозволені орієнтації екрану</string>
@@ -2281,6 +2286,8 @@
     <string name="power_control_auto_tuning_desc">Стабільніша продуктивність, довша робота від батареї, менше нагрівання: автоматично налаштовує CPU та GPU під гру. Перевірено на Retroid Pocket 6.</string>
     <string name="power_control_adaptive_fps">Автоматичне зниження FPS</string>
     <string name="power_control_adaptive_fps_desc">Знижує ліміт FPS, якщо гра не може його досягти, для стабільного темпу кадрів. Перевірено на Retroid Pocket 6.</string>
+    <string name="power_control_enable">Керування живленням у грі</string>
+    <string name="power_control_enable_desc">Перехоплює керування частотами CPU/GPU в ОС</string>
     <string name="power_control_tuning_mode">Режим налаштування</string>
     <string name="power_control_tuning_mode_per_cluster">За кластерами (перевірено на Retroid Pocket 6)</string>
     <string name="power_control_tuning_mode_whole_cpu">ПІД-регулятор</string>
@@ -2317,4 +2324,19 @@
     <string name="immersive_onboarding_pointer_toggle">Двічі натисніть стик, щоб перемкнутися між геймпадом Xbox і XR-вказівником</string>
     <string name="immersive_mode_xr_pointer">Режим XR-вказівника</string>
     <string name="immersive_mode_xbox">Режим геймпада Xbox</string>
+    <string name="tab_favorites">Вибране</string>
+    <string name="favorites_empty_title">Ще немає вибраного</string>
+    <string name="favorites_empty_message">Відкрийте меню відомостей про гру, щоб додати її до вибраного, або натисніть ліву лицьову кнопку контролера, коли гру виділено (X на Xbox, квадрат на PlayStation або Y з розкладкою Nintendo).</string>
+    <string name="favorites_empty_action">Переглянути всі ігри</string>
+    <string name="favorites_empty_filtered_title">Немає вибраного для показу</string>
+    <string name="favorites_empty_filtered_message">Немає вибраних ігор, що відповідають поточному пошуку або фільтрам або доступні у вашій бібліотеці.</string>
+    <string name="option_add_to_favorites">Додати до вибраного</string>
+    <string name="option_remove_from_favorites">Видалити з вибраного</string>
+    <string name="favorite_add_named">Додати %1$s до вибраного</string>
+    <string name="favorite_remove_named">Видалити %1$s з вибраного</string>
+    <string name="favorite_removed">Видалено з вибраного</string>
+    <string name="favorite_removed_named">%1$s видалено з вибраного</string>
+    <string name="favorite_added">Додано до вибраного</string>
+    <string name="favorite_added_named">%1$s додано до вибраного</string>
+    <string name="xr_refresh_rate">Частота оновлення VR</string>
 </resources>

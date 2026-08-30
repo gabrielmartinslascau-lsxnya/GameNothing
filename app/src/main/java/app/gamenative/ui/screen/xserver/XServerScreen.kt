@@ -2264,83 +2264,83 @@ fun XServerScreen(
                                         null
                                     }
 
-                                    vkbasaltConfig = buildVkBasaltConfig(
-                                        effect = container.getExtra("sharpnessEffect", "None"),
-                                        sharpnessLevel = container.getExtra("sharpnessLevel", "100").toIntOrNull() ?: 100,
-                                        sharpnessDenoise = container.getExtra("sharpnessDenoise", "100").toIntOrNull() ?: 100,
+                            vkbasaltConfig = buildVkBasaltConfig(
+                                effect = container.getExtra("sharpnessEffect", "None"),
+                                sharpnessLevel = container.getExtra("sharpnessLevel", "100").toIntOrNull() ?: 100,
+                                sharpnessDenoise = container.getExtra("sharpnessDenoise", "100").toIntOrNull() ?: 100,
+                            )
+
+                            Timber.i("Doing things once")
+                            val envVars = EnvVars()
+
+                            runBlocking {
+                                setupWineSystemFiles(
+                                    context,
+                                    firstTimeBoot,
+                                    xServerView!!.getxServer().screenInfo,
+                                    xServerState,
+                                    container,
+                                    containerManager,
+                                    envVars,
+                                    contentsManager,
+                                    onExtractFileListener,
+                                )
+                            }
+                            extractArm64ecInputDLLs(context, container) // REQUIRED: Uses updated xinput1_3 main.c from x86_64 build, prevents crashes with 3+ players, avoids need for input shim dlls.
+                            extractx86_64InputDlls(context, container)
+
+                            runBlocking {
+                                extractGraphicsDriverFiles(
+                                    context,
+                                    xServerState.value.graphicsDriver,
+                                    xServerState.value.dxwrapper,
+                                    xServerState.value.dxwrapperConfig!!,
+                                    container,
+                                    envVars,
+                                    firstTimeBoot,
+                                    vkbasaltConfig,
+                                )
+                            }
+
+                            changeWineAudioDriver(xServerState.value.audioDriver, container, ImageFs.find(context))
+                            setImagefsContainerVariant(context, container)
+                            PluviaApp.xEnvironment = setupXEnvironment(
+                                context,
+                                appId,
+                                bootToContainer,
+                                testGraphics,
+                                diagnostics,
+                                xServerState,
+                                envVars,
+                                container,
+                                appLaunchInfo,
+                                xServerView!!.getxServer(),
+                                containerVariantChanged,
+                                onGameLaunchError,
+                                isOffline
+                            )
+
+                            // Autostart performance driver after environment is set up
+                            PowerManager.autoStart(container.rootDir)
+
+                            // Pin game process to performance cores (CPUs 4-7)
+                            container.executablePath
+                                .substringAfterLast('/')
+                                .substringAfterLast('\\')
+                                .takeIf { it.isNotEmpty() }
+                                ?.let { name ->
+                                    // Remove .exe extension if present, then add it back
+                                    val baseName = name.replace(Regex("\\.exe$", RegexOption.IGNORE_CASE), "")
+                                    PowerManager.pinGameWithRetry(
+                                        processName = "$baseName.exe",
+                                        maxRetries = 10,
+                                        retryDelayMs = 5000
                                     )
+                                    Timber.tag("XServerScreen").i("Initiated CPU pinning for: $baseName.exe")
+                                }
 
-                                    Timber.i("Doing things once")
-                                    val envVars = EnvVars()
-
-                                    runBlocking {
-                                        setupWineSystemFiles(
-                                            context,
-                                            firstTimeBoot,
-                                            xServerView!!.getxServer().screenInfo,
-                                            xServerState,
-                                            container,
-                                            containerManager,
-                                            envVars,
-                                            contentsManager,
-                                            onExtractFileListener,
-                                        )
-                                    }
-                                    extractArm64ecInputDLLs(context, container) // REQUIRED: Uses updated xinput1_3 main.c from x86_64 build, prevents crashes with 3+ players, avoids need for input shim dlls.
-                                    extractx86_64InputDlls(context, container)
-
-                                    runBlocking {
-                                        extractGraphicsDriverFiles(
-                                            context,
-                                            xServerState.value.graphicsDriver,
-                                            xServerState.value.dxwrapper,
-                                            xServerState.value.dxwrapperConfig!!,
-                                            container,
-                                            envVars,
-                                            firstTimeBoot,
-                                            vkbasaltConfig,
-                                        )
-                                    }
-
-                                    changeWineAudioDriver(xServerState.value.audioDriver, container, ImageFs.find(context))
-                                    setImagefsContainerVariant(context, container)
-                                    PluviaApp.xEnvironment = setupXEnvironment(
-                                        context,
-                                        appId,
-                                        bootToContainer,
-                                        testGraphics,
-                                        diagnostics,
-                                        xServerState,
-                                        envVars,
-                                        container,
-                                        appLaunchInfo,
-                                        xServerView!!.getxServer(),
-                                        containerVariantChanged,
-                                        onGameLaunchError,
-                                        isOffline,
-                                    )
-
-                                    // Start performance driver after environment is set up
-                                    PowerManager.start(container.rootDir)
-
-                                    // Pin game process to performance cores (CPUs 4-7)
-                                    container.executablePath
-                                        .substringAfterLast('/')
-                                        .substringAfterLast('\\')
-                                        .takeIf { it.isNotEmpty() }
-                                        ?.let { name ->
-                                            // Remove .exe extension if present, then add it back
-                                            val baseName = name.replace(Regex("\\.exe$", RegexOption.IGNORE_CASE), "")
-                                            PowerManager.pinGameWithRetry(
-                                                processName = "$baseName.exe",
-                                                maxRetries = 10,
-                                                retryDelayMs = 5000,
-                                            )
-                                            Timber.tag("XServerScreen").i("Initiated CPU pinning for: $baseName.exe")
-                                        }
-
-                                    // Pin Background processes for better performance
-                                    PowerManager.pinBackgroundProcesses()
+                            // Pin Background processes for better performance
+                            PowerManager.pinBackgroundProcesses()
 
                                     if (!PluviaApp.isActivityInForeground && !neverSuspend) {
                                         PluviaApp.xEnvironment?.onPause()
@@ -3881,7 +3881,7 @@ private fun setupXEnvironment(
             Container.drivesIterator(container.drives).asSequence()
                 .firstOrNull { it[0] == "A" }?.let { File(it[1]).canonicalFile.path }
         }.getOrNull() ?: ""
-        if (ffpGameDir.startsWith("/storage/")) {
+        if (ffpGameDir.startsWith("/storage/") && !ffpGameDir.startsWith("/storage/emulated/")) {
             envVars.put("FFP_ENABLE", "1")
             envVars.put("FFP_MARKERS", "/steamapps/common/;/dosdevices/a:")
         }
@@ -5217,6 +5217,10 @@ private suspend fun applyGeneralPatches(
                 rootDir,
                 onExtractFileListener,
             )
+        }
+        Timber.i("Extracting WFM from container_pattern_common.tzst")
+        check(containerManager.extractContainerPatternCommonWfm(rootDir, onExtractFileListener)) {
+            "Failed to extract WFM from container_pattern_common.tzst"
         }
     } else {
         Timber.i("Extracting container_pattern_common.tzst")

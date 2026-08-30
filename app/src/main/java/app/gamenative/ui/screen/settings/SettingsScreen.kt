@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -142,6 +143,15 @@ private fun SettingsScreenContent(
                     iconTint = PluviaTheme.colors.accentCyan,
                 ) {
                     SettingsGroupEmulation()
+                }
+
+                // Performance section
+                SettingsSection(
+                    title = stringResource(R.string.settings_performance_title),
+                    icon = Icons.Default.Speed,
+                    iconTint = PluviaTheme.colors.accentWarning,
+                ) {
+                    SettingsGroupPerformance()
                 }
 
                 // Interface section

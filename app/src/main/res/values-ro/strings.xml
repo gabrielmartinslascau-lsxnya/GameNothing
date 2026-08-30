@@ -935,6 +935,11 @@
 	<string name="settings_language_restart_confirm">Repornește</string>
 	<string name="settings_language_changing">Se schimbă limba și se repornește...</string>
 
+	<!-- Settings: Performance Group -->
+	<string name="settings_performance_title">Performanță</string>
+	<string name="settings_performance_power_control_title">Control performanței</string>
+	<string name="settings_performance_power_control_subtitle">Activează implicit controlul performanței în joc (activat pe dispozitivele testate: AYN Odin 3, Retroid Pocket 6/Nova)</string>
+
 	<!-- Settings: Emulation Group -->
 	<string name="settings_emulation_title">Emulare</string>
 	<string name="settings_emulation_orientations_title">Orientări permise</string>
@@ -2285,6 +2290,8 @@
     <string name="power_control_auto_tuning_desc">Performanță mai stabilă, autonomie mai mare a bateriei, mai puțină căldură: reglează automat CPU și GPU pentru jocul tău. Verificat pe Retroid Pocket 6.</string>
     <string name="power_control_adaptive_fps">Reducere automată a FPS</string>
     <string name="power_control_adaptive_fps_desc">Scade limita de FPS când jocul nu o poate atinge, pentru un ritm stabil. Verificat pe Retroid Pocket 6.</string>
+    <string name="power_control_enable">Control alimentare în joc</string>
+    <string name="power_control_enable_desc">Preia controlul frecvențelor CPU/GPU de la sistemul de operare</string>
     <string name="power_control_tuning_mode">Mod de reglare</string>
     <string name="power_control_tuning_mode_per_cluster">Pe cluster (verificat pe Retroid Pocket 6)</string>
     <string name="power_control_tuning_mode_whole_cpu">Regulator PID</string>
@@ -2321,4 +2328,19 @@
     <string name="immersive_onboarding_pointer_toggle">Dă dublu clic pe un joystick pentru a comuta între controller Xbox și indicator XR</string>
     <string name="immersive_mode_xr_pointer">Mod indicator XR</string>
     <string name="immersive_mode_xbox">Mod controller Xbox</string>
+    <string name="tab_favorites">Favorite</string>
+    <string name="favorites_empty_title">Încă nu ai favorite</string>
+    <string name="favorites_empty_message">Deschide meniul de detalii al jocului pentru a-l adăuga la favorite sau apasă butonul frontal din stânga al controlerului când jocul este focalizat (X pe Xbox, Pătrat pe PlayStation sau Y pe un controler cu dispunere Nintendo).</string>
+    <string name="favorites_empty_action">Răsfoiește toate jocurile</string>
+    <string name="favorites_empty_filtered_title">Nicio favorită de afișat</string>
+    <string name="favorites_empty_filtered_message">Niciun joc favorit nu corespunde căutării sau filtrelor curente sau nu este disponibil în bibliotecă.</string>
+    <string name="option_add_to_favorites">Adaugă la favorite</string>
+    <string name="option_remove_from_favorites">Elimină de la favorite</string>
+    <string name="favorite_add_named">Adaugă %1$s la favorite</string>
+    <string name="favorite_remove_named">Elimină %1$s de la favorite</string>
+    <string name="favorite_removed">Eliminat de la favorite</string>
+    <string name="favorite_removed_named">%1$s eliminat de la favorite</string>
+    <string name="favorite_added">Adăugat la favorite</string>
+    <string name="favorite_added_named">%1$s adăugat la favorite</string>
+    <string name="xr_refresh_rate">Rată de reîmprospătare VR</string>
 </resources>

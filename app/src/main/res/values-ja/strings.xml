@@ -904,6 +904,11 @@
     <string name="settings_language_restart_confirm">再起動</string>
     <string name="settings_language_changing">言語を変更して再起動しています…</string>
 
+    <!-- Settings: Performance Group -->
+    <string name="settings_performance_title">パフォーマンス</string>
+    <string name="settings_performance_power_control_title">パフォーマンス制御</string>
+    <string name="settings_performance_power_control_subtitle">ゲーム内パフォーマンス制御をデフォルトで有効にする（テスト済みデバイスではオン: AYN Odin 3、Retroid Pocket 6/Nova）</string>
+
     <!-- Settings: Emulation Group -->
     <string name="settings_emulation_title">エミュレーション</string>
     <string name="settings_emulation_orientations_title">許可される向き</string>
@@ -2235,6 +2240,8 @@
     <string name="power_control_auto_tuning_desc">より安定したパフォーマンス、より長いバッテリー駆動時間、発熱の低減：ゲームに合わせてCPUとGPUを自動調整します。Retroid Pocket 6で動作確認済みです。</string>
     <string name="power_control_adaptive_fps">FPSの自動低減</string>
     <string name="power_control_adaptive_fps_desc">ゲームがFPS上限に達しない場合は上限を下げ、フレーム間隔を安定させます。Retroid Pocket 6で動作確認済みです。</string>
+    <string name="power_control_enable">ゲーム内電力コントロール</string>
+    <string name="power_control_enable_desc">OSに代わってCPU/GPUのクロック制御を行います</string>
     <string name="power_control_tuning_mode">調整モード</string>
     <string name="power_control_tuning_mode_per_cluster">クラスターごと（Retroid Pocket 6で動作確認済み）</string>
     <string name="power_control_tuning_mode_whole_cpu">PID制御</string>
@@ -2271,4 +2278,19 @@
     <string name="immersive_onboarding_pointer_toggle">スティックをダブルクリックすると Xbox コントローラーと XR ポインターを切り替えられます</string>
     <string name="immersive_mode_xr_pointer">XR ポインターモード</string>
     <string name="immersive_mode_xbox">Xbox コントローラーモード</string>
+    <string name="tab_favorites">お気に入り</string>
+    <string name="favorites_empty_title">お気に入りはまだありません</string>
+    <string name="favorites_empty_message">ゲームの詳細メニューを開いてお気に入りに追加するか、ゲームにフォーカスした状態でコントローラーの左側フェイスボタンを押します（Xbox は X、PlayStation は四角、Nintendo 配列は Y）。</string>
+    <string name="favorites_empty_action">すべてのゲームを見る</string>
+    <string name="favorites_empty_filtered_title">表示するお気に入りがありません</string>
+    <string name="favorites_empty_filtered_message">現在の検索やフィルターに一致するか、ライブラリで利用できるお気に入りのゲームはありません。</string>
+    <string name="option_add_to_favorites">お気に入りに追加</string>
+    <string name="option_remove_from_favorites">お気に入りから削除</string>
+    <string name="favorite_add_named">%1$s をお気に入りに追加</string>
+    <string name="favorite_remove_named">%1$s をお気に入りから削除</string>
+    <string name="favorite_removed">お気に入りから削除しました</string>
+    <string name="favorite_removed_named">%1$s をお気に入りから削除しました</string>
+    <string name="favorite_added">お気に入りに追加しました</string>
+    <string name="favorite_added_named">%1$s をお気に入りに追加しました</string>
+    <string name="xr_refresh_rate">VRリフレッシュレート</string>
 </resources>

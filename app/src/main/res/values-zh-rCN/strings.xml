@@ -919,6 +919,11 @@
     <string name="settings_language_restart_confirm">重新启动</string>
     <string name="settings_language_changing">切换语言并重新启动中...</string>
 
+    <!-- 设置：性能组 -->
+    <string name="settings_performance_title">性能</string>
+    <string name="settings_performance_power_control_title">性能控制</string>
+    <string name="settings_performance_power_control_subtitle">默认启用游戏内性能控制（已在测试设备上启用：AYN Odin 3、Retroid Pocket 6/Nova）</string>
+
     <!-- 设置：模拟组 -->
     <string name="settings_emulation_title">模拟设置</string>
     <string name="settings_emulation_orientations_title">允许的屏幕方向</string>
@@ -2296,6 +2301,8 @@
     <string name="power_control_auto_tuning_desc">更稳定的性能、更长的续航、更少的发热：自动为游戏调节 CPU 和 GPU。已在 Retroid Pocket 6 上验证。</string>
     <string name="power_control_adaptive_fps">自动降低 FPS</string>
     <string name="power_control_adaptive_fps_desc">当游戏无法达到 FPS 上限时降低上限，以获得稳定的帧间隔。已在 Retroid Pocket 6 上验证。</string>
+    <string name="power_control_enable">游戏内功耗控制</string>
+    <string name="power_control_enable_desc">接管操作系统对 CPU/GPU 频率的控制</string>
     <string name="power_control_tuning_mode">调整模式</string>
     <string name="power_control_tuning_mode_per_cluster">分集群（已在 Retroid Pocket 6 上验证）</string>
     <string name="power_control_tuning_mode_whole_cpu">PID 控制器</string>
@@ -2332,4 +2339,19 @@
     <string name="immersive_onboarding_pointer_toggle">双击摇杆可在 Xbox 手柄与 XR 指针之间切换</string>
     <string name="immersive_mode_xr_pointer">XR 指针模式</string>
     <string name="immersive_mode_xbox">Xbox 手柄模式</string>
+    <string name="tab_favorites">收藏</string>
+    <string name="favorites_empty_title">还没有收藏</string>
+    <string name="favorites_empty_message">打开游戏详情菜单即可添加到收藏，或在游戏获得焦点时按下控制器左侧面键（Xbox 为 X、PlayStation 为方块键、Nintendo 布局为 Y）。</string>
+    <string name="favorites_empty_action">浏览所有游戏</string>
+    <string name="favorites_empty_filtered_title">没有可显示的收藏</string>
+    <string name="favorites_empty_filtered_message">没有符合当前搜索或筛选条件，或在您的游戏库中可用的收藏游戏。</string>
+    <string name="option_add_to_favorites">添加到收藏</string>
+    <string name="option_remove_from_favorites">从收藏中移除</string>
+    <string name="favorite_add_named">将 %1$s 添加到收藏</string>
+    <string name="favorite_remove_named">将 %1$s 从收藏中移除</string>
+    <string name="favorite_removed">已从收藏中移除</string>
+    <string name="favorite_removed_named">已将 %1$s 从收藏中移除</string>
+    <string name="favorite_added">已添加到收藏</string>
+    <string name="favorite_added_named">已将 %1$s 添加到收藏</string>
+    <string name="xr_refresh_rate">VR 刷新率</string>
 </resources>
