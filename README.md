@@ -2,13 +2,11 @@
 
 <img width="1041" height="420" alt="51448" src="https://github.com/user-attachments/assets/ce498938-85ca-4e13-b04c-0d6021b45c89" />
 
-(hi, lax here, this is a note for the month, 0.1.3 may be heavily delayed because of code conteadictions and a new app softlock I discovered, that if you delete any files that the emulator has read, it will break even if the files, images, or .zip files are completely useless, this is just a note because I lost 110gb of games in 3 seconds. so **please** do NOT delete anything that the emulator has access to or else you will have to reinstall everything, no, clearing cache does not work, it's a permanent crash, you really will have to re-install everything. don't do the same mistake like me before I patch this!!!!)
-
 Emulate any game on your phone or your Ayn device, right now! just a simple install, and you will have custom built UI options, aggressive performance options, colour it how you like, and more coming soon!
 
 log-in with steam for example, just download, and play. online or offline!
 
-**here's what GameNothing will bring for you (v0.1.2 or later include *all* settings listed):**
+**here's what GameNothing will bring for *you* :**
 
 
 <img width="1260" height="1482" alt="51450" src="https://github.com/user-attachments/assets/67ecd602-1a9b-4bf8-9b4c-356a39b2d7ad" />
@@ -47,10 +45,10 @@ what to expect in the future :
 
 | version | key features | when |
 | :--- | :--- | :--- |
-| **BETA v0.1.0** | Very first official launch. with nothing® style font, glass panels, animations, and colour picker with 6 colours, together with a screen refresh rate slider, and ram viewer | outdated |
-| **BETA v0.1.1** | improved colour picker, new custom "legion" logo, fixed bugs, better adjustable slider on glass panels, better refresh rate slider, improved floating ram viewer | outdated/last stable release|
-| **BETA v0.1.2** | the biggest update to date! NEW "legion" logo redesign, NEW haptics feature, NEW controller support, NEW launch animation, 4 NEW colours, BETTER sliders, instant responses, NEW agressive caching feature (cache view), IMPROVED tutorial, IMPROVED Hz slider, IMPROVED game launch times, IMPROVED response rates, NEW glow effects, BETTER colour saturation, OFICIALLY changed the name from "gamenative-lsx" to "GameNothing" in the emulator, OPTIMIZED scrolling, MANY big fixes and common crashing | LAUNCHED !|
-| **BETA v0.1.3** | possibly some game optimization or tweaks together with additions or redesigns | either in a week or in a month |
+| **BETA v0.1.0** | Very first official launch. with nothing® style font, glass panels, animations, and colour picker with 6 colours, together with a screen refresh rate slider, and ram viewer | SUPER outdated |
+| **BETA v0.1.1** | improved colour picker, new custom "legion" logo, fixed bugs, better adjustable slider on glass panels, better refresh rate slider, improved floating ram viewer | outdated |
+| **BETA v0.1.2** | the biggest update to date! NEW "legion" logo redesign, NEW haptics feature, NEW controller support, NEW launch animation, 4 NEW colours, BETTER sliders, instant responses, NEW agressive caching feature (cache view), IMPROVED tutorial, IMPROVED Hz slider, IMPROVED game launch times, IMPROVED response rates, NEW glow effects, BETTER colour saturation, OFICIALLY changed the name from "gamenative-lsx" to "GameNothing" in the emulator, OPTIMIZED scrolling, MANY big fixes and common crashing | outdated |
+| **v0.2.0** |a MAJOR release - usb support, you can now download you games on ANY folder you want, locally ir external, making games much better and saving space for those who cant use an SD card (like me lol) - bases on the OFICIAL launch of gamenative 1.2.0, meaning its no longer in beta - everything of 1.2.0 is added AND my features - much improved tutorial with detailed yet humorous explanations on how to set up for the first time - the app should crash WAY lesa and responses are instant - NEW download bar style - better controller support with a much faster loading screen - improved custom driver support - a lot more customizability in general - forgot to say, but in the 1.2.0 brought a lot of features for People with ayn products ir rooted phones, the improved tutorial shows how you can acheive the same thing, un-rooted, saving a lot of your time, and People without an ayn product, can experience 90% of the same thing now! - thats it, oficial 0.2.0 release, no longer in beta! - (oh yeah, the name of the actual app got burger and its no longer gamenothing, but everything inside the emulator remains the same) | LAUNCHED! |
 | **official 1.0 launch** | to see in the future... | future |
 
 
