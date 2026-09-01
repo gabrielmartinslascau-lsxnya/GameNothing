@@ -1174,9 +1174,10 @@ fun PluviaMain(
         val looksState = remember(
             state.jigglyAnimations,
             state.glassPanels,
-            state.trueGlassEnabled,
-            state.glassBlurIntensity,
+            state.glassMode,
             state.glassTransparency,
+            state.blurIntensiveness,
+            state.liquidDistortion,
             state.glassColor,
             state.fontType,
             state.mainColor,
@@ -1190,12 +1191,10 @@ fun PluviaMain(
             LooksState(
                 isJigglyAnimations = state.jigglyAnimations,
                 isGlassEnabled = state.glassPanels,
-                isTrueGlassEnabled = state.trueGlassEnabled,
-                glassTransparencyOrBlur = if (state.trueGlassEnabled) {
-                    (state.glassBlurIntensity - 5f) / 45f // 5-50 -> 0-1
-                } else {
-                    (state.glassTransparency - 0.05f) / 0.75f // 0.05-0.8 -> 0-1
-                },
+                glassMode = state.glassMode,
+                glassTransparency = state.glassTransparency,
+                blurIntensiveness = state.blurIntensiveness,
+                liquidDistortion = state.liquidDistortion,
                 glassColor = if (glassColorParsed != Color.Unspecified) glassColorParsed else Color.White,
                 fontType = when (state.fontType) {
                     FontType.NDOT -> NdotFontFamily

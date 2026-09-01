@@ -552,8 +552,9 @@ class SteamService : Service(), IChallengeUrlChanged {
 
         private val externalStorageReady: Boolean
             get() = PrefManager.useExternalStorage &&
+                externalAppInstallRoot.isNotBlank() &&
                 File(externalAppInstallRoot).let {
-                    it.path.isNotBlank() && it.exists()
+                    it.exists() && it.canWrite()
                 }
 
         val defaultStoragePath: String
@@ -2041,6 +2042,14 @@ class SteamService : Service(), IChallengeUrlChanged {
 
                         // Signal that no more items will be added
                         depotDownloader.finishAdding()
+
+                        // Check if target directory is still available and writable
+                        val targetDir = File(appDirPath)
+                        if (!targetDir.exists() && !targetDir.mkdirs()) {
+                            Timber.e("Target directory $appDirPath is not writable or volume unmounted")
+                            di.cancel() // This will trigger failure/pause logic
+                            return@launch
+                        }
 
                         // Start Download
                         depotDownloader.startDownloading()

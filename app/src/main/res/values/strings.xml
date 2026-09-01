@@ -1130,6 +1130,7 @@
     <string name="settings_interface_wifi_only_subtitle">Prevent downloads on cellular data</string>
     <string name="settings_interface_external_storage_title">Write to external storage</string>
     <string name="settings_interface_no_external_storage">No external storage detected</string>
+    <string name="settings_interface_external_storage_detected" translatable="false">External storage detected</string>
     <string name="settings_interface_external_storage_subtitle">Save games to external storage</string>
     <string name="settings_interface_storage_volume_title">Storage volume</string>
     <string name="settings_interface_download_server_title">Steam Download Server</string>
@@ -2357,6 +2358,9 @@
     <string name="settings_looks_jiggly_subtitle">Add more bounce and spring to UI transitions.</string>
     <string name="settings_looks_glass_title">Glass Panels</string>
     <string name="settings_looks_glass_subtitle">Apply a frosted glass effect to backgrounds and cards.</string>
+    <string name="glass_mode_standard" translatable="false">Standard</string>
+    <string name="glass_mode_true" translatable="false">True Glass</string>
+    <string name="glass_mode_liquid" translatable="false">Liquid Glass</string>
     <string name="settings_looks_true_glass_title" translatable="false">True Glass</string>
     <string name="settings_looks_true_glass_subtitle" translatable="false">Add a realistic blur effect to panels (Android 12+)</string>
     <string name="settings_looks_font_type_title" translatable="false">Font Type</string>

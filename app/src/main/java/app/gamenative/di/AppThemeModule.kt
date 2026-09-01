@@ -3,6 +3,7 @@ package app.gamenative.di
 import app.gamenative.PrefManager
 import app.gamenative.enums.AppTheme
 import app.gamenative.enums.FontType
+import app.gamenative.enums.GlassMode
 import com.materialkolor.PaletteStyle
 import dagger.Module
 import dagger.Provides
@@ -48,6 +49,15 @@ interface IAppTheme {
     val glassBlurIntensityFlow: StateFlow<Float>
     var glassBlurIntensity: Float
 
+    val blurIntensivenessFlow: StateFlow<Float>
+    var blurIntensiveness: Float
+
+    val liquidDistortionFlow: StateFlow<Float>
+    var liquidDistortion: Float
+
+    val glassModeFlow: StateFlow<GlassMode>
+    var glassMode: GlassMode
+
     val glassColorFlow: StateFlow<String>
     var glassColor: String
 
@@ -89,6 +99,15 @@ class AppThemeImpl : IAppTheme {
 
     override val glassBlurIntensityFlow: MutableStateFlow<Float> = MutableStateFlow(PrefManager.glassBlurIntensity)
     override var glassBlurIntensity: Float by GlassBlurIntensityDelegate()
+
+    override val blurIntensivenessFlow: MutableStateFlow<Float> = MutableStateFlow(PrefManager.blurIntensiveness)
+    override var blurIntensiveness: Float by BlurIntensivenessDelegate()
+
+    override val liquidDistortionFlow: MutableStateFlow<Float> = MutableStateFlow(PrefManager.liquidDistortion)
+    override var liquidDistortion: Float by LiquidDistortionDelegate()
+
+    override val glassModeFlow: MutableStateFlow<GlassMode> = MutableStateFlow(PrefManager.glassMode)
+    override var glassMode: GlassMode by GlassModeDelegate()
 
     override val glassColorFlow: MutableStateFlow<String> = MutableStateFlow(PrefManager.glassColor)
     override var glassColor: String by GlassColorDelegate()
@@ -176,6 +195,30 @@ class AppThemeImpl : IAppTheme {
         override fun setValue(thisRef: Any, property: KProperty<*>, value: Float) {
             glassBlurIntensityFlow.value = value
             PrefManager.glassBlurIntensity = value
+        }
+    }
+
+    inner class BlurIntensivenessDelegate : ReadWriteProperty<Any, Float> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): Float = PrefManager.blurIntensiveness
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: Float) {
+            blurIntensivenessFlow.value = value
+            PrefManager.blurIntensiveness = value
+        }
+    }
+
+    inner class LiquidDistortionDelegate : ReadWriteProperty<Any, Float> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): Float = PrefManager.liquidDistortion
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: Float) {
+            liquidDistortionFlow.value = value
+            PrefManager.liquidDistortion = value
+        }
+    }
+
+    inner class GlassModeDelegate : ReadWriteProperty<Any, GlassMode> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): GlassMode = PrefManager.glassMode
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: GlassMode) {
+            glassModeFlow.value = value
+            PrefManager.glassMode = value
         }
     }
 

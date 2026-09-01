@@ -20,6 +20,7 @@ import app.gamenative.data.GameSource
 import app.gamenative.powercontrol.autotuning.DeviceGate
 import app.gamenative.enums.AppTheme
 import app.gamenative.enums.FontType
+import app.gamenative.enums.GlassMode
 import app.gamenative.ui.enums.AppFilter
 import app.gamenative.ui.enums.HomeDestination
 import app.gamenative.ui.enums.Orientation
@@ -1038,6 +1039,25 @@ object PrefManager {
         set(value) {
             setPref(GLASS_TRANSPARENCY, value.coerceIn(0f, 1f))
         }
+
+    private val BLUR_INTENSIVENESS = floatPreferencesKey("blur_intensiveness")
+    var blurIntensiveness: Float
+        get() = getPref(BLUR_INTENSIVENESS, 16f)
+        set(value) {
+            setPref(BLUR_INTENSIVENESS, value.coerceIn(1f, 50f))
+        }
+
+    private val LIQUID_DISTORTION = floatPreferencesKey("liquid_distortion")
+    var liquidDistortion: Float
+        get() = getPref(LIQUID_DISTORTION, 0.5f)
+        set(value) {
+            setPref(LIQUID_DISTORTION, value.coerceIn(0f, 1f))
+        }
+
+    private val GLASS_MODE = intPreferencesKey("glass_mode")
+    var glassMode: GlassMode
+        get() = GlassMode.fromKey(getPref(GLASS_MODE, if (getPref(TRUE_GLASS_ENABLED, false)) GlassMode.TRUE.key else GlassMode.STANDARD.key))
+        set(value) = setPref(GLASS_MODE, value.key)
 
     private val MAIN_COLOR = stringPreferencesKey("main_color")
     var mainColor: String

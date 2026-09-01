@@ -1,9 +1,13 @@
 package app.gamenative.ui.screen.settings
 
+import android.content.Intent
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Environment
 import android.os.storage.StorageManager
 import android.widget.ImageView
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -78,6 +82,9 @@ import app.gamenative.utils.IconSwitcher
 import app.gamenative.utils.LocaleHelper
 import app.gamenative.utils.PlatformOAuthHandlers
 import app.gamenative.utils.StorageUtils
+import app.gamenative.utils.CustomGameScanner
+import app.gamenative.service.DownloadService
+import app.gamenative.data.GameSource
 import com.alorma.compose.settings.ui.SettingsGroup
 import com.alorma.compose.settings.ui.SettingsMenuLink
 import com.materialkolor.PaletteStyle
@@ -542,11 +549,45 @@ fun SettingsGroupInterface(
         // Runs off the composition thread because synthesizing the USB candidate
         // may need mkdirs() on first plug-in.
         val externalStorageFallbackLabel = stringResource(R.string.storage_external)
+        val hasRemovableStorage by produceState(initialValue = false, ctx) {
+            value = withContext(Dispatchers.IO) {
+                StorageUtils.hasRemovableStorage(ctx)
+            }
+        }
         val dirs by produceState(initialValue = emptyList<File>(), ctx) {
             value = withContext(Dispatchers.IO) {
                 StorageUtils.getAllExternalFilesDirs(ctx)
                     .filter { Environment.getExternalStorageState(it) == Environment.MEDIA_MOUNTED }
                     .filter { sm?.getStorageVolume(it)?.isPrimary != true }
+            }
+        }
+
+        var useExternalStorage by rememberSaveable { mutableStateOf(PrefManager.useExternalStorage) }
+
+        val availableSpaceText by produceState(initialValue = "", useExternalStorage, PrefManager.externalStoragePath) {
+            if (useExternalStorage && PrefManager.externalStoragePath.isNotBlank()) {
+                value = withContext(Dispatchers.IO) {
+                    val bytes = StorageUtils.getAvailableSpaceGB(ctx, PrefManager.externalStoragePath)
+                    if (bytes > 0) "Free space: ${StorageUtils.formatBinarySize(bytes, 1)}" else ""
+                }
+            } else value = ""
+        }
+
+        val openDocumentTreeLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocumentTree(),
+        ) { uri ->
+            if (uri != null) {
+                ctx.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+                // Attempt to resolve filesystem path for File-based components (Fix for Game Installation)
+                val resolvedPath = StorageUtils.getPathFromTreeUri(ctx, uri)
+                val finalPath = resolvedPath ?: uri.toString()
+                PrefManager.externalStoragePath = finalPath
+                DownloadService.populateDownloadService(ctx)
+                DownloadService.invalidateCache()
+                PluviaApp.events.emit(AndroidEvent.LibraryInstallStatusChanged(-1, GameSource.STEAM))
             }
         }
 
@@ -556,16 +597,20 @@ fun SettingsGroupInterface(
                 sm?.getStorageVolume(dir)?.getDescription(ctx) ?: externalStorageFallbackLabel
             }
         }
-        var useExternalStorage by rememberSaveable { mutableStateOf(PrefManager.useExternalStorage) }
         HapticSettingsSwitch(
             colors = settingsTileColorsAlt(),
-            enabled = dirs.isNotEmpty(),
+            enabled = hasRemovableStorage,
             title = { Text(text = stringResource(R.string.settings_interface_external_storage_title)) },
             subtitle = {
-                if (dirs.isEmpty()) {
+                if (!hasRemovableStorage) {
                     Text(stringResource(R.string.settings_interface_no_external_storage))
                 } else {
-                    Text(stringResource(R.string.settings_interface_external_storage_subtitle))
+                    val baseText = stringResource(R.string.settings_interface_external_storage_detected)
+                    if (availableSpaceText.isNotEmpty()) {
+                        Text("$baseText ($availableSpaceText)")
+                    } else {
+                        Text(baseText)
+                    }
                 }
             },
             state = useExternalStorage,
@@ -594,7 +639,25 @@ fun SettingsGroupInterface(
                 onItemSelected = { idx ->
                     HapticManager.trigger(HapticManager.HapticType.CLICK)
                     selectedIndex = idx
-                    PrefManager.externalStoragePath = StorageUtils.preferredInstallRoot(dirs[idx])
+                    val newPath = StorageUtils.preferredInstallRoot(dirs[idx])
+                    PrefManager.externalStoragePath = newPath
+                    DownloadService.populateDownloadService(ctx)
+                    DownloadService.invalidateCache()
+                    PluviaApp.events.emit(AndroidEvent.LibraryInstallStatusChanged(-1, GameSource.STEAM))
+                },
+                colors = settingsTileColorsAlt(),
+            )
+
+            HapticSettingsMenuLink(
+                title = { Text("Choose custom location...") },
+                subtitle = { Text("Grant permission to a specific folder on your USB drive") },
+                onClick = {
+                    HapticManager.trigger(HapticManager.HapticType.CLICK)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+                        CustomGameScanner.requestManageExternalStoragePermission(ctx)
+                    } else {
+                        openDocumentTreeLauncher.launch(null)
+                    }
                 },
                 colors = settingsTileColorsAlt(),
             )

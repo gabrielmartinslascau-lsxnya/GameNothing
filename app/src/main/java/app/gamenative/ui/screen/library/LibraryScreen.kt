@@ -134,6 +134,11 @@ import app.gamenative.ui.util.PlatformLogoutCallbacks
 import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.ui.util.adaptivePanelWidth
 import kotlinx.coroutines.flow.collect
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.layer.*
+import app.gamenative.enums.GlassMode
+import app.gamenative.ui.theme.LocalBackgroundLayer
 import app.gamenative.ui.theme.PluviaAnimation
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.CompositingStrategy
@@ -353,7 +358,12 @@ private fun LibraryScreenContent(
     }
 
     var selectedAppId by remember { mutableStateOf<String?>(null) }
-    val carouselListState = rememberLazyListState()
+
+    // Captured background for refraction
+    var backgroundLayer by remember { mutableStateOf<androidx.compose.ui.graphics.layer.GraphicsLayer?>(null) }
+
+    CompositionLocalProvider(LocalBackgroundLayer provides backgroundLayer) {
+        val carouselListState = rememberLazyListState()
     val isViewWide = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     var currentPaneType by rememberSaveable { mutableStateOf(PrefManager.libraryLayout) }
 
@@ -1260,18 +1270,19 @@ private fun LibraryScreenContent(
             }
 
             Box(modifier = Modifier.fillMaxSize()) {
-                // Layer 1: Sharp background content.
-                // Clip it at the top to prevent items bleeding into the status bar gap (12dp).
+                // Layer 1: Recorded background content.
+                // This layer is captured for optical refraction in Liquid Glass mode.
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .graphicsLayer {
-                            clip = true
-                            shape = object : Shape {
-                                override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
-                                    val topGapPx = with(density) { 12.dp.toPx() }
-                                    return Outline.Rectangle(Rect(0f, topGapPx, size.width, size.height))
+                        .drawWithCache {
+                            val layer = obtainGraphicsLayer()
+                            onDrawWithContent {
+                                layer.record {
+                                    this@onDrawWithContent.drawContent()
                                 }
+                                drawLayer(layer)
+                                backgroundLayer = layer
                             }
                         }
                 ) {
@@ -1279,7 +1290,8 @@ private fun LibraryScreenContent(
                 }
 
                 // Layer 2: Unified Blurred content for ALL glass panels
-                if (PrefManager.trueGlassEnabled) {
+                val currentGlassMode = PrefManager.glassMode
+                if (PrefManager.glassPanels && currentGlassMode != GlassMode.STANDARD) {
                     val density = androidx.compose.ui.platform.LocalDensity.current
                     val panelWidthSidebar = adaptivePanelWidth(380.dp)
                     val panelWidthOptions = adaptivePanelWidth(300.dp)
@@ -1446,6 +1458,7 @@ private fun LibraryScreenContent(
                         onNextTab = onNextTab,
                         modifier = Modifier
                             .align(Alignment.TopCenter)
+                            .padding(top = 26.dp)
                             .fillMaxWidth()
                             .onFocusChanged { focusState ->
                                 tabBarHasFocus = focusState.hasFocus
@@ -1730,6 +1743,7 @@ private fun LibraryScreenContent(
                     }
                 },
             )
+        }
         }
     }
 }

@@ -101,7 +101,7 @@ object StorageUtils {
     }
 
     fun formatBinarySize(bytes: Long, decimalPlaces: Int = 2): String {
-        require(bytes > Long.MIN_VALUE) { "Out of range" }
+        if (bytes <= 0) return "0 B"
         require(decimalPlaces >= 0) { "Negative decimal places unsupported" }
 
         val isNegative = bytes < 0
@@ -381,6 +381,84 @@ object StorageUtils {
 
         withContext(Dispatchers.Main) {
             onComplete()
+        }
+    }
+
+    /**
+     * Checks if the device has any removable storage (SD card or USB OTG).
+     */
+    fun hasRemovableStorage(context: Context): Boolean {
+        val sm = context.getSystemService(Context.STORAGE_SERVICE) as? StorageManager ?: return false
+        return sm.storageVolumes.any { it.isRemovable && it.state == Environment.MEDIA_MOUNTED }
+    }
+
+    /**
+     * Resolves a DocumentTree URI to a direct filesystem path if possible.
+     * This allows the app to use high-performance java.io.File APIs on USB OTG
+     * drives when broad storage permissions are available.
+     */
+    fun getPathFromTreeUri(context: Context, uri: android.net.Uri): String? {
+        val docId = try {
+            val treeId = android.provider.DocumentsContract.getTreeDocumentId(uri)
+            if (android.provider.DocumentsContract.isDocumentUri(context, uri)) {
+                android.provider.DocumentsContract.getDocumentId(uri)
+            } else {
+                treeId
+            }
+        } catch (e: Exception) {
+            null
+        } ?: return null
+
+        val split = docId.split(":")
+        val type = split[0]
+        val relativePath = if (split.size > 1) split[1] else ""
+
+        return if ("primary".equals(type, ignoreCase = true)) {
+            val base = Environment.getExternalStorageDirectory().absolutePath
+            if (relativePath.isNotEmpty()) "$base/$relativePath" else base
+        } else {
+            // Check all storage volumes to match the UUID/Type
+            val sm = context.getSystemService(Context.STORAGE_SERVICE) as? StorageManager
+            sm?.storageVolumes?.forEach { volume ->
+                if (volume.uuid != null && volume.uuid.equals(type, ignoreCase = true)) {
+                    val volumeDir = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        volume.directory
+                    } else {
+                        try {
+                            val getPath = volume.javaClass.getMethod("getPath")
+                            (getPath.invoke(volume) as? String)?.let { File(it) }
+                        } catch (re: Exception) {
+                            null
+                        }
+                    }
+                    if (volumeDir != null) {
+                        return if (relativePath.isNotEmpty()) {
+                            volumeDir.absolutePath + "/" + relativePath
+                        } else {
+                            volumeDir.absolutePath
+                        }
+                    }
+                }
+            }
+
+            // Fallback for some devices where UUID isn't used or matches differently
+            // but we have a direct path candidate
+            val fallbackPath = "/storage/$type"
+            if (File(fallbackPath).exists()) {
+                return if (relativePath.isNotEmpty()) "$fallbackPath/$relativePath" else fallbackPath
+            }
+            null
+        }
+    }
+
+    /**
+     * Returns available space on the volume containing [path] in bytes.
+     */
+    fun getAvailableSpaceGB(context: Context, path: String): Long {
+        return try {
+            getAvailableSpaceForUncreatedPath(path)
+        } catch (e: Exception) {
+            0L
         }
     }
 }

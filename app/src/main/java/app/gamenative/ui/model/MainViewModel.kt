@@ -15,6 +15,7 @@ import app.gamenative.di.IAppTheme
 import app.gamenative.enums.AppTheme
 import app.gamenative.enums.DownloadBarStyle
 import app.gamenative.enums.FontType
+import app.gamenative.enums.GlassMode
 import app.gamenative.enums.LoginResult
 import app.gamenative.enums.PathType
 import app.gamenative.events.AndroidEvent
@@ -357,6 +358,24 @@ class MainViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            appTheme.blurIntensivenessFlow.collect { value ->
+                _state.update { it.copy(blurIntensiveness = value) }
+            }
+        }
+
+        viewModelScope.launch {
+            appTheme.liquidDistortionFlow.collect { value ->
+                _state.update { it.copy(liquidDistortion = value) }
+            }
+        }
+
+        viewModelScope.launch {
+            appTheme.glassModeFlow.collect { value ->
+                _state.update { it.copy(glassMode = value) }
+            }
+        }
+
+        viewModelScope.launch {
             appTheme.glassColorFlow.collect { value ->
                 _state.update { it.copy(glassColor = value) }
             }
@@ -431,6 +450,18 @@ class MainViewModel @Inject constructor(
 
     fun setGlassBlurIntensity(value: Float) {
         appTheme.glassBlurIntensity = value
+    }
+
+    fun setBlurIntensiveness(value: Float) {
+        appTheme.blurIntensiveness = value
+    }
+
+    fun setLiquidDistortion(value: Float) {
+        appTheme.liquidDistortion = value
+    }
+
+    fun setGlassMode(value: GlassMode) {
+        appTheme.glassMode = value
     }
 
     fun setGlassColor(value: String) {

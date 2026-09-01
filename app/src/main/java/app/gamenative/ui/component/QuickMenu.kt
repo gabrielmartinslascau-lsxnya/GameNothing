@@ -126,6 +126,10 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import app.gamenative.enums.FontType
 import app.gamenative.ui.model.MainViewModel
+import app.gamenative.enums.GlassMode
+import app.gamenative.ui.component.settings.HapticSettingsMenuLink
+import app.gamenative.ui.theme.toColor
+import java.util.Locale
 import app.gamenative.utils.MathUtils.normalizedProgress
 import com.winlator.container.Container
 import com.winlator.renderer.GLRenderer
@@ -679,7 +683,6 @@ private fun LooksQuickMenuTab(
     ) {
         QuickMenuToggleRow(
             title = stringResource(R.string.settings_looks_jiggly_title),
-            subtitle = stringResource(R.string.settings_looks_jiggly_subtitle),
             enabled = looks.isJigglyAnimations,
             onToggle = { viewModel.setJigglyAnimations(!looks.isJigglyAnimations) },
             accentColor = looks.mainColor
@@ -687,7 +690,6 @@ private fun LooksQuickMenuTab(
 
         QuickMenuToggleRow(
             title = stringResource(R.string.settings_looks_glass_title),
-            subtitle = stringResource(R.string.settings_looks_glass_subtitle),
             enabled = looks.isGlassEnabled,
             onToggle = { viewModel.setGlassPanels(!looks.isGlassEnabled) },
             accentColor = looks.mainColor
@@ -699,31 +701,55 @@ private fun LooksQuickMenuTab(
             exit = shrinkVertically() + fadeOut()
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                QuickMenuToggleRow(
-                    title = stringResource(R.string.settings_looks_true_glass_title),
-                    subtitle = stringResource(R.string.settings_looks_true_glass_subtitle),
-                    enabled = looks.isTrueGlassEnabled,
-                    onToggle = { viewModel.setTrueGlassEnabled(!looks.isTrueGlassEnabled) },
-                    accentColor = looks.mainColor
+                val glassModes = GlassMode.entries
+
+                HapticSettingsMenuLink(
+                    colors = settingsTileColorsAlt(),
+                    title = { Text("Glass Mode") },
+                    subtitle = { Text(stringResource(looks.glassMode.labelResId)) },
+                    onClick = {
+                        val nextIndex = (looks.glassMode.ordinal + 1) % glassModes.size
+                        viewModel.setGlassMode(glassModes[nextIndex])
+                    }
                 )
 
+                val effectiveMode = when (looks.glassMode) {
+                    GlassMode.LIQUID -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) GlassMode.LIQUID else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) GlassMode.TRUE else GlassMode.STANDARD
+                    GlassMode.TRUE -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) GlassMode.TRUE else GlassMode.STANDARD
+                    GlassMode.STANDARD -> GlassMode.STANDARD
+                }
+
+                val title = when (effectiveMode) {
+                    GlassMode.LIQUID -> "Liquid Distortion"
+                    GlassMode.TRUE -> "Blur Intensiveness"
+                    GlassMode.STANDARD -> "Glass Transparency"
+                }
+
                 QuickMenuAdjustmentRow(
-                    title = if (looks.isTrueGlassEnabled) "Blur Intensity" else "Glass Transparency",
-                    valueText = if (looks.isTrueGlassEnabled) {
-                        "${(5f + looks.glassTransparencyOrBlur * 45f).roundToInt()}px"
-                    } else {
-                        "${(0.05f + looks.glassTransparencyOrBlur * 0.75f).let { (it * 100).roundToInt() }}%"
+                    title = title,
+                    valueText = when (effectiveMode) {
+                        GlassMode.STANDARD -> "${(looks.glassTransparency * 100).roundToInt()}%"
+                        GlassMode.TRUE -> "${looks.blurIntensiveness.roundToInt()}px"
+                        GlassMode.LIQUID -> String.format(Locale.US, "%.1fx", 1f + looks.liquidDistortion * 9f)
                     },
-                    progress = looks.glassTransparencyOrBlur,
+                    progress = when (effectiveMode) {
+                        GlassMode.STANDARD -> looks.glassTransparency
+                        GlassMode.TRUE -> (looks.blurIntensiveness - 1f) / 49f
+                        GlassMode.LIQUID -> looks.liquidDistortion
+                    },
                     onDecrease = {
-                        val newNormalized = (looks.glassTransparencyOrBlur - 0.05f).coerceIn(0f, 1f)
-                        if (looks.isTrueGlassEnabled) viewModel.setGlassBlurIntensity(5f + newNormalized * 45f)
-                        else viewModel.setGlassTransparency(0.05f + newNormalized * 0.75f)
+                        when (effectiveMode) {
+                            GlassMode.STANDARD -> viewModel.setGlassTransparency((looks.glassTransparency - 0.05f).coerceIn(0f, 1f))
+                            GlassMode.TRUE -> viewModel.setBlurIntensiveness((looks.blurIntensiveness - 2f).coerceIn(1f, 50f))
+                            GlassMode.LIQUID -> viewModel.setLiquidDistortion((looks.liquidDistortion - 0.05f).coerceIn(0f, 1f))
+                        }
                     },
                     onIncrease = {
-                        val newNormalized = (looks.glassTransparencyOrBlur + 0.05f).coerceIn(0f, 1f)
-                        if (looks.isTrueGlassEnabled) viewModel.setGlassBlurIntensity(5f + newNormalized * 45f)
-                        else viewModel.setGlassTransparency(0.05f + newNormalized * 0.75f)
+                        when (effectiveMode) {
+                            GlassMode.STANDARD -> viewModel.setGlassTransparency((looks.glassTransparency + 0.05f).coerceIn(0f, 1f))
+                            GlassMode.TRUE -> viewModel.setBlurIntensiveness((looks.blurIntensiveness + 2f).coerceIn(1f, 50f))
+                            GlassMode.LIQUID -> viewModel.setLiquidDistortion((looks.liquidDistortion + 0.05f).coerceIn(0f, 1f))
+                        }
                     },
                     accentColor = looks.mainColor
                 )

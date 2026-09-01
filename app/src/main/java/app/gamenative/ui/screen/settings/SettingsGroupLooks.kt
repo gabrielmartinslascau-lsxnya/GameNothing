@@ -1,5 +1,6 @@
 package app.gamenative.ui.screen.settings
 
+import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -23,7 +24,6 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -39,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.enums.FontType
+import app.gamenative.enums.GlassMode
 import app.gamenative.ui.component.settings.HapticSettingsSwitch
 import app.gamenative.ui.component.settings.SettingsListDropdown
 import app.gamenative.ui.model.MainViewModel
@@ -47,6 +48,7 @@ import app.gamenative.ui.theme.settingsTileColors
 import app.gamenative.ui.theme.settingsTileColorsAlt
 import app.gamenative.ui.theme.toColor
 import com.alorma.compose.settings.ui.SettingsGroup
+import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
@@ -81,46 +83,78 @@ fun SettingsGroupLooks(viewModel: MainViewModel) {
                 exit = shrinkVertically() + fadeOut()
             ) {
                 Column {
-                    HapticSettingsSwitch(
+                    val glassModes = GlassMode.entries
+                    val glassModeLabels = glassModes.map { stringResource(it.labelResId) }
+
+                    SettingsListDropdown(
                         colors = settingsTileColorsAlt(),
-                        state = state.trueGlassEnabled,
-                        title = { Text(text = stringResource(R.string.settings_looks_true_glass_title)) },
-                        subtitle = { Text(text = stringResource(R.string.settings_looks_true_glass_subtitle)) },
-                        onCheckedChange = {
-                            viewModel.setTrueGlassEnabled(it)
+                        value = state.glassMode.ordinal,
+                        items = glassModeLabels,
+                        onItemSelected = { index ->
+                            viewModel.setGlassMode(glassModes[index])
                         },
+                        title = { Text(text = "Glass Mode") }
                     )
 
                     val contentColor = glassContentColor()
 
+                    // Effective Glass Mode based on API Version Guards for Slider Logic
+                    val effectiveMode = when (state.glassMode) {
+                        GlassMode.LIQUID -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) GlassMode.LIQUID else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) GlassMode.TRUE else GlassMode.STANDARD
+                        GlassMode.TRUE -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) GlassMode.TRUE else GlassMode.STANDARD
+                        GlassMode.STANDARD -> GlassMode.STANDARD
+                    }
+
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        val title = when (effectiveMode) {
+                            GlassMode.STANDARD -> "Glass Transparency"
+                            GlassMode.TRUE -> "Blur Intensiveness"
+                            GlassMode.LIQUID -> "Liquid Distortion"
+                        }
+
                         Text(
-                            text = if (state.trueGlassEnabled) "Blur Intensiveness" else "Glass Transparency",
+                            text = title,
                             style = MaterialTheme.typography.bodyMedium,
                             color = contentColor
                         )
-                        if (state.trueGlassEnabled) {
-                            Slider(
-                                value = state.glassBlurIntensity,
-                                onValueChange = { viewModel.setGlassBlurIntensity(it) },
-                                valueRange = 5f..50f
-                            )
-                            Text(
-                                text = "${state.glassBlurIntensity.roundToInt()}px",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        } else {
-                            Slider(
-                                value = state.glassTransparency,
-                                onValueChange = { viewModel.setGlassTransparency(it) },
-                                valueRange = 0.05f..0.8f
-                            )
-                            Text(
-                                text = "${(state.glassTransparency * 100).roundToInt()}%",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
+
+                        when (effectiveMode) {
+                            GlassMode.STANDARD -> {
+                                Slider(
+                                    value = state.glassTransparency,
+                                    onValueChange = { viewModel.setGlassTransparency(it) },
+                                    valueRange = 0f..1f
+                                )
+                                Text(
+                                    text = "${(state.glassTransparency * 100).roundToInt()}%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            GlassMode.TRUE -> {
+                                Slider(
+                                    value = state.blurIntensiveness,
+                                    onValueChange = { viewModel.setBlurIntensiveness(it) },
+                                    valueRange = 1f..50f
+                                )
+                                Text(
+                                    text = "${state.blurIntensiveness.roundToInt()}px",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            GlassMode.LIQUID -> {
+                                Slider(
+                                    value = state.liquidDistortion,
+                                    onValueChange = { viewModel.setLiquidDistortion(it) },
+                                    valueRange = 0f..1f
+                                )
+                                Text(
+                                    text = String.format(Locale.US, "%.1fx", 1f + state.liquidDistortion * 9f),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
 

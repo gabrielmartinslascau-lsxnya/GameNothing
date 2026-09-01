@@ -2,6 +2,7 @@ package app.gamenative.ui.data
 
 import app.gamenative.enums.AppTheme
 import app.gamenative.enums.FontType
+import app.gamenative.enums.GlassMode
 import app.gamenative.ui.enums.ConnectionState
 import app.gamenative.ui.screen.PluviaScreen
 import com.materialkolor.PaletteStyle
@@ -36,6 +37,9 @@ data class MainState(
     val trueGlassEnabled: Boolean = false,
     val glassTransparency: Float = 0.3f,
     val glassBlurIntensity: Float = 16f,
+    val blurIntensiveness: Float = 16f,
+    val liquidDistortion: Float = 0.5f,
+    val glassMode: GlassMode = GlassMode.STANDARD,
     val glassColor: String = "#FFFFFF",
     val fontType: FontType = FontType.NDOT,
     val downloadBarStyle: app.gamenative.enums.DownloadBarStyle = app.gamenative.enums.DownloadBarStyle.NOTHING,
