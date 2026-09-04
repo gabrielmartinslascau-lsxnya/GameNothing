@@ -345,6 +345,10 @@ object ContainerStorageManager {
             GameSource.CUSTOM_GAME -> {
                 return@withContext Result.failure(UnsupportedOperationException("Custom games are not supported"))
             }
+
+            GameSource.ANDROID_APP -> {
+                return@withContext Result.failure(UnsupportedOperationException("Android apps cannot be moved"))
+            }
         }
 
         Timber.tag("ContainerStorageManager").i(
@@ -447,6 +451,7 @@ object ContainerStorageManager {
                 }
 
                 GameSource.CUSTOM_GAME -> Result.failure(UnsupportedOperationException("Custom games are not supported"))
+                GameSource.ANDROID_APP -> Result.failure(UnsupportedOperationException("Android apps cannot be uninstalled via container manager"))
             }
 
             if (result.isSuccess) {
@@ -775,7 +780,7 @@ object ContainerStorageManager {
                 MoveTarget.EXTERNAL -> AmazonConstants.externalAmazonGamesPath()
             }
 
-            GameSource.CUSTOM_GAME -> null
+            GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> null
         }
     }
 
@@ -795,7 +800,7 @@ object ContainerStorageManager {
             GameSource.GOG -> listOf(GOGConstants.internalGOGGamesPath)
             GameSource.EPIC -> listOf(EpicConstants.internalEpicGamesPath(context))
             GameSource.AMAZON -> listOf(AmazonConstants.internalAmazonGamesPath(context))
-            GameSource.CUSTOM_GAME -> emptyList()
+            GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> emptyList()
         }
 
         if (internalRoots.any { root -> isPathWithin(normalizedPath, root) }) {
@@ -818,7 +823,7 @@ object ContainerStorageManager {
                 GameSource.GOG -> if (PrefManager.externalStoragePath.isNotBlank()) add(GOGConstants.externalGOGGamesPath)
                 GameSource.EPIC -> if (PrefManager.externalStoragePath.isNotBlank()) add(EpicConstants.externalEpicGamesPath())
                 GameSource.AMAZON -> if (PrefManager.externalStoragePath.isNotBlank()) add(AmazonConstants.externalAmazonGamesPath())
-                GameSource.CUSTOM_GAME -> Unit
+                GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> Unit
             }
 
             inferExternalInstallRoot(gameSource, normalizedPath)?.let(::add)
@@ -839,7 +844,7 @@ object ContainerStorageManager {
             GameSource.GOG -> listOf("GOG", "games", "common")
             GameSource.EPIC -> listOf("Epic", "games")
             GameSource.AMAZON -> listOf("Amazon", "games")
-            GameSource.CUSTOM_GAME -> emptyList()
+            GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> emptyList()
         }
         if (expectedRootSegments.isEmpty()) return null
 
@@ -1021,6 +1026,8 @@ object ContainerStorageManager {
                     known = game != null,
                 )
             }
+
+            GameSource.ANDROID_APP -> ResolvedGame(name = null, known = false)
         }
     }
 

@@ -2,6 +2,7 @@ package app.gamenative.ui.widget
 
 internal enum class MetricId {
     FPS,
+    REFRESH_RATE,
     CPU,
     GPU,
     RAM,
@@ -33,6 +34,7 @@ internal data class HudSnapshot(
     val cpuValue: Float?,
     val gpuValue: Float?,
     val fps: String,
+    val refreshRate: String?,
     val cpu: String?,
     val gpu: String?,
     val ram: String,

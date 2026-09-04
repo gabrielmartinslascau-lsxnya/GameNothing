@@ -8,16 +8,8 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -36,17 +28,37 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.gamenative.PrefManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
 import app.gamenative.R
 import app.gamenative.ui.component.settings.HapticSettingsSwitch
+import app.gamenative.ui.component.settings.HapticSettingsMenuLink
+import app.gamenative.ui.components.rememberCustomGameFolderPicker
+import app.gamenative.ui.components.requestPermissionsForPath
 import app.gamenative.ui.theme.glassContentColor
 import app.gamenative.ui.theme.settingsTileColorsAlt
 import app.gamenative.utils.HapticManager
+import app.gamenative.utils.MusicManager
 import com.alorma.compose.settings.ui.SettingsGroup
 
 @Composable
 fun SettingsGroupFeel() {
+    val androidContext = LocalContext.current
     var hapticsEnabled by rememberSaveable { mutableStateOf(PrefManager.hapticsEnabled) }
     var hapticIntensity by rememberSaveable { mutableStateOf(PrefManager.hapticIntensity) }
+
+    val storagePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+    ) { }
+
+    val musicFolderPicker = rememberCustomGameFolderPicker(
+        onPathSelected = { path ->
+            requestPermissionsForPath(androidContext, path, storagePermissionLauncher)
+            PrefManager.musicFolderPath = path
+            MusicManager.loadFolder(path)
+        }
+    )
 
     SettingsGroup {
         HapticSettingsSwitch(
@@ -109,6 +121,48 @@ fun SettingsGroupFeel() {
                     )
                 }
             }
+        }
+
+        // Music Player Section
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Music Player",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+
+        var musicPlayerEnabled by remember { mutableStateOf(PrefManager.musicPlayerEnabled) }
+        HapticSettingsSwitch(
+            colors = settingsTileColorsAlt(),
+            state = musicPlayerEnabled,
+            title = { Text(text = "Show Music Player Bubble") },
+            subtitle = { Text(text = "Floating collapsible player for your music") },
+            onCheckedChange = {
+                musicPlayerEnabled = it
+                PrefManager.musicPlayerEnabled = it
+            },
+        )
+
+        HapticSettingsMenuLink(
+            colors = settingsTileColorsAlt(),
+            title = { Text("Music Folder") },
+            subtitle = {
+                Text(
+                    if (PrefManager.musicFolderPath.isNotEmpty()) PrefManager.musicFolderPath
+                    else "Choose a folder with audio files"
+                )
+            },
+            onClick = { musicFolderPicker.launchPicker() }
+        )
+
+        if (MusicManager.playlist.isNotEmpty()) {
+            Text(
+                text = "${MusicManager.playlist.size} tracks found",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
         }
     }
 }

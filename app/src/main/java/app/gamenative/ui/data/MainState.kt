@@ -34,7 +34,6 @@ data class MainState(
 
     val jigglyAnimations: Boolean = true,
     val glassPanels: Boolean = false,
-    val trueGlassEnabled: Boolean = false,
     val glassTransparency: Float = 0.3f,
     val glassBlurIntensity: Float = 16f,
     val blurIntensiveness: Float = 16f,
@@ -43,6 +42,9 @@ data class MainState(
     val glassColor: String = "#FFFFFF",
     val fontType: FontType = FontType.NDOT,
     val downloadBarStyle: app.gamenative.enums.DownloadBarStyle = app.gamenative.enums.DownloadBarStyle.NOTHING,
+
+    val videoBackgroundPath: String = "",
+    val videoBackgroundDimAlpha: Float = 0.4f,
 
     // Connection state for background reconnection
     // Default to DISCONNECTED - service will start and set to CONNECTING

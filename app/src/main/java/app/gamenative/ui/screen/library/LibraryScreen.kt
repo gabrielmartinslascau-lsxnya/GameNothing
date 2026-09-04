@@ -1,5 +1,6 @@
 package app.gamenative.ui.screen.library
 
+import android.app.Activity
 import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
@@ -22,55 +23,31 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.displayCutout
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.union
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SheetState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.DesktopWindows
+import androidx.compose.material3.*
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalConfiguration
@@ -88,74 +65,36 @@ import app.gamenative.BuildConfig
 import app.gamenative.PluviaApp
 import app.gamenative.PrefManager
 import app.gamenative.R
-import app.gamenative.data.GameCompatibilityStatus
-import app.gamenative.data.FavoritesManager
-import app.gamenative.data.GameSource
-import app.gamenative.data.LibraryItem
+import app.gamenative.data.*
 import app.gamenative.events.AndroidEvent
 import app.gamenative.service.amazon.AmazonService
 import app.gamenative.service.epic.EpicService
 import app.gamenative.service.gog.GOGService
-import app.gamenative.ui.component.GamepadAction
-import app.gamenative.ui.component.GamepadActionBar
-import app.gamenative.ui.component.GamepadButton
-import app.gamenative.ui.component.LibraryActions
+import app.gamenative.service.gog.GOGAuthManager
+import app.gamenative.service.epic.EpicAuthManager
+import app.gamenative.service.amazon.AmazonAuthManager
+import app.gamenative.ui.component.*
 import app.gamenative.ui.components.rememberCustomGameFolderPicker
+import app.gamenative.ui.components.LoopingVideoBackground
 import app.gamenative.ui.components.requestPermissionsForPath
+import app.gamenative.ui.util.JoystickScrollHandler
 import app.gamenative.ui.data.LibraryState
-import app.gamenative.ui.enums.AppFilter
-import app.gamenative.ui.enums.LibraryTab
-import app.gamenative.ui.enums.PaneType
-import app.gamenative.ui.enums.SortOption
-import androidx.compose.ui.input.pointer.pointerInteropFilter
-import androidx.compose.ui.focus.focusProperties
-import androidx.compose.runtime.snapshotFlow
+import app.gamenative.ui.data.GameViewState
+import app.gamenative.ui.enums.*
 import app.gamenative.ui.internal.fakeAppInfo
 import app.gamenative.ui.model.LibraryViewModel
 import app.gamenative.ui.screen.auth.AmazonOAuthActivity
 import app.gamenative.ui.screen.auth.EpicOAuthActivity
 import app.gamenative.ui.screen.auth.GOGOAuthActivity
-import app.gamenative.ui.screen.library.components.LibraryCarouselPane
-import app.gamenative.ui.screen.library.components.LibraryDetailPane
-import app.gamenative.ui.screen.library.components.LibraryListPane
-import app.gamenative.ui.screen.library.components.LibraryFavoritesEmptyState
-import app.gamenative.ui.screen.library.components.RecommendationDisclosureDialog
-import app.gamenative.ui.screen.library.components.LibraryOptionsPanel
-import app.gamenative.ui.screen.library.components.LibrarySearchBar
-import app.gamenative.ui.screen.library.components.LibrarySourceNotLoggedInSplash
-import app.gamenative.ui.screen.library.components.LibraryTabBar
-import app.gamenative.ui.screen.library.components.toggleFavorite
-import app.gamenative.ui.screen.library.components.SystemMenu
-import app.gamenative.utils.hapticClickable
-import app.gamenative.utils.hapticSelectable
-import app.gamenative.ui.theme.PluviaTheme
-import app.gamenative.ui.util.PlatformAuthUiHelpers
-import app.gamenative.ui.util.PlatformLogoutCallbacks
-import app.gamenative.ui.util.SnackbarManager
-import app.gamenative.ui.util.adaptivePanelWidth
-import kotlinx.coroutines.flow.collect
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.graphics.layer.*
-import app.gamenative.enums.GlassMode
-import app.gamenative.ui.theme.LocalBackgroundLayer
-import app.gamenative.ui.theme.PluviaAnimation
-import androidx.compose.ui.graphics.asComposeRenderEffect
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.Outline
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.geometry.RoundRect
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.LayoutDirection
-import app.gamenative.utils.CustomGameScanner
-import app.gamenative.utils.PlatformOAuthHandlers
-import app.gamenative.utils.SteamUtils
+import app.gamenative.ui.screen.library.components.*
+import app.gamenative.ui.theme.*
+import app.gamenative.ui.util.*
+import app.gamenative.utils.*
 import com.posthog.PostHog
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.File
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -199,6 +138,10 @@ fun HomeLibraryScreen(
         onSortOptionChanged = viewModel::onSortOptionChanged,
         onSteamCollectionToggle = viewModel::onSteamCollectionToggle,
         onClearSteamCollections = viewModel::onClearSteamCollections,
+        onFocusedIndexChanged = viewModel::onFocusedIndexChanged,
+        onAddAndroidApp = viewModel::addAndroidApp,
+        onSetMainColor = viewModel::setMainColor,
+        onSetGameViewState = viewModel::onSetGameViewState,
         onOptionsPanelToggle = viewModel::onOptionsPanelToggle,
         onTabChanged = viewModel::onTabChanged,
         onPreviousTab = viewModel::onPreviousTab,
@@ -216,7 +159,7 @@ private fun isGameControllerConnected(): Boolean =
             sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
     }
 
-@OptIn(ExperimentalMaterial3AdaptiveApi::class, ExperimentalMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalMaterial3AdaptiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun LibraryScreenContent(
     state: LibraryState,
@@ -242,6 +185,10 @@ private fun LibraryScreenContent(
     onSortOptionChanged: (SortOption) -> Unit,
     onSteamCollectionToggle: (String) -> Unit,
     onClearSteamCollections: () -> Unit,
+    onFocusedIndexChanged: (Int) -> Unit,
+    onAddAndroidApp: (String) -> Unit,
+    onSetMainColor: (String) -> Unit,
+    onSetGameViewState: (GameViewState) -> Unit,
     onOptionsPanelToggle: (Boolean) -> Unit,
     onTabChanged: (LibraryTab) -> Unit,
     onPreviousTab: () -> Unit,
@@ -255,122 +202,67 @@ private fun LibraryScreenContent(
     val gogOAuthLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
     ) { result ->
-        if (result.resultCode != android.app.Activity.RESULT_OK) {
-            val message = result.data?.getStringExtra(GOGOAuthActivity.EXTRA_ERROR)
-                ?: context.getString(R.string.gog_login_cancel)
+        if (result.resultCode != Activity.RESULT_OK) {
+            val message = result.data?.getStringExtra(GOGOAuthActivity.EXTRA_ERROR) ?: context.getString(R.string.gog_login_cancel)
             SnackbarManager.show(message)
             return@rememberLauncherForActivityResult
         }
         val code = result.data?.getStringExtra(GOGOAuthActivity.EXTRA_AUTH_CODE)
-        if (code == null) {
-            val message = result.data?.getStringExtra(GOGOAuthActivity.EXTRA_ERROR)
-                ?: context.getString(R.string.gog_login_cancel)
-            SnackbarManager.show(message)
-            return@rememberLauncherForActivityResult
-        }
-        lifecycleScope.launch {
-            PlatformOAuthHandlers.handleGogAuthentication(
-                context = context,
-                authCode = code,
-                coroutineScope = lifecycleScope,
-                onLoadingChange = { },
-                onError = { msg ->
-                    if (msg != null) {
-                        SnackbarManager.show(msg)
-                    }
-                },
-                onSuccess = {
-                    SnackbarManager.show(context.getString(R.string.gog_login_success_title))
-                },
-                onDialogClose = { },
-            )
+        if (code != null) {
+            lifecycleScope.launch {
+                PlatformOAuthHandlers.handleGogAuthentication(context, code, lifecycleScope, {}, { msg -> msg?.let { SnackbarManager.show(it) } }, { SnackbarManager.show(context.getString(R.string.gog_login_success_title)) }, {})
+            }
         }
     }
 
     val epicOAuthLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
     ) { result ->
-        if (result.resultCode != android.app.Activity.RESULT_OK) {
-            val message = result.data?.getStringExtra(EpicOAuthActivity.EXTRA_ERROR)
-                ?: context.getString(R.string.epic_login_cancel)
+        if (result.resultCode != Activity.RESULT_OK) {
+            val message = result.data?.getStringExtra(EpicOAuthActivity.EXTRA_ERROR) ?: context.getString(R.string.epic_login_cancel)
             SnackbarManager.show(message)
             return@rememberLauncherForActivityResult
         }
         val code = result.data?.getStringExtra(EpicOAuthActivity.EXTRA_AUTH_CODE)
-        if (code == null) {
-            val message = result.data?.getStringExtra(EpicOAuthActivity.EXTRA_ERROR)
-                ?: context.getString(R.string.epic_login_cancel)
-            SnackbarManager.show(message)
-            return@rememberLauncherForActivityResult
-        }
-        lifecycleScope.launch {
-            PlatformOAuthHandlers.handleEpicAuthentication(
-                context = context,
-                authCode = code,
-                coroutineScope = lifecycleScope,
-                onLoadingChange = { },
-                onError = { msg ->
-                    if (msg != null) {
-                        SnackbarManager.show(msg)
-                    }
-                },
-                onSuccess = {
-                    SnackbarManager.show(context.getString(R.string.epic_login_success_title))
-                },
-                onDialogClose = { },
-            )
+        if (code != null) {
+            lifecycleScope.launch {
+                PlatformOAuthHandlers.handleEpicAuthentication(context, code, lifecycleScope, {}, { msg -> msg?.let { SnackbarManager.show(it) } }, { SnackbarManager.show(context.getString(R.string.epic_login_success_title)) }, {})
+            }
         }
     }
 
     val amazonOAuthLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
     ) { result ->
-        if (result.resultCode != android.app.Activity.RESULT_OK) {
-            val message = result.data?.getStringExtra(AmazonOAuthActivity.EXTRA_ERROR)
-                ?: context.getString(R.string.amazon_login_cancel)
+        if (result.resultCode != Activity.RESULT_OK) {
+            val message = result.data?.getStringExtra(AmazonOAuthActivity.EXTRA_ERROR) ?: context.getString(R.string.amazon_login_cancel)
             SnackbarManager.show(message)
             return@rememberLauncherForActivityResult
         }
         val code = result.data?.getStringExtra(AmazonOAuthActivity.EXTRA_AUTH_CODE)
-        if (code == null) {
-            val message = result.data?.getStringExtra(AmazonOAuthActivity.EXTRA_ERROR)
-                ?: context.getString(R.string.amazon_login_cancel)
-            SnackbarManager.show(message)
-            return@rememberLauncherForActivityResult
-        }
-        lifecycleScope.launch {
-            PlatformOAuthHandlers.handleAmazonAuthentication(
-                context = context,
-                authCode = code,
-                coroutineScope = lifecycleScope,
-                onLoadingChange = { },
-                onError = { msg ->
-                    if (msg != null) {
-                        SnackbarManager.show(msg)
-                    }
-                },
-                onSuccess = {
-                    SnackbarManager.show(context.getString(R.string.amazon_login_success_title))
-                },
-                onDialogClose = { },
-            )
+        if (code != null) {
+            lifecycleScope.launch {
+                PlatformOAuthHandlers.handleAmazonAuthentication(context, code, lifecycleScope, {}, { msg -> msg?.let { SnackbarManager.show(it) } }, { SnackbarManager.show(context.getString(R.string.amazon_login_success_title)) }, {})
+            }
         }
     }
 
     var selectedAppId by remember { mutableStateOf<String?>(null) }
+    var backgroundLayer by remember { mutableStateOf<GraphicsLayer?>(null) }
 
-    // Captured background for refraction
-    var backgroundLayer by remember { mutableStateOf<androidx.compose.ui.graphics.layer.GraphicsLayer?>(null) }
+    val carouselListState = rememberLazyListState()
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isControllerConnected = isGameControllerConnected()
 
-    CompositionLocalProvider(LocalBackgroundLayer provides backgroundLayer) {
-        val carouselListState = rememberLazyListState()
-    val isViewWide = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    var currentPaneType by rememberSaveable { mutableStateOf(PrefManager.libraryLayout) }
+    var currentPaneType by remember {
+        mutableStateOf(PrefManager.getLibraryLayout(isLandscape, isControllerConnected))
+    }
 
-    LaunchedEffect(isGameControllerConnected()) {
-        if (isGameControllerConnected()) {
-            currentPaneType = PaneType.CAROUSEL
-            PrefManager.libraryLayout = PaneType.CAROUSEL
+    // Auto-switch layout when controller or orientation changes
+    LaunchedEffect(isLandscape, isControllerConnected) {
+        val preferredLayout = PrefManager.getLibraryLayout(isLandscape, isControllerConnected)
+        if (currentPaneType != preferredLayout) {
+            currentPaneType = preferredLayout
         }
     }
 
@@ -387,154 +279,23 @@ private fun LibraryScreenContent(
         }
     }
 
-    // Initialize layout if undecided
-    LaunchedEffect(Unit) {
-        if (currentPaneType == PaneType.UNDECIDED) {
-            currentPaneType = if (isViewWide) PaneType.GRID_HERO else PaneType.GRID_CAPSULE
-            PrefManager.libraryLayout = currentPaneType
-        }
-    }
-
     val rootFocusRequester = remember { FocusRequester() }
     val gridFirstItemFocusRequester = remember { FocusRequester() }
     val carouselFocusRequester = remember { FocusRequester() }
+    val mode360FocusRequester = remember { FocusRequester() }
     var gridFocusTargetListIndex by remember { mutableIntStateOf(0) }
     var carouselFocusTargetListIndex by remember { mutableIntStateOf(0) }
+    var mode360FocusTargetListIndex by remember { mutableIntStateOf(0) }
     var pendingGridFocusRequest by remember { mutableStateOf(false) }
     var pendingCarouselFocusRequest by remember { mutableStateOf(false) }
-
-    var recommendationItemCount by remember { mutableIntStateOf(0) }
-
     var isSystemMenuOpen by remember { mutableStateOf(false) }
-    // Track previous overlay states to detect when they close
-    var wasSystemMenuOpen by remember { mutableStateOf(false) }
-    var wasOptionsPanelOpen by remember { mutableStateOf(false) }
-    // Keep a stable reference to the selected item so detail view doesn't disappear during list refresh/pagination.
     var selectedLibraryItem by remember { mutableStateOf<LibraryItem?>(null) }
     val favorites by FavoritesManager.favorites.collectAsStateWithLifecycle()
     val favoritesLoaded by FavoritesManager.loaded.collectAsStateWithLifecycle()
-    val filterFabExpanded by remember(currentPaneType, listState, carouselListState) {
-        derivedStateOf {
-            if (currentPaneType == PaneType.CAROUSEL) {
-                carouselListState.firstVisibleItemIndex == 0
-            } else {
-                listState.firstVisibleItemIndex == 0
-            }
-        }
-    }
-
-    // Dialog state for add custom game prompt
-    var showAddCustomGameDialog by remember { mutableStateOf(false) }
-    var dontShowAgain by remember { mutableStateOf(false) }
-    var previousAppCount by remember { mutableIntStateOf(state.appInfoList.size) }
     var controllerBootstrapNeeded by remember { mutableStateOf(true) }
     var rootHasFocus by remember { mutableStateOf(false) }
-    // True while focus lives in the top tab bar. The delayed focus-restoration effects below must
-    // not yank focus back to the grid when the user has moved up into the tab bar (the action
-    // buttons would otherwise light up for ~100ms and then lose focus).
     var tabBarHasFocus by remember { mutableStateOf(false) }
-    var lastBootstrapAtMs by remember { mutableLongStateOf(0L) }
-
-
-
-    fun getContentLastIndex(): Int {
-        return if (state.currentTab == LibraryTab.RECOMMENDED) {
-            (recommendationItemCount - 1).coerceAtLeast(0)
-        } else {
-            state.appInfoList.lastIndex.coerceAtLeast(0)
-        }
-    }
-
-    fun firstVisibleContentIndex(): Int {
-        val lastIndex = getContentLastIndex()
-        if (lastIndex < 0) return 0
-
-        return if (currentPaneType == PaneType.CAROUSEL) {
-            carouselListState.firstVisibleItemIndex.coerceIn(0, lastIndex)
-        } else {
-            listState.firstVisibleItemIndex.coerceIn(0, lastIndex)
-        }
-    }
-
-    fun currentCarouselFocusTargetIndex(): Int {
-        val lastIndex = getContentLastIndex()
-        if (lastIndex < 0) return 0
-
-        return carouselFocusTargetListIndex.coerceIn(0, lastIndex)
-    }
-
-    fun preferredContentFocusIndex(): Int =
-        if (currentPaneType == PaneType.CAROUSEL) currentCarouselFocusTargetIndex() else firstVisibleContentIndex()
-
-    val inputModeManager = LocalInputModeManager.current
-    fun ensureKeyboardInputMode() {
-        if (isGameControllerConnected()) {
-            if (inputModeManager.inputMode != InputMode.Keyboard) {
-                inputModeManager.requestInputMode(InputMode.Keyboard)
-            }
-        }
-    }
-
-    // Moved all state.appInfoList.isNotEmpty() checking to this function
-    fun isListFocusable(): Boolean = state.appInfoList.isNotEmpty() || state.currentTab == LibraryTab.RECOMMENDED
-
-    fun requestGridFocusOrDefer() {
-        if (!isListFocusable()) return
-        ensureKeyboardInputMode()
-        try {
-            gridFirstItemFocusRequester.requestFocus()
-            pendingGridFocusRequest = false
-            lastBootstrapAtMs = SystemClock.uptimeMillis()
-        } catch (_: IllegalStateException) {
-            pendingGridFocusRequest = true
-        }
-    }
-
-    fun requestCarouselFocusOrDefer(targetListIndex: Int = currentCarouselFocusTargetIndex()) {
-        if (!isListFocusable()) return
-        ensureKeyboardInputMode()
-        carouselFocusTargetListIndex = targetListIndex.coerceIn(0, getContentLastIndex())
-        try {
-            carouselFocusRequester.requestFocus()
-            pendingCarouselFocusRequest = false
-            lastBootstrapAtMs = SystemClock.uptimeMillis()
-        } catch (_: IllegalStateException) {
-            pendingCarouselFocusRequest = true
-        }
-    }
-
-    fun requestContentFocusOrDefer(targetListIndex: Int = preferredContentFocusIndex()) {
-        if (!isListFocusable()) return
-        if (currentPaneType == PaneType.CAROUSEL) {
-            requestCarouselFocusOrDefer(targetListIndex)
-        } else {
-            gridFocusTargetListIndex = targetListIndex
-            requestGridFocusOrDefer()
-        }
-    }
-
-    fun requestRootFocusSafe() {
-        ensureKeyboardInputMode()
-        try {
-            rootFocusRequester.requestFocus()
-        } catch (_: IllegalStateException) {}
-    }
-
-    fun focusedLibraryItem(): LibraryItem? {
-        if (state.currentTab == LibraryTab.RECOMMENDED) return null
-        val focusedIndex = if (currentPaneType == PaneType.CAROUSEL) {
-            currentCarouselFocusTargetIndex()
-        } else {
-            gridFocusTargetListIndex
-        }
-        return state.appInfoList.getOrNull(focusedIndex)?.takeUnless { it.isRecommended }
-    }
-
-    fun toggleFocusedFavorite(): Boolean {
-        val item = focusedLibraryItem() ?: return false
-        toggleFavorite(context, item.appId, item.name)
-        return true
-    }
+    var recommendationItemCount by remember { mutableIntStateOf(0) }
 
     val storagePermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
@@ -545,7 +306,7 @@ private fun LibraryScreenContent(
             // When a folder is selected via OpenDocumentTree, the user has already granted
             // URI permissions for that specific folder. We should verify we can access it
             // rather than checking for broad storage permissions.
-            val folder = java.io.File(path)
+            val folder = File(path)
             val canAccess = try {
                 folder.exists() && (folder.isDirectory && folder.canRead())
             } catch (e: Exception) {
@@ -576,16 +337,51 @@ private fun LibraryScreenContent(
         }
     }
 
-    // Handle opening folder picker (with dialog check)
+    var showAddCustomGameDialog by remember { mutableStateOf(false) }
+    var showImportTypeDialog by remember { mutableStateOf(false) }
+    var showAndroidAppPicker by remember { mutableStateOf(false) }
+
     val onAddCustomGameClick = {
-        app.gamenative.utils.HapticManager.trigger(app.gamenative.utils.HapticManager.HapticType.CLICK)
-        if (BuildConfig.MODERN_ANDROID) {
-            showModernImportDialog = true
-        } else if (PrefManager.showAddCustomGameDialog) {
-            showAddCustomGameDialog = true
-        } else {
-            folderPicker.launchPicker()
+        HapticManager.trigger(HapticManager.HapticType.CLICK)
+        showImportTypeDialog = true
+    }
+
+    fun isListFocusable(): Boolean = state.appInfoList.isNotEmpty() || state.currentTab == LibraryTab.RECOMMENDED
+
+    fun requestContentFocusOrDefer() {
+        if (!isListFocusable()) return
+        lifecycleScope.launch {
+            // Give composition a moment to settle
+            delay(64)
+            runCatching {
+                when (currentPaneType) {
+                    PaneType.CAROUSEL -> carouselFocusRequester.requestFocus()
+                    PaneType.MODE_360 -> mode360FocusRequester.requestFocus()
+                    else -> gridFirstItemFocusRequester.requestFocus()
+                }
+            }
         }
+    }
+
+    fun toggleFocusedFavorite(): Boolean {
+        val focusedIndex = when (currentPaneType) {
+            PaneType.CAROUSEL -> carouselFocusTargetListIndex
+            PaneType.MODE_360 -> mode360FocusTargetListIndex
+            else -> gridFocusTargetListIndex
+        }
+        val item = state.appInfoList.getOrNull(focusedIndex) ?: return false
+        toggleFavorite(context, item.appId, item.name)
+        return true
+    }
+
+    fun focusedLibraryItem(): LibraryItem? {
+        if (state.currentTab == LibraryTab.RECOMMENDED) return null
+        val focusedIndex = when (currentPaneType) {
+            PaneType.CAROUSEL -> carouselFocusTargetListIndex
+            PaneType.MODE_360 -> mode360FocusTargetListIndex
+            else -> gridFocusTargetListIndex
+        }
+        return state.appInfoList.getOrNull(focusedIndex)?.takeUnless { it.isRecommended }
     }
 
     BackHandler(enabled = isSystemMenuOpen) {
@@ -608,58 +404,27 @@ private fun LibraryScreenContent(
 
     // Restore focus when returning from game detail (without reloading list)
     LaunchedEffect(selectedAppId) {
-        if (selectedAppId != null) {
-            controllerBootstrapNeeded = true
-        }
         if (selectedAppId == null) {
             // Brief delay to let the UI settle after transition
-            kotlinx.coroutines.delay(100)
+            delay(100)
             // Restore focus to content area
             if (isListFocusable()) {
                 requestContentFocusOrDefer()
-            } else {
-                requestRootFocusSafe()
             }
         }
-    }
-
-    // Padding for the library *list* view (tab bar, grid, search bar) so content
-    // never draws behind the display cutout. The window now opts in to
-    // LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES via Theme.Pluvia, so:
-    //   * Status bar visible (portrait):   statusBars insets already cover the top notch.
-    //   * Status bar hidden (portrait):    statusBars insets are 0; displayCutout supplies
-    //                                       the notch height so content isn't behind the notch.
-    //   * Landscape (cutout on a side):    statusBars is top-only; displayCutout supplies
-    //                                       the side inset so the tab bar isn't clipped.
-    // Bottom is intentionally excluded so scroll content can reach the bottom edge.
-    //
-    // The detail (game) page deliberately does NOT use this — the hero image is meant
-    // to bleed through the cutout, so AppScreenContent insets only the elements that
-    // need to stay tappable (e.g. the back button) instead.
-    val safePaddingModifier = if (selectedLibraryItem == null) {
-        Modifier.windowInsetsPadding(
-            WindowInsets.statusBars
-                .union(WindowInsets.displayCutout)
-                .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
-        )
-    } else {
-        Modifier
     }
 
     // Restore focus after tab change - handles both empty and populated tabs
     LaunchedEffect(state.currentTab) {
         // Brief delay to let list populate after tab change
-        kotlinx.coroutines.delay(150)
+        delay(150)
 
         // The user may have moved focus up into the tab bar during the delay; don't yank it back.
         if (tabBarHasFocus) return@LaunchedEffect
 
         if (isListFocusable()) {
-            // Empty tab - focus root so bumpers still work
-            requestRootFocusSafe()
-        } else {
             // Tab has content - focus the first content item/container
-            requestContentFocusOrDefer(targetListIndex = 0)
+            requestContentFocusOrDefer()
         }
     }
 
@@ -682,7 +447,7 @@ private fun LibraryScreenContent(
                     } catch (_: IllegalStateException) {
                         retries++
                         // FocusRequester can be temporarily detached during recomposition.
-                        kotlinx.coroutines.delay(32)
+                        delay(32)
                     }
                 }
             }
@@ -700,7 +465,7 @@ private fun LibraryScreenContent(
     ) {
         if (pendingCarouselFocusRequest && isListFocusable()) {
             if (selectedAppId == null && !isSystemMenuOpen && !state.isOptionsPanelOpen && !state.isSearching) {
-                val targetIndex = currentCarouselFocusTargetIndex()
+                val targetIndex = carouselFocusTargetListIndex
                 if (carouselListState.layoutInfo.visibleItemsInfo.none { it.index == targetIndex }) {
                     carouselListState.scrollToItem(targetIndex)
                 }
@@ -711,7 +476,7 @@ private fun LibraryScreenContent(
                         pendingCarouselFocusRequest = false
                     } catch (_: IllegalStateException) {
                         retries++
-                        kotlinx.coroutines.delay(32)
+                        delay(32)
                     }
                 }
             }
@@ -727,906 +492,538 @@ private fun LibraryScreenContent(
         state.isSearching,
     ) {
         val currentCount = state.appInfoList.size
-        val listBecameNonEmpty = previousAppCount == 0 && currentCount > 0
-        val listBecameEmpty = previousAppCount > 0 && currentCount == 0
 
-        if (listBecameNonEmpty &&
-            selectedAppId == null &&
+        if (selectedAppId == null &&
             !isSystemMenuOpen &&
             !state.isOptionsPanelOpen &&
             !state.isSearching &&
             !tabBarHasFocus
         ) {
-            requestContentFocusOrDefer()
-        }
-        if (listBecameEmpty &&
-            selectedAppId == null &&
-            !isSystemMenuOpen &&
-            !state.isOptionsPanelOpen &&
-            !state.isSearching &&
-            !tabBarHasFocus
-        ) {
-            // Empty tabs can drop focused children; re-anchor focus at the root so bumper nav keeps working.
-            requestRootFocusSafe()
-        }
-
-        previousAppCount = currentCount
-    }
-
-    // Restore focus when System Menu or Options Panel closes
-    LaunchedEffect(isSystemMenuOpen, state.isOptionsPanelOpen) {
-        val systemMenuJustClosed = wasSystemMenuOpen && !isSystemMenuOpen
-        val optionsPanelJustClosed = wasOptionsPanelOpen && !state.isOptionsPanelOpen
-
-        if ((systemMenuJustClosed || optionsPanelJustClosed) && !state.isSearching) {
-            // Give a brief moment for the overlay to animate out
-            kotlinx.coroutines.delay(50)
-            // Restore focus to the active content layout
-            if (isListFocusable()) {
+            if (currentCount > 0) {
                 requestContentFocusOrDefer()
-            } else {
-                // Empty list - focus root so bumpers still work
-                requestRootFocusSafe()
             }
-        }
-
-        // Update previous state trackers
-        wasSystemMenuOpen = isSystemMenuOpen
-        wasOptionsPanelOpen = state.isOptionsPanelOpen
-    }
-
-    // Global key/motion bootstrap path for cases where Compose focus was lost by touch mode.
-    // This runs at the app event bus layer, independent of current Compose focus target.
-    // Helper functions defined in composable scope to capture latest state on each recomposition.
-    val canBootstrapContentFocus: () -> Boolean = {
-        val now = SystemClock.uptimeMillis()
-        selectedAppId == null &&
-            !isSystemMenuOpen &&
-            !state.isOptionsPanelOpen &&
-            !state.isSearching &&
-            isListFocusable() &&
-            controllerBootstrapNeeded &&
-            !rootHasFocus &&
-            !tabBarHasFocus &&
-            (now - lastBootstrapAtMs) > 250L
-    }
-    val canNavigateTabsWithoutFocus: () -> Boolean = {
-        selectedAppId == null &&
-            !isSystemMenuOpen &&
-            !state.isOptionsPanelOpen &&
-            !state.isSearching &&
-            !rootHasFocus
-    }
-
-    DisposableEffect(Unit) {
-        val onGlobalKeyEvent: (AndroidEvent.KeyEvent) -> Boolean = { androidEvent ->
-            val event = androidEvent.event
-            if (event.action != KeyEvent.ACTION_DOWN) {
-                false
-            } else {
-                when (event.keyCode) {
-                    KeyEvent.KEYCODE_BUTTON_L1 -> {
-                        if (canNavigateTabsWithoutFocus()) {
-                            onPreviousTab()
-                            requestRootFocusSafe()
-                            true
-                        } else {
-                            false
-                        }
-                    }
-
-                    KeyEvent.KEYCODE_BUTTON_R1 -> {
-                        if (canNavigateTabsWithoutFocus()) {
-                            onNextTab()
-                            requestRootFocusSafe()
-                            true
-                        } else {
-                            false
-                        }
-                    }
-
-                    KeyEvent.KEYCODE_DPAD_UP,
-                    KeyEvent.KEYCODE_DPAD_DOWN,
-                    KeyEvent.KEYCODE_DPAD_LEFT,
-                    KeyEvent.KEYCODE_DPAD_RIGHT,
-                    KeyEvent.KEYCODE_BUTTON_L2,
-                    KeyEvent.KEYCODE_BUTTON_R2,
-                    KeyEvent.KEYCODE_BUTTON_THUMBL,
-                    KeyEvent.KEYCODE_BUTTON_THUMBR,
-                    -> {
-                        if (canBootstrapContentFocus()) {
-                            requestContentFocusOrDefer()
-                            // Do not consume: let normal key routing continue after bootstrap.
-                            false
-                        } else {
-                            false
-                        }
-                    }
-
-                    else -> false
-                }
-            }
-        }
-
-        val onGlobalMotionEvent: (AndroidEvent.MotionEvent) -> Boolean = { androidEvent ->
-            val event = androidEvent.event
-            if (event == null || !canBootstrapContentFocus()) {
-                false
-            } else {
-                val isMoveLike = event.actionMasked == MotionEvent.ACTION_MOVE
-                val hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X)
-                val hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y)
-                val leftX = event.getAxisValue(MotionEvent.AXIS_X)
-                val leftY = event.getAxisValue(MotionEvent.AXIS_Y)
-                val hasDirectionalAxis = kotlin.math.abs(hatX) >= 0.5f ||
-                    kotlin.math.abs(hatY) >= 0.5f ||
-                    kotlin.math.abs(leftX) >= 0.6f ||
-                    kotlin.math.abs(leftY) >= 0.6f
-
-                if (isMoveLike && hasDirectionalAxis) {
-                    requestContentFocusOrDefer()
-                    // Do not consume: allow normal movement handling after bootstrap.
-                    false
-                } else {
-                    false
-                }
-            }
-        }
-
-        PluviaApp.events.on<AndroidEvent.KeyEvent, Boolean>(onGlobalKeyEvent)
-        PluviaApp.events.on<AndroidEvent.MotionEvent, Boolean>(onGlobalMotionEvent)
-
-        onDispose {
-            PluviaApp.events.off<AndroidEvent.KeyEvent, Boolean>(onGlobalKeyEvent)
-            PluviaApp.events.off<AndroidEvent.MotionEvent, Boolean>(onGlobalMotionEvent)
         }
     }
 
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .then(safePaddingModifier)
-            .focusRequester(rootFocusRequester)
-            .focusable()
-            .onFocusChanged { focusState ->
-                rootHasFocus = focusState.hasFocus
-                if (focusState.hasFocus) {
-                    controllerBootstrapNeeded = false
-                } else {
-                    controllerBootstrapNeeded = true
-                }
-            }
-            .onPreviewKeyEvent { keyEvent ->
-                // TODO: consider abstracting this
-                // Handle gamepad buttons
-                if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
-                    val keyCode = keyEvent.nativeKeyEvent.keyCode
-                    val canBootstrapContentFocus = selectedAppId == null &&
-                        !state.isOptionsPanelOpen &&
-                        !isSystemMenuOpen &&
-                        !state.isSearching &&
-                        isListFocusable() &&
-                        controllerBootstrapNeeded &&
-                        // Don't pull focus to the grid while the user is on the tab bar (D-pad
-                        // up/left/right and analog nudges aren't consumed by the bar otherwise).
-                        !tabBarHasFocus
+    val safePaddingModifier = Modifier.windowInsetsPadding(
+        WindowInsets.statusBars.union(WindowInsets.displayCutout).only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+    )
 
-                    when (keyCode) {
-                        // Navigation keys should bootstrap focus even before any item is selected.
-                        KeyEvent.KEYCODE_DPAD_UP,
-                        KeyEvent.KEYCODE_DPAD_DOWN,
-                        KeyEvent.KEYCODE_DPAD_LEFT,
-                        KeyEvent.KEYCODE_DPAD_RIGHT,
-                        KeyEvent.KEYCODE_BUTTON_L2,
-                        KeyEvent.KEYCODE_BUTTON_R2,
-                        KeyEvent.KEYCODE_BUTTON_THUMBL,
-                        KeyEvent.KEYCODE_BUTTON_THUMBR,
-                        -> {
-                            if (canBootstrapContentFocus) {
-                                requestContentFocusOrDefer()
-                                false
-                            } else {
-                                false
-                            }
-                        }
-
-                        // L1 button - previous tab
-                        KeyEvent.KEYCODE_BUTTON_L1 -> {
-                            if (selectedAppId == null && !state.isOptionsPanelOpen && !isSystemMenuOpen) {
-                                if (canBootstrapContentFocus) {
-                                    requestContentFocusOrDefer()
-                                }
-                                onPreviousTab()
-                                true
-                            } else {
-                                false
-                            }
-                        }
-
-                        // R1 button - next tab
-                        KeyEvent.KEYCODE_BUTTON_R1 -> {
-                            if (selectedAppId == null && !state.isOptionsPanelOpen && !isSystemMenuOpen) {
-                                if (canBootstrapContentFocus) {
-                                    requestContentFocusOrDefer()
-                                }
-                                onNextTab()
-                                true
-                            } else {
-                                false
-                            }
-                        }
-
-                        // SELECT button - toggle options panel (library filters/sort)
-                        KeyEvent.KEYCODE_BUTTON_SELECT -> {
-                            if (selectedAppId == null && !isSystemMenuOpen) {
-                                onOptionsPanelToggle(!state.isOptionsPanelOpen)
-                                true
-                            } else {
-                                false
-                            }
-                        }
-
-                        // START button - toggle system menu (profile/settings)
-                        KeyEvent.KEYCODE_BUTTON_START,
-                        KeyEvent.KEYCODE_MENU,
-                        -> {
-                            if (selectedAppId == null && !state.isOptionsPanelOpen) {
-                                isSystemMenuOpen = !isSystemMenuOpen
-                                true
-                            } else {
-                                false
-                            }
-                        }
-
-                        // Y button - toggle search
-                        KeyEvent.KEYCODE_BUTTON_Y -> {
-                            if (selectedAppId == null && !state.isOptionsPanelOpen && !isSystemMenuOpen) {
-                                onIsSearching(!state.isSearching)
-                                true
-                            } else {
-                                false
-                            }
-                        }
-
-                        // X button - toggle favorite for the focused game
-                        KeyEvent.KEYCODE_BUTTON_X -> {
-                            if (selectedAppId == null &&
-                                !state.isSearching &&
-                                !state.isOptionsPanelOpen &&
-                                !isSystemMenuOpen &&
-                                !tabBarHasFocus
-                            ) {
-                                toggleFocusedFavorite()
-                            } else {
-                                false
-                            }
-                        }
-
-                        // B button - contextual back / open system menu
-                        KeyEvent.KEYCODE_BUTTON_B -> {
-                            if (selectedAppId != null) {
-                                // Let LibraryAppScreen handle its own B-button
-                                false
-                            } else if (isSystemMenuOpen) {
-                                isSystemMenuOpen = false
-                                true
-                            } else if (state.isOptionsPanelOpen) {
-                                onOptionsPanelToggle(false)
-                                true
-                            } else if (state.isSearching) {
-                                onIsSearching(false)
-                                onSearchQuery("")
-                                true
-                            } else {
-                                // Root library view: open system menu
-                                isSystemMenuOpen = true
-                                true
-                            }
-                        }
-
-                        else -> false
-                    }
-                } else {
-                    false
-                }
-            },
-    ) {
-        if (selectedAppId == null) {
-            // Function to render the main library content (grid/carousel)
-            val mainContent = @Composable { blur: Dp, gridOverride: LazyGridState?, listOverride: androidx.compose.foundation.lazy.LazyListState? ->
-                Box(modifier = Modifier.fillMaxSize().blur(blur)) {
-                    if (showRecTeaserDialog) {
-                        RecommendationDisclosureDialog(
-                            onContinue = {
-                                PrefManager.recDisclosureShown = true
-                                showRecTeaserDialog = false
-                                PluviaApp.events.emit(AndroidEvent.RecommendationToggleChanged)
-                            },
-                            onDismiss = {
-                                PrefManager.recTeaserDismissedDay = System.currentTimeMillis() / (24L * 60 * 60 * 1000)
-                                showRecTeaserDialog = false
-                            },
-                        )
-                    }
-                }
-                val showEmptyStateSplash = when (state.currentTab) {
-                    LibraryTab.STEAM -> !SteamUtils.hasStoredCredentials() && !state.isLoading
-                    LibraryTab.GOG -> !GOGService.hasStoredCredentials(context)
-                    LibraryTab.EPIC -> !EpicService.hasStoredCredentials(context)
-                    LibraryTab.AMAZON -> !AmazonService.hasStoredCredentials(context)
-                    LibraryTab.LOCAL -> PrefManager.customGamesCount == 0
-                    else -> false
-                }
-                // Favorites tab has its own empty state. Only show it once favorites have loaded and
-                // the list has settled, so a genuinely empty tab is explained instead of flashing a
-                // blank screen (or the empty message before stored favorites arrive).
-                val showFavoritesEmptyState = state.currentTab == LibraryTab.FAVORITES &&
-                    favoritesLoaded && !state.isLoading && state.appInfoList.isEmpty()
-                if (showEmptyStateSplash) {
-                    val (messageResId, buttonResId, onAction) = when (state.currentTab) {
-                        LibraryTab.STEAM -> Triple(
-                            R.string.library_source_not_logged_in_steam,
-                            R.string.steam_sign_in,
-                            onGoOnline,
-                        )
-                        LibraryTab.GOG -> Triple(
-                            R.string.library_source_not_logged_in_gog,
-                            R.string.gog_settings_login_title,
-                            { gogOAuthLauncher.launch(Intent(context, GOGOAuthActivity::class.java)) },
-                        )
-                        LibraryTab.EPIC -> Triple(
-                            R.string.library_source_not_logged_in_epic,
-                            R.string.epic_settings_login_title,
-                            { epicOAuthLauncher.launch(Intent(context, EpicOAuthActivity::class.java)) },
-                        )
-                        LibraryTab.AMAZON -> Triple(
-                            R.string.library_source_not_logged_in_amazon,
-                            R.string.amazon_settings_login_title,
-                            { amazonOAuthLauncher.launch(Intent(context, AmazonOAuthActivity::class.java)) },
-                        )
-                        LibraryTab.LOCAL -> Triple(
-                            R.string.library_source_no_custom_games,
-                            R.string.add_custom_game_dialog_title,
-                            onAddCustomGameClick,
-                        )
-                        else -> throw IllegalStateException("showEmptyStateSplash is true only for Steam/GOG/Epic/Amazon/LOCAL")
-                    }
-                    LibrarySourceNotLoggedInSplash(
-                        messageResId = messageResId,
-                        signInButtonLabelResId = buttonResId,
-                        onSignInClick = onAction,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                } else if (showFavoritesEmptyState) {
-                    if (favorites.isEmpty()) {
-                        LibraryFavoritesEmptyState(
-                            titleResId = R.string.favorites_empty_title,
-                            messageResId = R.string.favorites_empty_message,
-                            actionLabelResId = R.string.favorites_empty_action,
-                            onAction = { onTabChanged(LibraryTab.ALL) },
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    } else {
-                        // Favorites exist but none are visible — filtered out by the current search
-                        // or unavailable (source logged out / game removed).
-                        LibraryFavoritesEmptyState(
-                            titleResId = R.string.favorites_empty_filtered_title,
-                            messageResId = R.string.favorites_empty_filtered_message,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                } else {
-                    // Library list (content scrolls behind tab bar)
-                    if (currentPaneType == PaneType.CAROUSEL) {
-                        LibraryCarouselPane(
-                            state = state,
-                            listState = carouselListState,
-                            onPageChange = onPageChange,
-                            onNavigate = { appId ->
-                                val item = state.appInfoList.find { it.appId == appId }
-                                if (item?.isRecTeaser == true) {
-                                    if (!item.isRecLoading && !recDisclosureShown) {
-                                        onRecTeaserTapped()
+    CompositionLocalProvider(LocalBackgroundLayer provides backgroundLayer) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    if (PrefManager.videoBackgroundPath.isNotEmpty()) Color.Transparent
+                    else MaterialTheme.colorScheme.background
+                )
+                .onPreviewKeyEvent { keyEvent ->
+                    if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
+                        when (keyEvent.nativeKeyEvent.keyCode) {
+                            KeyEvent.KEYCODE_BUTTON_L1 -> { onPreviousTab(); true }
+                            KeyEvent.KEYCODE_BUTTON_R1 -> { onNextTab(); true }
+                            KeyEvent.KEYCODE_BUTTON_START -> { isSystemMenuOpen = !isSystemMenuOpen; true }
+                            KeyEvent.KEYCODE_BUTTON_SELECT -> { onOptionsPanelToggle(!state.isOptionsPanelOpen); true }
+                            KeyEvent.KEYCODE_BUTTON_Y -> { onIsSearching(!state.isSearching); true }
+                            KeyEvent.KEYCODE_BUTTON_X -> { if (!state.isSearching) toggleFocusedFavorite(); true }
+                            KeyEvent.KEYCODE_BUTTON_A -> {
+                                if (currentPaneType == PaneType.MODE_360) {
+                                    when (state.gameViewState) {
+                                        GameViewState.CAROUSEL -> {
+                                            onSetGameViewState(GameViewState.HERO_DETAILS)
+                                            true
+                                        }
+                                        GameViewState.HERO_DETAILS -> {
+                                            onSetGameViewState(GameViewState.ACTION_MENU)
+                                            // Trigger play dialog/action
+                                            val focusedItem = focusedLibraryItem()
+                                            if (focusedItem != null) {
+                                                selectedAppId = focusedItem.appId
+                                                selectedLibraryItem = focusedItem
+                                            }
+                                            true
+                                        }
+                                        else -> false
                                     }
+                                } else false
+                            }
+                            KeyEvent.KEYCODE_BUTTON_B -> {
+                                if (currentPaneType == PaneType.MODE_360 && state.gameViewState != GameViewState.CAROUSEL) {
+                                    onSetGameViewState(GameViewState.CAROUSEL)
+                                    true
+                                } else if (selectedAppId != null) {
+                                    selectedAppId = null
+                                    selectedLibraryItem = null
+                                    true
+                                } else if (isSystemMenuOpen) {
+                                    isSystemMenuOpen = false
+                                    true
+                                } else if (state.isOptionsPanelOpen) {
+                                    onOptionsPanelToggle(false)
+                                    true
+                                } else if (state.isSearching) {
+                                    onIsSearching(false)
+                                    true
                                 } else {
-                                    selectedAppId = appId
-                                    selectedLibraryItem = item
+                                    isSystemMenuOpen = true
+                                    true
                                 }
-                            },
-                            onRefresh = onRefresh,
-                            modifier = Modifier.fillMaxSize(),
-                            firstCarouselItemFocusRequester = carouselFocusRequester,
-                            focusTargetListIndex = currentCarouselFocusTargetIndex(),
-                            onFocusedIndexChanged = { carouselFocusTargetListIndex = it },
-                        )
-                    }
-
-                    if (state.currentTab == LibraryTab.RECOMMENDED) {
-                        if (PrefManager.recDisclosureShown) {
-                            RecommendedTabPane(
-                                currentPaneType = currentPaneType,
-                                onNavigate = { item ->
-                                    selectedAppId = item.appId
-                                    selectedLibraryItem = item
-                                },
-                                modifier = Modifier.fillMaxSize(),
-                                firstCarouselItemFocusRequester = carouselFocusRequester,
-                                firstGridItemFocusRequester = gridFirstItemFocusRequester,
-                                focusTargetListIndex = if (currentPaneType == PaneType.CAROUSEL) currentCarouselFocusTargetIndex() else gridFocusTargetListIndex,
-                                onFocusedIndexChanged = { carouselFocusTargetListIndex = it },
-                                onItemCountChanged = { recommendationItemCount = it },
-                            )
-                        } else {
-                            Box(modifier = Modifier.fillMaxSize())
+                            }
+                            else -> false
+                        }
+                    } else false
+                }
+        ) {
+            if (selectedAppId == null) {
+                // Function to render the main library content (grid/carousel)
+                val mainContent = @Composable { blur: Dp, gridOverride: LazyGridState?, listOverride: LazyListState? ->
+                    Box(modifier = Modifier.fillMaxSize().blur(blur)) {
+                        if (showRecTeaserDialog) {
                             RecommendationDisclosureDialog(
                                 onContinue = {
                                     PrefManager.recDisclosureShown = true
+                                    showRecTeaserDialog = false
                                     PluviaApp.events.emit(AndroidEvent.RecommendationToggleChanged)
                                 },
-                                onDismiss = { onTabChanged(LibraryTab.ALL) },
+                                onDismiss = {
+                                    PrefManager.recTeaserDismissedDay = System.currentTimeMillis() / (24L * 60 * 60 * 1000)
+                                    showRecTeaserDialog = false
+                                },
+                            )
+                        }
+                    }
+                    val showEmptyStateSplash = when (state.currentTab) {
+                        LibraryTab.STEAM -> !SteamUtils.hasStoredCredentials() && !state.isLoading
+                        LibraryTab.GOG -> !GOGService.hasStoredCredentials(context)
+                        LibraryTab.EPIC -> !EpicService.hasStoredCredentials(context)
+                        LibraryTab.AMAZON -> !AmazonService.hasStoredCredentials(context)
+                        LibraryTab.LOCAL -> PrefManager.customGamesCount == 0
+                        else -> false
+                    }
+                    // Favorites tab has its own empty state. Only show it once favorites have loaded and
+                    // the list has settled, so a genuinely empty tab is explained instead of flashing a
+                    // blank screen (or the empty message before stored favorites arrive).
+                    val showFavoritesEmptyState = state.currentTab == LibraryTab.FAVORITES &&
+                        favoritesLoaded && !state.isLoading && state.appInfoList.isEmpty()
+                    if (showEmptyStateSplash) {
+                        val (messageResId, buttonResId, onAction) = when (state.currentTab) {
+                            LibraryTab.STEAM -> Triple(
+                                R.string.library_source_not_logged_in_steam,
+                                R.string.steam_sign_in,
+                                onGoOnline,
+                            )
+                            LibraryTab.GOG -> Triple(
+                                R.string.library_source_not_logged_in_gog,
+                                R.string.gog_settings_login_title,
+                                { gogOAuthLauncher.launch(Intent(context, GOGOAuthActivity::class.java)) },
+                            )
+                            LibraryTab.EPIC -> Triple(
+                                R.string.library_source_not_logged_in_epic,
+                                R.string.epic_settings_login_title,
+                                { epicOAuthLauncher.launch(Intent(context, EpicOAuthActivity::class.java)) },
+                            )
+                            LibraryTab.AMAZON -> Triple(
+                                R.string.library_source_not_logged_in_amazon,
+                                R.string.amazon_settings_login_title,
+                                { amazonOAuthLauncher.launch(Intent(context, AmazonOAuthActivity::class.java)) },
+                            )
+                            LibraryTab.LOCAL -> Triple(
+                                R.string.library_source_no_custom_games,
+                                R.string.add_custom_game_dialog_title,
+                                onAddCustomGameClick,
+                            )
+                            else -> throw IllegalStateException("showEmptyStateSplash is true only for Steam/GOG/Epic/Amazon/LOCAL")
+                        }
+                        LibrarySourceNotLoggedInSplash(
+                            messageResId = messageResId,
+                            signInButtonLabelResId = buttonResId,
+                            onSignInClick = onAction,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else if (showFavoritesEmptyState) {
+                        if (favorites.isEmpty()) {
+                            LibraryFavoritesEmptyState(
+                                titleResId = R.string.favorites_empty_title,
+                                messageResId = R.string.favorites_empty_message,
+                                actionLabelResId = R.string.favorites_empty_action,
+                                onAction = { onTabChanged(LibraryTab.ALL) },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        } else {
+                            // Favorites exist but none are visible — filtered out by the current search
+                            // or unavailable (source logged out / game removed).
+                            LibraryFavoritesEmptyState(
+                                titleResId = R.string.favorites_empty_filtered_title,
+                                messageResId = R.string.favorites_empty_filtered_message,
+                                modifier = Modifier.fillMaxSize(),
                             )
                         }
                     } else {
-                        val showEmptyStateSplash = when (state.currentTab) {
-                            LibraryTab.STEAM -> !SteamUtils.hasStoredCredentials() && !state.isLoading
-                            LibraryTab.GOG -> !GOGService.hasStoredCredentials(context)
-                            LibraryTab.EPIC -> !EpicService.hasStoredCredentials(context)
-                            LibraryTab.AMAZON -> !AmazonService.hasStoredCredentials(context)
-                            LibraryTab.LOCAL -> PrefManager.customGamesCount == 0
-                            else -> false
-                        }
-                        // Favorites tab has its own empty state. Only show it once favorites have loaded and
-                        // the list has settled, so a genuinely empty tab is explained instead of flashing a
-                        // blank screen (or the empty message before stored favorites arrive).
-                        val showFavoritesEmptyState = state.currentTab == LibraryTab.FAVORITES &&
-                            favoritesLoaded && !state.isLoading && state.appInfoList.isEmpty()
-
-                        if (showEmptyStateSplash) {
-                            val (messageResId, buttonResId, onAction) = when (state.currentTab) {
-                                LibraryTab.STEAM -> Triple(R.string.library_source_not_logged_in_steam, R.string.steam_sign_in, onGoOnline)
-                                LibraryTab.GOG -> Triple(R.string.library_source_not_logged_in_gog, R.string.gog_settings_login_title, { gogOAuthLauncher.launch(Intent(context, GOGOAuthActivity::class.java)) })
-                                LibraryTab.EPIC -> Triple(R.string.library_source_not_logged_in_epic, R.string.epic_settings_login_title, { epicOAuthLauncher.launch(Intent(context, EpicOAuthActivity::class.java)) })
-                                LibraryTab.AMAZON -> Triple(R.string.library_source_not_logged_in_amazon, R.string.amazon_settings_login_title, { amazonOAuthLauncher.launch(Intent(context, AmazonOAuthActivity::class.java)) })
-                                LibraryTab.LOCAL -> Triple(R.string.library_source_no_custom_games, R.string.add_custom_game_dialog_title, onAddCustomGameClick)
-                                else -> Triple(0, 0, {})
-                            }
-                            if (messageResId != 0) {
-                                LibrarySourceNotLoggedInSplash(
-                                    messageResId = messageResId,
-                                    signInButtonLabelResId = buttonResId,
-                                    onSignInClick = onAction,
-                                    modifier = Modifier.fillMaxSize(),
-                                )
-                            }
-                        } else if (showFavoritesEmptyState) {
-                            if (favorites.isEmpty()) {
-                                LibraryFavoritesEmptyState(
-                                    titleResId = R.string.favorites_empty_title,
-                                    messageResId = R.string.favorites_empty_message,
-                                    actionLabelResId = R.string.favorites_empty_action,
-                                    onAction = { onTabChanged(LibraryTab.ALL) },
-                                    modifier = Modifier.fillMaxSize(),
-                                )
-                            } else {
-                                // Favorites exist but none are visible — filtered out by the current search
-                                // or unavailable (source logged out / game removed).
-                                LibraryFavoritesEmptyState(
-                                    titleResId = R.string.favorites_empty_filtered_title,
-                                    messageResId = R.string.favorites_empty_filtered_message,
-                                    modifier = Modifier.fillMaxSize(),
-                                )
-                            }
+                        // Library list (content scrolls behind tab bar)
+                        if (currentPaneType == PaneType.CAROUSEL) {
+                            LibraryCarouselPane(
+                                state = state,
+                                listState = listOverride ?: carouselListState,
+                                onPageChange = onPageChange,
+                                onNavigate = { appId ->
+                                    val item = state.appInfoList.find { it.appId == appId }
+                                    if (item?.isRecTeaser == true) {
+                                        if (!item.isRecLoading && !recDisclosureShown) {
+                                            onRecTeaserTapped()
+                                        }
+                                    } else {
+                                        selectedAppId = appId
+                                        selectedLibraryItem = item
+                                    }
+                                },
+                                onRefresh = onRefresh,
+                                modifier = Modifier.fillMaxSize(),
+                                firstCarouselItemFocusRequester = carouselFocusRequester,
+                                focusTargetListIndex = carouselFocusTargetListIndex,
+                                onFocusedIndexChanged = {
+                                    carouselFocusTargetListIndex = it
+                                    onFocusedIndexChanged(it)
+                                },
+                            )
+                        } else if (currentPaneType == PaneType.MODE_360) {
+                            Library360Carousel(
+                                state = state,
+                                onNavigate = { appId ->
+                                    selectedAppId = appId
+                                    selectedLibraryItem = state.appInfoList.find { it.appId == appId }
+                                },
+                                onSetGameViewState = onSetGameViewState,
+                                firstItemFocusRequester = mode360FocusRequester,
+                                onFocusedIndexChanged = {
+                                    mode360FocusTargetListIndex = it
+                                    onFocusedIndexChanged(it)
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
                         } else {
-                            if (currentPaneType == PaneType.CAROUSEL) {
-                                LibraryCarouselPane(
-                                    state = state,
-                                    listState = listOverride ?: carouselListState,
-                                    onPageChange = onPageChange,
-                                    onNavigate = { appId ->
-                                        val item = state.appInfoList.find { it.appId == appId }
-                                        if (item?.isRecTeaser == true) {
-                                            if (!item.isRecLoading && !PrefManager.recDisclosureShown) {
-                                                onRecTeaserTapped()
-                                            }
-                                        } else {
-                                            selectedAppId = appId
-                                            selectedLibraryItem = item
+                            LibraryListPane(
+                                state = state,
+                                listState = gridOverride ?: listState,
+                                currentLayout = currentPaneType,
+                                firstGridItemFocusRequester = gridFirstItemFocusRequester,
+                                focusTargetListIndex = gridFocusTargetListIndex,
+                                onPageChange = onPageChange,
+                                onNavigate = { appId ->
+                                    val item = state.appInfoList.find { it.appId == appId }
+                                    if (item?.isRecTeaser == true) {
+                                        if (!item.isRecLoading && !recDisclosureShown) {
+                                            onRecTeaserTapped()
                                         }
-                                    },
-                                    onRefresh = onRefresh,
-                                    modifier = Modifier.fillMaxSize(),
-                                    firstCarouselItemFocusRequester = carouselFocusRequester,
-                                    focusTargetListIndex = currentCarouselFocusTargetIndex(),
-                                    onFocusedIndexChanged = { carouselFocusTargetListIndex = it },
-                                )
-                            } else {
-                                LibraryListPane(
-                                    state = state,
-                                    listState = gridOverride ?: listState,
-                                    currentLayout = currentPaneType,
-                                    firstGridItemFocusRequester = gridFirstItemFocusRequester,
-                                    focusTargetListIndex = gridFocusTargetListIndex,
-                                    onPageChange = onPageChange,
-                                    onNavigate = { appId ->
-                                        val item = state.appInfoList.find { it.appId == appId }
-                                        if (item?.isRecTeaser == true) {
-                                            if (!item.isRecLoading && !PrefManager.recDisclosureShown) {
-                                                onRecTeaserTapped()
-                                            }
-                                        } else {
-                                            selectedAppId = appId
-                                            selectedLibraryItem = item
-                                        }
-                                    },
-                                    onRefresh = onRefresh,
-                                    modifier = Modifier.fillMaxSize(),
-                                    onFocusedIndexChanged = { gridFocusTargetListIndex = it },
-                                )
-                            }
+                                    } else {
+                                        selectedAppId = appId
+                                        selectedLibraryItem = item
+                                    }
+                                },
+                                onRefresh = onRefresh,
+                                modifier = Modifier.fillMaxSize(),
+                                onFocusedIndexChanged = {
+                                    gridFocusTargetListIndex = it
+                                    onFocusedIndexChanged(it)
+                                },
+                            )
                         }
                     }
                 }
-            }
 
-            Box(modifier = Modifier.fillMaxSize()) {
-                // Layer 1: Recorded background content.
-                // This layer is captured for optical refraction in Liquid Glass mode.
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .drawWithCache {
-                            val layer = obtainGraphicsLayer()
-                            onDrawWithContent {
-                                layer.record {
-                                    this@onDrawWithContent.drawContent()
-                                }
-                                drawLayer(layer)
-                                backgroundLayer = layer
-                            }
-                        }
-                ) {
-                    mainContent(0.dp, null, null)
-                }
-
-                // Layer 2: Unified Blurred content for ALL glass panels
-                val currentGlassMode = PrefManager.glassMode
-                if (PrefManager.glassPanels && currentGlassMode != GlassMode.STANDARD) {
-                    val density = androidx.compose.ui.platform.LocalDensity.current
-                    val panelWidthSidebar = adaptivePanelWidth(380.dp)
-                    val panelWidthOptions = adaptivePanelWidth(300.dp)
-
-                    val sidebarWidthPx = with(density) { panelWidthSidebar.toPx() }
-                    val optionsWidthPx = with(density) { panelWidthOptions.toPx() }
-                    val tabBarHeightPx = with(density) { 86.dp.toPx() }
-                    val searchBarHeightPx = with(density) { 110.dp.toPx() }
-                    val tabBarPaddingPx = with(density) { 12.dp.toPx() }
-                    val tabBarTopPaddingPx = with(density) { 6.dp.toPx() }
-                    val tabBarCornerRadiusPx = with(density) { 16.dp.toPx() }
-
-                    val sidebarRadiusPx = with(density) { 32.dp.toPx() }
-                    val optionsRadiusPx = with(density) { 16.dp.toPx() }
-
-                    val blurIntensity = PrefManager.glassBlurIntensity
-                    val blurEffect = remember(blurIntensity) {
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                            android.graphics.RenderEffect.createBlurEffect(
-                                blurIntensity, blurIntensity, android.graphics.Shader.TileMode.CLAMP
-                            ).asComposeRenderEffect()
-                        } else null
-                    }
-
-                    val blurredGridState = rememberLazyGridState()
-                    val blurredListState = rememberLazyListState()
-
-                    LaunchedEffect(listState) {
-                        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
-                            .collect { (index, offset) ->
-                                blurredGridState.scrollToItem(index, offset)
-                            }
-                    }
-                    LaunchedEffect(carouselListState) {
-                        snapshotFlow { carouselListState.firstVisibleItemIndex to carouselListState.firstVisibleItemScrollOffset }
-                            .collect { (index, offset) ->
-                                blurredListState.scrollToItem(index, offset)
-                            }
-                    }
-
-                    // Combined Shape that covers Sidebar, Options, and Tab Bar
-                    val combinedGlassShape = object : Shape {
-                        override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
-                            val path = androidx.compose.ui.graphics.Path()
-
-                            // 1. Sidebar (Right) - Round inner corners (Left side)
-                            if (isSystemMenuOpen) {
-                                path.addRoundRect(
-                                    RoundRect(
-                                        rect = Rect(size.width - sidebarWidthPx, 0f, size.width, size.height),
-                                        topLeft = CornerRadius(sidebarRadiusPx),
-                                        bottomLeft = CornerRadius(sidebarRadiusPx),
-                                        topRight = CornerRadius.Zero,
-                                        bottomRight = CornerRadius.Zero
-                                    )
-                                )
-                            }
-
-                            // 2. Options Panel (Left) - Round inner corners (Right side)
-                            if (state.isOptionsPanelOpen) {
-                                path.addRoundRect(
-                                    RoundRect(
-                                        rect = Rect(0f, 0f, optionsWidthPx, size.height),
-                                        topLeft = CornerRadius.Zero,
-                                        bottomLeft = CornerRadius.Zero,
-                                        topRight = CornerRadius(optionsRadiusPx),
-                                        bottomRight = CornerRadius(optionsRadiusPx)
-                                    )
-                                )
-                            }
-
-                            // 3. Tab Bar / Search Bar (Center Top)
-                            if (state.isSearching) {
-                                path.addRoundRect(
-                                    RoundRect(
-                                        rect = Rect(
-                                            tabBarPaddingPx,
-                                            tabBarTopPaddingPx,
-                                            size.width - tabBarPaddingPx,
-                                            tabBarTopPaddingPx + searchBarHeightPx
-                                        ),
-                                        cornerRadius = CornerRadius(tabBarCornerRadiusPx)
-                                    )
-                                )
-                            } else {
-                                path.addRoundRect(
-                                    RoundRect(
-                                        rect = Rect(
-                                            tabBarPaddingPx,
-                                            tabBarTopPaddingPx,
-                                            size.width - tabBarPaddingPx,
-                                            tabBarTopPaddingPx + tabBarHeightPx
-                                        ),
-                                        cornerRadius = CornerRadius(tabBarCornerRadiusPx)
-                                    )
-                                )
-                            }
-
-                            return Outline.Generic(path)
-                        }
-                    }
-
+                Box(modifier = Modifier.fillMaxSize()) {
+                    // Layer 1: Recorded background content.
+                    // ROOT RECORDING: No padding on this box so coordinates are 1:1 with screen.
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .graphicsLayer {
-                                if (blurEffect != null) renderEffect = blurEffect
-                                compositingStrategy = CompositingStrategy.Offscreen
+                            .drawWithCache {
+                                val layer = obtainGraphicsLayer()
+                                onDrawWithContent {
+                                    layer.record {
+                                        this@onDrawWithContent.drawContent()
+                                    }
+                                    this@onDrawWithContent.drawLayer(layer)
+                                    backgroundLayer = layer
+                                }
                             }
-                            .clip(combinedGlassShape)
-                            .pointerInteropFilter { false }
-                            .focusProperties { canFocus = false }
                     ) {
-                        mainContent(0.dp, blurredGridState, blurredListState)
+                        if (state.videoBackgroundPath.isNotEmpty()) {
+                            LoopingVideoBackground(
+                                videoPath = state.videoBackgroundPath,
+                                dimAlpha = state.videoBackgroundDimAlpha,
+                                onColorExtracted = { hex ->
+                                    if (state.mainColor != hex) {
+                                        onSetMainColor(hex)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+
+                        // 1b. Padding is INSIDE the record box.
+                        Box(modifier = Modifier.fillMaxSize().then(safePaddingModifier)) {
+                            mainContent(0.dp, null, null)
+                        }
+                    }
+
+                    // Layer 2: Overlays (Tab bar, Search bar)
+                    Box(modifier = Modifier.fillMaxSize().then(safePaddingModifier)) {
+                        val isScrolling = listState.isScrollInProgress || carouselListState.isScrollInProgress
+                        val looks = LocalLooksState.current
+
+                        if (state.isSearching) {
+                            LibrarySearchBar(
+                                isVisible = true,
+                                searchQuery = state.searchQuery,
+                                resultCount = state.totalAppsInFilter,
+                                onScrollToTop = { listState.scrollToItem(0) },
+                                onSearchQuery = onSearchQuery,
+                                onDismiss = { onIsSearching(false) },
+                                isScrolling = isScrolling,
+                                distortionStrength = looks.liquidDistortion,
+                                modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
+                            )
+                        } else {
+                            LibraryTabBar(
+                                currentTab = state.currentTab,
+                                tabCounts = mapOf(
+                                    LibraryTab.ALL to state.allCount,
+                                    LibraryTab.FAVORITES to state.favoritesCount,
+                                    LibraryTab.STEAM to state.steamCount,
+                                    LibraryTab.GOG to state.gogCount,
+                                    LibraryTab.EPIC to state.epicCount,
+                                    LibraryTab.AMAZON to state.amazonCount,
+                                    LibraryTab.LOCAL to state.localCount,
+                                ),
+                                onTabSelected = onTabChanged,
+                                onOptionsClick = { onOptionsPanelToggle(true) },
+                                onSearchClick = { onIsSearching(true) },
+                                onAddGameClick = onAddCustomGameClick,
+                                onMenuClick = { isSystemMenuOpen = true },
+                                onNavigateDownToGrid = { requestContentFocusOrDefer() },
+                                onPreviousTab = onPreviousTab,
+                                onNextTab = onNextTab,
+                                isScrolling = isScrolling,
+                                distortionStrength = looks.liquidDistortion,
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(top = 26.dp)
+                                    .fillMaxWidth()
+                                    .onFocusChanged { tabBarHasFocus = it.hasFocus },
+                            )
+                        }
                     }
                 }
+            } else {
+                LibraryDetailPane(
+                    libraryItem = selectedLibraryItem,
+                    onBack = { selectedAppId = null; selectedLibraryItem = null },
+                    onClickPlay = { onClickPlay(selectedLibraryItem?.appId ?: "", it) },
+                    onTestGraphics = { onTestGraphics(selectedLibraryItem?.appId ?: "") },
+                    onPlayWithDiagnostics = { onPlayWithDiagnostics(selectedLibraryItem?.appId ?: "") },
+                )
+            }
 
-                // Overlays: Tab bar / Search bar
-                if (state.isSearching) {
-                    // Search overlay replaces tab bar when searching
-                    // TODO: Gamepad focus is a bit wonky whenever we show the search bar
-                    LibrarySearchBar(
-                        isVisible = true,
-                        searchQuery = state.searchQuery,
-                        resultCount = state.totalAppsInFilter,
-                        onScrollToTop = {
-                            if (currentPaneType == PaneType.CAROUSEL) {
-                                carouselFocusTargetListIndex = 0
-                                carouselListState.scrollToItem(0)
-                            } else {
-                                listState.scrollToItem(0)
-                            }
-                        },
-                        onSearchQuery = onSearchQuery,
-                        onDismiss = { onIsSearching(false) },
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .fillMaxWidth(),
+            // Action bars and panels
+            if (selectedAppId == null && !state.isOptionsPanelOpen && !isSystemMenuOpen) {
+                val libraryActions = if (state.isSearching) {
+                    listOf(
+                        LibraryActions.select,
+                        GamepadAction(
+                            button = GamepadButton.B,
+                            labelResId = R.string.back,
+                            onClick = {
+                                onIsSearching(false)
+                                onSearchQuery("")
+                            },
+                        ),
                     )
                 } else {
-                    // Tab bar when not searching
-                    LibraryTabBar(
-                        currentTab = state.currentTab,
-                        tabCounts = mapOf(
-                            LibraryTab.ALL to state.allCount,
-                            LibraryTab.FAVORITES to state.favoritesCount,
-                            LibraryTab.STEAM to state.steamCount,
-                            LibraryTab.GOG to state.gogCount,
-                            LibraryTab.EPIC to state.epicCount,
-                            LibraryTab.AMAZON to state.amazonCount,
-                            LibraryTab.LOCAL to state.localCount,
+                    listOf(
+                        LibraryActions.select,
+                        GamepadAction(
+                            button = GamepadButton.SELECT,
+                            labelResId = R.string.options,
+                            onClick = { onOptionsPanelToggle(true) },
                         ),
-                        onTabSelected = onTabChanged,
-                        onOptionsClick = { onOptionsPanelToggle(true) },
-                        onSearchClick = { onIsSearching(true) },
-                        onAddGameClick = onAddCustomGameClick,
-                        onMenuClick = { isSystemMenuOpen = true },
-                        onNavigateDownToGrid = {
-                            if (isListFocusable()) {
-                                requestContentFocusOrDefer()
-                            }
+                        GamepadAction(
+                            button = GamepadButton.START,
+                            labelResId = R.string.action_system,
+                            onClick = { isSystemMenuOpen = true },
+                        ),
+                        GamepadAction(
+                            button = GamepadButton.B,
+                            labelResId = R.string.back,
+                            onClick = { isSystemMenuOpen = true },
+                        ),
+                        GamepadAction(
+                            button = GamepadButton.Y,
+                            labelResId = R.string.search,
+                            onClick = { onIsSearching(true) },
+                        ),
+                    ) + listOfNotNull(
+                        focusedLibraryItem()?.let { item ->
+                            GamepadAction(
+                                button = GamepadButton.X,
+                                labelResId = if (item.appId in favorites) {
+                                    R.string.option_remove_from_favorites
+                                } else {
+                                    R.string.option_add_to_favorites
+                                },
+                                onClick = { toggleFocusedFavorite() },
+                            )
                         },
-                        onPreviousTab = onPreviousTab,
-                        onNextTab = onNextTab,
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .padding(top = 26.dp)
-                            .fillMaxWidth()
-                            .onFocusChanged { focusState ->
-                                tabBarHasFocus = focusState.hasFocus
-                                // Cancel any deferred grid-focus so the retry loop can't pull focus
-                                // back off a tab-bar button the user just landed on.
-                                if (focusState.hasFocus) {
-                                    pendingGridFocusRequest = false
-                                    pendingCarouselFocusRequest = false
-                                }
-                            },
                     )
                 }
-            }
-        } else {
-            LibraryDetailPane(
-                libraryItem = selectedLibraryItem,
-                onBack = {
-                    selectedAppId = null
-                    selectedLibraryItem = null
-                },
-                onClickPlay = {
-                    selectedLibraryItem?.let { libraryItem ->
-                        onClickPlay(libraryItem.appId, it)
-                    }
-                },
-                onTestGraphics = {
-                    selectedLibraryItem?.let { libraryItem ->
-                        onTestGraphics(libraryItem.appId)
-                    }
-                },
-                onPlayWithDiagnostics = {
-                    selectedLibraryItem?.let { libraryItem ->
-                        onPlayWithDiagnostics(libraryItem.appId)
-                    }
-                },
-            )
-        }
 
-        // Bottom action bar
-        if (selectedAppId == null && !state.isOptionsPanelOpen && !isSystemMenuOpen) {
-            val libraryActions = if (state.isSearching) {
-                listOf(
-                    LibraryActions.select,
-                    GamepadAction(
-                        button = GamepadButton.B,
-                        labelResId = R.string.back,
-                        onClick = {
-                            onIsSearching(false)
-                            onSearchQuery("")
-                        },
-                    ),
+                GamepadActionBar(
+                    actions = libraryActions,
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    visible = true,
                 )
-            } else {
-                listOf(
-                    LibraryActions.select,
-                    GamepadAction(
-                        button = GamepadButton.SELECT,
-                        labelResId = R.string.options,
-                        onClick = { onOptionsPanelToggle(true) },
-                    ),
-                    GamepadAction(
-                        button = GamepadButton.START,
-                        labelResId = R.string.action_system,
-                        onClick = { isSystemMenuOpen = true },
-                    ),
-                    GamepadAction(
-                        button = GamepadButton.B,
-                        labelResId = R.string.menu,
-                        onClick = { isSystemMenuOpen = true },
-                    ),
-                    GamepadAction(
-                        button = GamepadButton.Y,
-                        labelResId = R.string.search,
-                        onClick = { onIsSearching(true) },
-                    ),
-                ) + listOfNotNull(
-                    focusedLibraryItem()?.let { item ->
-                        GamepadAction(
-                            button = GamepadButton.X,
-                            labelResId = if (item.appId in favorites) {
-                                R.string.option_remove_from_favorites
-                            } else {
-                                R.string.option_add_to_favorites
-                            },
-                            onClick = { toggleFocusedFavorite() },
+            }
+
+            if (selectedAppId == null) {
+                LibraryOptionsPanel(
+                    isOpen = state.isOptionsPanelOpen,
+                    onDismiss = { onOptionsPanelToggle(false) },
+                    selectedFilters = state.appInfoSortType,
+                    onFilterChanged = onFilterChanged,
+                    currentSortOption = state.currentSortOption,
+                    onSortOptionChanged = onSortOptionChanged,
+                    currentView = currentPaneType,
+                    onViewChanged = { newPaneType ->
+                    currentPaneType = newPaneType
+                    PrefManager.setLibraryLayout(isLandscape, isControllerConnected, newPaneType)
+                },
+                    steamCollections = state.steamCollections,
+                    selectedSteamCollectionIds = state.selectedSteamCollectionIds,
+                    steamCollectionCounts = state.steamCollectionCounts,
+                    skippedDynamicCollections = state.skippedDynamicCollections,
+                    isSteamConnected = isSteamConnected,
+                    isOffline = isOffline,
+                    onSteamCollectionToggle = onSteamCollectionToggle,
+                    onClearSteamCollections = onClearSteamCollections,
+                )
+
+                val gogLoggedIn = GOGAuthManager.hasStoredCredentials(context)
+                val epicLoggedIn = EpicAuthManager.hasStoredCredentials(context)
+                val amazonLoggedIn = AmazonAuthManager.hasStoredCredentials(context)
+
+                SystemMenu(
+                    isOpen = isSystemMenuOpen,
+                    onDismiss = { isSystemMenuOpen = false },
+                    onNavigateRoute = onNavigateRoute,
+                    onDownloadsClick = onDownloadsClick,
+                    onLogout = onLogout,
+                    onGoOnline = onGoOnline,
+                    isOffline = isOffline,
+                    gogLoggedIn = gogLoggedIn,
+                    epicLoggedIn = epicLoggedIn,
+                    amazonLoggedIn = amazonLoggedIn,
+                    onGogLoginClick = {
+                        gogOAuthLauncher.launch(Intent(context, GOGOAuthActivity::class.java))
+                    },
+                    onGogLogoutClick = {
+                        PlatformAuthUiHelpers.logoutGog(
+                            context = context,
+                            scope = lifecycleScope,
+                            callbacks = PlatformLogoutCallbacks(),
+                        )
+                    },
+                    onEpicLoginClick = {
+                        epicOAuthLauncher.launch(Intent(context, EpicOAuthActivity::class.java))
+                    },
+                    onEpicLogoutClick = {
+                        PlatformAuthUiHelpers.logoutEpic(
+                            context = context,
+                            scope = lifecycleScope,
+                            callbacks = PlatformLogoutCallbacks(),
+                        )
+                    },
+                    onAmazonLoginClick = {
+                        amazonOAuthLauncher.launch(Intent(context, AmazonOAuthActivity::class.java))
+                    },
+                    onAmazonLogoutClick = {
+                        PlatformAuthUiHelpers.logoutAmazon(
+                            context = context,
+                            scope = lifecycleScope,
+                            callbacks = PlatformLogoutCallbacks(),
                         )
                     },
                 )
             }
+        }
 
-            GamepadActionBar(
-                actions = libraryActions,
-                modifier = Modifier.align(Alignment.BottomCenter),
-                visible = true,
+        // Add Android App Picker
+        if (showAndroidAppPicker) {
+            AndroidAppPicker(
+                onAppSelected = { app ->
+                    onAddAndroidApp(app.packageName)
+                    showAndroidAppPicker = false
+                },
+                onDismiss = { showAndroidAppPicker = false }
             )
         }
 
-        // Options panel (SELECT) - renders on top of everything
-        if (selectedAppId == null) {
-            LibraryOptionsPanel(
-                isOpen = state.isOptionsPanelOpen,
-                onDismiss = { onOptionsPanelToggle(false) },
-                selectedFilters = state.appInfoSortType,
-                onFilterChanged = onFilterChanged,
-                currentSortOption = state.currentSortOption,
-                onSortOptionChanged = onSortOptionChanged,
-                currentView = currentPaneType,
-                onViewChanged = { newPaneType ->
-                    PrefManager.libraryLayout = newPaneType
-                    currentPaneType = newPaneType
-                },
-                steamCollections = state.steamCollections,
-                selectedSteamCollectionIds = state.selectedSteamCollectionIds,
-                steamCollectionCounts = state.steamCollectionCounts,
-                skippedDynamicCollections = state.skippedDynamicCollections,
-                isSteamConnected = isSteamConnected,
-                isOffline = isOffline,
-                onSteamCollectionToggle = onSteamCollectionToggle,
-                onClearSteamCollections = onClearSteamCollections,
-            )
+        // Dual Import Type Dialog
+        if (showImportTypeDialog) {
+            AlertDialog(
+                onDismissRequest = { showImportTypeDialog = false },
+                title = { Text(stringResource(R.string.add_custom_game_dialog_title)) },
+                text = {
+                    Column {
+                        // Import PC
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showImportTypeDialog = false
+                                    if (BuildConfig.MODERN_ANDROID) {
+                                        showModernImportDialog = true
+                                    } else if (PrefManager.showAddCustomGameDialog) {
+                                        showAddCustomGameDialog = true
+                                    } else {
+                                        folderPicker.launchPicker()
+                                    }
+                                }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.DesktopWindows, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text(stringResource(R.string.import_pc), style = MaterialTheme.typography.titleMedium)
+                                Text(stringResource(R.string.import_pc_desc), style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
 
-            // System menu (START) - renders on top of everything
-            val context = LocalContext.current
-            val gogLoggedIn = app.gamenative.service.gog.GOGAuthManager.hasStoredCredentials(context)
-            val epicLoggedIn = app.gamenative.service.epic.EpicAuthManager.hasStoredCredentials(context)
-            val amazonLoggedIn = app.gamenative.service.amazon.AmazonAuthManager.hasStoredCredentials(context)
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-            SystemMenu(
-                isOpen = isSystemMenuOpen,
-                onDismiss = { isSystemMenuOpen = false },
-                onNavigateRoute = onNavigateRoute,
-                onDownloadsClick = onDownloadsClick,
-                onLogout = onLogout,
-                onGoOnline = onGoOnline,
-                isOffline = isOffline,
-                gogLoggedIn = gogLoggedIn,
-                epicLoggedIn = epicLoggedIn,
-                amazonLoggedIn = amazonLoggedIn,
-                onGogLoginClick = {
-                    gogOAuthLauncher.launch(Intent(context, GOGOAuthActivity::class.java))
+                        // Import App
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showImportTypeDialog = false
+                                    showAndroidAppPicker = true
+                                }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Android, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text(stringResource(R.string.import_app), style = MaterialTheme.typography.titleMedium)
+                                Text(stringResource(R.string.import_app_desc), style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
                 },
-                onGogLogoutClick = {
-                    PlatformAuthUiHelpers.logoutGog(
-                        context = context,
-                        scope = lifecycleScope,
-                        callbacks = PlatformLogoutCallbacks(),
-                    )
-                },
-                onEpicLoginClick = {
-                    epicOAuthLauncher.launch(Intent(context, EpicOAuthActivity::class.java))
-                },
-                onEpicLogoutClick = {
-                    PlatformAuthUiHelpers.logoutEpic(
-                        context = context,
-                        scope = lifecycleScope,
-                        callbacks = PlatformLogoutCallbacks(),
-                    )
-                },
-                onAmazonLoginClick = {
-                    amazonOAuthLauncher.launch(Intent(context, AmazonOAuthActivity::class.java))
-                },
-                onAmazonLogoutClick = {
-                    PlatformAuthUiHelpers.logoutAmazon(
-                        context = context,
-                        scope = lifecycleScope,
-                        callbacks = PlatformLogoutCallbacks(),
-                    )
-                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { showImportTypeDialog = false }) { Text(stringResource(R.string.cancel)) }
+                }
             )
         }
 
@@ -1654,7 +1051,7 @@ private fun LibraryScreenContent(
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            app.gamenative.utils.HapticManager.trigger(app.gamenative.utils.HapticManager.HapticType.CLICK)
+                            HapticManager.trigger(HapticManager.HapticType.CLICK)
                             showModernImportDialog = false
                             importLauncher.launch(null)
                         },
@@ -1664,7 +1061,7 @@ private fun LibraryScreenContent(
                 },
                 dismissButton = {
                     TextButton(onClick = {
-                        app.gamenative.utils.HapticManager.trigger(app.gamenative.utils.HapticManager.HapticType.CLICK)
+                        HapticManager.trigger(HapticManager.HapticType.CLICK)
                         showModernImportDialog = false
                     }) {
                         Text(stringResource(R.string.cancel))
@@ -1697,6 +1094,7 @@ private fun LibraryScreenContent(
 
         // Add custom game dialog
         if (showAddCustomGameDialog) {
+            var dontShowAgain by remember { mutableStateOf(false) }
             AlertDialog(
                 onDismissRequest = { showAddCustomGameDialog = false },
                 title = { Text(stringResource(R.string.add_custom_game_dialog_title)) },
@@ -1744,85 +1142,5 @@ private fun LibraryScreenContent(
                 },
             )
         }
-        }
-    }
-}
-
-/***********
- * PREVIEW *
- ***********/
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Preview(uiMode = Configuration.UI_MODE_NIGHT_YES or Configuration.UI_MODE_TYPE_NORMAL)
-@Preview(
-    uiMode = Configuration.UI_MODE_NIGHT_YES or Configuration.UI_MODE_TYPE_NORMAL,
-    device = "spec:width=1080px,height=1920px,dpi=440,orientation=landscape",
-)
-@Preview(
-    uiMode = Configuration.UI_MODE_NIGHT_YES or Configuration.UI_MODE_TYPE_NORMAL,
-    device = "id:pixel_tablet",
-)
-@Composable
-private fun Preview_LibraryScreenContent() {
-    val sheetState = rememberModalBottomSheetState()
-    val context = LocalContext.current
-    PrefManager.init(context)
-    var state by remember {
-        mutableStateOf(
-            LibraryState(
-                appInfoList = List(15) { idx ->
-                    val item = fakeAppInfo(idx)
-                    LibraryItem(
-                        index = idx,
-                        appId = "${GameSource.STEAM.name}_${item.id}",
-                        name = item.name,
-                        iconHash = item.iconHash,
-                    )
-                },
-                // Add compatibility map for preview
-                compatibilityMap = mapOf(
-                    "Game 0" to GameCompatibilityStatus.COMPATIBLE,
-                    "Game 1" to GameCompatibilityStatus.GPU_COMPATIBLE,
-                    "Game 2" to GameCompatibilityStatus.NOT_COMPATIBLE,
-                    "Game 3" to GameCompatibilityStatus.UNKNOWN,
-                ),
-            ),
-        )
-    }
-    PluviaTheme {
-        LibraryScreenContent(
-            listState = rememberLazyGridState(),
-            state = state,
-            sheetState = sheetState,
-            onIsSearching = {},
-            onSearchQuery = {},
-            onFilterChanged = { },
-            onPageChange = { },
-            onModalBottomSheet = {
-                val currentState = state.modalBottomSheet
-                println("State: $currentState")
-                state = state.copy(modalBottomSheet = !currentState)
-            },
-            onClickPlay = { _, _ -> },
-            onTestGraphics = { },
-            onPlayWithDiagnostics = { },
-            onRefresh = { },
-            onNavigateRoute = {},
-            onLogout = {},
-            onGoOnline = {},
-            onSourceToggle = {},
-            onAddCustomGameFolder = {},
-            onSortOptionChanged = {},
-            onSteamCollectionToggle = {},
-            onClearSteamCollections = {},
-            onOptionsPanelToggle = { isOpen ->
-                state = state.copy(isOptionsPanelOpen = isOpen)
-            },
-            onTabChanged = { tab ->
-                state = state.copy(currentTab = tab)
-            },
-            onPreviousTab = {},
-            onNextTab = {},
-        )
     }
 }

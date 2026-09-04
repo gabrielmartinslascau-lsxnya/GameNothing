@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.graphicsLayer
@@ -23,6 +24,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.data.LibraryItem
 import app.gamenative.ui.enums.PaneType
@@ -42,6 +44,13 @@ internal fun LibraryDynamicBackdrop(
 ) {
     val context = LocalContext.current
     val scrimColor = MaterialTheme.colorScheme.scrim
+
+    // Completely ignore game-hover backgrounds if live wallpaper is active
+    if (PrefManager.videoBackgroundPath.isNotEmpty()) {
+        Box(modifier = modifier.fillMaxSize())
+        return
+    }
+
     val desaturate = remember {
         ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0.25f) })
     }
@@ -49,14 +58,20 @@ internal fun LibraryDynamicBackdrop(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.background,
-                        PluviaTheme.colors.surfacePanel,
-                        MaterialTheme.colorScheme.background,
-                    ),
-                ),
+            .then(
+                if (PrefManager.videoBackgroundPath.isNotEmpty()) {
+                    Modifier.background(Color.Transparent)
+                } else {
+                    Modifier.background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.background,
+                                PluviaTheme.colors.surfacePanel,
+                                MaterialTheme.colorScheme.background,
+                            ),
+                        )
+                    )
+                }
             ),
     ) {
         Crossfade(

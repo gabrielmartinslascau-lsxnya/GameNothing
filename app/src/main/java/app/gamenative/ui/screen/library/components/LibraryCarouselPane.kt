@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -358,6 +359,8 @@ internal fun LibraryCarouselPane(
 
     Scaffold(
         modifier = modifier,
+        containerColor = if (PrefManager.videoBackgroundPath.isNotEmpty()) Color.Transparent
+                        else MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->
         PullToRefreshBox(
@@ -424,6 +427,7 @@ internal fun LibraryCarouselPane(
                                     val item = state.appInfoList[listIndex]
                                     if (item.recSource == "hero") "HERO_SLOT" else item.appId
                                 },
+                                contentType = { "carousel_item" }
                             ) { listIndex ->
                                 val item = state.appInfoList[listIndex]
 
@@ -583,10 +587,10 @@ internal fun LibraryCarouselPane(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         contentPadding = PaddingValues(
-                            start = scrollOffsetDp,
-                            end = scrollOffsetDp,
-                            top = carouselTopMargin,
-                            bottom = carouselBottomMargin,
+                            start = scrollOffsetDp.coerceAtLeast(0.dp),
+                            end = scrollOffsetDp.coerceAtLeast(0.dp),
+                            top = carouselTopMargin.coerceAtLeast(0.dp),
+                            bottom = carouselBottomMargin.coerceAtLeast(0.dp),
                         ),
                     ) {
                         items(6) {

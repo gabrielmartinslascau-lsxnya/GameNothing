@@ -84,6 +84,8 @@ fun LibraryTabBar(
     onNavigateDownToGrid: () -> Unit,
     onPreviousTab: () -> Unit = {},
     onNextTab: () -> Unit = {},
+    isScrolling: Boolean = false,
+    distortionStrength: Float? = null,
     modifier: Modifier = Modifier,
 ) {
     val widthClass = rememberWindowWidthClass()
@@ -100,6 +102,8 @@ fun LibraryTabBar(
             onNavigateDownToGrid = onNavigateDownToGrid,
             onPreviousTab = onPreviousTab,
             onNextTab = onNextTab,
+            isScrolling = isScrolling,
+            distortionStrength = distortionStrength,
             modifier = modifier,
         )
 
@@ -114,6 +118,8 @@ fun LibraryTabBar(
             onNavigateDownToGrid = onNavigateDownToGrid,
             onPreviousTab = onPreviousTab,
             onNextTab = onNextTab,
+            isScrolling = isScrolling,
+            distortionStrength = distortionStrength,
             modifier = modifier,
         )
     }
@@ -135,6 +141,8 @@ private fun CompactLibraryTabBar(
     onNavigateDownToGrid: () -> Unit,
     onPreviousTab: () -> Unit,
     onNextTab: () -> Unit,
+    isScrolling: Boolean = false,
+    distortionStrength: Float? = null,
     modifier: Modifier = Modifier,
 ) {
     val tabs = LibraryTab.visibleEntries
@@ -157,7 +165,9 @@ private fun CompactLibraryTabBar(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 6.dp),
-        cornerRadius = 16
+        cornerRadius = 16,
+        isScrolling = isScrolling,
+        distortionStrength = distortionStrength
     ) {
         Row(
             modifier = Modifier
@@ -360,6 +370,8 @@ private fun ExpandedLibraryTabBar(
     onNavigateDownToGrid: () -> Unit,
     onPreviousTab: () -> Unit,
     onNextTab: () -> Unit,
+    isScrolling: Boolean = false,
+    distortionStrength: Float? = null,
     modifier: Modifier = Modifier,
 ) {
     val tabs = LibraryTab.visibleEntries
@@ -403,7 +415,9 @@ private fun ExpandedLibraryTabBar(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 6.dp),
-        cornerRadius = 16
+        cornerRadius = 16,
+        isScrolling = isScrolling,
+        distortionStrength = distortionStrength
     ) {
         Row(
             modifier = Modifier

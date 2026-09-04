@@ -760,5 +760,7 @@ internal fun getGridImageUrl(
                     fallback = appInfo.heroImageUrl,
                 )
         }
+
+        GameSource.ANDROID_APP -> GridImageUrls(primary = "android-app://${appInfo.appId.substringAfter("ANDROID_APP_")}")
     }
 }

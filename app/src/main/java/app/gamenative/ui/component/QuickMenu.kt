@@ -200,16 +200,16 @@ private enum class PerformanceHudPreset(val labelResId: Int) {
 
 private fun applyPerformanceHudPreset(currentConfig: PerformanceHudConfig, preset: PerformanceHudPreset): PerformanceHudConfig {
     return when (preset) {
-        PerformanceHudPreset.FPS_ONLY -> currentConfig.copy(showFrameRate = true, showCpuUsage = false, showGpuUsage = false, showRamUsage = false, showBatteryLevel = false, showPowerDraw = false, showBatteryRuntime = false, showBatteryTemperature = false, showClockTime = false, showCpuTemperature = false, showGpuTemperature = false, showFrameRateGraph = false, showCpuUsageGraph = false, showGpuUsageGraph = false)
-        PerformanceHudPreset.ESSENTIAL -> currentConfig.copy(showFrameRate = true, showCpuUsage = true, showGpuUsage = true, showRamUsage = true, showBatteryLevel = false, showPowerDraw = false, showBatteryRuntime = false, showBatteryTemperature = false, showClockTime = false, showCpuTemperature = false, showGpuTemperature = false, showFrameRateGraph = false, showCpuUsageGraph = false, showGpuUsageGraph = false)
-        PerformanceHudPreset.BATTERY -> currentConfig.copy(showFrameRate = true, showCpuUsage = true, showGpuUsage = true, showRamUsage = true, showBatteryLevel = true, showPowerDraw = false, showBatteryRuntime = true, showBatteryTemperature = true, showClockTime = false, showCpuTemperature = false, showGpuTemperature = false, showFrameRateGraph = true, showCpuUsageGraph = false, showGpuUsageGraph = false)
-        PerformanceHudPreset.FULL -> currentConfig.copy(showFrameRate = true, showCpuUsage = true, showGpuUsage = true, showRamUsage = true, showBatteryLevel = true, showPowerDraw = true, showBatteryRuntime = true, showBatteryTemperature = true, showClockTime = true, showCpuTemperature = true, showGpuTemperature = true, showFrameRateGraph = true, showCpuUsageGraph = true, showGpuUsageGraph = true)
+        PerformanceHudPreset.FPS_ONLY -> currentConfig.copy(showFrameRate = true, showRefreshRate = false, showCpuUsage = false, showGpuUsage = false, showRamUsage = false, showBatteryLevel = false, showPowerDraw = false, showBatteryRuntime = false, showBatteryTemperature = false, showClockTime = false, showCpuTemperature = false, showGpuTemperature = false, showFrameRateGraph = false, showCpuUsageGraph = false, showGpuUsageGraph = false)
+        PerformanceHudPreset.ESSENTIAL -> currentConfig.copy(showFrameRate = true, showRefreshRate = true, showCpuUsage = true, showGpuUsage = true, showRamUsage = true, showBatteryLevel = false, showPowerDraw = false, showBatteryRuntime = false, showBatteryTemperature = false, showClockTime = false, showCpuTemperature = false, showGpuTemperature = false, showFrameRateGraph = false, showCpuUsageGraph = false, showGpuUsageGraph = false)
+        PerformanceHudPreset.BATTERY -> currentConfig.copy(showFrameRate = true, showRefreshRate = true, showCpuUsage = true, showGpuUsage = true, showRamUsage = true, showBatteryLevel = true, showPowerDraw = false, showBatteryRuntime = true, showBatteryTemperature = true, showClockTime = false, showCpuTemperature = false, showGpuTemperature = false, showFrameRateGraph = true, showCpuUsageGraph = false, showGpuUsageGraph = false)
+        PerformanceHudPreset.FULL -> currentConfig.copy(showFrameRate = true, showRefreshRate = true, showCpuUsage = true, showGpuUsage = true, showRamUsage = true, showBatteryLevel = true, showPowerDraw = true, showBatteryRuntime = true, showBatteryTemperature = true, showClockTime = true, showCpuTemperature = true, showGpuTemperature = true, showFrameRateGraph = true, showCpuUsageGraph = true, showGpuUsageGraph = true)
     }
 }
 
 private fun matchesPerformanceHudPreset(currentConfig: PerformanceHudConfig, preset: PerformanceHudPreset): Boolean {
     val p = applyPerformanceHudPreset(currentConfig, preset)
-    return currentConfig.showFrameRate == p.showFrameRate && currentConfig.showCpuUsage == p.showCpuUsage && currentConfig.showGpuUsage == p.showGpuUsage && currentConfig.showRamUsage == p.showRamUsage && currentConfig.showBatteryLevel == p.showBatteryLevel && currentConfig.showPowerDraw == p.showPowerDraw && currentConfig.showBatteryRuntime == p.showBatteryRuntime && currentConfig.showBatteryTemperature == p.showBatteryTemperature && currentConfig.showClockTime == p.showClockTime && currentConfig.showCpuTemperature == p.showCpuTemperature && currentConfig.showGpuTemperature == p.showGpuTemperature && currentConfig.showFrameRateGraph == p.showFrameRateGraph && currentConfig.showCpuUsageGraph == p.showCpuUsageGraph && currentConfig.showGpuUsageGraph == p.showGpuUsageGraph
+    return currentConfig.showFrameRate == p.showFrameRate && currentConfig.showRefreshRate == p.showRefreshRate && currentConfig.showCpuUsage == p.showCpuUsage && currentConfig.showGpuUsage == p.showGpuUsage && currentConfig.showRamUsage == p.showRamUsage && currentConfig.showBatteryLevel == p.showBatteryLevel && currentConfig.showPowerDraw == p.showPowerDraw && currentConfig.showBatteryRuntime == p.showBatteryRuntime && currentConfig.showBatteryTemperature == p.showBatteryTemperature && currentConfig.showClockTime == p.showClockTime && currentConfig.showCpuTemperature == p.showCpuTemperature && currentConfig.showGpuTemperature == p.showGpuTemperature && currentConfig.showFrameRateGraph == p.showFrameRateGraph && currentConfig.showCpuUsageGraph == p.showCpuUsageGraph && currentConfig.showGpuUsageGraph == p.showGpuUsageGraph
 }
 
 class ImmersiveInputBypass(
@@ -509,6 +509,7 @@ private fun PerformanceHudQuickMenuTab(isPerformanceHudEnabled: Boolean, config:
         Spacer(modifier = Modifier.height(8.dp)); QuickMenuSectionHeader(title = stringResource(R.string.performance_hud_metrics))
         QuickMenuToggleRow(title = stringResource(R.string.performance_hud_frame_rate), enabled = config.showFrameRate, onToggle = { onConfigChanged(config.copy(showFrameRate = !config.showFrameRate)) }, accentColor = accentColor)
         QuickMenuToggleRow(title = stringResource(R.string.performance_hud_frame_rate_graph), enabled = config.showFrameRateGraph, onToggle = { onConfigChanged(config.copy(showFrameRateGraph = !config.showFrameRateGraph)) }, accentColor = accentColor)
+        QuickMenuToggleRow(title = stringResource(R.string.performance_hud_refresh_rate), enabled = config.showRefreshRate, onToggle = { onConfigChanged(config.copy(showRefreshRate = !config.showRefreshRate)) }, accentColor = accentColor)
         QuickMenuToggleRow(title = stringResource(R.string.performance_hud_cpu_usage), enabled = config.showCpuUsage, onToggle = { onConfigChanged(config.copy(showCpuUsage = !config.showCpuUsage)) }, accentColor = accentColor)
         QuickMenuToggleRow(title = stringResource(R.string.performance_hud_cpu_usage_graph), enabled = config.showCpuUsageGraph, onToggle = { onConfigChanged(config.copy(showCpuUsageGraph = !config.showCpuUsageGraph)) }, accentColor = accentColor)
         QuickMenuToggleRow(title = stringResource(R.string.performance_hud_gpu_usage), enabled = config.showGpuUsage, onToggle = { onConfigChanged(config.copy(showGpuUsage = !config.showGpuUsage)) }, accentColor = accentColor)
@@ -701,55 +702,16 @@ private fun LooksQuickMenuTab(
             exit = shrinkVertically() + fadeOut()
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                val glassModes = GlassMode.entries
-
-                HapticSettingsMenuLink(
-                    colors = settingsTileColorsAlt(),
-                    title = { Text("Glass Mode") },
-                    subtitle = { Text(stringResource(looks.glassMode.labelResId)) },
-                    onClick = {
-                        val nextIndex = (looks.glassMode.ordinal + 1) % glassModes.size
-                        viewModel.setGlassMode(glassModes[nextIndex])
-                    }
-                )
-
-                val effectiveMode = when (looks.glassMode) {
-                    GlassMode.LIQUID -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) GlassMode.LIQUID else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) GlassMode.TRUE else GlassMode.STANDARD
-                    GlassMode.TRUE -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) GlassMode.TRUE else GlassMode.STANDARD
-                    GlassMode.STANDARD -> GlassMode.STANDARD
-                }
-
-                val title = when (effectiveMode) {
-                    GlassMode.LIQUID -> "Liquid Distortion"
-                    GlassMode.TRUE -> "Blur Intensiveness"
-                    GlassMode.STANDARD -> "Glass Transparency"
-                }
-
+                // Liquid Glass is now the sole renderer.
                 QuickMenuAdjustmentRow(
-                    title = title,
-                    valueText = when (effectiveMode) {
-                        GlassMode.STANDARD -> "${(looks.glassTransparency * 100).roundToInt()}%"
-                        GlassMode.TRUE -> "${looks.blurIntensiveness.roundToInt()}px"
-                        GlassMode.LIQUID -> String.format(Locale.US, "%.1fx", 1f + looks.liquidDistortion * 9f)
-                    },
-                    progress = when (effectiveMode) {
-                        GlassMode.STANDARD -> looks.glassTransparency
-                        GlassMode.TRUE -> (looks.blurIntensiveness - 1f) / 49f
-                        GlassMode.LIQUID -> looks.liquidDistortion
-                    },
+                    title = "Liquid Distortion",
+                    valueText = String.format(Locale.US, "%.1fx", 1f + looks.liquidDistortion * 9f),
+                    progress = looks.liquidDistortion,
                     onDecrease = {
-                        when (effectiveMode) {
-                            GlassMode.STANDARD -> viewModel.setGlassTransparency((looks.glassTransparency - 0.05f).coerceIn(0f, 1f))
-                            GlassMode.TRUE -> viewModel.setBlurIntensiveness((looks.blurIntensiveness - 2f).coerceIn(1f, 50f))
-                            GlassMode.LIQUID -> viewModel.setLiquidDistortion((looks.liquidDistortion - 0.05f).coerceIn(0f, 1f))
-                        }
+                        viewModel.setLiquidDistortion((looks.liquidDistortion - 0.05f).coerceIn(0f, 1f))
                     },
                     onIncrease = {
-                        when (effectiveMode) {
-                            GlassMode.STANDARD -> viewModel.setGlassTransparency((looks.glassTransparency + 0.05f).coerceIn(0f, 1f))
-                            GlassMode.TRUE -> viewModel.setBlurIntensiveness((looks.blurIntensiveness + 2f).coerceIn(1f, 50f))
-                            GlassMode.LIQUID -> viewModel.setLiquidDistortion((looks.liquidDistortion + 0.05f).coerceIn(0f, 1f))
-                        }
+                        viewModel.setLiquidDistortion((looks.liquidDistortion + 0.05f).coerceIn(0f, 1f))
                     },
                     accentColor = looks.mainColor
                 )

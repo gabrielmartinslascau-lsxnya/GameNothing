@@ -63,6 +63,7 @@ import app.gamenative.ui.theme.glassContentColor
 import app.gamenative.ui.theme.toColor
 import app.gamenative.ui.component.settings.HapticSettingsSwitch
 import app.gamenative.ui.theme.settingsTileColorsAlt
+import app.gamenative.ui.util.JoystickScrollHandler
 import app.gamenative.utils.HapticManager
 
 @Composable
@@ -72,14 +73,19 @@ fun TutorialScreen(
 ) {
     var currentPage by remember { mutableIntStateOf(0) }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val scrollState = rememberScrollState()
+
+    JoystickScrollHandler(scrollState = scrollState)
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
+        color = if (PrefManager.videoBackgroundPath.isNotEmpty()) Color.Transparent
+                else MaterialTheme.colorScheme.background
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(scrollState)
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {

@@ -32,6 +32,7 @@ import app.gamenative.db.dao.EpicGameDao
 import app.gamenative.db.dao.GOGGameDao
 import app.gamenative.db.dao.LibraryPlayHistoryDao
 import app.gamenative.db.dao.SteamAppDao
+import app.gamenative.di.IAppTheme
 import app.gamenative.events.AndroidEvent
 import app.gamenative.service.DownloadService
 import app.gamenative.service.SteamService
@@ -42,6 +43,8 @@ import app.gamenative.service.gog.GOGAuthManager
 import app.gamenative.service.gog.GOGService
 import app.gamenative.steam.SteamCollectionFilter
 import app.gamenative.ui.data.LibraryState
+import app.gamenative.ui.data.GameViewState
+import app.gamenative.ui.data.GameMetadata
 import app.gamenative.ui.data.statsFor
 import app.gamenative.ui.enums.AppFilter
 import app.gamenative.ui.enums.LibraryTab
@@ -51,6 +54,7 @@ import app.gamenative.ui.enums.SortOption
 import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.utils.CustomGameImporter
 import app.gamenative.utils.CustomGameScanner
+import app.gamenative.utils.GameMetadataService
 import app.gamenative.utils.DeviceGameStatsCache
 import app.gamenative.utils.GameCompatibilityCache
 import app.gamenative.utils.GameCompatibilityService
@@ -92,6 +96,7 @@ class LibraryViewModel @Inject constructor(
     private val gogGameDao: GOGGameDao,
     private val epicGameDao: EpicGameDao,
     private val amazonGameDao: AmazonGameDao,
+    private val appTheme: IAppTheme,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -119,6 +124,10 @@ class LibraryViewModel @Inject constructor(
             onFilterApps(paginationCurrentPage)
         }
         refreshRecommendationHero()
+    }
+
+    private val onMoveCustomGame: (AndroidEvent.MoveCustomGame) -> Unit = { event ->
+        moveCustomGame(event.appId, event.targetPath)
     }
 
     // How many items loaded on one page of results
@@ -314,9 +323,29 @@ class LibraryViewModel @Inject constructor(
             }
         }
 
+        // Collect video background preferences
+        viewModelScope.launch {
+            appTheme.videoBackgroundPathFlow.collect { value ->
+                _state.update { it.copy(videoBackgroundPath = value) }
+            }
+        }
+
+        viewModelScope.launch {
+            appTheme.videoBackgroundDimAlphaFlow.collect { value ->
+                _state.update { it.copy(videoBackgroundDimAlpha = value) }
+            }
+        }
+
+        viewModelScope.launch {
+            appTheme.mainColorFlow.collect { value ->
+                _state.update { it.copy(mainColor = value) }
+            }
+        }
+
         PluviaApp.events.on<AndroidEvent.LibraryInstallStatusChanged, Unit>(onInstallStatusChanged)
         PluviaApp.events.on<AndroidEvent.CustomGameImagesFetched, Unit>(onCustomGameImagesFetched)
         PluviaApp.events.on<AndroidEvent.RecommendationToggleChanged, Unit>(onRecommendationToggleChanged)
+        PluviaApp.events.on<AndroidEvent.MoveCustomGame, Unit>(onMoveCustomGame)
 
         refreshRecommendationHero()
     }
@@ -361,6 +390,7 @@ class LibraryViewModel @Inject constructor(
         PluviaApp.events.off<AndroidEvent.LibraryInstallStatusChanged, Unit>(onInstallStatusChanged)
         PluviaApp.events.off<AndroidEvent.CustomGameImagesFetched, Unit>(onCustomGameImagesFetched)
         PluviaApp.events.off<AndroidEvent.RecommendationToggleChanged, Unit>(onRecommendationToggleChanged)
+        PluviaApp.events.off<AndroidEvent.MoveCustomGame, Unit>(onMoveCustomGame)
         super.onCleared()
     }
 
@@ -404,6 +434,7 @@ class LibraryViewModel @Inject constructor(
                 PrefManager.showAmazonInLibrary = newValue
                 _state.update { it.copy(showAmazonInLibrary = newValue) }
             }
+            GameSource.ANDROID_APP -> {}
         }
         onFilterApps(paginationCurrentPage)
     }
@@ -606,6 +637,73 @@ class LibraryViewModel @Inject constructor(
 
             CustomGameScanner.invalidateCache()
             onFilterApps(paginationCurrentPage)
+        }
+    }
+
+    fun addAndroidApp(packageName: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val shortcuts = PrefManager.androidAppShortcuts.toMutableSet()
+            if (!shortcuts.contains(packageName)) {
+                shortcuts.add(packageName)
+                PrefManager.androidAppShortcuts = shortcuts
+                onFilterApps(paginationCurrentPage)
+            }
+        }
+    }
+
+    fun moveCustomGame(appId: String, targetPath: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val sourcePath = CustomGameScanner.getFolderPathFromAppId(appId) ?: return@launch
+
+            // Update manual folders list
+            val manualFolders = PrefManager.customGameManualFolders.toMutableSet()
+            if (manualFolders.remove(sourcePath)) {
+                manualFolders.add(targetPath)
+                PrefManager.customGameManualFolders = manualFolders
+
+                // Invalidate scanner cache and refresh
+                CustomGameScanner.invalidateCache()
+                onFilterApps(paginationCurrentPage)
+
+                SnackbarManager.show("Game path updated to $targetPath")
+            }
+        }
+    }
+
+    fun onSetGameViewState(newState: GameViewState) {
+        _state.update { it.copy(gameViewState = newState) }
+    }
+
+    fun setMainColor(hex: String) {
+        appTheme.mainColor = hex
+    }
+
+    private var focusMetadataJob: Job? = null
+
+    fun onFocusedIndexChanged(index: Int) {
+        val list = _state.value.appInfoList
+        if (index in list.indices) {
+            val item = list[index]
+            focusMetadataJob?.cancel()
+            focusMetadataJob = viewModelScope.launch {
+                delay(300) // Debounce fast scrolling
+                fetchGameMetadata(item)
+            }
+        }
+    }
+
+    private fun fetchGameMetadata(item: LibraryItem) {
+        if (_state.value.gameMetadata.containsKey(item.appId)) return
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val metadata = GameMetadataService.fetchMetadata(item)
+            if (metadata != null) {
+                _state.update { currentState ->
+                    val updated = currentState.gameMetadata.toMutableMap()
+                    updated[item.appId] = metadata
+                    currentState.copy(gameMetadata = updated)
+                }
+            }
         }
     }
 
@@ -940,6 +1038,37 @@ class LibraryViewModel @Inject constructor(
                     )
                 }
 
+            // Filter Android Apps
+            val androidAppEntries = PrefManager.androidAppShortcuts
+                .mapNotNull { pkg ->
+                    try {
+                        val pm = context.packageManager
+                        val info = pm.getApplicationInfo(pkg, 0)
+                        val name = info.loadLabel(pm).toString()
+                        val appId = "${GameSource.ANDROID_APP.name}_$pkg"
+
+                        if (currentState.searchQuery.isNotEmpty() && !matches(name, currentState.searchQuery)) {
+                            return@mapNotNull null
+                        }
+
+                        LibraryEntry(
+                            item = LibraryItem(
+                                index = 0,
+                                appId = appId,
+                                name = name,
+                                iconHash = pkg,
+                                capsuleImageUrl = "", // Handled by clientIconUrl in LibraryItem
+                                gameSource = GameSource.ANDROID_APP,
+                                isInstalled = true
+                            ),
+                            isInstalled = true,
+                            lastPlayed = lastPlayedFor(appId)
+                        )
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+
             // Calculate installed counts
             val gogInstalledCount = filteredGOGGames.count { it.isInstalled }
             val epicInstalledCount = filteredEpicGames.count { it.isInstalled }
@@ -999,6 +1128,18 @@ class LibraryViewModel @Inject constructor(
                 ) &&
                 AmazonService.hasStoredCredentials(context)
 
+            val includeAndroidApp = currentTab == LibraryTab.ALL ||
+                currentTab == LibraryTab.LOCAL
+
+            val allEntries = buildList {
+                if (includeSteam) addAll(steamEntries)
+                if (includeOpen) addAll(customEntries)
+                if (includeGOG) addAll(gogEntries)
+                if (includeEpic) addAll(epicEntries)
+                if (includeAmazon) addAll(amazonEntries)
+                if (includeAndroidApp) addAll(androidAppEntries)
+            }
+
             // Combine both lists and apply sort option
             val sortComparator: Comparator<LibraryEntry> = when (currentState.currentSortOption) {
                 SortOption.INSTALLED_FIRST -> compareBy<LibraryEntry> { entry ->
@@ -1050,6 +1191,7 @@ class LibraryViewModel @Inject constructor(
                 if (includeGOG && !steamCollectionSelected) addAll(gogEntries)
                 if (includeEpic && !steamCollectionSelected) addAll(epicEntries)
                 if (includeAmazon && !steamCollectionSelected) addAll(amazonEntries)
+                if (includeAndroidApp && !steamCollectionSelected) addAll(androidAppEntries)
             }.let { entries ->
                 if (currentTab == app.gamenative.ui.enums.LibraryTab.FAVORITES) {
                     FavoritesUtils.filter(entries, favoriteIds) { it.item.appId }

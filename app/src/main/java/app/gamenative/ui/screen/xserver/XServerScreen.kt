@@ -579,6 +579,7 @@ fun XServerScreen(
     fun loadPerformanceHudConfig(): PerformanceHudConfig {
         return PerformanceHudConfig(
             showFrameRate = PrefManager.performanceHudShowFrameRate,
+            showRefreshRate = PrefManager.performanceHudShowRefreshRate,
             showCpuUsage = PrefManager.performanceHudShowCpuUsage,
             showGpuUsage = PrefManager.performanceHudShowGpuUsage,
             showRamUsage = PrefManager.performanceHudShowRamUsage,
@@ -612,6 +613,7 @@ fun XServerScreen(
 
     fun persistPerformanceHudConfig(config: PerformanceHudConfig) {
         PrefManager.performanceHudShowFrameRate = config.showFrameRate
+        PrefManager.performanceHudShowRefreshRate = config.showRefreshRate
         PrefManager.performanceHudShowCpuUsage = config.showCpuUsage
         PrefManager.performanceHudShowGpuUsage = config.showGpuUsage
         PrefManager.performanceHudShowRamUsage = config.showRamUsage

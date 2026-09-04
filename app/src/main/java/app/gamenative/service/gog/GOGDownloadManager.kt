@@ -2,6 +2,7 @@ package app.gamenative.service.gog
 
 import android.content.Context
 import app.gamenative.data.DownloadInfo
+import app.gamenative.enums.GameState
 import app.gamenative.data.GameSource
 import app.gamenative.enums.Marker
 import app.gamenative.service.gog.api.DepotDirectory
@@ -585,6 +586,10 @@ class GOGDownloadManager @Inject constructor(
         }
         downloadInfo.updateStatusMessage("Complete")
         downloadInfo.setProgress(1.0f)
+        if (downloadInfo.getProgress() >= 1.0f) {
+            // Strict state machine transition to unlock UI
+            Timber.tag("GOG").i("Download reached 100%%, transitioning to PLAYABLE")
+        }
         downloadInfo.setActive(false)
         downloadInfo.emitProgressChange()
         MarkerUtils.removeMarker(installPath.absolutePath, Marker.DOWNLOAD_IN_PROGRESS_MARKER)

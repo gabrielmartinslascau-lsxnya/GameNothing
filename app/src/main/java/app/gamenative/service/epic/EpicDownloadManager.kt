@@ -3,6 +3,7 @@ package app.gamenative.service.epic
 import android.content.Context
 import android.util.Log
 import app.gamenative.PrefManager
+import app.gamenative.enums.GameState
 import app.gamenative.data.DownloadInfo
 import app.gamenative.data.EpicGame
 import app.gamenative.data.GameSource
@@ -360,6 +361,10 @@ class EpicDownloadManager @Inject constructor(
             downloadInfo.updateBytesDownloaded(downloadInfo.getTotalExpectedBytes() - downloadInfo.getBytesDownloaded())
             downloadInfo.clearPersistedBytesDownloaded(installPath)
             downloadInfo.setProgress(1.0f)
+            if (downloadInfo.getProgress() >= 1.0f) {
+                // Strict state machine transition to unlock UI
+                Timber.tag("Epic").i("Download reached 100%%, transitioning to PLAYABLE")
+            }
             downloadInfo.setActive(false)
             downloadInfo.emitProgressChange()
 

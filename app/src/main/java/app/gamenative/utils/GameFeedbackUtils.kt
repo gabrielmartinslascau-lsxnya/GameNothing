@@ -65,6 +65,7 @@ object GameFeedbackUtils {
                     val appInfo = SteamService.getAppInfoOf(gameId)
                     appInfo?.name ?: ""
                 }
+                GameSource.ANDROID_APP -> ""
             }
 
             if (gameName.isEmpty()) {

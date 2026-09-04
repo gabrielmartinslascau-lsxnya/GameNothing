@@ -11,12 +11,14 @@ import android.graphics.Path
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.BatteryManager
+import android.os.Build
 import android.text.TextUtils
 import android.text.format.DateFormat
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -91,6 +93,7 @@ class PerformanceHudView(
         graphColor = 0xFF7CFF6B.toInt(),
         graphScaleMode = GraphScaleMode.FPS_DYNAMIC,
     )
+    private val refreshRateMetric = createMetricViews(MetricId.REFRESH_RATE, 0xFFFFEB3B.toInt()) // Yellow
     private val cpuMetric = createMetricViews(
         id = MetricId.CPU,
         textColor = 0xFF42A5F5.toInt(),
@@ -116,6 +119,7 @@ class PerformanceHudView(
 
     private val allMetrics = listOf(
         fpsMetric,
+        refreshRateMetric,
         cpuMetric,
         gpuMetric,
         ramMetric,
@@ -317,6 +321,7 @@ class PerformanceHudView(
             fps = String.format(Locale.US, "FPS %.1f", currentFps),
             cpu = cpuPercent?.let { "CPU $it%" },
             gpu = gpuPercent?.let { "GPU $it%" },
+            refreshRate = readRefreshRateText(),
             ram = "RAM ${readUsedRamText()}",
             battery = batterySnapshot.percent?.let { "BAT $it%" },
             power = batterySnapshot.powerWatts?.let { watts ->
@@ -408,6 +413,17 @@ class PerformanceHudView(
         return "TIME ${DateFormat.getTimeFormat(context).format(Date())}"
     }
 
+    private fun readRefreshRateText(): String {
+        val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            context.display
+        } else {
+            @Suppress("DEPRECATION")
+            (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay
+        }
+        val refreshRate = display?.refreshRate ?: 60f
+        return String.format(Locale.US, "REFRESH %.0fHz", refreshRate)
+    }
+
     private fun renderSnapshot(snapshot: HudSnapshot) {
         lastSnapshot = snapshot
         recordGraphSamples(snapshot)
@@ -426,6 +442,7 @@ class PerformanceHudView(
 
     private fun applySnapshotText(snapshot: HudSnapshot) {
         updateMetricText(fpsMetric, snapshot.fps)
+        updateMetricText(refreshRateMetric, snapshot.refreshRate)
         updateMetricText(cpuMetric, snapshot.cpu)
         updateMetricText(gpuMetric, snapshot.gpu)
         updateMetricText(ramMetric, snapshot.ram)
@@ -449,6 +466,7 @@ class PerformanceHudView(
     private fun refreshVisibleMetrics() {
         val visibleMetrics = buildList {
             addMetricIfVisible(fpsMetric, config.showFrameRate, config.showFrameRateGraph)
+            addMetricIfVisible(refreshRateMetric, config.showRefreshRate)
             addMetricIfVisible(cpuMetric, config.showCpuUsage, config.showCpuUsageGraph)
             addMetricIfVisible(gpuMetric, config.showGpuUsage, config.showGpuUsageGraph)
             addMetricIfVisible(ramMetric, config.showRamUsage)

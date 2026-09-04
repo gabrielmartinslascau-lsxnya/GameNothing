@@ -272,6 +272,7 @@ class DownloadsViewModel @Inject constructor(
                 CustomGameScanner.scanAsLibraryItems(query = "")
                     .firstOrNull { it.appId == libraryAppId }
             }
+            GameSource.ANDROID_APP -> null
         }
     }
 
@@ -357,6 +358,7 @@ class DownloadsViewModel @Inject constructor(
             GameSource.GOG -> gogGameDao.getById(appId)?.isInstalled == true
             GameSource.AMAZON -> amazonGameDao.getByProductId(appId)?.isInstalled == true
             GameSource.CUSTOM_GAME -> false
+            GameSource.ANDROID_APP -> true
         }
     }
 
@@ -590,7 +592,7 @@ class DownloadsViewModel @Inject constructor(
 
                 GameSource.GOG -> GOGService.cancelDownload(item.appId)
                 GameSource.AMAZON -> AmazonService.cancelDownload(item.appId)
-                GameSource.CUSTOM_GAME -> Unit
+                GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> Unit
             }
         }
     }
@@ -641,7 +643,7 @@ class DownloadsViewModel @Inject constructor(
                     result.exceptionOrNull()?.message?.let { recentFailureMessages[key] = it }
                 }
 
-                GameSource.CUSTOM_GAME -> Unit
+                GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> Unit
             }
 
             scheduleRefreshDownloads()
@@ -740,7 +742,7 @@ class DownloadsViewModel @Inject constructor(
                     scheduleRefreshDownloads()
                 }
 
-                GameSource.CUSTOM_GAME -> Unit
+                GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> Unit
             }
         }
     }

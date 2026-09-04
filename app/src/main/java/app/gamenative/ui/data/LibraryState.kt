@@ -11,10 +11,18 @@ import app.gamenative.ui.enums.SortOption
 import app.gamenative.utils.DeviceGameStatsService.DeviceGameStats
 import java.util.EnumSet
 
+enum class GameViewState {
+    CAROUSEL,
+    HERO_DETAILS,
+    ACTION_MENU
+}
+
 data class LibraryState(
     val appInfoSortType: EnumSet<AppFilter> = PrefManager.libraryFilter,
     val appInfoList: List<LibraryItem> = emptyList(),
     val isRefreshing: Boolean = false,
+
+    val gameViewState: GameViewState = GameViewState.CAROUSEL,
 
     // Human readable, not 0-indexed
     val totalAppsInFilter: Int = 0,
@@ -72,6 +80,12 @@ data class LibraryState(
     val amazonCount: Int = 0,
     val localCount: Int = 0,
     val favoritesCount: Int = 0,
+
+    val mainColor: String = PrefManager.mainColor,
+    val videoBackgroundPath: String = PrefManager.videoBackgroundPath,
+    val videoBackgroundDimAlpha: Float = PrefManager.videoBackgroundDimAlpha,
+
+    val gameMetadata: Map<String, GameMetadata> = emptyMap(),
 )
 
 /**

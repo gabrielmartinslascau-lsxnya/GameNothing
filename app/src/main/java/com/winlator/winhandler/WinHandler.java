@@ -863,13 +863,17 @@ public class WinHandler {
         }
         boolean controllerVibrated = false;
         boolean phoneVibrated = false;
-        // --- Step 2: Attempt to vibrate the physical controller first ---
         InputDevice device = InputDevice.getDevice(deviceId);
-        if (device != null) {
-            Vibrator controllerVibrator = device.getVibrator();
-            if (controllerVibrator != null && controllerVibrator.hasVibrator()) {
-                controllerVibrator.vibrate(VibrationEffect.createOneShot(CONTROLLER_RUMBLE_DURATION_MS, amplitude));
-                controllerVibrated = true;
+
+        // --- Step 2: Attempt to vibrate all physical controllers ---
+        for (int id : InputDevice.getDeviceIds()) {
+            InputDevice dev = InputDevice.getDevice(id);
+            if (dev != null && (dev.getSources() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD) {
+                Vibrator v = dev.getVibrator();
+                if (v != null && v.hasVibrator()) {
+                    v.vibrate(VibrationEffect.createOneShot(CONTROLLER_RUMBLE_DURATION_MS, amplitude));
+                    controllerVibrated = true;
+                }
             }
         }
 

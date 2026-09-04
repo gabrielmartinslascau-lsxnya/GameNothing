@@ -15,13 +15,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
+import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
@@ -37,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalContext
@@ -192,6 +187,8 @@ internal fun LibraryListPane(
 
     Scaffold(
         modifier = modifier,
+        containerColor = if (PrefManager.videoBackgroundPath.isNotEmpty()) Color.Transparent
+                        else MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackBarHost) },
     ) { paddingValues ->
         Box(
@@ -283,6 +280,7 @@ internal fun LibraryListPane(
                                         val item = state.appInfoList[listIndex]
                                         if (item.recSource == "hero") "HERO_SLOT" else item.appId
                                     },
+                                    contentType = { "app_item" }
                                 ) { listIndex ->
                                     val item = state.appInfoList[listIndex]
                                     val animateFade = remember(item.index) { !listState.isScrollInProgress }

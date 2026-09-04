@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">GameNative-LSX</string>
+    <string name="app_name">GameNothing</string>
     <string name="login_user">User Login</string>
     <string name="login_2fa">Two Factor</string>
     <string name="home">Home</string>
@@ -197,6 +197,8 @@
     <string name="container_config_custom_resolution_separator">x</string>
     <string name="container_config_custom_resolution_error_nonzero">Width and height must be greater than 0</string>
     <string name="container_config_custom_resolution_error_aspect">Width must be greater than height</string>
+    <string name="option_remove_from_library">Remove from Library</string>
+    <string name="option_move_game" translatable="false">Move Game</string>
     <string name="storage_info">Storage Info</string>
     <string name="duplicate">Duplicate</string>
     <string name="reconfigure">Reconfigure</string>
@@ -362,6 +364,7 @@
     <string name="performance_hud_metrics_description">Choose which stats appear in the overlay.</string>
     <string name="performance_hud_frame_rate">Frame rate</string>
     <string name="performance_hud_frame_rate_graph">FPS graph</string>
+    <string name="performance_hud_refresh_rate">Refresh rate</string>
     <string name="performance_hud_cpu_usage">CPU usage</string>
     <string name="performance_hud_cpu_usage_graph">CPU graph</string>
     <string name="performance_hud_gpu_usage">GPU usage</string>
@@ -728,7 +731,11 @@
     <string name="last_played">Last Played</string>
     <string name="playtime">Playtime</string>
     <string name="add_custom_game_content_desc">Add custom game</string>
-    <string name="add_custom_game_dialog_title">Add Custom Game</string>
+    <string name="add_custom_game_dialog_title">Add Game</string>
+    <string name="import_pc" translatable="false">Import PC</string>
+    <string name="import_app" translatable="false">Import App</string>
+    <string name="import_pc_desc" translatable="false">Add a Windows game folder (Winlator)</string>
+    <string name="import_app_desc" translatable="false">Add an installed Android app</string>
     <string name="add_custom_game_dialog_message">Please select the folder containing the game files you want to add as a custom game.</string>
     <string name="add_custom_game_dont_show_again">Don\'t show this dialog again</string>
     <string name="custom_game_importing">Importing game…</string>
@@ -1123,6 +1130,8 @@
     <string name="settings_interface_warn_before_exit_subtitle">Require double back press to exit — first press shows a warning</string>
     <string name="settings_interface_show_gamepad_hints_title">Show controller hints</string>
     <string name="settings_interface_show_gamepad_hints_subtitle">Show the controller button hints bar at the bottom of the screen</string>
+    <string name="settings_interface_default_launcher_title" translatable="false">Set as Default Launcher</string>
+    <string name="settings_interface_default_launcher_subtitle" translatable="false">Open Android settings to set GameNothing as your home app</string>
     <string name="settings_interface_icon_style">Icon style</string>
     <string name="settings_interface_custom_games">Custom Games</string>
     <string name="settings_interface_custom_game_import_as_steam">Import custom games as Steam games</string>

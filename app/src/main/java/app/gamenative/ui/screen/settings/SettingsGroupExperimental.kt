@@ -1,5 +1,7 @@
 package app.gamenative.ui.screen.settings
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
@@ -35,7 +37,6 @@ import com.alorma.compose.settings.ui.SettingsGroup
 import com.alorma.compose.settings.ui.SettingsSwitch
 import kotlin.math.roundToInt
 
-import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.ui.platform.LocalContext
 import java.io.File
 import java.util.Locale
@@ -152,6 +153,17 @@ fun SettingsGroupExperimental(viewModel: MainViewModel) {
                 }
             }
         }
+
+        HapticSettingsSwitch(
+            colors = settingsTileColorsAlt(),
+            state = false, // Always off, just triggers the intent
+            title = { Text(text = "Default Launcher") },
+            subtitle = { Text(text = "Set GameNothing as your device's home launcher.") },
+            onCheckedChange = {
+                val intent = Intent(Settings.ACTION_HOME_SETTINGS)
+                context.startActivity(intent)
+            }
+        )
     }
 }
 

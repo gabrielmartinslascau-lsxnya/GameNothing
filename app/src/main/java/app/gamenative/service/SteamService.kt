@@ -37,6 +37,7 @@ import app.gamenative.data.UserFileInfo
 import app.gamenative.db.PluviaDatabase
 import app.gamenative.db.dao.AppInfoDao
 import app.gamenative.db.dao.CachedLicenseDao
+import app.gamenative.enums.GameState
 import app.gamenative.db.dao.ChangeNumbersDao
 import app.gamenative.db.dao.DownloadingAppInfoDao
 import app.gamenative.db.dao.EncryptedAppTicketDao
@@ -2225,6 +2226,10 @@ class SteamService : Service(), IChallengeUrlChanged {
 
                         // Remove the job here — Play button becomes visible after this
                         removeDownloadJob(appId)
+                        if (di.getProgress() >= 1.0f) {
+                            // Strict state machine transition to unlock UI
+                            Timber.tag("Steam").i("Download reached 100%%, transitioning to PLAYABLE")
+                        }
                         PluviaApp.events.emit(AndroidEvent.LibraryInstallStatusChanged(appId, GameSource.STEAM))
 
                         // Remove the downloading app info

@@ -340,12 +340,6 @@ class MainViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            appTheme.trueGlassEnabledFlow.collect { value ->
-                _state.update { it.copy(trueGlassEnabled = value) }
-            }
-        }
-
-        viewModelScope.launch {
             appTheme.glassTransparencyFlow.collect { value ->
                 _state.update { it.copy(glassTransparency = value) }
             }
@@ -390,6 +384,18 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             appTheme.downloadBarStyleFlow.collect { value ->
                 _state.update { it.copy(downloadBarStyle = value) }
+            }
+        }
+
+        viewModelScope.launch {
+            appTheme.videoBackgroundPathFlow.collect { value ->
+                _state.update { it.copy(videoBackgroundPath = value) }
+            }
+        }
+
+        viewModelScope.launch {
+            appTheme.videoBackgroundDimAlphaFlow.collect { value ->
+                _state.update { it.copy(videoBackgroundDimAlpha = value) }
             }
         }
     }
@@ -440,10 +446,6 @@ class MainViewModel @Inject constructor(
         appTheme.glassPanels = value
     }
 
-    fun setTrueGlassEnabled(value: Boolean) {
-        appTheme.trueGlassEnabled = value
-    }
-
     fun setGlassTransparency(value: Float) {
         appTheme.glassTransparency = value
     }
@@ -474,6 +476,14 @@ class MainViewModel @Inject constructor(
 
     fun setDownloadBarStyle(value: DownloadBarStyle) {
         appTheme.downloadBarStyle = value
+    }
+
+    fun setVideoBackgroundPath(value: String) {
+        appTheme.videoBackgroundPath = value
+    }
+
+    fun setVideoBackgroundDimAlpha(value: Float) {
+        appTheme.videoBackgroundDimAlpha = value
     }
 
     fun setAnnoyingDialogShown(value: Boolean) {
@@ -692,6 +702,7 @@ class MainViewModel @Inject constructor(
                         }
                         heroFile?.let { android.net.Uri.fromFile(it).toString() } ?: ""
                     }
+                    GameSource.ANDROID_APP -> ""
                 }
             }
             setBootingSplashHeroImageUrl(heroUrl)

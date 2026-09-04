@@ -18,6 +18,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -109,6 +110,7 @@ import androidx.compose.ui.unit.dp
 import app.gamenative.NetworkMonitor
 import app.gamenative.PrefManager
 import app.gamenative.R
+import app.gamenative.data.GameSource
 import app.gamenative.data.LibraryItem
 import app.gamenative.service.SteamService
 import app.gamenative.ui.component.GamepadAction
@@ -121,6 +123,7 @@ import app.gamenative.ui.data.GameDisplayInfo
 import app.gamenative.ui.enums.AppOptionMenuType
 import app.gamenative.ui.internal.fakeAppInfo
 import app.gamenative.ui.screen.library.appscreen.AmazonAppScreen
+import app.gamenative.ui.screen.library.appscreen.AndroidAppScreen
 import app.gamenative.ui.screen.library.appscreen.CustomGameAppScreen
 import app.gamenative.ui.screen.library.appscreen.EpicAppScreen
 import app.gamenative.ui.screen.library.appscreen.GOGAppScreen
@@ -525,6 +528,7 @@ fun AppScreen(
             app.gamenative.data.GameSource.GOG -> GOGAppScreen()
             app.gamenative.data.GameSource.EPIC -> EpicAppScreen()
             app.gamenative.data.GameSource.AMAZON -> AmazonAppScreen()
+            GameSource.ANDROID_APP -> AndroidAppScreen()
         }
     }
 
@@ -731,6 +735,13 @@ internal fun AppScreenContent(
         modifier = modifier
             .fillMaxSize()
             .pointerInput(Unit) {
+                detectVerticalDragGestures { _, dragAmount ->
+                    if (dragAmount > 50) {
+                        onBack()
+                    }
+                }
+            }
+            .pointerInput(Unit) {
                 awaitPointerEventScope {
                     while (true) {
                         val pointerEvent = awaitPointerEvent(PointerEventPass.Initial)
@@ -855,6 +866,7 @@ internal fun AppScreenContent(
                                 .union(WindowInsets.displayCutout)
                                 .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
                         )
+                        .padding(top = 56.dp) // Pushes button down below navigation bar
                         .padding(16.dp),
                 )
 

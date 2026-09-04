@@ -85,7 +85,7 @@ private fun ExoVideoHero(
                 .build()
             setMediaItem(item)
             repeatMode = Player.REPEAT_MODE_ALL
-            volume = 0f
+            volume = 1f
             playWhenReady = true
             prepare()
         }
@@ -259,7 +259,7 @@ private fun youTubeEmbedHtml(videoId: String): String =
     """
     <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
     <style>html,body{margin:0;height:100%;background:#000}iframe{border:0;width:100%;height:100%}</style></head>
-    <body><iframe src="https://www.youtube.com/embed/$videoId?autoplay=1&mute=1&controls=1&playsinline=1&rel=0"
+    <body><iframe src="https://www.youtube.com/embed/$videoId?autoplay=1&mute=0&controls=1&playsinline=1&rel=0"
         allow="autoplay; fullscreen" allowfullscreen></iframe></body></html>
     """.trimIndent()
 

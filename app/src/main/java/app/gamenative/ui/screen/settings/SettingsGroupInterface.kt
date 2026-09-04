@@ -1,5 +1,6 @@
 package app.gamenative.ui.screen.settings
 
+import android.provider.Settings
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Build
@@ -348,6 +349,16 @@ fun SettingsGroupInterface(
             onCheckedChange = { newValue ->
                 showGamepadHints = newValue
                 PrefManager.showGamepadHints = newValue
+            },
+        )
+
+        HapticSettingsMenuLink(
+            colors = settingsTileColorsAlt(),
+            title = { Text(text = stringResource(R.string.settings_interface_default_launcher_title)) },
+            subtitle = { Text(text = stringResource(R.string.settings_interface_default_launcher_subtitle)) },
+            onClick = {
+                val intent = Intent(Settings.ACTION_HOME_SETTINGS)
+                context.startActivity(intent)
             },
         )
 

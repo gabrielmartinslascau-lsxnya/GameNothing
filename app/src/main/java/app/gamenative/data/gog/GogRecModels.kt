@@ -117,13 +117,31 @@ data class SteamAppEnvelope(
 
 @Serializable
 data class SteamAppData(
+    val name: String = "",
+    @SerialName("short_description") val shortDescription: String = "",
+    @SerialName("about_the_game") val aboutTheGame: String = "",
     val movies: List<SteamMovie> = emptyList(),
     val screenshots: List<SteamScreenshot> = emptyList(),
+    val developers: List<String> = emptyList(),
+    @SerialName("release_date") val releaseDate: SteamReleaseDate? = null,
 )
 
 @Serializable
 data class SteamMovie(
     @SerialName("hls_h264") val hls: String = "",
+    val mp4: SteamMovieQuality? = null,
+    val webm: SteamMovieQuality? = null,
+)
+
+@Serializable
+data class SteamMovieQuality(
+    val max: String = "",
+    @SerialName("480") val low: String = "",
+)
+
+@Serializable
+data class SteamReleaseDate(
+    val date: String = "",
 )
 
 @Serializable

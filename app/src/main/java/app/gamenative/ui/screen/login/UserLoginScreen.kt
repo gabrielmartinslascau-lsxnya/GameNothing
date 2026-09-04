@@ -88,6 +88,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.gamenative.Constants
+import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.enums.LoginResult
 import app.gamenative.enums.LoginScreen
@@ -333,7 +334,10 @@ private fun UserLoginScreenContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(
+                if (PrefManager.videoBackgroundPath.isNotEmpty()) Color.Transparent
+                else MaterialTheme.colorScheme.background
+            )
             .imePadding(),
     ) {
         Column(

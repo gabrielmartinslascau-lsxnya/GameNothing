@@ -356,6 +356,8 @@ private fun getIconForOption(type: AppOptionMenuType): ImageVector {
         AppOptionMenuType.ChangeBranch -> Icons.AutoMirrored.Filled.CallSplit
         AppOptionMenuType.AddToFavorites -> Icons.Filled.StarOutline
         AppOptionMenuType.RemoveFromFavorites -> Icons.Filled.Star
+        AppOptionMenuType.RemoveFromLibrary -> Icons.Default.Delete
+        AppOptionMenuType.MoveGame -> Icons.Default.SdStorage
     }
 }
 
@@ -379,11 +381,13 @@ private fun groupOptions(options: List<AppMenuOption>): Map<OptionCategory, List
 
             // Game Management
             AppOptionMenuType.Uninstall,
+            AppOptionMenuType.RemoveFromLibrary,
             AppOptionMenuType.VerifyFiles,
             AppOptionMenuType.Update,
             AppOptionMenuType.MoveToExternalStorage,
             AppOptionMenuType.MoveToInternalStorage,
             AppOptionMenuType.ChangeBranch,
+            AppOptionMenuType.MoveGame,
             -> gameManagement.add(option)
 
             // Container Settings

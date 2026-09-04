@@ -56,7 +56,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "app.gamenative"
+        applicationId = "app.gamenothing"
 
         minSdk = 26
 
@@ -401,6 +401,7 @@ dependencies {
     implementation(libs.kotlin.coroutines)
     implementation(libs.timber)
     implementation(libs.zxing)
+    implementation("androidx.palette:palette-ktx:1.0.0")
 
     // Google Protobufs
     implementation(libs.protobuf.java)

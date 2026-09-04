@@ -38,4 +38,6 @@ enum class AppOptionMenuType(@StringRes val title: Int) {
     ChangeBranch(R.string.change_branch),
     AddToFavorites(R.string.option_add_to_favorites),
     RemoveFromFavorites(R.string.option_remove_from_favorites),
+    RemoveFromLibrary(R.string.option_remove_from_library),
+    MoveGame(R.string.option_move_game),
 }

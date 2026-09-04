@@ -1,6 +1,9 @@
 package app.gamenative.ui.screen.settings
 
+import android.net.Uri
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -9,37 +12,31 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import app.gamenative.PrefManager
 import app.gamenative.R
+import app.gamenative.enums.DownloadBarStyle
 import app.gamenative.enums.FontType
 import app.gamenative.enums.GlassMode
+import app.gamenative.ui.component.HSVColorPicker
 import app.gamenative.ui.component.settings.HapticSettingsSwitch
 import app.gamenative.ui.component.settings.SettingsListDropdown
 import app.gamenative.ui.model.MainViewModel
@@ -47,13 +44,65 @@ import app.gamenative.ui.theme.glassContentColor
 import app.gamenative.ui.theme.settingsTileColors
 import app.gamenative.ui.theme.settingsTileColorsAlt
 import app.gamenative.ui.theme.toColor
+import app.gamenative.ui.theme.toHex
+import app.gamenative.ui.util.SnackbarManager
 import com.alorma.compose.settings.ui.SettingsGroup
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
 fun SettingsGroupLooks(viewModel: MainViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val lifecycleScope = LocalLifecycleOwner.current.lifecycleScope
+
+    val videoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            lifecycleScope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    try {
+                        val descriptor = context.contentResolver.openAssetFileDescriptor(uri, "r")
+                        val fileSize = descriptor?.length ?: 0L
+                        descriptor?.close()
+
+                        if (fileSize > 50 * 1024 * 1024) {
+                            return@withContext "File size must be under 50MB"
+                        }
+
+                        val backgroundsDir = File(context.filesDir, "backgrounds")
+                        if (!backgroundsDir.exists()) backgroundsDir.mkdirs()
+
+                        val fileName = "custom_bg_${System.currentTimeMillis()}.mp4"
+                        val destFile = File(backgroundsDir, fileName)
+
+                        context.contentResolver.openInputStream(uri)?.use { input ->
+                            destFile.outputStream().use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+
+                        destFile.absolutePath
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+
+                if (result == "File size must be under 50MB") {
+                    SnackbarManager.show(result)
+                } else if (result != null) {
+                    viewModel.setVideoBackgroundPath(result)
+                } else {
+                    SnackbarManager.show("Failed to import video")
+                }
+            }
+        }
+    }
 
     SettingsGroup {
         HapticSettingsSwitch(
@@ -83,79 +132,25 @@ fun SettingsGroupLooks(viewModel: MainViewModel) {
                 exit = shrinkVertically() + fadeOut()
             ) {
                 Column {
-                    val glassModes = GlassMode.entries
-                    val glassModeLabels = glassModes.map { stringResource(it.labelResId) }
-
-                    SettingsListDropdown(
-                        colors = settingsTileColorsAlt(),
-                        value = state.glassMode.ordinal,
-                        items = glassModeLabels,
-                        onItemSelected = { index ->
-                            viewModel.setGlassMode(glassModes[index])
-                        },
-                        title = { Text(text = "Glass Mode") }
-                    )
-
+                    // Removed Standard and True Glass modes - Liquid is sole renderer
                     val contentColor = glassContentColor()
 
-                    // Effective Glass Mode based on API Version Guards for Slider Logic
-                    val effectiveMode = when (state.glassMode) {
-                        GlassMode.LIQUID -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) GlassMode.LIQUID else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) GlassMode.TRUE else GlassMode.STANDARD
-                        GlassMode.TRUE -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) GlassMode.TRUE else GlassMode.STANDARD
-                        GlassMode.STANDARD -> GlassMode.STANDARD
-                    }
-
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        val title = when (effectiveMode) {
-                            GlassMode.STANDARD -> "Glass Transparency"
-                            GlassMode.TRUE -> "Blur Intensiveness"
-                            GlassMode.LIQUID -> "Liquid Distortion"
-                        }
-
                         Text(
-                            text = title,
+                            text = "Liquid Distortion",
                             style = MaterialTheme.typography.bodyMedium,
                             color = contentColor
                         )
-
-                        when (effectiveMode) {
-                            GlassMode.STANDARD -> {
-                                Slider(
-                                    value = state.glassTransparency,
-                                    onValueChange = { viewModel.setGlassTransparency(it) },
-                                    valueRange = 0f..1f
-                                )
-                                Text(
-                                    text = "${(state.glassTransparency * 100).roundToInt()}%",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            GlassMode.TRUE -> {
-                                Slider(
-                                    value = state.blurIntensiveness,
-                                    onValueChange = { viewModel.setBlurIntensiveness(it) },
-                                    valueRange = 1f..50f
-                                )
-                                Text(
-                                    text = "${state.blurIntensiveness.roundToInt()}px",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            GlassMode.LIQUID -> {
-                                Slider(
-                                    value = state.liquidDistortion,
-                                    onValueChange = { viewModel.setLiquidDistortion(it) },
-                                    valueRange = 0f..1f
-                                )
-                                Text(
-                                    text = String.format(Locale.US, "%.1fx", 1f + state.liquidDistortion * 9f),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
+                        Slider(
+                            value = state.liquidDistortion,
+                            onValueChange = { viewModel.setLiquidDistortion(it) },
+                            valueRange = 0f..1f
+                        )
+                        Text(
+                            text = String.format(Locale.US, "%.1fx", 1f + state.liquidDistortion * 9f),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
 
                     ColorSelectionRow(
@@ -181,14 +176,14 @@ fun SettingsGroupLooks(viewModel: MainViewModel) {
             title = { Text(text = stringResource(R.string.settings_looks_font_type_title)) }
         )
 
-        val downloadBarStyleOptions = app.gamenative.enums.DownloadBarStyle.entries.map { stringResource(it.labelResId) }
+        val downloadBarStyleOptions = DownloadBarStyle.entries.map { stringResource(it.labelResId) }
 
         SettingsListDropdown(
             colors = settingsTileColorsAlt(),
             value = state.downloadBarStyle.ordinal,
             items = downloadBarStyleOptions,
             onItemSelected = { index ->
-                viewModel.setDownloadBarStyle(app.gamenative.enums.DownloadBarStyle.entries[index])
+                viewModel.setDownloadBarStyle(DownloadBarStyle.entries[index])
             },
             title = { Text(text = stringResource(R.string.settings_looks_download_bar_style_title)) }
         )
@@ -210,6 +205,74 @@ fun SettingsGroupLooks(viewModel: MainViewModel) {
                 viewModel.setWallpaperColor(it)
             }
         )
+
+        val contentColor = glassContentColor()
+
+        // Video Background Option
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { videoPickerLauncher.launch("video/*") }
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Text(
+                text = "Add your own ...",
+                style = MaterialTheme.typography.bodyLarge,
+                color = contentColor
+            )
+            Text(
+                text = if (state.videoBackgroundPath.isNotEmpty()) {
+                    "Custom video applied: ${File(state.videoBackgroundPath).name}"
+                } else {
+                    "Select a video as a live wallpaper"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = contentColor.copy(alpha = 0.6f)
+            )
+
+            if (state.videoBackgroundPath.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Tap here to remove video background",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable {
+                        viewModel.setVideoBackgroundPath("")
+                    }
+                )
+            }
+        }
+
+        // Grayness Scale Slider
+        if (state.videoBackgroundPath.isNotEmpty()) {
+            HapticSettingsSwitch(
+                colors = settingsTileColorsAlt(),
+                state = PrefManager.autoExtractWallpaperColor,
+                title = { Text(text = "Auto-extract Theme Color") },
+                subtitle = { Text(text = "Extract main theme color from video wallpaper") },
+                onCheckedChange = {
+                    PrefManager.autoExtractWallpaperColor = it
+                },
+            )
+
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text(
+                    text = "Grayness Scale",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = contentColor
+                )
+                Slider(
+                    value = state.videoBackgroundDimAlpha,
+                    onValueChange = { viewModel.setVideoBackgroundDimAlpha(it) },
+                    valueRange = 0f..0.9f
+                )
+                Text(
+                    text = "${(state.videoBackgroundDimAlpha * 100).roundToInt()}%",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
     }
 }
 
@@ -219,25 +282,21 @@ private fun ColorSelectionRow(
     currentColor: String,
     onColorSelected: (String) -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    var showPicker by remember { mutableStateOf(false) }
     val contentColor = glassContentColor()
-    val colors = listOf(
-        "#E91E63" to "Cherry",
-        "#FF9800" to "Orange",
-        "#4CAF50" to "Forest",
-        "#00BCD4" to "Cyan",
-        "#2196F3" to "Ice",
-        "#9C27B0" to "Violet",
-        "#9E9E9E" to "Steel",
-        "#607D8B" to "Slate",
-        "#FFFFFF" to "Frost",
-        "#000000" to "Volcanic"
-    )
+
+    if (showPicker) {
+        HSVColorPicker(
+            initialColor = currentColor.toColor(),
+            onColorSelected = { onColorSelected(it.toHex()) },
+            onDismiss = { showPicker = false }
+        )
+    }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { expanded = !expanded }
+            .clickable { showPicker = true }
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Row(
@@ -258,60 +317,6 @@ private fun ColorSelectionRow(
                     .background(currentColor.toColor())
                     .border(1.dp, contentColor.copy(alpha = 0.2f), CircleShape)
             )
-        }
-
-        AnimatedVisibility(visible = expanded) {
-            Column(
-                modifier = Modifier
-                    .padding(top = 16.dp)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Two rows of colors
-                val chunkedColors = colors.chunked(5)
-                chunkedColors.forEach { rowColors ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        rowColors.forEach { (hex, name) ->
-                            val isSelected = hex == currentColor
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { onColorSelected(hex) }
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape)
-                                        .background(hex.toColor())
-                                        .border(
-                                            width = if (isSelected) 3.dp else 1.dp,
-                                            color = if (isSelected) MaterialTheme.colorScheme.primary else contentColor.copy(alpha = 0.1f),
-                                            shape = CircleShape
-                                        )
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = name,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = contentColor.copy(alpha = if (isSelected) 1f else 0.6f),
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    maxLines = 1
-                                )
-                            }
-                        }
-                        // Fill empty spaces in the last row if it's shorter
-                        if (rowColors.size < 5) {
-                            repeat(5 - rowColors.size) {
-                                Spacer(modifier = Modifier.weight(1f))
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 }

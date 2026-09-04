@@ -24,6 +24,9 @@ import app.gamenative.utils.IntentLaunchManager
 import app.gamenative.utils.PlayIntegrity
 import app.gamenative.utils.downloader.ContainerFilesDownloader
 import java.io.File
+import coil.ImageLoader
+import coil.Coil
+import coil.ImageLoaderFactory
 import javax.inject.Inject
 import kotlinx.coroutines.runBlocking
 import com.google.android.play.core.splitcompat.SplitCompatApplication
@@ -54,6 +57,8 @@ class PluviaApp : SplitCompatApplication() {
     @Inject lateinit var gogGameDao: GOGGameDao
 
     @Inject lateinit var amazonGameDao: AmazonGameDao
+
+    @Inject lateinit var imageLoader: ImageLoader
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -138,6 +143,8 @@ class PluviaApp : SplitCompatApplication() {
         PlayIntegrity.warmUp(this)
 
         PowerManager.initialize(this)
+
+        Coil.setImageLoader(imageLoader)
     }
 
     /**

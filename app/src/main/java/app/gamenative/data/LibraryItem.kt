@@ -9,7 +9,7 @@ enum class GameSource {
     GOG,
     EPIC,
     AMAZON,
-    // Add other platforms here..
+    ANDROID_APP,
 }
 
 enum class GameCompatibilityStatus {
@@ -80,6 +80,10 @@ data class LibraryItem(
             }
             GameSource.AMAZON -> {
                 iconHash
+            }
+            GameSource.ANDROID_APP -> {
+                // iconHash stores the package name
+                "android-app://${iconHash}"
             }
         }
 

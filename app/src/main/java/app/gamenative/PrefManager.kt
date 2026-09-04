@@ -473,6 +473,13 @@ object PrefManager {
             setPref(PERFORMANCE_HUD_SHOW_FRAME_RATE, value)
         }
 
+    private val PERFORMANCE_HUD_SHOW_REFRESH_RATE = booleanPreferencesKey("performance_hud_show_refresh_rate")
+    var performanceHudShowRefreshRate: Boolean
+        get() = getPref(PERFORMANCE_HUD_SHOW_REFRESH_RATE, false)
+        set(value) {
+            setPref(PERFORMANCE_HUD_SHOW_REFRESH_RATE, value)
+        }
+
     private val PERFORMANCE_HUD_SHOW_CPU_USAGE = booleanPreferencesKey("performance_hud_show_cpu_usage")
     var performanceHudShowCpuUsage: Boolean
         get() = getPref(PERFORMANCE_HUD_SHOW_CPU_USAGE, true)
@@ -968,6 +975,50 @@ object PrefManager {
         }
 
     private val LIBRARY_LAYOUT = intPreferencesKey("library_layout")
+    private val LIBRARY_LAYOUT_PORTRAIT_TOUCH = intPreferencesKey("library_layout_portrait_touch")
+    private val LIBRARY_LAYOUT_PORTRAIT_CONTROLLER = intPreferencesKey("library_layout_portrait_controller")
+    private val LIBRARY_LAYOUT_LANDSCAPE_TOUCH = intPreferencesKey("library_layout_landscape_touch")
+    private val LIBRARY_LAYOUT_LANDSCAPE_CONTROLLER = intPreferencesKey("library_layout_landscape_controller")
+
+    /**
+     * Gets or sets the library layout for the given orientation and controller state.
+     * If no preference is stored for a controller-connected state, it defaults to [PaneType.CAROUSEL].
+     */
+    fun getLibraryLayout(isLandscape: Boolean, isControllerConnected: Boolean): PaneType {
+        val key = when {
+            isLandscape && isControllerConnected -> LIBRARY_LAYOUT_LANDSCAPE_CONTROLLER
+            isLandscape && !isControllerConnected -> LIBRARY_LAYOUT_LANDSCAPE_TOUCH
+            !isLandscape && isControllerConnected -> LIBRARY_LAYOUT_PORTRAIT_CONTROLLER
+            else -> LIBRARY_LAYOUT_PORTRAIT_TOUCH
+        }
+
+        val value = getPref(key, -1)
+
+        return if (value != -1) {
+            PaneType.entries.getOrNull(value) ?: PaneType.UNDECIDED
+        } else {
+            // Fallback for first-time use or legacy migration
+            if (isControllerConnected) PaneType.MODE_360 else {
+                val legacy = libraryLayout
+                if (legacy != PaneType.UNDECIDED) legacy else {
+                    if (isLandscape) PaneType.GRID_HERO else PaneType.GRID_CAPSULE
+                }
+            }
+        }
+    }
+
+    fun setLibraryLayout(isLandscape: Boolean, isControllerConnected: Boolean, layout: PaneType) {
+        val key = when {
+            isLandscape && isControllerConnected -> LIBRARY_LAYOUT_LANDSCAPE_CONTROLLER
+            isLandscape && !isControllerConnected -> LIBRARY_LAYOUT_LANDSCAPE_TOUCH
+            !isLandscape && isControllerConnected -> LIBRARY_LAYOUT_PORTRAIT_CONTROLLER
+            else -> LIBRARY_LAYOUT_PORTRAIT_TOUCH
+        }
+        setPref(key, layout.ordinal)
+        // Keep legacy key updated for backwards compatibility with older versions/other components
+        libraryLayout = layout
+    }
+
     var libraryLayout: PaneType
         get() {
             val value = getPref(LIBRARY_LAYOUT, PaneType.UNDECIDED.ordinal)
@@ -1056,7 +1107,7 @@ object PrefManager {
 
     private val GLASS_MODE = intPreferencesKey("glass_mode")
     var glassMode: GlassMode
-        get() = GlassMode.fromKey(getPref(GLASS_MODE, if (getPref(TRUE_GLASS_ENABLED, false)) GlassMode.TRUE.key else GlassMode.STANDARD.key))
+        get() = GlassMode.fromKey(getPref(GLASS_MODE, GlassMode.STANDARD.key))
         set(value) = setPref(GLASS_MODE, value.key)
 
     private val MAIN_COLOR = stringPreferencesKey("main_color")
@@ -1526,6 +1577,7 @@ object PrefManager {
         GameSource.GOG -> frontendSyncDirGog
         GameSource.AMAZON -> frontendSyncDirAmazon
         GameSource.CUSTOM_GAME -> frontendSyncDirCustom
+        GameSource.ANDROID_APP -> ""
     }
 
     /** Persists [path] as the export directory for [source]. Pass an empty string to clear. */
@@ -1536,6 +1588,7 @@ object PrefManager {
             GameSource.GOG -> frontendSyncDirGog = path
             GameSource.AMAZON -> frontendSyncDirAmazon = path
             GameSource.CUSTOM_GAME -> frontendSyncDirCustom = path
+            GameSource.ANDROID_APP -> {}
         }
     }
 
@@ -1566,6 +1619,20 @@ object PrefManager {
         }
         set(value) {
             setPref(CUSTOM_GAME_MANUAL_FOLDERS, Json.encodeToString(value))
+        }
+
+    private val ANDROID_APP_SHORTCUTS = stringPreferencesKey("android_app_shortcuts")
+    var androidAppShortcuts: Set<String>
+        get() {
+            val value = getPref(ANDROID_APP_SHORTCUTS, "[]")
+            return try {
+                Json.decodeFromString<Set<String>>(value)
+            } catch (e: Exception) {
+                emptySet()
+            }
+        }
+        set(value) {
+            setPref(ANDROID_APP_SHORTCUTS, Json.encodeToString(value))
         }
 
     private val FAVORITE_APP_IDS = stringPreferencesKey("favorite_app_ids")
@@ -1740,11 +1807,6 @@ object PrefManager {
         get() = getPref(HAPTIC_INTENSITY, 1)
         set(value) = setPref(HAPTIC_INTENSITY, value.coerceIn(1, 3))
 
-    private val TRUE_GLASS_ENABLED = booleanPreferencesKey("true_glass_enabled")
-    var trueGlassEnabled: Boolean
-        get() = getPref(TRUE_GLASS_ENABLED, false)
-        set(value) = setPref(TRUE_GLASS_ENABLED, value)
-
     private val GLASS_BLUR_INTENSITY = floatPreferencesKey("glass_blur_intensity")
     var glassBlurIntensity: Float
         get() = getPref(GLASS_BLUR_INTENSITY, 16f)
@@ -1754,6 +1816,21 @@ object PrefManager {
     var glassColor: String
         get() = getPref(GLASS_COLOR, "#FFFFFF")
         set(value) = setPref(GLASS_COLOR, value)
+
+    private val VIDEO_BACKGROUND_PATH = stringPreferencesKey("video_background_path")
+    var videoBackgroundPath: String
+        get() = getPref(VIDEO_BACKGROUND_PATH, "")
+        set(value) = setPref(VIDEO_BACKGROUND_PATH, value)
+
+    private val VIDEO_BACKGROUND_DIM_ALPHA = floatPreferencesKey("video_background_dim_alpha")
+    var videoBackgroundDimAlpha: Float
+        get() = getPref(VIDEO_BACKGROUND_DIM_ALPHA, 0.4f)
+        set(value) = setPref(VIDEO_BACKGROUND_DIM_ALPHA, value.coerceIn(0f, 0.9f))
+
+    private val AUTO_EXTRACT_WALLPAPER_COLOR = booleanPreferencesKey("auto_extract_wallpaper_color")
+    var autoExtractWallpaperColor: Boolean
+        get() = getPref(AUTO_EXTRACT_WALLPAPER_COLOR, true)
+        set(value) = setPref(AUTO_EXTRACT_WALLPAPER_COLOR, value)
 
     private val FONT_TYPE = stringPreferencesKey("font_type")
 
@@ -1766,4 +1843,35 @@ object PrefManager {
     var powerControlDefaultEnabled: Boolean
         get() = getPref(POWER_CONTROL_DEFAULT_ENABLED, DeviceGate.isDeviceSupported())
         set(value) { setPref(POWER_CONTROL_DEFAULT_ENABLED, value) }
+
+    /* Music Player State */
+    private val MUSIC_LAST_TRACK_URI = stringPreferencesKey("music_last_track_uri")
+    var musicLastTrackUri: String
+        get() = getPref(MUSIC_LAST_TRACK_URI, "")
+        set(value) = setPref(MUSIC_LAST_TRACK_URI, value)
+
+    private val MUSIC_LAST_TRACK_NAME = stringPreferencesKey("music_last_track_name")
+    var musicLastTrackName: String
+        get() = getPref(MUSIC_LAST_TRACK_NAME, "")
+        set(value) = setPref(MUSIC_LAST_TRACK_NAME, value)
+
+    private val MUSIC_IS_PLAYING = booleanPreferencesKey("music_is_playing")
+    var musicIsPlaying: Boolean
+        get() = getPref(MUSIC_IS_PLAYING, false)
+        set(value) = setPref(MUSIC_IS_PLAYING, value)
+
+    private val MUSIC_FOLDER_PATH = stringPreferencesKey("music_folder_path")
+    var musicFolderPath: String
+        get() = getPref(MUSIC_FOLDER_PATH, "")
+        set(value) = setPref(MUSIC_FOLDER_PATH, value)
+
+    private val MUSIC_VOLUME = floatPreferencesKey("music_volume")
+    var musicVolume: Float
+        get() = getPref(MUSIC_VOLUME, 1f)
+        set(value) = setPref(MUSIC_VOLUME, value.coerceIn(0f, 1f))
+
+    private val MUSIC_PLAYER_ENABLED = booleanPreferencesKey("music_player_enabled")
+    var musicPlayerEnabled: Boolean
+        get() = getPref(MUSIC_PLAYER_ENABLED, true)
+        set(value) = setPref(MUSIC_PLAYER_ENABLED, value)
 }

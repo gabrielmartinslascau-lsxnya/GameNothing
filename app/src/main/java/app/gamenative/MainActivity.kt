@@ -40,11 +40,14 @@ import app.gamenative.service.SteamService
 import app.gamenative.service.epic.EpicService
 import app.gamenative.service.gog.GOGService
 import app.gamenative.ui.PluviaMain
+import app.gamenative.utils.MusicManager
 import app.gamenative.ui.enums.Orientation
+import app.gamenative.ui.enums.PaneType
 import app.gamenative.ui.screen.library.appscreen.BaseAppScreen
 import app.gamenative.ui.util.LocalSnackbarHostController
 import app.gamenative.ui.util.SnackbarHostController
 import app.gamenative.ui.util.SnackbarManager
+import app.gamenative.utils.AndroidAppIconFetcher
 import app.gamenative.utils.AnimatedPngDecoder
 import app.gamenative.utils.ContainerUtils
 import app.gamenative.utils.IconDecoder
@@ -182,8 +185,8 @@ class MainActivity : ComponentActivity() {
         isControllerTransitioning = true
         Timber.i("[Controller] Gamepad detected. Locking landscape and triggering transition.")
 
-        // 1. Force carousel mode
-        PrefManager.libraryLayout = app.gamenative.ui.enums.PaneType.CAROUSEL
+        // 1. Force 360 mode for premium first impression
+        PrefManager.libraryLayout = PaneType.MODE_360
 
         // 2. Force landscape orientation
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
@@ -281,6 +284,7 @@ class MainActivity : ComponentActivity() {
         updateOrientationForController()
 
         ContainerUtils.setContainerDefaults(applicationContext)
+        MusicManager.init(applicationContext)
 
         handleLaunchIntent(intent)
 
@@ -342,6 +346,7 @@ class MainActivity : ComponentActivity() {
                         )
                         add(IconDecoder.Factory())
                         add(AnimatedPngDecoder.Factory())
+                        add(AndroidAppIconFetcher.Factory(context))
                     }
                     .build()
                     .also { appImageLoader = it }

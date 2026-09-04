@@ -349,6 +349,7 @@
     <string name="performance_hud_metrics_description">Elige qué estadísticas aparecen en la superposición.</string>
     <string name="performance_hud_frame_rate">Velocidad de fotogramas</string>
     <string name="performance_hud_frame_rate_graph">Gráfico de FPS</string>
+    <string name="performance_hud_refresh_rate">Frecuencia de actualización</string>
     <string name="performance_hud_cpu_usage">Uso de CPU</string>
     <string name="performance_hud_cpu_usage_graph">Gráfico de CPU</string>
     <string name="performance_hud_gpu_usage">Uso de GPU</string>

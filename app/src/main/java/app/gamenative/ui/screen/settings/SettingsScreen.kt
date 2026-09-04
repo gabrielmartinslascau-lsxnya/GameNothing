@@ -9,18 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.displayCutoutPadding
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
@@ -28,29 +17,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.Gamepad
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.AutoFixHigh
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Science
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.TouchApp
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -60,12 +38,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.enums.AppTheme
+import app.gamenative.ui.components.LoopingVideoBackground
 import app.gamenative.ui.model.MainViewModel
 import app.gamenative.ui.theme.PluviaTheme
 import app.gamenative.ui.theme.PluviaGlassPanel
+import app.gamenative.ui.theme.LocalBackgroundLayer
 import app.gamenative.ui.theme.glassContentColor
 import app.gamenative.utils.HapticManager
 import app.gamenative.utils.hapticClickable
@@ -101,119 +82,160 @@ private fun SettingsScreenContent(
     onBack: () -> Unit,
 ) {
     val scrollState = rememberScrollState()
+    val mainState by viewModel?.state?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(null) }
+    var backgroundLayer by remember { mutableStateOf<GraphicsLayer?>(null) }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        PluviaTheme.colors.surfacePanel,
-                        MaterialTheme.colorScheme.background,
-                        MaterialTheme.colorScheme.background,
-                    ),
-                ),
-            ),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .displayCutoutPadding(),
+    CompositionLocalProvider(LocalBackgroundLayer provides backgroundLayer) {
+        Box(
+            modifier = Modifier.fillMaxSize()
         ) {
-            SettingsHeader(
-                onBack = onBack,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            )
-
-            // Scrollable content
-            Column(
+            // Background Layer for Glass Sampling
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(scrollState)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .drawWithCache {
+                        val layer = obtainGraphicsLayer()
+                        onDrawWithContent {
+                            layer.record {
+                                this@onDrawWithContent.drawContent()
+                            }
+                            drawLayer(layer)
+                            backgroundLayer = layer
+                        }
+                    }
             ) {
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Emulation section
-                SettingsSection(
-                    title = stringResource(R.string.settings_emulation_title),
-                    icon = Icons.Default.Gamepad,
-                    iconTint = PluviaTheme.colors.accentCyan,
-                ) {
-                    SettingsGroupEmulation()
-                }
-
-                // Performance section
-                SettingsSection(
-                    title = stringResource(R.string.settings_performance_title),
-                    icon = Icons.Default.Speed,
-                    iconTint = PluviaTheme.colors.accentWarning,
-                ) {
-                    SettingsGroupPerformance()
-                }
-
-                // Interface section
-                SettingsSection(
-                    title = stringResource(R.string.settings_interface_title),
-                    icon = Icons.Default.Palette,
-                    iconTint = PluviaTheme.colors.accentPurple,
-                ) {
-                    SettingsGroupInterface(
-                        appTheme = appTheme,
-                        paletteStyle = paletteStyle,
-                        onAppTheme = onAppTheme,
-                        onPaletteStyle = onPaletteStyle,
+                // 1a. Root Video Background (Part of capture for glass distortion)
+                if (mainState?.videoBackgroundPath?.isNotEmpty() == true) {
+                    LoopingVideoBackground(
+                        videoPath = mainState!!.videoBackgroundPath,
+                        dimAlpha = mainState!!.videoBackgroundDimAlpha,
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
 
-                // Looks section
-                SettingsSection(
-                    title = stringResource(R.string.settings_looks_title),
-                    icon = Icons.Default.AutoFixHigh,
-                    iconTint = PluviaTheme.colors.accentCyan,
-                ) {
-                    viewModel?.let { SettingsGroupLooks(viewModel = it) }
-                }
+                // 1b. Static Gradient Fallback (Also part of capture)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (mainState?.videoBackgroundPath?.isNotEmpty() == true) {
+                                Modifier.background(Color.Transparent)
+                            } else {
+                                Modifier.background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            PluviaTheme.colors.surfacePanel,
+                                            MaterialTheme.colorScheme.background,
+                                            MaterialTheme.colorScheme.background,
+                                        ),
+                                    )
+                                )
+                            }
+                        )
+                )
+            }
 
-                // Feel section
-                SettingsSection(
-                    title = stringResource(R.string.settings_feel_title),
-                    icon = Icons.Default.TouchApp,
-                    iconTint = PluviaTheme.colors.accentPurple,
-                ) {
-                    SettingsGroupFeel()
-                }
+            // 2. Settings UI
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .displayCutoutPadding(),
+            ) {
+                SettingsHeader(
+                    onBack = onBack,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                )
 
-                // Info section
-                SettingsSection(
-                    title = stringResource(R.string.settings_info_title),
-                    icon = Icons.Default.Info,
-                    iconTint = PluviaTheme.colors.accentSuccess,
+                // Scrollable content
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scrollState)
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    SettingsGroupInfo()
-                }
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                // Experimental section
-                SettingsSection(
-                    title = stringResource(R.string.settings_experimental_title),
-                    icon = Icons.Default.Science,
-                    iconTint = Color(0xFFE91E63), // Pink accent
-                ) {
-                    viewModel?.let { SettingsGroupExperimental(viewModel = it) }
-                }
+                    // Emulation section
+                    SettingsSection(
+                        title = stringResource(R.string.settings_emulation_title),
+                        icon = Icons.Default.Gamepad,
+                        iconTint = PluviaTheme.colors.accentCyan,
+                    ) {
+                        SettingsGroupEmulation()
+                    }
 
-                // Debug section
-                SettingsSection(
-                    title = stringResource(R.string.settings_debug_title),
-                    icon = Icons.Default.BugReport,
-                    iconTint = PluviaTheme.colors.accentWarning,
-                ) {
-                    SettingsGroupDebug()
-                }
+                    // Performance section
+                    SettingsSection(
+                        title = stringResource(R.string.settings_performance_title),
+                        icon = Icons.Default.Speed,
+                        iconTint = PluviaTheme.colors.accentWarning,
+                    ) {
+                        SettingsGroupPerformance()
+                    }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                    // Interface section
+                    SettingsSection(
+                        title = stringResource(R.string.settings_interface_title),
+                        icon = Icons.Default.Palette,
+                        iconTint = PluviaTheme.colors.accentPurple,
+                    ) {
+                        SettingsGroupInterface(
+                            appTheme = appTheme,
+                            paletteStyle = paletteStyle,
+                            onAppTheme = onAppTheme,
+                            onPaletteStyle = onPaletteStyle,
+                        )
+                    }
+
+                    // Looks section
+                    SettingsSection(
+                        title = stringResource(R.string.settings_looks_title),
+                        icon = Icons.Default.AutoFixHigh,
+                        iconTint = PluviaTheme.colors.accentCyan,
+                    ) {
+                        viewModel?.let { SettingsGroupLooks(viewModel = it) }
+                    }
+
+                    // Feel section
+                    SettingsSection(
+                        title = stringResource(R.string.settings_feel_title),
+                        icon = Icons.Default.TouchApp,
+                        iconTint = PluviaTheme.colors.accentPurple,
+                    ) {
+                        SettingsGroupFeel()
+                    }
+
+                    // Info section
+                    SettingsSection(
+                        title = stringResource(R.string.settings_info_title),
+                        icon = Icons.Default.Info,
+                        iconTint = PluviaTheme.colors.accentSuccess,
+                    ) {
+                        SettingsGroupInfo()
+                    }
+
+                    // Experimental section
+                    SettingsSection(
+                        title = stringResource(R.string.settings_experimental_title),
+                        icon = Icons.Default.Science,
+                        iconTint = Color(0xFFE91E63), // Pink accent
+                    ) {
+                        viewModel?.let { SettingsGroupExperimental(viewModel = it) }
+                    }
+
+                    // Debug section
+                    SettingsSection(
+                        title = stringResource(R.string.settings_debug_title),
+                        icon = Icons.Default.BugReport,
+                        iconTint = PluviaTheme.colors.accentWarning,
+                    ) {
+                        SettingsGroupDebug()
+                    }
+
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
             }
         }
     }

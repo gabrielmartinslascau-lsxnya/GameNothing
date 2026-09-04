@@ -36,19 +36,25 @@ object HapticManager {
     }
 
     private fun performVibration(v: Vibrator, type: HapticType, duration: Long, amplitude: Int) {
-        when (type) {
-            HapticType.CLICK -> {
-                v.vibrate(VibrationEffect.createOneShot(duration, amplitude))
+        try {
+            when (type) {
+                HapticType.CLICK -> {
+                    v.vibrate(VibrationEffect.createOneShot(duration, amplitude))
+                }
+                HapticType.MENU -> {
+                    val gap = 45L
+                    val pattern = longArrayOf(0, duration, gap, duration)
+                    val amplitudes = intArrayOf(0, amplitude, 0, amplitude)
+                    v.vibrate(VibrationEffect.createWaveform(pattern, amplitudes, -1))
+                }
+                HapticType.LONG -> {
+                    v.vibrate(VibrationEffect.createOneShot(1000, amplitude))
+                }
             }
-            HapticType.MENU -> {
-                val gap = 45L
-                val pattern = longArrayOf(0, duration, gap, duration)
-                val amplitudes = intArrayOf(0, amplitude, 0, amplitude)
-                v.vibrate(VibrationEffect.createWaveform(pattern, amplitudes, -1))
-            }
-            HapticType.LONG -> {
-                v.vibrate(VibrationEffect.createOneShot(1000, amplitude))
-            }
+        } catch (_: Exception) {
+            // FALLBACK: Some copycat controllers only support basic vibration calls
+            @Suppress("DEPRECATION")
+            v.vibrate(duration)
         }
     }
 

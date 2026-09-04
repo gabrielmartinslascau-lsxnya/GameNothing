@@ -1,8 +1,12 @@
 package app.gamenative.ui.screen.library.appscreen
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
@@ -41,7 +45,22 @@ import timber.log.Timber
 class CustomGameAppScreen : BaseAppScreen() {
     companion object {
         // Shared state for delete dialog - list of appIds that should show the dialog
+        fun showRemoveFromLibraryDialog(appId: String) {
+            if (!removeFromLibraryDialogAppIds.contains(appId)) {
+                removeFromLibraryDialogAppIds.add(appId)
+            }
+        }
+
+        fun hideRemoveFromLibraryDialog(appId: String) {
+            removeFromLibraryDialogAppIds.remove(appId)
+        }
+
+        fun shouldShowRemoveFromLibraryDialog(appId: String): Boolean {
+            return removeFromLibraryDialogAppIds.contains(appId)
+        }
+
         private val deleteDialogAppIds = mutableStateListOf<String>()
+        private val removeFromLibraryDialogAppIds = mutableStateListOf<String>()
 
         fun showDeleteDialog(appId: String) {
             if (!deleteDialogAppIds.contains(appId)) {
@@ -393,9 +412,35 @@ class CustomGameAppScreen : BaseAppScreen() {
         isInstalled: Boolean,
     ): List<AppMenuOption> {
         val options = mutableListOf<AppMenuOption>()
+        val scope = rememberCoroutineScope()
+
+        val moveLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocumentTree()
+        ) { uri ->
+            if (uri != null) {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+                val path = StorageUtils.getPathFromTreeUri(context, uri)
+                if (path != null) {
+                    PluviaApp.events.emit<AndroidEvent.MoveCustomGame, Unit>(AndroidEvent.MoveCustomGame(libraryItem.appId, path))
+                }
+            }
+        }
 
         // Fetch images from SteamGridDB for Custom Games
         options.add(getFetchImagesOption(context, libraryItem))
+
+        options.add(AppMenuOption(
+            optionType = AppOptionMenuType.MoveGame,
+            onClick = { moveLauncher.launch(null) }
+        ))
+
+        options.add(AppMenuOption(
+            optionType = AppOptionMenuType.RemoveFromLibrary,
+            onClick = { showRemoveFromLibraryDialog(libraryItem.appId) }
+        ))
 
         return options
     }
@@ -478,6 +523,64 @@ class CustomGameAppScreen : BaseAppScreen() {
                 visible = true,
                 progress = -1f,
                 message = stringResource(R.string.deleting),
+            )
+        }
+
+        // Track remove dialog state
+        var showRemoveDialog by remember { mutableStateOf(shouldShowRemoveFromLibraryDialog(libraryItem.appId)) }
+
+        LaunchedEffect(libraryItem.appId) {
+            snapshotFlow { shouldShowRemoveFromLibraryDialog(libraryItem.appId) }
+                .collect { shouldShow ->
+                    showRemoveDialog = shouldShow
+                }
+        }
+
+        if (showRemoveDialog) {
+            AlertDialog(
+                onDismissRequest = { hideRemoveFromLibraryDialog(libraryItem.appId) },
+                title = { Text(stringResource(R.string.option_remove_from_library)) },
+                text = { Text("Are you sure you want to remove \"${libraryItem.name}\" from your library? The game files will not be deleted.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            hideRemoveFromLibraryDialog(libraryItem.appId)
+                            showDeletingDialog = true
+                            scope.launch {
+                                try {
+                                    withContext(Dispatchers.Main) {
+                                        ContainerUtils.deleteContainer(context, libraryItem.appId)
+                                    }
+                                    withContext(Dispatchers.IO) {
+                                        val folderPath = CustomGameScanner.getFolderPathFromAppId(libraryItem.appId)
+                                        if (folderPath != null) {
+                                            val manualFolders = PrefManager.customGameManualFolders.toMutableSet()
+                                            manualFolders.remove(folderPath)
+                                            PrefManager.customGameManualFolders = manualFolders
+                                        }
+                                        CustomGameScanner.invalidateCache()
+                                    }
+                                    withContext(Dispatchers.Main) {
+                                        SnackbarManager.show("\"${libraryItem.name}\" has been removed")
+                                        delay(100)
+                                        onBack()
+                                    }
+                                } catch (e: Exception) {
+                                    withContext(Dispatchers.Main) {
+                                        SnackbarManager.show("Failed to remove game: ${e.message}")
+                                    }
+                                } finally {
+                                    withContext(NonCancellable + Dispatchers.Main) {
+                                        showDeletingDialog = false
+                                    }
+                                }
+                            }
+                        }
+                    ) { Text("Remove", color = MaterialTheme.colorScheme.error) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { hideRemoveFromLibraryDialog(libraryItem.appId) }) { Text("Cancel") }
+                }
             )
         }
 

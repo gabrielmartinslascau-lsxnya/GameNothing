@@ -79,3 +79,7 @@ val CompatibilityUnknown = Color(0xFF9E9E9E)
 val CompatibilityUnknownBg = Color(0xFF424242)
 val CompatibilityBad = Color(0xFFEF5350)
 val CompatibilityBadBg = Color(0xFFB71C1C)
+
+fun Color.toHex(): String {
+    return String.format("#%02X%02X%02X", (red * 255).toInt(), (green * 255).toInt(), (blue * 255).toInt())
+}

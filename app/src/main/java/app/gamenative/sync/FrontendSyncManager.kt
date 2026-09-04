@@ -1,6 +1,8 @@
 package app.gamenative.sync
 
 import android.content.Context
+import androidx.core.net.toUri
+import androidx.documentfile.provider.DocumentFile
 import app.gamenative.PluviaApp
 import app.gamenative.PrefManager
 import app.gamenative.R
@@ -111,6 +113,7 @@ object FrontendSyncManager {
         GameSource.GOG -> ".gog"
         GameSource.AMAZON -> ".amazon"
         GameSource.CUSTOM_GAME -> ".pcgame"
+        GameSource.ANDROID_APP -> ".android"
     }
 
     /**
@@ -173,14 +176,33 @@ object FrontendSyncManager {
         }
 
         val isInstalled = isGameInstalled(appId, source)
-        val file = File(dir, "${sanitizeFileName(gameName)}${extensionFor(source)}")
+        val fileName = "${sanitizeFileName(gameName)}${extensionFor(source)}"
 
         try {
-            if (isInstalled) {
-                file.parentFile?.mkdirs()
-                file.writeText(appId.toString(), Charsets.UTF_8)
+            if (dir.startsWith("content://")) {
+                val treeUri = dir.toUri()
+                val pickedDir = DocumentFile.fromTreeUri(appContext, treeUri)
+                if (pickedDir != null && pickedDir.canWrite()) {
+                    if (isInstalled) {
+                        val existingFile = pickedDir.findFile(fileName)
+                        val file = existingFile ?: pickedDir.createFile("application/octet-stream", fileName)
+                        file?.uri?.let { uri ->
+                            appContext.contentResolver.openOutputStream(uri)?.use { out ->
+                                out.write(appId.toString().toByteArray(Charsets.UTF_8))
+                            }
+                        }
+                    } else {
+                        pickedDir.findFile(fileName)?.delete()
+                    }
+                }
             } else {
-                file.delete()
+                val file = File(dir, fileName)
+                if (isInstalled) {
+                    file.parentFile?.mkdirs()
+                    file.writeText(appId.toString(), Charsets.UTF_8)
+                } else {
+                    file.delete()
+                }
             }
         } catch (e: Exception) {
             Timber.e(e, "FrontendSyncManager: failed to sync file for appId=%d", appId)
@@ -203,18 +225,45 @@ object FrontendSyncManager {
                 GameSource.AMAZON -> {
                     amazonGameDao.getInstalledGames().map { it.appId to it.title }
                 }
+                GameSource.ANDROID_APP -> emptyList()
             }
 
-            val targetDir = File(dir).also { it.mkdirs() }
             val ext = extensionFor(source)
-            deleteAllFilesWithExtension(targetDir.absolutePath, ext)
-            games.forEach { (appId, name) ->
-                try {
-                    File(targetDir, "${sanitizeFileName(name)}$ext").writeText(appId.toString(), Charsets.UTF_8)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    Timber.e(e, "FrontendSyncManager: failed to write export file for appId=%d", appId)
+
+            if (dir.startsWith("content://")) {
+                val treeUri = dir.toUri()
+                val pickedDir = DocumentFile.fromTreeUri(appContext, treeUri)
+                if (pickedDir != null && pickedDir.canWrite()) {
+                    // Delete existing files with extension
+                    pickedDir.listFiles().filter { it.isFile && it.name?.endsWith(ext) == true }.forEach { it.delete() }
+
+                    games.forEach { (appId, name) ->
+                        try {
+                            val fileName = "${sanitizeFileName(name)}$ext"
+                            val file = pickedDir.createFile("application/octet-stream", fileName)
+                            file?.uri?.let { uri ->
+                                appContext.contentResolver.openOutputStream(uri)?.use { out ->
+                                    out.write(appId.toString().toByteArray(Charsets.UTF_8))
+                                }
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            Timber.e(e, "FrontendSyncManager: failed to write export file for appId=%d", appId)
+                        }
+                    }
+                }
+            } else {
+                val targetDir = File(dir).also { it.mkdirs() }
+                deleteAllFilesWithExtension(targetDir.absolutePath, ext)
+                games.forEach { (appId, name) ->
+                    try {
+                        File(targetDir, "${sanitizeFileName(name)}$ext").writeText(appId.toString(), Charsets.UTF_8)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Timber.e(e, "FrontendSyncManager: failed to write export file for appId=%d", appId)
+                    }
                 }
             }
         } catch (e: CancellationException) {
@@ -229,6 +278,7 @@ object FrontendSyncManager {
         GameSource.EPIC -> epicGameDao.getById(appId)?.title
         GameSource.GOG -> gogGameDao.getById(appId.toString())?.title
         GameSource.AMAZON -> amazonGameDao.getByAppId(appId)?.title
+        GameSource.ANDROID_APP -> null
     }
 
     private suspend fun isGameInstalled(appId: Int, source: GameSource): Boolean = when (source) {
@@ -236,6 +286,7 @@ object FrontendSyncManager {
         GameSource.EPIC -> epicGameDao.getById(appId)?.isInstalled ?: false
         GameSource.GOG -> gogGameDao.getById(appId.toString())?.isInstalled ?: false
         GameSource.AMAZON -> amazonGameDao.getByAppId(appId)?.isInstalled ?: false
+        GameSource.ANDROID_APP -> true
     }
 
     private val invalidFileChars = Regex("""[\\/:*?"<>|]""")

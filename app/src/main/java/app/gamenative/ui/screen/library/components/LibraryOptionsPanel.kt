@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.Download
@@ -320,6 +321,13 @@ fun LibraryOptionsPanel(
                                 selected = currentView == PaneType.CAROUSEL,
                                 onClick = { onViewChanged(PaneType.CAROUSEL) },
                                 icon = Icons.Default.ViewCarousel,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            OptionRadioItem(
+                                text = "360 Mode",
+                                selected = currentView == PaneType.MODE_360,
+                                onClick = { onViewChanged(PaneType.MODE_360) },
+                                icon = Icons.AutoMirrored.Filled.RotateRight,
                                 modifier = Modifier.fillMaxWidth(),
                             )
                         }

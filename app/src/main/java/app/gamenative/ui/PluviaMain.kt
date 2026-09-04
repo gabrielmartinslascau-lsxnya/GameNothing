@@ -76,6 +76,7 @@ import com.posthog.PostHog
 import app.gamenative.ui.component.AchievementOverlay
 import app.gamenative.ui.component.ConnectionStatusBanner
 import app.gamenative.ui.component.GameInviteOverlay
+import app.gamenative.ui.component.MusicBubble
 import app.gamenative.ui.component.RamViewerOverlay
 import app.gamenative.service.epic.EpicService
 import app.gamenative.service.gog.GOGService
@@ -86,6 +87,14 @@ import app.gamenative.ui.component.dialog.MessageDialog
 import app.gamenative.ui.component.dialog.state.GameFeedbackDialogState
 import app.gamenative.ui.component.dialog.state.MessageDialogState
 import app.gamenative.ui.components.BootingSplash
+import androidx.compose.animation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.*
+import app.gamenative.ui.components.LoopingVideoBackground
+import app.gamenative.utils.MusicManager
 import app.gamenative.ui.enums.AppOptionMenuType
 import app.gamenative.ui.enums.ConnectionState
 import app.gamenative.launch.LaunchReadiness
@@ -214,6 +223,8 @@ private fun resolveGameAppId(context: Context, appId: String): GameResolutionRes
         GameSource.CUSTOM_GAME -> {
             CustomGameScanner.isGameInstalled(gameId)
         }
+
+        GameSource.ANDROID_APP -> true
     }
 
     if (!isInstalled) {
@@ -248,6 +259,7 @@ private fun needsDeferLaunch(context: Context, appId: String): Boolean {
         GameSource.GOG -> !GOGService.isRunning
         GameSource.EPIC -> !EpicService.isRunning
         GameSource.AMAZON -> !AmazonService.isRunning
+        GameSource.ANDROID_APP -> false
         else -> false
     }
 }
@@ -1228,6 +1240,20 @@ fun PluviaMain(
 
             app.gamenative.ui.components.NothingLaunchWrapper {
                 Box(modifier = Modifier.fillMaxSize()) {
+                    // Root Video Background (Fallback for screens that don't do their own capture)
+                    val isCapturingScreen = state.currentScreen == PluviaScreen.Home || state.currentScreen == PluviaScreen.Settings
+                    if (state.videoBackgroundPath.isNotEmpty() && state.currentScreen != PluviaScreen.XServer && !isCapturingScreen) {
+                        LoopingVideoBackground(
+                            videoPath = state.videoBackgroundPath,
+                            dimAlpha = state.videoBackgroundDimAlpha,
+                            onColorExtracted = { hex ->
+                                if (state.mainColor != hex) {
+                                    viewModel.setMainColor(hex)
+                                }
+                            }
+                        )
+                    }
+
                     LoadingDialog(
                         visible = state.loadingDialogVisible,
                         progress = state.loadingDialogProgress,
@@ -1470,6 +1496,21 @@ fun PluviaMain(
 
                         HomeScreen(
                             onClickPlay = { appId, asContainer ->
+                                if (appId.startsWith("ANDROID_APP_")) {
+                                    val pkg = appId.removePrefix("ANDROID_APP_")
+                                    try {
+                                        val intent = context.packageManager.getLaunchIntentForPackage(pkg)
+                                        if (intent != null) {
+                                            context.startActivity(intent)
+                                        } else {
+                                            SnackbarManager.show("Failed to launch app")
+                                        }
+                                    } catch (e: Exception) {
+                                        SnackbarManager.show("Error: ${e.message}")
+                                    }
+                                    return@HomeScreen
+                                }
+
                                 trackGameLaunched(appId)
                                 viewModel.setLaunchedAppId(appId)
                                 viewModel.setBootToContainer(asContainer)
@@ -1669,6 +1710,7 @@ fun PluviaMain(
                 AchievementOverlay()
                 GameInviteOverlay()
                 RamViewerOverlay()
+                MusicBubble()
             }
         }
     }
@@ -1762,6 +1804,7 @@ fun preLaunchApp(
                 GameSource.EPIC -> EpicService.getLaunchExecutable(appId)
                 GameSource.CUSTOM_GAME -> CustomGameScanner.getLaunchExecutable(container)
                 GameSource.AMAZON -> AmazonService.getLaunchExecutable(appId)
+                GameSource.ANDROID_APP -> "" // Android apps launch via Intent directly
             }
             if (effectiveExe.isBlank()) {
                 Timber.tag("preLaunchApp").w("Cannot launch $appId: no executable found (game source: $gameSource)")

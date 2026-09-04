@@ -40,9 +40,6 @@ interface IAppTheme {
     val glassPanelsFlow: StateFlow<Boolean>
     var glassPanels: Boolean
 
-    val trueGlassEnabledFlow: StateFlow<Boolean>
-    var trueGlassEnabled: Boolean
-
     val glassTransparencyFlow: StateFlow<Float>
     var glassTransparency: Float
 
@@ -66,6 +63,12 @@ interface IAppTheme {
 
     val downloadBarStyleFlow: StateFlow<app.gamenative.enums.DownloadBarStyle>
     var downloadBarStyle: app.gamenative.enums.DownloadBarStyle
+
+    val videoBackgroundPathFlow: StateFlow<String>
+    var videoBackgroundPath: String
+
+    val videoBackgroundDimAlphaFlow: StateFlow<Float>
+    var videoBackgroundDimAlpha: Float
 }
 
 class AppThemeImpl : IAppTheme {
@@ -91,9 +94,6 @@ class AppThemeImpl : IAppTheme {
     override val glassPanelsFlow: MutableStateFlow<Boolean> = MutableStateFlow(PrefManager.glassPanels)
     override var glassPanels: Boolean by GlassPanelsDelegate()
 
-    override val trueGlassEnabledFlow: MutableStateFlow<Boolean> = MutableStateFlow(PrefManager.trueGlassEnabled)
-    override var trueGlassEnabled: Boolean by TrueGlassEnabledDelegate()
-
     override val glassTransparencyFlow: MutableStateFlow<Float> = MutableStateFlow(PrefManager.glassTransparency)
     override var glassTransparency: Float by GlassTransparencyDelegate()
 
@@ -117,6 +117,12 @@ class AppThemeImpl : IAppTheme {
 
     override val downloadBarStyleFlow: MutableStateFlow<app.gamenative.enums.DownloadBarStyle> = MutableStateFlow(PrefManager.downloadBarStyle)
     override var downloadBarStyle: app.gamenative.enums.DownloadBarStyle by DownloadBarStyleDelegate()
+
+    override val videoBackgroundPathFlow: MutableStateFlow<String> = MutableStateFlow(PrefManager.videoBackgroundPath)
+    override var videoBackgroundPath: String by VideoBackgroundPathDelegate()
+
+    override val videoBackgroundDimAlphaFlow: MutableStateFlow<Float> = MutableStateFlow(PrefManager.videoBackgroundDimAlpha)
+    override var videoBackgroundDimAlpha: Float by VideoBackgroundDimAlphaDelegate()
 
     inner class AppThemeDelegate : ReadWriteProperty<Any, AppTheme> {
         override fun getValue(thisRef: Any, property: KProperty<*>): AppTheme = PrefManager.appTheme
@@ -171,14 +177,6 @@ class AppThemeImpl : IAppTheme {
         override fun setValue(thisRef: Any, property: KProperty<*>, value: Boolean) {
             glassPanelsFlow.value = value
             PrefManager.glassPanels = value
-        }
-    }
-
-    inner class TrueGlassEnabledDelegate : ReadWriteProperty<Any, Boolean> {
-        override fun getValue(thisRef: Any, property: KProperty<*>): Boolean = PrefManager.trueGlassEnabled
-        override fun setValue(thisRef: Any, property: KProperty<*>, value: Boolean) {
-            trueGlassEnabledFlow.value = value
-            PrefManager.trueGlassEnabled = value
         }
     }
 
@@ -243,6 +241,22 @@ class AppThemeImpl : IAppTheme {
         override fun setValue(thisRef: Any, property: KProperty<*>, value: app.gamenative.enums.DownloadBarStyle) {
             downloadBarStyleFlow.value = value
             PrefManager.downloadBarStyle = value
+        }
+    }
+
+    inner class VideoBackgroundPathDelegate : ReadWriteProperty<Any, String> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): String = PrefManager.videoBackgroundPath
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: String) {
+            videoBackgroundPathFlow.value = value
+            PrefManager.videoBackgroundPath = value
+        }
+    }
+
+    inner class VideoBackgroundDimAlphaDelegate : ReadWriteProperty<Any, Float> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): Float = PrefManager.videoBackgroundDimAlpha
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: Float) {
+            videoBackgroundDimAlphaFlow.value = value
+            PrefManager.videoBackgroundDimAlpha = value
         }
     }
 }

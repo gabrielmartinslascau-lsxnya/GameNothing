@@ -73,6 +73,8 @@ fun LibrarySearchBar(
     onScrollToTop: suspend () -> Unit,
     onSearchQuery: (String) -> Unit,
     onDismiss: () -> Unit,
+    isScrolling: Boolean = false,
+    distortionStrength: Float? = null,
     modifier: Modifier = Modifier,
 ) {
     val isGlass = PrefManager.glassPanels
@@ -102,9 +104,8 @@ fun LibrarySearchBar(
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 cornerRadius = 16,
-                // If True Glass (Backdrop Blur) is active, we don't want the panel to blur its own tint.
-                // This keeps the text and icons perfectly sharp over the background blur.
-                isTrueGlass = false,
+                isScrolling = isScrolling,
+                distortionStrength = distortionStrength,
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Column(

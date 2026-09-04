@@ -43,6 +43,7 @@ object XAudioUtils {
                 }
                 GameSource.AMAZON -> AmazonService.getInstallPath(appId)
                 GameSource.CUSTOM_GAME -> CustomGameScanner.getFolderPathFromAppId(appId)
+                GameSource.ANDROID_APP -> null
             }
         } catch (e: Exception) {
             Timber.tag("XAudioUtils")

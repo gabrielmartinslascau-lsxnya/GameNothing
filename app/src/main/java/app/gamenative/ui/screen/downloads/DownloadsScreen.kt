@@ -30,7 +30,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -79,6 +82,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.data.GameSource
 import app.gamenative.data.LibraryItem
@@ -93,6 +97,7 @@ import app.gamenative.ui.screen.settings.ContainerStorageManagerContent
 import app.gamenative.ui.screen.settings.ContainerStorageManagerTransientUi
 import app.gamenative.ui.screen.settings.rememberContainerStorageManagerUiState
 import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.ui.util.JoystickScrollHandler
 import app.gamenative.utils.HapticManager
 import app.gamenative.utils.hapticClickable
 import app.gamenative.utils.hapticSelectable
@@ -132,6 +137,9 @@ fun HomeDownloadsScreen(
     val selectedSection = sections.getOrElse(selectedSectionIndex) { DownloadsSection.Downloads }
     var selectedLibraryItem by remember { mutableStateOf<LibraryItem?>(null) }
     var openGameRequestId by rememberSaveable { mutableIntStateOf(0) }
+    val downloadsLazyListState = rememberLazyListState()
+
+    JoystickScrollHandler(lazyListState = downloadsLazyListState)
 
     fun fallbackLibraryItem(gameSource: GameSource, appId: String, name: String, iconUrl: String): LibraryItem {
         return LibraryItem(
@@ -153,26 +161,33 @@ fun HomeDownloadsScreen(
     fun openGame(gameSource: GameSource, appId: String, name: String, iconUrl: String) {
         val requestId = openGameRequestId + 1
         openGameRequestId = requestId
+
         scope.launch {
-            val resolvedItem = viewModel.resolveLibraryItem(gameSource, appId)
-                ?: fallbackLibraryItem(gameSource, appId, name, iconUrl)
-            if (requestId == openGameRequestId) {
-                selectedLibraryItem = resolvedItem
+            // Give time for UI to settle
+            delay(50)
+            if (openGameRequestId == requestId) {
+                selectedLibraryItem = fallbackLibraryItem(gameSource, appId, name, iconUrl)
             }
         }
     }
 
-    BackHandler(enabled = selectedLibraryItem != null) {
-        clearSelectedLibraryItem()
+    BackHandler {
+        if (selectedLibraryItem != null) {
+            clearSelectedLibraryItem()
+        } else if (selectedSection == DownloadsSection.Storage) {
+            selectedSectionIndex = DownloadsSection.Downloads.ordinal
+        } else {
+            onBack()
+        }
     }
 
     if (selectedLibraryItem != null) {
         LibraryDetailPane(
             libraryItem = selectedLibraryItem,
             onBack = ::clearSelectedLibraryItem,
-            onClickPlay = { useBoxArt ->
+            onClickPlay = {
                 selectedLibraryItem?.let { libraryItem ->
-                    onClickPlay(libraryItem.appId, useBoxArt)
+                    onClickPlay(libraryItem.appId, it)
                 }
             },
             onTestGraphics = {
@@ -190,7 +205,10 @@ fun HomeDownloadsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+                .background(
+                    if (PrefManager.videoBackgroundPath.isNotEmpty()) Color.Transparent
+                    else MaterialTheme.colorScheme.background
+                )
                 .statusBarsPadding()
                 .displayCutoutPadding(),
         ) {
@@ -254,6 +272,7 @@ fun HomeDownloadsScreen(
                             onOpenGame = { item ->
                                 openGame(item.gameSource, item.appId, item.gameName, item.iconUrl)
                             },
+                            lazyListState = downloadsLazyListState,
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(20.dp),
@@ -273,22 +292,6 @@ fun HomeDownloadsScreen(
             }
         }
     }
-
-    val confirmation = state.cancelConfirmation
-    MessageDialog(
-        visible = confirmation != null,
-        title = stringResource(R.string.cancel_download_prompt_title),
-        message = confirmation?.gameName?.let {
-            stringResource(R.string.downloads_cancel_confirm, it)
-        },
-        confirmBtnText = stringResource(R.string.yes),
-        dismissBtnText = stringResource(R.string.no),
-        onConfirmClick = { viewModel.onConfirmCancel() },
-        onDismissClick = { viewModel.onDismissCancel() },
-        onDismissRequest = { viewModel.onDismissCancel() },
-    )
-
-    ContainerStorageManagerTransientUi(storageManagerState)
 }
 
 @Composable
@@ -316,60 +319,6 @@ private fun DownloadsHeader(
 }
 
 @Composable
-private fun DownloadsSidebar(
-    sections: List<DownloadsSection>,
-    selectedSection: DownloadsSection,
-    onSectionSelected: (DownloadsSection) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val focusRequesters = remember {
-        sections.associateWith { FocusRequester() }
-    }
-    var requestedInitialFocus by remember { mutableStateOf(false) }
-
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
-        color = PluviaTheme.colors.surfacePanel.copy(alpha = 0.88f),
-        tonalElevation = 1.dp,
-        shadowElevation = 8.dp,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp)
-                .focusGroup(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            sections.forEach { section ->
-                DownloadsSidebarItem(
-                    section = section,
-                    selected = selectedSection == section,
-                    onClick = { onSectionSelected(section) },
-                    focusRequester = focusRequesters.getValue(section),
-                )
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-        }
-    }
-
-    LaunchedEffect(selectedSection, requestedInitialFocus) {
-        if (requestedInitialFocus) return@LaunchedEffect
-        val focusRequester = focusRequesters.getValue(selectedSection)
-        repeat(3) {
-            try {
-                focusRequester.requestFocus()
-                requestedInitialFocus = true
-                return@LaunchedEffect
-            } catch (_: Exception) {
-                delay(80)
-            }
-        }
-    }
-}
-
-@Composable
 private fun DownloadsTabRow(
     sections: List<DownloadsSection>,
     selectedSection: DownloadsSection,
@@ -379,53 +328,50 @@ private fun DownloadsTabRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         sections.forEach { section ->
-            val isSelected = selectedSection == section
-            val accentColor = PluviaTheme.colors.accentPurple
+            val isSelected = section == selectedSection
+            val interactionSource = remember { MutableInteractionSource() }
+            val isFocused by interactionSource.collectIsFocusedAsState()
 
-            Surface(
+            Box(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(16.dp))
+                    .height(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        when {
+                            isSelected -> MaterialTheme.colorScheme.primary
+                            isFocused -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                            else -> Color.Transparent
+                        },
+                    )
                     .hapticSelectable(
                         selected = isSelected,
+                        interactionSource = interactionSource,
                         onClick = { onSectionSelected(section) },
+                        type = HapticManager.HapticType.CLICK,
                     ),
-                shape = RoundedCornerShape(16.dp),
-                color = if (isSelected) {
-                    accentColor.copy(alpha = 0.16f)
-                } else {
-                    PluviaTheme.colors.surfacePanel.copy(alpha = 0.88f)
-                },
-                border = BorderStroke(
-                    width = if (isSelected) 1.5.dp else 1.dp,
-                    color = if (isSelected) {
-                        accentColor.copy(alpha = 0.45f)
-                    } else {
-                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f)
-                    },
-                ),
+                contentAlignment = Alignment.Center,
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Icon(
                         imageVector = section.icon,
-                        contentDescription = stringResource(section.titleResId),
-                        tint = if (isSelected) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
                         text = stringResource(section.titleResId),
                         style = MaterialTheme.typography.labelLarge,
-                        color = if (isSelected) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -434,77 +380,50 @@ private fun DownloadsTabRow(
 }
 
 @Composable
-private fun DownloadsSidebarItem(
-    section: DownloadsSection,
-    selected: Boolean,
-    onClick: () -> Unit,
-    focusRequester: FocusRequester,
+private fun DownloadsSidebar(
+    sections: List<DownloadsSection>,
+    selectedSection: DownloadsSection,
+    onSectionSelected: (DownloadsSection) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isFocused by interactionSource.collectIsFocusedAsState()
-    val accentColor = PluviaTheme.colors.accentPurple
-    val isHighlighted = selected || isFocused
-
-    Box(
+    Column(
         modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .then(
-                if (isHighlighted) {
-                    Modifier.background(
-                        brush = Brush.horizontalGradient(
-                            colors = listOf(
-                                accentColor.copy(alpha = if (isFocused) 0.18f else 0.12f),
-                                accentColor.copy(alpha = 0.05f),
-                            ),
-                        ),
-                    )
-                } else {
-                    Modifier.background(Color.Transparent)
-                },
-            )
-            .border(
-                width = if (isFocused) 2.dp else 1.dp,
-                color = when {
-                    isFocused -> accentColor.copy(alpha = 0.65f)
-                    selected -> accentColor.copy(alpha = 0.32f)
-                    else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f)
-                },
-                shape = RoundedCornerShape(18.dp),
-            )
-            .focusRequester(focusRequester)
-            .hapticSelectable(
-                selected = selected,
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick,
-            )
-            .padding(vertical = 18.dp),
-        contentAlignment = Alignment.Center,
+            .fillMaxHeight()
+            .focusGroup(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(CircleShape)
-                .background(
-                    when {
-                        isFocused -> accentColor.copy(alpha = 0.22f)
-                        selected -> accentColor.copy(alpha = 0.14f)
-                        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                    },
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = section.icon,
-                contentDescription = stringResource(section.titleResId),
-                tint = when {
-                    isHighlighted -> accentColor
-                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                modifier = Modifier.size(22.dp),
-            )
+        sections.forEach { section ->
+            val isSelected = section == selectedSection
+            val interactionSource = remember { MutableInteractionSource() }
+            val isFocused by interactionSource.collectIsFocusedAsState()
+
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(
+                        when {
+                            isSelected -> MaterialTheme.colorScheme.primary
+                            isFocused -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        },
+                    )
+                    .hapticSelectable(
+                        selected = isSelected,
+                        interactionSource = interactionSource,
+                        onClick = { onSectionSelected(section) },
+                        type = HapticManager.HapticType.CLICK,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = section.icon,
+                    contentDescription = stringResource(section.titleResId),
+                    modifier = Modifier.size(28.dp),
+                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
@@ -522,6 +441,7 @@ private fun DownloadsContent(
     onCancelAll: () -> Unit,
     onClearFinished: () -> Unit,
     onOpenGame: (DownloadItemState) -> Unit,
+    lazyListState: LazyListState,
     modifier: Modifier = Modifier,
 ) {
     val items = remember(state.downloads) { state.downloads.values.toList() }
@@ -613,6 +533,7 @@ private fun DownloadsContent(
             EmptyDownloadsContent(modifier = Modifier.fillMaxSize())
         } else {
             LazyColumn(
+                state = lazyListState,
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(bottom = 24.dp),
@@ -1091,6 +1012,7 @@ private fun sourceLabel(gameSource: GameSource): String = when (gameSource) {
     GameSource.EPIC -> stringResource(R.string.tab_epic)
     GameSource.AMAZON -> stringResource(R.string.tab_amazon)
     GameSource.CUSTOM_GAME -> stringResource(R.string.library_source_custom)
+    GameSource.ANDROID_APP -> "Android App"
 }
 
 @Composable
@@ -1110,6 +1032,7 @@ private fun sourceContainerColor(gameSource: GameSource): Color = when (gameSour
     GameSource.EPIC -> MaterialTheme.colorScheme.secondaryContainer
     GameSource.AMAZON -> MaterialTheme.colorScheme.surfaceContainerHighest
     GameSource.CUSTOM_GAME -> MaterialTheme.colorScheme.surfaceVariant
+    GameSource.ANDROID_APP -> MaterialTheme.colorScheme.surfaceVariant
 }
 
 @Composable
@@ -1119,6 +1042,7 @@ private fun sourceContentColor(gameSource: GameSource): Color = when (gameSource
     GameSource.EPIC -> MaterialTheme.colorScheme.onSecondaryContainer
     GameSource.AMAZON -> MaterialTheme.colorScheme.onSurface
     GameSource.CUSTOM_GAME -> MaterialTheme.colorScheme.onSurfaceVariant
+    GameSource.ANDROID_APP -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
 @Composable

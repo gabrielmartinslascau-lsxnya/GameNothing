@@ -762,6 +762,8 @@ object ContainerUtils {
                     defaultDrives
                 }
             }
+
+            GameSource.ANDROID_APP -> defaultDrives
         }
         Timber.d("Prepared container drives: $drives")
 
@@ -1048,6 +1050,8 @@ object ContainerUtils {
                 val appIdInt = runCatching { extractGameIdFromContainerId(appId) }.getOrNull()
                 if (appIdInt != null) AmazonService.getInstallPathByAppId(appIdInt) else null
             }
+
+            GameSource.ANDROID_APP -> null
         }
 
         val resolvedGameFolderPath = if (gameSource == GameSource.CUSTOM_GAME) {
@@ -1221,6 +1225,7 @@ object ContainerUtils {
             containerId.startsWith("GOG_") -> GameSource.GOG
             containerId.startsWith("EPIC_") -> GameSource.EPIC
             containerId.startsWith("AMAZON_") -> GameSource.AMAZON
+            containerId.startsWith("ANDROID_APP_") -> GameSource.ANDROID_APP
             // Add other platforms here..
             else -> GameSource.STEAM // default fallback
         }
@@ -1238,7 +1243,7 @@ object ContainerUtils {
         GameSource.EPIC,
         GameSource.AMAZON,
         GameSource.CUSTOM_GAME,
-        -> true
+        GameSource.ANDROID_APP -> false
     }
 
     /**
@@ -1258,6 +1263,7 @@ object ContainerUtils {
                 CustomGameScanner.getFolderPathFromAppId(customAppId)
                     ?.let { File(it).name }
             }
+            GameSource.ANDROID_APP -> "Android App"
         } ?: "Unknown"
     }
 
