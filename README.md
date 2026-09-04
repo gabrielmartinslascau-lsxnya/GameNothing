@@ -40,16 +40,17 @@ log-in with steam for example, just download, and play. online or offline!
 - nexus mods
 - local mods
 - and a whole lot more!
+- # 🚀 What to Expect in the Future
 
-what to expect in the future :
-
-| version | key features | when |
+| Version | Key Features | Status |
 | :--- | :--- | :--- |
-| **BETA v0.1.0** | Very first official launch. with nothing® style font, glass panels, animations, and colour picker with 6 colours, together with a screen refresh rate slider, and ram viewer | SUPER outdated |
-| **BETA v0.1.1** | improved colour picker, new custom "legion" logo, fixed bugs, better adjustable slider on glass panels, better refresh rate slider, improved floating ram viewer | outdated |
-| **BETA v0.1.2** | the biggest update to date! NEW "legion" logo redesign, NEW haptics feature, NEW controller support, NEW launch animation, 4 NEW colours, BETTER sliders, instant responses, NEW agressive caching feature (cache view), IMPROVED tutorial, IMPROVED Hz slider, IMPROVED game launch times, IMPROVED response rates, NEW glow effects, BETTER colour saturation, OFICIALLY changed the name from "gamenative-lsx" to "GameNothing" in the emulator, OPTIMIZED scrolling, MANY big fixes and common crashing | outdated |
-| **v0.2.0** |a MAJOR release - usb support, you can now download you games on ANY folder you want, locally ir external, making games much better and saving space for those who cant use an SD card (like me lol) - bases on the OFICIAL launch of gamenative 1.2.0, meaning its no longer in beta - everything of 1.2.0 is added AND my features - much improved tutorial with detailed yet humorous explanations on how to set up for the first time - the app should crash WAY lesa and responses are instant - NEW download bar style - better controller support with a much faster loading screen - improved custom driver support - a lot more customizability in general - forgot to say, but in the 1.2.0 brought a lot of features for People with ayn products ir rooted phones, the improved tutorial shows how you can acheive the same thing, un-rooted, saving a lot of your time, and People without an ayn product, can experience 90% of the same thing now! - thats it, oficial 0.2.0 release, no longer in beta! - (oh yeah, the name of the actual app got burger and its no longer gamenothing, but everything inside the emulator remains the same) | LAUNCHED! |
-| **official 1.0 launch** | to see in the future... | future |
+| **BETA v0.1.0** | Very first official launch with Nothing® style font, glass panels, UI animations, 6-color palette picker, screen refresh rate slider, and floating RAM viewer. | `SUPER OUTDATED` |
+| **BETA v0.1.1** | Improved colour picker, new custom "Legion" logo, bug fixes, better adjustable sliders on glass panels, refined refresh rate controls, and upgraded floating RAM viewer. | `OUTDATED` |
+| **BETA v0.1.2** | **Major Overhaul:** "Legion" logo redesign, haptics integration, controller support, launch animations, 4 new colors, aggressive caching system (cache view), improved tutorial, faster game launch times, glow effects, color saturation tweaks, scrolling optimizations, and initial emulator rebrand to "GameNothing". | `OUTDATED` |
+| **v0.2.0** | **Out of Beta:** Full USB drive support, custom game directories (internal/external/SD), base sync with GameNative 1.2.0, interactive beginner setup tutorial, redesigned download progress bar, instant UI response rates, controller loading optimizations, and custom driver support for non-rooted / non-AYN devices. | `LAUNCHED!` |
+| **v0.5.0** | **The Console OS Milestone:** Full app rebrand to **GameNothing**, native Android **Home Launcher** mode (complete OS replacement), 360° interactive carousel navigation with floor reflections, **HSV Colour Picker 2.0** popup, exclusive **AGSL Liquid Glass** shader (1.0x–10.0x scale), persistent **Background Music Bar / MP3 player**, unmuted trailer audio in Hero view, **Material You wallpaper color extraction**, **Dual Import Pipeline** (PC Games vs. Android Apps like TikTok), SAF-based USB directory relocation, and gesture/touch navigation overrides. | `CURRENT RELEASE` |
+| **v0.6.0** | **Polish & Stability Patch:** Updated interactive tutorial for HSV Colour Picker 2.0, media player bug fixes, trailer lifecycle & memory leak fixes (loading/unloading), 360° mode portrait touch fixes (clickable containers), and default launcher override fixes to safely allow exiting when GameNothing isn't active default. | `NEXT UP` |
+| **Official v1.0** | **The Ultimate Handheld Launcher:** Final polished stable release, complete container integration, cloud saves manager, automated media scrapers, and 100% zero-latency UI rendering. | `FUTURE` |
 
 
 # 📥 [Click Here to Download Latest GameNothing version!](https://github.com/gabrielmartinslascau-lsxnya/GameNothing/releases)
