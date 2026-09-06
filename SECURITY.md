@@ -8,6 +8,8 @@
 | android 11 and below   | ✖️
 | android 12 +   | ✅        |
 
+VERY IMPORTANT : IN THE UPCOMING 0.6.0 release  the app will become 100% anonymous and no one will hold access to your FPS / crash data unless you actually share it with me lsxnothing
+
 I only say this, because I believe phones that are under android 12, are outdated and POSSIBLY without security updates.
 but it is guaranteed that game nothing will never ask for your personal info, unless you're logging in your account, which we do not hold control of.
 if you have android 11 or below but still do have security updates, impressive, but you will still enjoy gamenothing, but some features are not available
