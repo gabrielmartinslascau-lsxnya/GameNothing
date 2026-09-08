@@ -18,21 +18,23 @@ Log in, import your library, and play your games—online or offline—with zero
 
 - **choose your animations**
 - **glass panels & AGSL Liquid Glass shader (with realistic blur)**
-- **adjustable transparency & blurriness sliders**
-- **colour picker (10 colours on everything)**
-- **Material You wallpaper color extraction**
+- **adjustable distortion slider for liquid hlass**
+- **colour picker (any colour you wish for)**
+- **live wallpaper support up to 50mb**
+- **"Material You" wallpaper color extraction**
 
 <img width="1260" height="843" alt="51452" src="https://github.com/user-attachments/assets/cbb696b6-a4bf-4404-9ff9-679202124084" />
 
 - **haptics (3 modes)**
-- **Nothing style font**
-- **Nothing Ndot style font**
+- **Nothing styled fonts (2 types)**
+- **custom download bars (2 types)**
 
 <img width="1222" height="1447" alt="51456" src="https://github.com/user-attachments/assets/1b7ecd602-1a9b-4404-9537-42cab266-8e2a184e59d5" />
 
 - **aggressive caching**
-- **ram viewer "bubble"**
+- **ram viewer "bubble**
 - **refresh rate control up to 144hz for fluid gaming**
+- **dedicated MP3 player with FLAC support**
 - **full USB storage pipeline rework (automated high-speed mover + manual system files bypass)**
 
 <img width="908" height="901" alt="51458" src="https://github.com/user-attachments/assets/edb8cc01-4792-446e-b3f7-4a904f53d2fe" />
@@ -61,7 +63,7 @@ Log in, import your library, and play your games—online or offline—with zero
 | **v0.2.0** | **Out of Beta:** Full USB drive support, custom game directories (internal/external/SD), base sync with GameNative 1.2.0, interactive beginner setup tutorial, redesigned download progress bar, instant UI response rates, controller loading optimizations, and custom driver support for non-rooted / non-AYN devices. | `OUTDATED` |
 | **v0.5.0** | **The Console OS Milestone:** Full app rebrand to **GameNothing**, native Android **Home Launcher** mode (complete OS replacement), initial 360° interactive carousel navigation with floor reflections, **HSV Colour Picker 2.0** popup, initial **AGSL Liquid Glass** shader, persistent **Background Music Bar / MP3 player**, unmuted trailer audio in Hero view, **Material You wallpaper color extraction**, and initial USB loading logic. | `CURRENT RELEASE` |
 | **v0.6.0** | **System Rework & GameNative 1.2.1 Base Sync:** **FULL USB Storage Rework** (1MB buffered auto-mover + "Manage via System Files" manual override shortcut), upgraded **AGSL Liquid Glass 2.0**, revamped **360° Carousel Mode**, interactive tutorial for HSV 2.0, plus full sync with **GameNative 1.2.1** (FPS limiter fix, gyro aiming, achievements, Nexus Mods return, GOG fixes). | `UPCOMING` |
-| **Official v1.0** | **The Ultimate Handheld OS:** Final polished stable release, complete container integration, cloud saves manager, automated media scrapers, and 100% zero-latency UI rendering. | `FUTURE` |
+| **Official v1.0** | making your phone into the ultimate UI, bringing whatever you want, and making it your new OS | `FUTURE` |
 
 ---
 
@@ -70,8 +72,8 @@ Log in, import your library, and play your games—online or offline—with zero
 When **v0.6.0** launches alongside **GameNative 1.2.1**, it brings major internal GameNothing upgrades alongside core GameNative updates:
 
 ### ⚡ GameNothing Engine & Storage Rework
-- **Full USB Storage Rework:** Dual-tier storage management featuring an optimized 1MB buffered in-app auto-mover for routine transfers, plus a native **"Manage via System Files"** manual override shortcut to bypass Scoped Storage bottlenecks for massive 40GB+ games (*Halo MCC*).
-- **Upgraded AGSL Liquid Glass 2.0:** Higher precision shader rendering with cleaner blur scaling.
+- **Full USB Storage Rework:** Dual-tier storage management featuring an optimized 1MB buffered in-app auto-mover for routine transfers, plus a native **"Manage via System Files"** manual override shortcut to bypass Scoped Storage bottlenecks for massive 40GB+ games (*like Halo MCC, cyberpunk, etc*).
+- **Upgraded AGSL Liquid Glass 2.0:** Higher precision shader rendering with cleaner blur scaling with near 0 lag.
 - **Enhanced 360° Carousel Mode:** Significantly smoother carousel physics, fixed touch/gesture overrides, and fixed 360° portrait mode container clicks.
 - **Stability & Tutorial Updates:** Updated interactive setup tutorial for HSV Colour Picker 2.0, BGM player bug fixes, trailer memory leak fixes, and default launcher exit safeguards.
 
