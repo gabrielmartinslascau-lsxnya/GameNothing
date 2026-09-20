@@ -65,7 +65,7 @@ Log in, import your library, and play your games—online or offline—with zero
 | **BETA v0.1.2** | **Major Overhaul:** "Legion" logo redesign, haptics integration, controller support, launch animations, 4 new colors, aggressive caching system (cache view), improved tutorial, faster game launch times, glow effects, color saturation tweaks, scrolling optimizations, and initial emulator rebrand to "GameNothing". | `OUTDATED` |
 | **v0.2.0** | **Out of Beta:** Full USB drive support, custom game directories (internal/external/SD), base sync with GameNative 1.2.0, interactive beginner setup tutorial, redesigned download progress bar, instant UI response rates, controller loading optimizations, and custom driver support for non-rooted / non-AYN devices. | `OUTDATED` |
 | **v0.5.0** | **The Console OS Milestone:** Full app rebrand to **GameNothing**, native Android **Home Launcher** mode (complete OS replacement), initial 360° interactive carousel navigation with floor reflections, **HSV Colour Picker 2.0** popup, initial **AGSL Liquid Glass** shader, persistent **Background Music Bar / MP3 player**, unmuted trailer audio in Hero view, **Material You wallpaper color extraction**, and initial USB loading logic. | `CURRENT RELEASE` |
-| **v1.0.0 (Beta)** | **The "This Was Supposed to Be 0.6" Release:** Full **GameNative 1.2.1** base sync, complete **USB Storage Rework** (1MB buffered auto-mover + manual System Files override), **AGSL Liquid Glass 2.0**, reworked **360° Carousel Mode**, no more wallpaper size limits + static wallpaper support, custom app-launch loading screens (bring your own video instead of the default animation), a real-resolution-aware custom resolution picker, **SGSR upscaling** alongside FSR 1.0, and a new Cloud/Remote Play tab (PS Remote Play, Steam Link, Xbox). | `IT GOT OUT OF HAND, IN A GOOD WAY` |
+| **v1.0.0 (Beta)** | **The "This Was Supposed to Be 0.6" Release:** Full **GameNative 1.2.1** base sync, complete **USB Storage Rework** (1MB buffered auto-mover + manual System Files override), **AGSL Liquid Glass 2.0**, reworked **360° Carousel Mode**, no more wallpaper size limits + static wallpaper support, custom app-launch loading screens (bring your own video instead of the default animation), a real-resolution-aware custom resolution picker, a new Cloud/Remote Play tab (PS Remote Play, Steam Link, Xbox), and an early-access **Playground tab** (freeform Android home screen inside the app — still in testing). *Note: SGSR upscaling didn't make the cut for this release — coming later.* | `IT GOT OUT OF HAND, IN A GOOD WAY` |
 | **v1.x and beyond** | more customization, more control, more of your phone actually being yours. | `TBD` |
 
 ---
@@ -84,10 +84,12 @@ Log in, import your library, and play your games—online or offline—with zero
 - **No More Wallpaper Limits:** Live wallpapers are no longer capped at any size — add whatever you want. Static wallpapers are now supported too, not just animated ones.
 - **Custom Loading Screens:** Keep the default procedural dot animation, or swap in your own video for the app-launch screen.
 - **Real Resolution, No Guessing:** New percentage-based resolution picker calculated from your device's actual screen resolution and aspect ratio — no more hardcoded 16:9 presets pretending every phone is the same shape.
-- **SGSR Upscaling:** A second upscaling option alongside FSR 1.0, tuned for Snapdragon/Adreno hardware — FSR stays put for everyone else.
 
 ### ☁️ Cloud & Connectivity
 - **New Cloud/Remote Play Tab:** One-tap access to PS Remote Play, Steam Link, and the official Xbox app — stream from your own console or PC straight from GameNothing.
+
+### 🧪 Playground Tab *(Testing Phase)*
+- **Your Own Little Home Screen, Inside GameNothing:** A brand new tab where you can place any Android app, anywhere — adjustable grid density, snap-to-grid or fully free placement, a resizable dock, and support for real Android widgets. Still rough around the edges, shipping early so it can actually get used and broken in before it's called finished.
 
 ### 🎮 GameNative 1.2.1 Base Sync
 - **Performance & Storage:** Fixed FPS limiter performance regression (games like *Mewgenics*), made fast external loading a toggle to resolve 1.2.0 external launch bugs, and added a "Disable Epic Overlay" container setting to prevent CEF virtual memory crashes on save load.
