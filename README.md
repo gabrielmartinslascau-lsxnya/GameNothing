@@ -1,10 +1,12 @@
 # GameNothing
 
-<img width="1041" height="420" alt="51448" src="https://github.com/user-attachments/assets/ce498938-85ca-4e13-b04c-0d6021b45c89" />
+[image goes here]
 
 Transform your Android device or handheld console into an OEM-grade gaming OS. **GameNothing** is a full-featured Home Launcher replacement and frontend built for high-performance PC game emulation, seamless USB-OTG game storage management, and complete visual customization.
 
 Log in, import your library, and play your games—online or offline—with zero telemetry bloat.
+
+**100% free. Zero data collection, zero limits on what you can add or how much you can store. It's your device — own it.**
 
 ---
 
@@ -14,30 +16,31 @@ Log in, import your library, and play your games—online or offline—with zero
 
 ## 🔥 What GameNothing Brings to Your Device
 
-<img width="1260" height="1482" alt="51450" src="https://github.com/user-attachments/assets/67ecd602-1a9b-4404-9ff9-679202124084" />
+[image goes here]
 
 - **choose your animations**
 - **glass panels & AGSL Liquid Glass shader (with realistic blur)**
-- **adjustable distortion slider for liquid hlass**
+- **adjustable distortion slider for liquid glass**
 - **colour picker (any colour you wish for)**
-- **live wallpaper support up to 50mb**
+- **live wallpaper support, no size limit (v1.0 beta or later)**
+- **static wallpaper support (v1.0 beta or later)**
 - **"Material You" wallpaper color extraction**
 
-<img width="1260" height="843" alt="51452" src="https://github.com/user-attachments/assets/cbb696b6-a4bf-4404-9ff9-679202124084" />
+[image goes here]
 
 - **haptics (3 modes)**
 - **Nothing styled fonts (2 types)**
 - **custom download bars (2 types)**
 
-<img width="1222" height="1447" alt="51456" src="https://github.com/user-attachments/assets/1b7ecd602-1a9b-4404-9537-42cab266-8e2a184e59d5" />
+[image goes here]
 
 - **aggressive caching**
-- **ram viewer "bubble**
+- **ram viewer "bubble"**
 - **refresh rate control up to 144hz for fluid gaming**
 - **dedicated MP3 player with FLAC support**
 - **full USB storage pipeline rework (automated high-speed mover + manual system files bypass)**
 
-<img width="908" height="901" alt="51458" src="https://github.com/user-attachments/assets/edb8cc01-4792-446e-b3f7-4a904f53d2fe" />
+[image goes here]
 
 - **steam emulation**
 - **GOG emulation**
@@ -53,7 +56,7 @@ Log in, import your library, and play your games—online or offline—with zero
 
 ## 🚀 What to Expect in the Future
 
-> **Note:** **v0.6.0 will officially launch alongside the official GameNative 1.2.1 sync release!**
+> **Note:** this started life as v0.6.0 alongside the official GameNative 1.2.1 sync release — turned out to be way too much to still call it a point release. Say hello to **v1.0.0**.
 
 | Version | Key Features | Status |
 | :--- | :--- | :--- |
@@ -62,20 +65,29 @@ Log in, import your library, and play your games—online or offline—with zero
 | **BETA v0.1.2** | **Major Overhaul:** "Legion" logo redesign, haptics integration, controller support, launch animations, 4 new colors, aggressive caching system (cache view), improved tutorial, faster game launch times, glow effects, color saturation tweaks, scrolling optimizations, and initial emulator rebrand to "GameNothing". | `OUTDATED` |
 | **v0.2.0** | **Out of Beta:** Full USB drive support, custom game directories (internal/external/SD), base sync with GameNative 1.2.0, interactive beginner setup tutorial, redesigned download progress bar, instant UI response rates, controller loading optimizations, and custom driver support for non-rooted / non-AYN devices. | `OUTDATED` |
 | **v0.5.0** | **The Console OS Milestone:** Full app rebrand to **GameNothing**, native Android **Home Launcher** mode (complete OS replacement), initial 360° interactive carousel navigation with floor reflections, **HSV Colour Picker 2.0** popup, initial **AGSL Liquid Glass** shader, persistent **Background Music Bar / MP3 player**, unmuted trailer audio in Hero view, **Material You wallpaper color extraction**, and initial USB loading logic. | `CURRENT RELEASE` |
-| **v0.6.0** | **System Rework & GameNative 1.2.1 Base Sync:** **FULL USB Storage Rework** (1MB buffered auto-mover + "Manage via System Files" manual override shortcut), upgraded **AGSL Liquid Glass 2.0**, revamped **360° Carousel Mode**, interactive tutorial for HSV 2.0, plus full sync with **GameNative 1.2.1** (FPS limiter fix, gyro aiming, achievements, Nexus Mods return, GOG fixes). | `UPCOMING` |
-| **Official v1.0** | making your phone into the ultimate UI, bringing whatever you want, and making it your new OS | `FUTURE` |
+| **v1.0.0 (Beta)** | **The "This Was Supposed to Be 0.6" Release:** Full **GameNative 1.2.1** base sync, complete **USB Storage Rework** (1MB buffered auto-mover + manual System Files override), **AGSL Liquid Glass 2.0**, reworked **360° Carousel Mode**, no more wallpaper size limits + static wallpaper support, custom app-launch loading screens (bring your own video instead of the default animation), a real-resolution-aware custom resolution picker, **SGSR upscaling** alongside FSR 1.0, and a new Cloud/Remote Play tab (PS Remote Play, Steam Link, Xbox). | `IT GOT OUT OF HAND, IN A GOOD WAY` |
+| **v1.x and beyond** | more customization, more control, more of your phone actually being yours. | `TBD` |
 
 ---
 
-## 🛠️ What's Coming in v0.6.0 (GameNothing Rework & GameNative 1.2.1 Sync)
+## 🛠️ What's Coming in v1.0.0 (GameNothing Rework & GameNative 1.2.1 Sync)
 
-When **v0.6.0** launches alongside **GameNative 1.2.1**, it brings major internal GameNothing upgrades alongside core GameNative updates:
+**v1.0.0** launches alongside **GameNative 1.2.1**, bringing the biggest set of internal GameNothing upgrades yet, on top of core GameNative updates:
 
 ### ⚡ GameNothing Engine & Storage Rework
-- **Full USB Storage Rework:** Dual-tier storage management featuring an optimized 1MB buffered in-app auto-mover for routine transfers, plus a native **"Manage via System Files"** manual override shortcut to bypass Scoped Storage bottlenecks for massive 40GB+ games (*like Halo MCC, cyberpunk, etc*).
+- **Full USB Storage Rework:** Dual-tier storage management featuring an optimized 1MB buffered in-app auto-mover for routine transfers, plus a native **"Manage via System Files"** manual override shortcut to bypass Scoped Storage bottlenecks for massive 40GB+ games (*like Halo MCC, Cyberpunk, etc*).
 - **Upgraded AGSL Liquid Glass 2.0:** Higher precision shader rendering with cleaner blur scaling with near 0 lag.
 - **Enhanced 360° Carousel Mode:** Significantly smoother carousel physics, fixed touch/gesture overrides, and fixed 360° portrait mode container clicks.
 - **Stability & Tutorial Updates:** Updated interactive setup tutorial for HSV Colour Picker 2.0, BGM player bug fixes, trailer memory leak fixes, and default launcher exit safeguards.
+
+### 🎨 Personalization & Display
+- **No More Wallpaper Limits:** Live wallpapers are no longer capped at any size — add whatever you want. Static wallpapers are now supported too, not just animated ones.
+- **Custom Loading Screens:** Keep the default procedural dot animation, or swap in your own video for the app-launch screen.
+- **Real Resolution, No Guessing:** New percentage-based resolution picker calculated from your device's actual screen resolution and aspect ratio — no more hardcoded 16:9 presets pretending every phone is the same shape.
+- **SGSR Upscaling:** A second upscaling option alongside FSR 1.0, tuned for Snapdragon/Adreno hardware — FSR stays put for everyone else.
+
+### ☁️ Cloud & Connectivity
+- **New Cloud/Remote Play Tab:** One-tap access to PS Remote Play, Steam Link, and the official Xbox app — stream from your own console or PC straight from GameNothing.
 
 ### 🎮 GameNative 1.2.1 Base Sync
 - **Performance & Storage:** Fixed FPS limiter performance regression (games like *Mewgenics*), made fast external loading a toggle to resolve 1.2.0 external launch bugs, and added a "Disable Epic Overlay" container setting to prevent CEF virtual memory crashes on save load.
