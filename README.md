@@ -22,8 +22,8 @@ Log in, import your library, and play your games—online or offline—with zero
 - **glass panels & AGSL Liquid Glass shader (with realistic blur)**
 - **adjustable distortion slider for liquid glass**
 - **colour picker (any colour you wish for)**
-- **live wallpaper support, no size limit (v1.0 beta or later)**
-- **static wallpaper support (v1.0 beta or later)**
+- **live wallpaper support, no size limit (v1.0 beta)**
+- **static wallpaper support (coming in 1.1+)**
 - **"Material You" wallpaper color extraction**
 
 [image goes here]
@@ -65,8 +65,8 @@ Log in, import your library, and play your games—online or offline—with zero
 | **BETA v0.1.2** | **Major Overhaul:** "Legion" logo redesign, haptics integration, controller support, launch animations, 4 new colors, aggressive caching system (cache view), improved tutorial, faster game launch times, glow effects, color saturation tweaks, scrolling optimizations, and initial emulator rebrand to "GameNothing". | `OUTDATED` |
 | **v0.2.0** | **Out of Beta:** Full USB drive support, custom game directories (internal/external/SD), base sync with GameNative 1.2.0, interactive beginner setup tutorial, redesigned download progress bar, instant UI response rates, controller loading optimizations, and custom driver support for non-rooted / non-AYN devices. | `OUTDATED` |
 | **v0.5.0** | **The Console OS Milestone:** Full app rebrand to **GameNothing**, native Android **Home Launcher** mode (complete OS replacement), initial 360° interactive carousel navigation with floor reflections, **HSV Colour Picker 2.0** popup, initial **AGSL Liquid Glass** shader, persistent **Background Music Bar / MP3 player**, unmuted trailer audio in Hero view, **Material You wallpaper color extraction**, and initial USB loading logic. | `CURRENT RELEASE` |
-| **v1.0.0 (Beta)** | **The "This Was Supposed to Be 0.6" Release:** Full **GameNative 1.2.1** base sync, complete **USB Storage Rework** (1MB buffered auto-mover + manual System Files override), **AGSL Liquid Glass 2.0**, reworked **360° Carousel Mode**, no more wallpaper size limits + static wallpaper support, custom app-launch loading screens (bring your own video instead of the default animation), a real-resolution-aware custom resolution picker, a new Cloud/Remote Play tab (PS Remote Play, Steam Link, Xbox), and an early-access **Playground tab** (freeform Android home screen inside the app — still in testing). *Note: SGSR upscaling didn't make the cut for this release — coming later.* | `IT GOT OUT OF HAND, IN A GOOD WAY` |
-| **v1.x and beyond** | more customization, more control, more of your phone actually being yours. | `TBD` |
+| **v1.0.0 (Beta)** | **The "This Was Supposed to Be 0.6" Release:** Full **GameNative 1.2.1** base sync, complete **USB Storage Rework** (1MB buffered auto-mover + manual System Files override), **AGSL Liquid Glass 2.0**, reworked **360° Carousel Mode**, no more live wallpaper size limits, custom app-launch loading screens (bring your own video instead of the default animation), a real-resolution-aware custom resolution picker, a new Cloud/Remote Play tab (PS Remote Play, Steam Link, Xbox), and an early-access **Playground tab** (freeform Android home screen inside the app — still in testing). *Note: Control mapping, static wallpapers, and SGSR upscaling didn't make the cut for this release. The Linux environment + driver fix are the main event for v1.1/2.0, making this beta a placeholder for the real magic.* | `IT GOT OUT OF HAND, IN A GOOD WAY` |
+| **v1.x and beyond** | The **Linux environment** and **driver fix** land here. Plus the features that missed the 1.0 beta cut: **control mapping**, **static wallpapers**, **SGSR upscaling**. More customization, more control, more of your phone actually being yours. | `TBD` |
 
 ---
 
@@ -81,7 +81,7 @@ Log in, import your library, and play your games—online or offline—with zero
 - **Stability & Tutorial Updates:** Updated interactive setup tutorial for HSV Colour Picker 2.0, BGM player bug fixes, trailer memory leak fixes, and default launcher exit safeguards.
 
 ### 🎨 Personalization & Display
-- **No More Wallpaper Limits:** Live wallpapers are no longer capped at any size — add whatever you want. Static wallpapers are now supported too, not just animated ones.
+- **No More Live Wallpaper Limits:** Live wallpapers are no longer capped at any size — add whatever you want. *(Static wallpapers are coming in 1.1).*
 - **Custom Loading Screens:** Keep the default procedural dot animation, or swap in your own video for the app-launch screen.
 - **Real Resolution, No Guessing:** New percentage-based resolution picker calculated from your device's actual screen resolution and aspect ratio — no more hardcoded 16:9 presets pretending every phone is the same shape.
 
@@ -105,4 +105,3 @@ Log in, import your library, and play your games—online or offline—with zero
 
 * **In-App Bug Reporting:** Open the menu `☰ (Top Left) -> Settings -> Scroll down -> Debug -> Report Bug` to jump directly to my account to message me.
 * **Direct Message & Feature Requests:** Message me on TikTok **[@lsxnothing](https://www.tiktok.com/@lsxnothing)** (or *evil rolfy*) for any questions, suggestions, or bug reports!
-* 
