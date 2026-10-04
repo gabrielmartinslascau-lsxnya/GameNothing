@@ -177,13 +177,29 @@ public class GlibcProgramLauncherComponent extends GuestProgramLauncherComponent
         PrefManager.init(context);
         boolean enableBox86_64Logs = PrefManager.getBoolean("enable_box86_64_logs", true);
 
-        EnvVars envVars = new EnvVars();
+        if (this.envVars == null) this.envVars = new EnvVars();
+        EnvVars envVars = this.envVars;
+
+        envVars.put("FONTCONFIG_PATH", imageFs.getRootDir().getPath() + "/usr/etc/fonts");
+
+        // Use the ControllerManager's dynamic count for the environment variable
+        envVars.put("EVSHIM_MAX_PLAYERS", "4");
+        envVars.put("EVSHIM_BASE_PATH", context.getFilesDir().getAbsolutePath());
+        envVars.put("EVSHIM_WINE", "1");
+        envVars.put("EVSHIM_SHM_NAME", "controller-shm0");
+
         addBox64EnvVars(envVars, enableBox86_64Logs);
         envVars.put("HOME", imageFs.home_path);
         envVars.put("USER", ImageFs.USER);
         envVars.put("TMPDIR", imageFs.getRootDir().getPath() + "/tmp");
         new File(imageFs.home_path + "/.wine/drive_c" + imageFs.getRootDir().getPath() + "/tmp").mkdirs();
         envVars.put("DISPLAY", ":0");
+
+        if (app.gamenative.PrefManager.INSTANCE.getFasterExternalLoading()) {
+            envVars.put("ZINK_DESCRIPTORS", "lazy");
+            envVars.put("mesa_glthread", "true");
+            envVars.put("MESA_SHADER_CACHE_MAX_SIZE", "2GB");
+        }
 
         String winePath = wineProfile == null ? imageFs.getWinePath() + "/bin"
                 : ContentsManager.getSourceFile(context, wineProfile, wineProfile.wineBinPath).getAbsolutePath();
@@ -196,30 +212,32 @@ public class GlibcProgramLauncherComponent extends GuestProgramLauncherComponent
                 + (BuildConfig.MODERN_ANDROID ? ":" + imageFs.getWinePath() + "/lib" : ""));
         envVars.put("BOX64_LD_LIBRARY_PATH", imageFs.getRootDir().getPath() + "/usr/lib/x86_64-linux-gnu");
         envVars.put("ANDROID_SYSVSHM_SERVER", imageFs.getRootDir().getPath() + UnixSocketConfig.SYSVSHM_SERVER_PATH);
-        envVars.put("FONTCONFIG_PATH", imageFs.getRootDir().getPath() + "/usr/etc/fonts");
 
-        // LD_PRELOAD targets the native (ARM) dynamic linker. Since box64 is an ARM64 binary,
-        // we must preload ARM64 libs from glibc64Dir (/usr/lib). 32-bit x86 Windows programs
-        // running inside Wine are emulated by box64's WoW64 layer — they don't spawn a separate
-        // ARM32 process, so ARM32 preload libs (glibc32Dir) are not needed here.
-        // If box86 were used as a separate process, it would need its own LD_PRELOAD via its
-        // own env, but in this GLIBC path we only launch box64 directly.
         File glibc64Dir = imageFs.getGlibc64Dir();
         File sysvshm64 = new File(glibc64Dir, "libandroid-sysvshm.so");
         File libredirect64 = new File(glibc64Dir, "libredirect.so");
+        String evshimPath = context.getApplicationInfo().nativeLibraryDir + "/libevshim.so";
 
-        if (sysvshm64.exists() || libredirect64.exists()) {
-            StringBuilder ldPreload = new StringBuilder();
-            if (libredirect64.exists()) ldPreload.append(libredirect64.getPath());
-            if (sysvshm64.exists()) {
-                if (ldPreload.length() > 0) ldPreload.append(" ");
-                ldPreload.append(sysvshm64.getPath());
-            }
-            Log.d("GlibcProgramLauncherComponent", "Setting LD_PRELOAD=" + ldPreload);
-            envVars.put("LD_PRELOAD", ldPreload.toString());
-        } else {
-            Log.w("GlibcProgramLauncherComponent", "Neither libredirect.so nor libandroid-sysvshm.so found in " + glibc64Dir.getPath());
+        StringBuilder ldPreload = new StringBuilder();
+        if (libredirect64.exists()) ldPreload.append(libredirect64.getPath());
+        if (sysvshm64.exists()) {
+            if (ldPreload.length() > 0) ldPreload.append(":");
+            ldPreload.append(sysvshm64.getPath());
         }
+
+        File evshimFile = new File(evshimPath);
+        if (evshimFile.exists()) {
+            if (ldPreload.length() > 0) ldPreload.append(":");
+            ldPreload.append(evshimFile.getPath());
+        }
+
+        String existingLdPreload = envVars.get("LD_PRELOAD");
+        if (!existingLdPreload.isEmpty()) {
+            ldPreload.append(":").append(existingLdPreload);
+        }
+
+        Log.d("GlibcProgramLauncherComponent", "Setting LD_PRELOAD=" + ldPreload);
+        envVars.put("LD_PRELOAD", ldPreload.toString());
         envVars.put("WINEESYNC_WINLATOR", "1");
         if (this.envVars != null) envVars.putAll(this.envVars);
 
@@ -320,8 +338,14 @@ public class GlibcProgramLauncherComponent extends GuestProgramLauncherComponent
             StringBuilder ldPreload = new StringBuilder();
             if (libredirect64.exists()) ldPreload.append(libredirect64.getPath());
             if (sysvshm64.exists()) {
-                if (ldPreload.length() > 0) ldPreload.append(" ");
+                if (ldPreload.length() > 0) ldPreload.append(":");
                 ldPreload.append(sysvshm64.getPath());
+            }
+
+            String evshimPath = context.getApplicationInfo().nativeLibraryDir + "/libevshim.so";
+            if (new File(evshimPath).exists()) {
+                if (ldPreload.length() > 0) ldPreload.append(":");
+                ldPreload.append(evshimPath);
             }
             Log.d("GlibcProgramLauncherComponent", "Shell LD_PRELOAD=" + ldPreload);
             envVars.put("LD_PRELOAD", ldPreload.toString());

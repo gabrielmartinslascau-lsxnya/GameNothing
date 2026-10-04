@@ -2,6 +2,8 @@ package app.gamenative.events
 
 import app.gamenative.data.GameSource
 import app.gamenative.ui.enums.Orientation
+import app.gamenative.playground.PlaygroundWidgetHostManager
+import android.appwidget.AppWidgetProviderInfo
 import java.util.EnumSet
 
 interface AndroidEvent<T> : Event<T> {
@@ -32,5 +34,7 @@ interface AndroidEvent<T> : Event<T> {
     data class EpicAuthCodeReceived(val authCode: String) : AndroidEvent<Unit>
     data object ServiceReady : AndroidEvent<Unit>
     data class MoveCustomGame(val appId: String, val targetPath: String) : AndroidEvent<Unit>
+    data class AddWidget(val hostManager: PlaygroundWidgetHostManager, val provider: AppWidgetProviderInfo) : AndroidEvent<Unit>
+    data class WidgetBound(val appWidgetId: Int) : AndroidEvent<Unit>
     // data class SetAppBarVisibility(val visible: Boolean) : AndroidEvent<Unit>
 }

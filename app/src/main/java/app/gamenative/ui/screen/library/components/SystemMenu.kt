@@ -83,6 +83,7 @@ import app.gamenative.R
 import app.gamenative.data.SteamFriend
 import app.gamenative.events.SteamEvent
 import app.gamenative.service.SteamService
+import app.gamenative.ui.component.dialog.LinuxSetupDialog
 import app.gamenative.ui.component.dialog.SupportersDialog
 import app.gamenative.ui.screen.PluviaScreen
 import app.gamenative.ui.theme.PluviaTheme
@@ -94,6 +95,7 @@ import app.gamenative.utils.hapticSelectable
 import app.gamenative.ui.util.SteamIconImage
 import app.gamenative.ui.util.adaptivePanelWidth
 import app.gamenative.ui.util.shouldShowGamepadUI
+import app.gamenative.utils.ContainerUtils
 import app.gamenative.utils.getAvatarURL
 import `in`.dragonbra.javasteam.enums.EPersonaState
 import kotlinx.coroutines.launch
@@ -263,6 +265,7 @@ fun SystemMenu(
     onAmazonLogoutClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
     val firstItemFocusRequester = remember { FocusRequester() }
@@ -309,6 +312,20 @@ fun SystemMenu(
     }
 
     SupportersDialog(visible = showSupporters, onDismiss = { showSupporters = false })
+
+    var showLinuxSetupDialog by remember { mutableStateOf(false) }
+    if (showLinuxSetupDialog) {
+        LinuxSetupDialog(
+            visible = showLinuxSetupDialog,
+            onDismissRequest = { showLinuxSetupDialog = false },
+            onSwitchToLinux = {
+                showLinuxSetupDialog = false
+                onDismiss()
+                ContainerUtils.getOrCreateContainer(context, "CUSTOM_GAME_99999")
+                onNavigateRoute(PluviaScreen.XServer.route)
+            }
+        )
+    }
 
     val colorOnline = PluviaTheme.colors.statusInstalled
     val colorAway = PluviaTheme.colors.statusAway
@@ -609,6 +626,14 @@ fun SystemMenu(
                                 onDismiss()
                             },
                             focusRequester = firstItemFocusRequester,
+                        )
+
+                        SystemMenuItem(
+                            text = "Linux Environment",
+                            icon = Icons.Default.Settings,
+                            onClick = {
+                                showLinuxSetupDialog = true
+                            },
                         )
 
                         SystemMenuItem(

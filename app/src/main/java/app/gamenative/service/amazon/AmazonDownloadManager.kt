@@ -16,6 +16,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import app.gamenative.utils.StorageUtils
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import timber.log.Timber
@@ -127,6 +128,7 @@ class AmazonDownloadManager @Inject constructor(
                 val results = batch.map { file ->
                     async {
                         downloadFileWithRetry(
+                            context = context,
                             baseUrl = baseUrl,
                             file = file,
                             installDir = installDir,
@@ -196,6 +198,7 @@ class AmazonDownloadManager @Inject constructor(
     // ── Private helpers ──────────────────────────────────────────────────────
 
     private suspend fun downloadFileWithRetry(
+        context: Context,
         baseUrl: String,
         file: AmazonManifest.ManifestFile,
         installDir: File,
@@ -207,7 +210,7 @@ class AmazonDownloadManager @Inject constructor(
                 throw CancellationException("Download cancelled")
             }
 
-            val result = downloadFile(baseUrl, file, installDir, downloadInfo)
+            val result = downloadFile(context, baseUrl, file, installDir, downloadInfo)
             if (result.isSuccess) return result
 
             lastException = result.exceptionOrNull() as? Exception
@@ -226,6 +229,7 @@ class AmazonDownloadManager @Inject constructor(
     }
 
     private suspend fun downloadFile(
+        context: Context,
         baseUrl: String,
         file: AmazonManifest.ManifestFile,
         installDir: File,
@@ -268,7 +272,7 @@ class AmazonDownloadManager @Inject constructor(
                 }
 
                 response.body.byteStream().use { input ->
-                    tmpFile.outputStream().use { output ->
+                    StorageUtils.openOutputStream(context, tmpFile.path).use { output ->
                         val buf = ByteArray(8192)
                         var read: Int
                         var bytesSinceLastEmit = 0L

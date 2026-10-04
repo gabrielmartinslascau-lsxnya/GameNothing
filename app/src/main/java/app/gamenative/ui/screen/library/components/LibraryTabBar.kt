@@ -84,6 +84,7 @@ fun LibraryTabBar(
     onNavigateDownToGrid: () -> Unit,
     onPreviousTab: () -> Unit = {},
     onNextTab: () -> Unit = {},
+    onPlaygroundSettingsClick: () -> Unit = {},
     isScrolling: Boolean = false,
     distortionStrength: Float? = null,
     modifier: Modifier = Modifier,
@@ -102,6 +103,7 @@ fun LibraryTabBar(
             onNavigateDownToGrid = onNavigateDownToGrid,
             onPreviousTab = onPreviousTab,
             onNextTab = onNextTab,
+            onPlaygroundSettingsClick = onPlaygroundSettingsClick,
             isScrolling = isScrolling,
             distortionStrength = distortionStrength,
             modifier = modifier,
@@ -118,6 +120,7 @@ fun LibraryTabBar(
             onNavigateDownToGrid = onNavigateDownToGrid,
             onPreviousTab = onPreviousTab,
             onNextTab = onNextTab,
+            onPlaygroundSettingsClick = onPlaygroundSettingsClick,
             isScrolling = isScrolling,
             distortionStrength = distortionStrength,
             modifier = modifier,
@@ -141,6 +144,7 @@ private fun CompactLibraryTabBar(
     onNavigateDownToGrid: () -> Unit,
     onPreviousTab: () -> Unit,
     onNextTab: () -> Unit,
+    onPlaygroundSettingsClick: () -> Unit,
     isScrolling: Boolean = false,
     distortionStrength: Float? = null,
     modifier: Modifier = Modifier,
@@ -201,7 +205,13 @@ private fun CompactLibraryTabBar(
             CompactIconButton(
                 icon = Icons.Default.Tune,
                 contentDescription = stringResource(R.string.options),
-                onClick = onOptionsClick,
+                onClick = {
+                    if (currentTab == LibraryTab.PLAYGROUND) {
+                        onPlaygroundSettingsClick()
+                    } else {
+                        onOptionsClick()
+                    }
+                },
                 type = HapticManager.HapticType.MENU,
             )
 
@@ -370,6 +380,7 @@ private fun ExpandedLibraryTabBar(
     onNavigateDownToGrid: () -> Unit,
     onPreviousTab: () -> Unit,
     onNextTab: () -> Unit,
+    onPlaygroundSettingsClick: () -> Unit,
     isScrolling: Boolean = false,
     distortionStrength: Float? = null,
     modifier: Modifier = Modifier,
@@ -451,7 +462,13 @@ private fun ExpandedLibraryTabBar(
             IconActionButton(
                 icon = Icons.Default.Tune,
                 contentDescription = stringResource(R.string.options),
-                onClick = onOptionsClick,
+                onClick = {
+                    if (currentTab == LibraryTab.PLAYGROUND) {
+                        onPlaygroundSettingsClick()
+                    } else {
+                        onOptionsClick()
+                    }
+                },
                 type = HapticManager.HapticType.MENU,
             )
 

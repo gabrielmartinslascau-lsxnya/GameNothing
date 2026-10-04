@@ -352,15 +352,6 @@ fun SettingsGroupInterface(
             },
         )
 
-        HapticSettingsMenuLink(
-            colors = settingsTileColorsAlt(),
-            title = { Text(text = stringResource(R.string.settings_interface_default_launcher_title)) },
-            subtitle = { Text(text = stringResource(R.string.settings_interface_default_launcher_subtitle)) },
-            onClick = {
-                val intent = Intent(Settings.ACTION_HOME_SETTINGS)
-                context.startActivity(intent)
-            },
-        )
 
         var showRecommendations by rememberSaveable { mutableStateOf(PrefManager.showRecommendations) }
         HapticSettingsSwitch(
@@ -372,15 +363,61 @@ fun SettingsGroupInterface(
                 showRecommendations = it
                 PrefManager.showRecommendations = it
                 PluviaApp.events.emit(AndroidEvent.RecommendationToggleChanged)
-                if (PrefManager.usageAnalyticsEnabled) {
-                    com.posthog.PostHog.capture(
-                        event = "\$set",
-                        properties = mapOf("\$set" to mapOf("recommendation_enabled" to it)),
-                    )
-                    if (!it) {
-                        com.posthog.PostHog.capture("recommendation_disabled")
-                    }
-                }
+            },
+        )
+
+        var showSteamInLibrary by rememberSaveable { mutableStateOf(PrefManager.showSteamInLibrary) }
+        HapticSettingsSwitch(
+            colors = settingsTileColorsAlt(),
+            title = { Text(text = "Show " + stringResource(R.string.tab_steam) + " in Library") },
+            state = showSteamInLibrary,
+            onCheckedChange = {
+                showSteamInLibrary = it
+                PrefManager.showSteamInLibrary = it
+            },
+        )
+
+        var showGOGInLibrary by rememberSaveable { mutableStateOf(PrefManager.showGOGInLibrary) }
+        HapticSettingsSwitch(
+            colors = settingsTileColorsAlt(),
+            title = { Text(text = "Show " + stringResource(R.string.tab_gog) + " in Library") },
+            state = showGOGInLibrary,
+            onCheckedChange = {
+                showGOGInLibrary = it
+                PrefManager.showGOGInLibrary = it
+            },
+        )
+
+        var showEpicInLibrary by rememberSaveable { mutableStateOf(PrefManager.showEpicInLibrary) }
+        HapticSettingsSwitch(
+            colors = settingsTileColorsAlt(),
+            title = { Text(text = "Show " + stringResource(R.string.tab_epic) + " in Library") },
+            state = showEpicInLibrary,
+            onCheckedChange = {
+                showEpicInLibrary = it
+                PrefManager.showEpicInLibrary = it
+            },
+        )
+
+        var showAmazonInLibrary by rememberSaveable { mutableStateOf(PrefManager.showAmazonInLibrary) }
+        HapticSettingsSwitch(
+            colors = settingsTileColorsAlt(),
+            title = { Text(text = "Show " + stringResource(R.string.tab_amazon) + " in Library") },
+            state = showAmazonInLibrary,
+            onCheckedChange = {
+                showAmazonInLibrary = it
+                PrefManager.showAmazonInLibrary = it
+            },
+        )
+
+        var showCustomGamesInLibrary by rememberSaveable { mutableStateOf(PrefManager.showCustomGamesInLibrary) }
+        HapticSettingsSwitch(
+            colors = settingsTileColorsAlt(),
+            title = { Text(text = "Show " + stringResource(R.string.tab_local) + " in Library") },
+            state = showCustomGamesInLibrary,
+            onCheckedChange = {
+                showCustomGamesInLibrary = it
+                PrefManager.showCustomGamesInLibrary = it
             },
         )
 

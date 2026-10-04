@@ -54,6 +54,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -97,7 +98,9 @@ import app.gamenative.ui.screen.settings.ContainerStorageManagerContent
 import app.gamenative.ui.screen.settings.ContainerStorageManagerTransientUi
 import app.gamenative.ui.screen.settings.rememberContainerStorageManagerUiState
 import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.utils.BackgroundOperationManager
 import app.gamenative.ui.util.JoystickScrollHandler
+import app.gamenative.utils.BackgroundOperation
 import app.gamenative.utils.HapticManager
 import app.gamenative.utils.hapticClickable
 import app.gamenative.utils.hapticSelectable
@@ -445,7 +448,9 @@ private fun DownloadsContent(
     modifier: Modifier = Modifier,
 ) {
     val items = remember(state.downloads) { state.downloads.values.toList() }
-    val activeCount = remember(items) { items.count { it.canPause } }
+    val backgroundOps = BackgroundOperationManager.operations
+
+    val activeCount = remember(items, backgroundOps) { items.count { it.canPause } + backgroundOps.size }
     val resumableCount = remember(items) { items.count { it.canResume } }
     val finishedCount = remember(items) { items.count { it.isFinished } }
     val hasCancelableItems = remember(items) { items.any { it.canCancel } }
@@ -529,7 +534,7 @@ private fun DownloadsContent(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        if (items.isEmpty()) {
+        if (items.isEmpty() && backgroundOps.isEmpty()) {
             EmptyDownloadsContent(modifier = Modifier.fillMaxSize())
         } else {
             LazyColumn(
@@ -538,6 +543,15 @@ private fun DownloadsContent(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(bottom = 24.dp),
             ) {
+                // Render custom background operations (transfers, etc.)
+                items(
+                    items = backgroundOps,
+                    key = { it.id },
+                ) { op ->
+                    BackgroundOperationCard(op = op)
+                }
+
+                // Render standard downloads
                 items(
                     items = items,
                     key = { it.uniqueId },
@@ -1135,5 +1149,95 @@ private fun formatEta(etaMs: Long): String {
         hours > 0 -> "${hours}h ${minutes}m"
         minutes > 0 -> "${minutes}m ${seconds}s"
         else -> "${seconds}s"
+    }
+}
+
+@Composable
+private fun BackgroundOperationCard(op: BackgroundOperation) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        ),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = op.displayName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    if (op.statusMessage.isNotEmpty()) {
+                        Text(
+                            text = op.statusMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+
+                MetadataChip(
+                    text = op.type.name,
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                LinearProgressIndicator(
+                    progress = { op.progress },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp)),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                )
+                Text(
+                    text = "${(op.progress * 100).toInt()}%",
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontFeatureSettings = "tnum",
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+
+            if (op.speedText.isNotEmpty() || op.timeLeftText.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(text = op.speedText, style = MaterialTheme.typography.labelSmall)
+                    Text(text = op.timeLeftText, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+
+            if (op.isCancellable) {
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(
+                    onClick = op.onCancel,
+                    modifier = Modifier.align(Alignment.End),
+                ) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        }
     }
 }

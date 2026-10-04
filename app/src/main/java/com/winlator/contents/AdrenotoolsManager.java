@@ -157,29 +157,59 @@ public class AdrenotoolsManager {
             zis = new ZipInputStream(is);
             ZipEntry entry = zis.getNextEntry();
             while (entry != null) {
-                File dstFile = new File(tmpDir, entry.getName());
-                Files.copy(zis, dstFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                if (entry.isDirectory()) {
+                    File dir = new File(tmpDir, entry.getName());
+                    dir.mkdirs();
+                } else {
+                    File dstFile = new File(tmpDir, entry.getName());
+                    if (dstFile.getParentFile() != null) dstFile.getParentFile().mkdirs();
+                    Files.copy(zis, dstFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                }
                 entry = zis.getNextEntry();
             }
             zis.close();
-            if (new File(tmpDir, "meta.json").exists()) {
-                name = getDriverName(tmpDir.getName());
-                File dst = new File(adrenotoolsContentDir, name);
-                if (!dst.exists() && !name.equals(""))
-                    tmpDir.renameTo(dst);
-                else {
-                    name = "";
-                    FileUtils.delete(tmpDir);
+
+            File metaFile = new File(tmpDir, "meta.json");
+            File driverRoot = tmpDir;
+            if (!metaFile.exists()) {
+                File[] files = tmpDir.listFiles();
+                if (files != null) {
+                    for (File f : files) {
+                        if (f.isDirectory() && new File(f, "meta.json").exists()) {
+                            driverRoot = f;
+                            metaFile = new File(f, "meta.json");
+                            break;
+                        }
+                    }
                 }
             }
-            else {
+
+            if (metaFile.exists()) {
+                try {
+                    JSONObject jsonObject = new JSONObject(FileUtils.readString(metaFile));
+                    name = jsonObject.optString("name", "");
+                } catch (JSONException ignored) {}
+
+                if (!name.isEmpty()) {
+                    File dst = new File(adrenotoolsContentDir, name);
+                    if (dst.exists()) FileUtils.delete(dst);
+                    if (driverRoot.equals(tmpDir)) {
+                        tmpDir.renameTo(dst);
+                    } else {
+                        driverRoot.renameTo(dst);
+                        FileUtils.delete(tmpDir);
+                    }
+                } else {
+                    FileUtils.delete(tmpDir);
+                }
+            } else {
                 Log.d("AdrenotoolsManager", "Failed to install driver, a valid driver has not been selected");
-                tmpDir.delete();
+                FileUtils.delete(tmpDir);
             }
         }
         catch (IOException e) {
             Log.d("AdrenotoolsManager", "Failed to install driver, a valid driver has not been selected");
-            tmpDir.delete();
+            FileUtils.delete(tmpDir);
         }
 
         return name;

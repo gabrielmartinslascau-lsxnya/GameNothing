@@ -137,7 +137,7 @@
     <string name="container_storage_move_to_internal_button">내부로 이동</string>
     <string name="container_storage_move_external_disabled">게임을 이동하기 전에 설정에서 외부 저장소 경로를 지정하세요.</string>
     <string name="container_storage_move_success">%1$s을(를) %2$s(으)로 이동했습니다</string>
-    <string name="container_storage_move_failed">%1$s 이동 실패: %2$s</string>
+    <string name="container_storage_move_failed">%1$s 이동 실패</string>
     <string name="container_storage_remove_button">컨테이너 제거</string>
     <string name="container_storage_remove_title">컨테이너 제거</string>
     <string name="container_storage_remove_message">%1$s의 컨테이너를 제거할까요? 게임 파일은 디스크에 그대로 유지됩니다.</string>

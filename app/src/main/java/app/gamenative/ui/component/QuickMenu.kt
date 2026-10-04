@@ -42,6 +42,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.BatteryChargingFull
@@ -110,6 +111,8 @@ import app.gamenative.ui.theme.PluviaTheme
 import app.gamenative.ui.theme.PluviaGlassPanel
 import app.gamenative.ui.theme.glassContentColor
 import app.gamenative.ui.theme.toColor
+import app.gamenative.ui.theme.toHex
+import app.gamenative.ui.component.HSVColorPicker
 import app.gamenative.ui.theme.LocalLooksState
 import app.gamenative.ui.theme.LooksState
 import app.gamenative.ui.util.adaptivePanelWidth
@@ -129,6 +132,8 @@ import app.gamenative.ui.model.MainViewModel
 import app.gamenative.enums.GlassMode
 import app.gamenative.ui.component.settings.HapticSettingsMenuLink
 import app.gamenative.ui.theme.toColor
+import app.gamenative.ui.theme.toHex
+import app.gamenative.ui.component.HSVColorPicker
 import java.util.Locale
 import app.gamenative.utils.MathUtils.normalizedProgress
 import com.winlator.container.Container
@@ -154,6 +159,7 @@ object QuickMenuAction {
     const val DISABLE_MOUSE = 8
     const val SHOOTER_MODE = 9
     const val RADIAL_MENU = 10
+    const val CROSSHAIR = 11
 }
 
 enum class QuickMenuTab(val labelResId: Int, val icon: ImageVector) {
@@ -313,6 +319,7 @@ fun QuickMenu(
         add(QuickMenuItem(QuickMenuAction.EDIT_CONTROLS, Icons.Default.Edit, R.string.edit_controls, PluviaTheme.colors.accentPurple))
         add(QuickMenuItem(QuickMenuAction.TOUCHSCREEN_MODE, Icons.Default.Fingerprint, R.string.touchscreen_mode, PluviaTheme.colors.accentPurple))
         add(QuickMenuItem(QuickMenuAction.SHOOTER_MODE, Icons.Default.Gamepad, R.string.shooter_mode_toggle, PluviaTheme.colors.accentPurple))
+        add(QuickMenuItem(QuickMenuAction.CROSSHAIR, Icons.Default.Add, R.string.crosshair_toggle, PluviaTheme.colors.accentPurple))
         add(QuickMenuItem(QuickMenuAction.RADIAL_MENU, Icons.Default.Settings, R.string.radial_menu, PluviaTheme.colors.accentPurple))
     }
 
@@ -414,7 +421,7 @@ fun QuickMenu(
                                 Column(modifier = Modifier.weight(1f).verticalScroll(tabScrollState), verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                     availableTabs.forEach { tab -> QuickMenuTabButton(icon = tab.icon, contentDescriptionResId = tab.labelResId, selected = selectedTab == tab, accentColor = looks.mainColor, onSelected = { selectedTab = tab; PrefManager.quickMenuLastTabEnum = tab }, modifier = Modifier.width(56.dp)) }
                                 }
-                                Spacer(modifier = Modifier.height(12.dp))
+                                Spacer(modifier = Modifier.height(87.dp)) // Moved 200px up (12dp + 75dp)
                                 QuickMenuRailActionButton(item = exitGameItem, onClick = { if (onItemSelected(QuickMenuAction.EXIT_GAME)) onDismiss() }, modifier = Modifier.width(56.dp))
                             }
 
@@ -719,8 +726,7 @@ private fun LooksQuickMenuTab(
                 QuickMenuColorPickerRow(
                     title = "Glass Colour",
                     currentColor = looks.glassColor,
-                    onColorSelected = { viewModel.setGlassColor(it) },
-                    accentColor = looks.mainColor
+                    onColorSelected = { viewModel.setGlassColor(it) }
                 )
             }
         }
@@ -746,15 +752,13 @@ private fun LooksQuickMenuTab(
         QuickMenuColorPickerRow(
             title = "Main Colour",
             currentColor = looks.mainColor,
-            onColorSelected = { viewModel.setMainColor(it) },
-            accentColor = looks.mainColor
+            onColorSelected = { viewModel.setMainColor(it) }
         )
 
         QuickMenuColorPickerRow(
             title = "Wallpaper Colour",
             currentColor = looks.wallpaperColor,
-            onColorSelected = { viewModel.setWallpaperColor(it) },
-            accentColor = looks.mainColor
+            onColorSelected = { viewModel.setWallpaperColor(it) }
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -765,107 +769,43 @@ private fun LooksQuickMenuTab(
 private fun QuickMenuColorPickerRow(
     title: String,
     currentColor: Color,
-    onColorSelected: (String) -> Unit,
-    accentColor: Color
+    onColorSelected: (String) -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    var showPicker by remember { mutableStateOf(false) }
     val contentColor = glassContentColor()
-    val colors = listOf(
-        "#E91E63" to "Cherry",
-        "#FF9800" to "Orange",
-        "#4CAF50" to "Forest",
-        "#00BCD4" to "Cyan",
-        "#2196F3" to "Ice",
-        "#9C27B0" to "Violet",
-        "#9E9E9E" to "Steel",
-        "#607D8B" to "Slate",
-        "#FFFFFF" to "Frost",
-        "#000000" to "Volcanic"
-    )
 
-    Column(
+    if (showPicker) {
+        HSVColorPicker(
+            initialColor = currentColor,
+            onColorSelected = { onColorSelected(it.toHex()) },
+            onDismiss = { showPicker = false }
+        )
+    }
+
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 2.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(if (expanded) accentColor.copy(alpha = 0.08f) else Color.Transparent)
-            .hapticClickable { expanded = !expanded }
-            .padding(horizontal = 16.dp, vertical = 14.dp)
+            .hapticClickable { showPicker = true }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = contentColor,
-                fontWeight = FontWeight.Medium
-            )
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
+            color = contentColor,
+            fontWeight = FontWeight.Medium
+        )
 
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(currentColor)
-                    .border(1.dp, contentColor.copy(alpha = 0.2f), CircleShape)
-            )
-        }
-
-        AnimatedVisibility(visible = expanded) {
-            Column(
-                modifier = Modifier
-                    .padding(top = 16.dp)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Two rows of colors
-                val chunkedColors = colors.chunked(5)
-                chunkedColors.forEach { rowColors ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        rowColors.forEach { (hex, name) ->
-                            val isSelected = hex.toColor() == currentColor
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .hapticClickable { onColorSelected(hex) }
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape)
-                                        .background(hex.toColor())
-                                        .border(
-                                            width = if (isSelected) 3.dp else 1.dp,
-                                            color = if (isSelected) accentColor else contentColor.copy(alpha = 0.1f),
-                                            shape = CircleShape
-                                        )
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = name,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = contentColor.copy(alpha = if (isSelected) 1f else 0.6f),
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    maxLines = 1
-                                )
-                            }
-                        }
-                        // Fill empty spaces in the last row if it's shorter
-                        if (rowColors.size < 5) {
-                            repeat(5 - rowColors.size) {
-                                Spacer(modifier = Modifier.weight(1f))
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(currentColor)
+                .border(1.dp, contentColor.copy(alpha = 0.2f), CircleShape)
+        )
     }
 }
 

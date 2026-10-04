@@ -1,5 +1,8 @@
 package app.gamenative
 
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProviderInfo
+import android.system.Os
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.ComponentCallbacks2
@@ -58,7 +61,6 @@ import coil.disk.DiskCache
 import coil.intercept.Interceptor
 import coil.memory.MemoryCache
 import coil.request.CachePolicy
-import com.posthog.PostHog
 import com.skydoves.landscapist.coil.LocalCoilImageLoader
 import com.winlator.core.AppUtils
 import com.winlator.inputcontrols.ControllerManager
@@ -124,6 +126,26 @@ class MainActivity : ComponentActivity() {
 
         @Volatile
         var wasLaunchedViaExternalIntent: Boolean = false
+    }
+
+    private val bindWidgetLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val appWidgetId = result.data?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1) ?: -1
+            if (appWidgetId != -1) {
+                PluviaApp.events.emit(AndroidEvent.WidgetBound(appWidgetId))
+            }
+        }
+    }
+
+    private val onAddWidget: (AndroidEvent.AddWidget) -> Unit = { event ->
+        val appWidgetId = event.hostManager.allocateWidgetId()
+        val bindIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND).apply {
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, event.provider.provider)
+        }
+        bindWidgetLauncher.launch(bindIntent)
     }
 
     private val onSetSystemUi: (AndroidEvent.SetSystemUIVisibility) -> Unit = {
@@ -246,6 +268,13 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Fix for controller bridge: ensure the native library looks in the correct package directory
+        try {
+            Os.setenv("EVSHIM_BASE_PATH", applicationContext.filesDir.absolutePath, true)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to set EVSHIM_BASE_PATH")
+        }
+
         // Full immersive mode - transparent system bars for console-like experience
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(TRANSPARENT),
@@ -296,6 +325,7 @@ class MainActivity : ComponentActivity() {
         PluviaApp.events.on<AndroidEvent.StartOrientator, Unit>(onStartOrientator)
         PluviaApp.events.on<AndroidEvent.SetAllowedOrientation, Unit>(onSetAllowedOrientation)
         PluviaApp.events.on<AndroidEvent.EndProcess, Unit>(onEndProcess)
+        PluviaApp.events.on<AndroidEvent.AddWidget, Unit>(onAddWidget)
 
         setContent {
             var hasNotificationPermission by remember { mutableStateOf(false) }
@@ -462,6 +492,7 @@ class MainActivity : ComponentActivity() {
         PluviaApp.events.off<AndroidEvent.StartOrientator, Unit>(onStartOrientator)
         PluviaApp.events.off<AndroidEvent.SetAllowedOrientation, Unit>(onSetAllowedOrientation)
         PluviaApp.events.off<AndroidEvent.EndProcess, Unit>(onEndProcess)
+        PluviaApp.events.off<AndroidEvent.AddWidget, Unit>(onAddWidget)
 
         Timber.d(
             "onDestroy - Index: %d, Connected: %b, Logged-In: %b, Changing-Config: %b",
@@ -546,10 +577,6 @@ class MainActivity : ComponentActivity() {
             Timber.i("EpicService was down on resume - restarting")
             EpicService.start(this)
         }
-
-        if (PrefManager.usageAnalyticsEnabled) {
-            PostHog.capture(event = "app_foregrounded")
-        }
     }
 
     override fun onPause() {
@@ -570,9 +597,6 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-        }
-        if (PrefManager.usageAnalyticsEnabled) {
-            PostHog.capture(event = "app_backgrounded")
         }
         super.onPause()
     }

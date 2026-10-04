@@ -89,6 +89,7 @@ class MainViewModel @Inject constructor(
         data object ShowDiscordSupportDialog : MainUiEvent()
         data class ShowGameFeedbackDialog(val appId: String) : MainUiEvent()
         data object ServiceReady : MainUiEvent()
+        data class ShowLaunchErrorDialog(val error: String) : MainUiEvent()
     }
 
     private val _state = MutableStateFlow(MainState())
@@ -236,7 +237,7 @@ class MainViewModel @Inject constructor(
     private val onClearBootingSplash: (AndroidEvent.ClearBootingSplash) -> Unit = {
         bootingSplashTimeoutJob?.cancel()
         bootingSplashTimeoutJob = null
-        setShowBootingSplash(false)
+        setSystemReady(true)
     }
 
     private val onTriggerControllerTransition: (AndroidEvent.TriggerControllerTransition) -> Unit = {
@@ -270,7 +271,8 @@ class MainViewModel @Inject constructor(
                 launchedAppId = "",
                 currentScreen = restoredScreen,
                 connectionState = initialConnectionState,
-                refreshRateEnabled = PrefManager.refreshRateEnabled
+                refreshRateEnabled = PrefManager.refreshRateEnabled,
+                showBootingSplash = true // Ensure splash is active at startup
             )
         }
 
@@ -398,6 +400,21 @@ class MainViewModel @Inject constructor(
                 _state.update { it.copy(videoBackgroundDimAlpha = value) }
             }
         }
+
+        viewModelScope.launch {
+            appTheme.loadingScreenModeFlow.collect { value ->
+                _state.update { it.copy(loadingScreenMode = value) }
+            }
+        }
+
+        viewModelScope.launch {
+            appTheme.customLoadingVideoPathFlow.collect { value ->
+                _state.update { it.copy(customLoadingVideoPath = value) }
+            }
+        }
+
+        // Show loading splash on app cold start
+        setShowBootingSplash(true)
     }
 
     override fun onCleared() {
@@ -486,6 +503,19 @@ class MainViewModel @Inject constructor(
         appTheme.videoBackgroundDimAlpha = value
     }
 
+    fun setLoadingScreenMode(value: Int) {
+        appTheme.loadingScreenMode = value
+    }
+
+    fun setCustomLoadingVideoPath(value: String) {
+        appTheme.customLoadingVideoPath = value
+    }
+
+    fun setFasterExternalLoading(value: Boolean) {
+        PrefManager.fasterExternalLoading = value
+        _state.update { it.copy(fasterExternalLoading = value) }
+    }
+
     fun setAnnoyingDialogShown(value: Boolean) {
         _state.update { it.copy(annoyingDialogShown = value) }
     }
@@ -507,7 +537,16 @@ class MainViewModel @Inject constructor(
     }
 
     fun setShowBootingSplash(value: Boolean) {
-        _state.update { it.copy(showBootingSplash = value) }
+        _state.update {
+            it.copy(
+                showBootingSplash = value,
+                isSystemReady = if (value) false else it.isSystemReady
+            )
+        }
+    }
+
+    fun setSystemReady(value: Boolean) {
+        _state.update { it.copy(isSystemReady = value) }
     }
 
     fun setBootingSplashText(value: String) {
@@ -736,7 +775,7 @@ class MainViewModel @Inject constructor(
             ) {
                 bootingSplashTimeoutJob?.cancel()
                 bootingSplashTimeoutJob = null
-                setShowBootingSplash(false)
+                setSystemReady(true)
                 SteamService.keepAlive = true
                 app.gamenative.ui.screen.xr.ImmersiveXrActivity.start(context, appId, _offline.value)
             } else {
@@ -751,7 +790,7 @@ class MainViewModel @Inject constructor(
                 Timber.tag("Exit").i("Exiting, getting feedback for appId: $appId")
                 bootingSplashTimeoutJob?.cancel()
                 bootingSplashTimeoutJob = null
-                setShowBootingSplash(false)
+                setSystemReady(true)
                 PluviaApp.events.emit(AndroidEvent.ClearBootingSplash)
                 // Check if we have a temporary override before doing anything
                 val hadTemporaryOverride = IntentLaunchManager.hasTemporaryOverride(appId)
@@ -886,7 +925,7 @@ class MainViewModel @Inject constructor(
             // Hide the booting splash when a window is mapped
             bootingSplashTimeoutJob?.cancel()
             bootingSplashTimeoutJob = null
-            setShowBootingSplash(false)
+            setSystemReady(true)
             // See onClearBootingSplash's kdoc — broadcast so MainActivity's own instance clears
             // too when this call is actually running on ImmersiveXrActivity's separate instance.
             PluviaApp.events.emit(AndroidEvent.ClearBootingSplash)
@@ -962,7 +1001,7 @@ class MainViewModel @Inject constructor(
             setBootingSplashText("Controller Connected...")
             setShowBootingSplash(true)
             delay(2000)
-            setShowBootingSplash(false)
+            setSystemReady(true)
         }
     }
 
@@ -971,13 +1010,11 @@ class MainViewModel @Inject constructor(
             // Hide the splash screen if it's still showing
             bootingSplashTimeoutJob?.cancel()
             bootingSplashTimeoutJob = null
-            setShowBootingSplash(false)
-            // See onClearBootingSplash's kdoc — broadcast so MainActivity's own instance clears
-            // too when this call is actually running on ImmersiveXrActivity's separate instance.
+            setSystemReady(true)
             PluviaApp.events.emit(AndroidEvent.ClearBootingSplash)
 
-            // You could also show an error dialog here if needed
             Timber.tag("MainViewModel").e("Game launch error: $error")
+            _uiEvent.send(MainUiEvent.ShowLaunchErrorDialog(error))
         }
     }
 

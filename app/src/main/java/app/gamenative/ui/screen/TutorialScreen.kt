@@ -60,7 +60,11 @@ import app.gamenative.R
 import app.gamenative.ui.model.MainViewModel
 import app.gamenative.ui.theme.PluviaGlassPanel
 import app.gamenative.ui.theme.glassContentColor
+import androidx.compose.ui.graphics.toArgb
+import androidx.core.graphics.ColorUtils
 import app.gamenative.ui.theme.toColor
+import app.gamenative.ui.theme.toHex
+import app.gamenative.ui.component.HSVColorPicker
 import app.gamenative.ui.component.settings.HapticSettingsSwitch
 import app.gamenative.ui.theme.settingsTileColorsAlt
 import app.gamenative.ui.util.JoystickScrollHandler
@@ -314,61 +318,43 @@ private fun GlassCustomizationPage(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Two-row Color Picker with 10 Colors
-        val colors = listOf(
-            "#E91E63" to "Cherry",
-            "#FF9800" to "Orange",
-            "#4CAF50" to "Forest",
-            "#00BCD4" to "Cyan",
-            "#2196F3" to "Ice",
-            "#9C27B0" to "Violet",
-            "#9E9E9E" to "Steel",
-            "#607D8B" to "Slate",
-            "#FFFFFF" to "Frost",
-            "#000000" to "Volcanic"
-        )
+        var showMainPicker by remember { mutableStateOf(false) }
+        var showWallpaperPicker by remember { mutableStateOf(false) }
 
-        Text("Main Colour", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.5f))
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            val chunkedMain = colors.chunked(5)
-            chunkedMain.forEach { rowColors ->
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    rowColors.forEach { (hex, _) ->
-                        ColorPill(
-                            hex = hex,
-                            selected = hex == mainColor,
-                            onClick = {
-                                HapticManager.trigger(HapticManager.HapticType.CLICK)
-                                viewModel.setMainColor(hex)
-                            }
-                        )
-                    }
-                }
-            }
+        if (showMainPicker) {
+            HSVColorPicker(
+                initialColor = mainColor.toColor(),
+                onColorSelected = { viewModel.setMainColor(it.toHex()) },
+                onDismiss = { showMainPicker = false }
+            )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        if (showWallpaperPicker) {
+            HSVColorPicker(
+                initialColor = wallpaperColor.toColor(),
+                onColorSelected = { viewModel.setWallpaperColor(it.toHex()) },
+                onDismiss = { showWallpaperPicker = false }
+            )
+        }
 
-        Text("Wallpaper Colour", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.5f))
-        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Button(
+                onClick = { showMainPicker = true },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = mainColor.toColor())
+            ) {
+                Text("Main Colour", color = if (ColorUtils.calculateLuminance(mainColor.toColor().toArgb()) > 0.5) Color.Black else Color.White)
+            }
 
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            val chunkedWallpaper = colors.chunked(5)
-            chunkedWallpaper.forEach { rowColors ->
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    rowColors.forEach { (hex, _) ->
-                        ColorPill(
-                            hex = hex,
-                            selected = hex == wallpaperColor,
-                            onClick = {
-                                HapticManager.trigger(HapticManager.HapticType.CLICK)
-                                viewModel.setWallpaperColor(hex)
-                            }
-                        )
-                    }
-                }
+            Button(
+                onClick = { showWallpaperPicker = true },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = wallpaperColor.toColor())
+            ) {
+                Text("Wallpaper", color = if (ColorUtils.calculateLuminance(wallpaperColor.toColor().toArgb()) > 0.5) Color.Black else Color.White)
             }
         }
     }
@@ -448,24 +434,4 @@ private fun RealityCheckPage() {
 
         Text(text = ":'(", style = MaterialTheme.typography.displayLarge, color = MaterialTheme.colorScheme.error)
     }
-}
-
-@Composable
-private fun ColorPill(
-    hex: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .background(hex.toColor())
-            .border(
-                width = if (selected) 3.dp else 1.dp,
-                color = if (selected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.2f),
-                shape = CircleShape
-            )
-            .clickable { onClick() }
-    )
 }

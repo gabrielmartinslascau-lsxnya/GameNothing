@@ -14,6 +14,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import app.gamenative.BuildConfig
 import app.gamenative.PluviaApp
 import app.gamenative.PrefManager
 import app.gamenative.R
@@ -464,11 +465,25 @@ class CustomGameAppScreen : BaseAppScreen() {
                                 steamgriddbFetched = false,
                             )
 
-                            SteamGridDB.fetchGameImages(gameName, gameFolderPath)
-                            PluviaApp.events.emit(AndroidEvent.CustomGameImagesFetched(libraryItem.appId))
-                            onAfterFetchImages(context, libraryItem, gameFolderPath)
+                            val result = SteamGridDB.fetchGameImages(gameName, gameFolderPath, force = true)
 
-                            SnackbarManager.show(context.getString(R.string.base_app_images_fetched))
+                            val fetchedAny = result.gridPath != null || result.heroPath != null ||
+                                           result.logoPath != null || result.capsulePath != null
+
+                            if (fetchedAny) {
+                                PluviaApp.events.emit(AndroidEvent.CustomGameImagesFetched(libraryItem.appId))
+                                onAfterFetchImages(context, libraryItem, gameFolderPath)
+                                SnackbarManager.show(context.getString(R.string.base_app_images_fetched))
+                            } else {
+                                // If no images found, check if it's due to missing API key
+                                val apiKey = BuildConfig.STEAMGRIDDB_API_KEY
+                                val msg = if (apiKey.isEmpty()) {
+                                    "SteamGridDB API Key is missing in local.properties"
+                                } else {
+                                    "No matching images found for \"$gameName\""
+                                }
+                                SnackbarManager.show(msg)
+                            }
                         } else {
                             SnackbarManager.show(context.getString(R.string.base_app_game_folder_not_found))
                         }

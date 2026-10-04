@@ -36,8 +36,8 @@ object Constants {
     object Misc {
         const val KO_FI_LINK = "https://ko-fi.com/gamenative"
         const val TIKTOK_LINK = "https://www.tiktok.com/@lsxnothing"
-        const val GITHUB_LINK = "https://github.com/utkarshdalal/GameNative"
-        const val PRIVACY_LINK = "https://github.com/utkarshdalal/GameNative/tree/master/PrivacyPolicy"
-        const val UPDATE_CHECK_URL = "https://api.gamenative.app/api/update-check"
+        const val GITHUB_LINK = "https://github.com/lsxnothing/GameNothing"
+        const val PRIVACY_LINK = "https://github.com/lsxnothing/GameNothing/tree/master/PrivacyPolicy"
+        const val UPDATE_CHECK_URL = "https://raw.githubusercontent.com/lsxnothing/GameNothing/master/update.json"
     }
 }

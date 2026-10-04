@@ -310,6 +310,7 @@ object ContainerStorageManager {
         )
 
         val moveResult = StorageUtils.moveDirectory(
+            context = context,
             sourceDir = sourceDir.absolutePath,
             targetDir = targetDir.absolutePath,
             onProgressUpdate = onProgressUpdate,
@@ -701,7 +702,9 @@ object ContainerStorageManager {
             ?: config.optString("name", "").takeIf { it.isNotBlank() }
             ?: containerId
 
+        val isCustomDesktopOrGame = gameSource == GameSource.CUSTOM_GAME || containerId.startsWith("CUSTOM_GAME")
         val status = when {
+            isCustomDesktopOrGame -> Status.READY
             installedGame != null -> Status.READY
             installPathOwnedByOtherApp -> Status.ORPHANED
             resolved == null || !resolved.known -> Status.ORPHANED

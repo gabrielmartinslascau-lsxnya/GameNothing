@@ -1274,7 +1274,9 @@ internal fun AppScreenContent(
                     onClick = onBack,
                 ),
             ),
-            modifier = Modifier.align(Alignment.BottomCenter),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 76.dp), // Moved 200px up
             visible = !optionsMenuVisible,
         )
 

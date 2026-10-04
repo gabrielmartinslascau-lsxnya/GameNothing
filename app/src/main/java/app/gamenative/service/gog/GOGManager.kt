@@ -17,8 +17,10 @@ import app.gamenative.utils.FileUtils
 import app.gamenative.utils.MarkerUtils
 import app.gamenative.utils.Net
 import com.winlator.container.Container
+import com.winlator.core.WineRegistryEditor
 import com.winlator.core.FileUtils as WinlatorFileUtils
 import com.winlator.core.envvars.EnvVars
+import com.winlator.xenvironment.ImageFs
 import com.winlator.xenvironment.components.GuestProgramLauncherComponent
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -726,6 +728,38 @@ class GOGManager @Inject constructor(
         }
     }
 
+    /**
+     * Injects GOG-specific registry keys to prevent "CD drive required" errors.
+     * This mimics the fix introduced in GameNative 1.2.1.
+     */
+    fun applyRegistryFixes(context: Context, gameId: String, installPath: String, container: Container) {
+        try {
+            val imageFs = ImageFs.find(context)
+            val systemRegFile = File(imageFs.wineprefix, "system.reg")
+            if (!systemRegFile.exists()) return
+
+            val installPathWin = "A:\\" // GOG games are usually mounted to A:
+
+            WineRegistryEditor(systemRegFile).use { editor ->
+                editor.setCreateKeyIfNotExist(true)
+
+                // Common GOG registry keys to bypass disc checks
+                val keys = listOf(
+                    "Software\\GOG.com\\Games\\$gameId",
+                    "Software\\Wow6432Node\\GOG.com\\Games\\$gameId"
+                )
+
+                for (key in keys) {
+                    editor.setStringValue(key, "PATH", installPathWin)
+                    editor.setStringValue(key, "SAVEGAMEPATH", installPathWin)
+                    Timber.tag("GOGFix").d("Injected GOG registry keys for $gameId")
+                }
+            }
+        } catch (e: Exception) {
+            Timber.tag("GOGFix").e(e, "Failed to apply GOG registry fixes")
+        }
+    }
+
     fun getGogWineStartCommand(
         libraryItem: LibraryItem,
         container: Container,
@@ -741,6 +775,9 @@ class GOGManager @Inject constructor(
             Timber.e("Installation verification failed: $errorMessage")
             return "\"explorer.exe\""
         }
+
+        // Apply registry fixes before launch to prevent CD-drive errors
+        applyRegistryFixes(context, gameId.toString(), "", container)
 
         val game = runBlocking { getGameFromDbById(gameId.toString()) }
         if (game == null) {

@@ -8,6 +8,7 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.os.Build
 import android.os.IBinder
 import android.util.Base64
 import androidx.room.withTransaction
@@ -1996,7 +1997,9 @@ class SteamService : Service(), IChallengeUrlChanged {
                             parentJob = coroutineContext[Job],
                             autoStartDownload = false,
                             skipLargeFileAllocation = chunkStagingRedirectDir != null,
-                            filesystem = CaseInsensitiveFileSystem(
+                            filesystem = CaseInsensitiveFileSystem.create(
+                                context = instance!!,
+                                targetPath = appDirPath,
                                 showDebugLog = false,
                                 chunkStagingRedirect = chunkStagingRedirectDir?.absolutePath?.toPath(),
                             ),
@@ -3402,7 +3405,7 @@ class SteamService : Service(), IChallengeUrlChanged {
                 return appDirSettings.absolutePath
             }
 
-            val container = ContainerUtils.getContainer(context, "STEAM_$appId")
+            val container = runCatching { ContainerUtils.getContainer(context, "STEAM_$appId") }.getOrNull() ?: return null
             val coldclientSettings = File(
                 container.rootDir,
                 ".wine/drive_c/Program Files (x86)/Steam/steam_settings",
@@ -3526,6 +3529,17 @@ class SteamService : Service(), IChallengeUrlChanged {
         super.onCreate()
         instance = this
 
+        // Start up the notification early to to avoid ForegroundServiceDidNotStartInTimeException
+        notificationHelper = NotificationHelper(applicationContext)
+        val notification = notificationHelper.createServiceNotification(NotificationHelper.NOTIFICATION_ID_STEAM, "Running...")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NotificationHelper.NOTIFICATION_ID_STEAM, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            startForeground(NotificationHelper.NOTIFICATION_ID_STEAM, notification)
+        }
+        notificationHelper.markActive(NotificationHelper.NOTIFICATION_ID_STEAM)
+        notificationHelper.showIdle(NotificationHelper.NOTIFICATION_ID_STEAM)
+
         // Restore any app IDs that were pending achievement sync before the service was killed
         pendingSyncAppIds.addAll(
             runCatching {
@@ -3597,16 +3611,6 @@ class SteamService : Service(), IChallengeUrlChanged {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Start up the notification early to to avoid ForegroundServiceDidNotStartInTimeException
-        val notification = notificationHelper.createServiceNotification(NotificationHelper.NOTIFICATION_ID_STEAM, "Running...")
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            startForeground(NotificationHelper.NOTIFICATION_ID_STEAM, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        } else {
-            startForeground(NotificationHelper.NOTIFICATION_ID_STEAM, notification)
-        }
-        notificationHelper.markActive(NotificationHelper.NOTIFICATION_ID_STEAM)
-        notificationHelper.showIdle(NotificationHelper.NOTIFICATION_ID_STEAM)
-
         when (intent?.action) {
             NotificationHelper.ACTION_EXIT -> {
                 Timber.d("Exiting app via notification intent")

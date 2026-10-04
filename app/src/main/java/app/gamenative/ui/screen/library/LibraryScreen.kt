@@ -5,9 +5,11 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
 import android.os.SystemClock
+import android.provider.Settings
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
+import android.view.View
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,10 +25,13 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -57,6 +62,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -67,6 +73,7 @@ import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.data.*
 import app.gamenative.events.AndroidEvent
+import app.gamenative.playground.PlaygroundWidgetHostManager
 import app.gamenative.service.amazon.AmazonService
 import app.gamenative.service.epic.EpicService
 import app.gamenative.service.gog.GOGService
@@ -90,7 +97,6 @@ import app.gamenative.ui.screen.library.components.*
 import app.gamenative.ui.theme.*
 import app.gamenative.ui.util.*
 import app.gamenative.utils.*
-import com.posthog.PostHog
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
@@ -113,6 +119,12 @@ fun HomeLibraryScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val importState by viewModel.importState.collectAsStateWithLifecycle()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val context = LocalContext.current
+
+    var showPlaygroundSettings by remember { mutableStateOf(false) }
+    var showAndroidAppPicker by remember { mutableStateOf(false) }
+    var playgroundEditingItemId by remember { mutableStateOf<String?>(null) }
+    var showWidgetPicker by remember { mutableStateOf(false) }
 
     LibraryScreenContent(
         state = state,
@@ -139,16 +151,103 @@ fun HomeLibraryScreen(
         onSteamCollectionToggle = viewModel::onSteamCollectionToggle,
         onClearSteamCollections = viewModel::onClearSteamCollections,
         onFocusedIndexChanged = viewModel::onFocusedIndexChanged,
-        onAddAndroidApp = viewModel::addAndroidApp,
         onSetMainColor = viewModel::setMainColor,
         onSetGameViewState = viewModel::onSetGameViewState,
         onOptionsPanelToggle = viewModel::onOptionsPanelToggle,
         onTabChanged = viewModel::onTabChanged,
         onPreviousTab = viewModel::onPreviousTab,
         onNextTab = viewModel::onNextTab,
+        onPlaygroundSettingsChange = viewModel::onPlaygroundSettingsChange,
+        onPlaygroundItemMoved = viewModel::onPlaygroundItemMoved,
+        onPlaygroundItemRemoved = viewModel::onPlaygroundItemRemoved,
+        onTogglePlaygroundItemDockStatus = viewModel::onTogglePlaygroundItemDockStatus,
+        playgroundEditingItemId = playgroundEditingItemId,
+        onPlaygroundEditItem = { id ->
+            playgroundEditingItemId = if (playgroundEditingItemId == id) null else id
+        },
+        onShowPlaygroundSettings = { showPlaygroundSettings = true },
+        onShowAndroidAppPickerChange = { showAndroidAppPicker = it },
+        onShowWidgetPicker = { showWidgetPicker = true },
         isOffline = isOffline,
         isSteamConnected = isSteamConnected,
     )
+
+    if (showPlaygroundSettings) {
+        ModalBottomSheet(
+            onDismissRequest = { showPlaygroundSettings = false },
+            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
+        ) {
+            PlaygroundSettingsPanel(
+                settings = state.playgroundSettings,
+                onSettingsChange = viewModel::onPlaygroundSettingsChange,
+                onOpenAndroidSettings = {
+                    runCatching {
+                        val intent = Intent(Settings.ACTION_SETTINGS).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                    }
+                },
+                onAddApps = {
+                    showPlaygroundSettings = false
+                    showAndroidAppPicker = true
+                },
+                onAddWidget = {
+                    showPlaygroundSettings = false
+                    showWidgetPicker = true
+                }
+            )
+        }
+    }
+
+    if (showAndroidAppPicker) {
+        AndroidAppPicker(
+            onAppsSelected = { packageNames ->
+                if (state.currentTab == LibraryTab.PLAYGROUND) {
+                    packageNames.forEach { pkg ->
+                        val pm = context.packageManager
+                        val className = pm.getLaunchIntentForPackage(pkg)?.component?.className ?: ""
+                        viewModel.addAppToPlayground(pkg, className)
+                    }
+                } else {
+                    packageNames.forEach { pkg -> viewModel.addAndroidApp(pkg) }
+                }
+                showAndroidAppPicker = false
+            },
+            onDismiss = { showAndroidAppPicker = false }
+        )
+    }
+
+    if (showWidgetPicker) {
+        val hostManager = viewModel.playgroundWidgetHostManager
+        val providers = remember { hostManager.getAvailableWidgets() }
+
+        ModalBottomSheet(
+            onDismissRequest = { showWidgetPicker = false },
+            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
+        ) {
+            val pm = context.packageManager
+            Text(
+                "Pick a Widget",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(16.dp)
+            )
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)
+            ) {
+                items(providers) { info ->
+                    ListItem(
+                        headlineContent = { Text(info.loadLabel(pm)) },
+                        supportingContent = { Text(info.provider.packageName) },
+                        modifier = Modifier.clickable {
+                            PluviaApp.events.emit(AndroidEvent.AddWidget(hostManager, info))
+                            showWidgetPicker = false
+                        }
+                    )
+                }
+            }
+        }
+    }
 }
 
 private fun isGameControllerConnected(): Boolean =
@@ -186,13 +285,21 @@ private fun LibraryScreenContent(
     onSteamCollectionToggle: (String) -> Unit,
     onClearSteamCollections: () -> Unit,
     onFocusedIndexChanged: (Int) -> Unit,
-    onAddAndroidApp: (String) -> Unit,
     onSetMainColor: (String) -> Unit,
     onSetGameViewState: (GameViewState) -> Unit,
     onOptionsPanelToggle: (Boolean) -> Unit,
     onTabChanged: (LibraryTab) -> Unit,
     onPreviousTab: () -> Unit,
     onNextTab: () -> Unit,
+    onPlaygroundSettingsChange: (PlaygroundSettings) -> Unit = {},
+    onPlaygroundItemMoved: (id: String, x: Float, y: Float) -> Unit = { _, _, _ -> },
+    onPlaygroundItemRemoved: (String) -> Unit = {},
+    onTogglePlaygroundItemDockStatus: (String, Float?, Float?) -> Unit = { _, _, _ -> },
+    playgroundEditingItemId: String? = null,
+    onPlaygroundEditItem: (String?) -> Unit = {},
+    onShowPlaygroundSettings: () -> Unit = {},
+    onShowAndroidAppPickerChange: (Boolean) -> Unit = {},
+    onShowWidgetPicker: () -> Unit = {},
     isOffline: Boolean = false,
     isSteamConnected: Boolean = false,
 ) {
@@ -248,6 +355,7 @@ private fun LibraryScreenContent(
     }
 
     var selectedAppId by remember { mutableStateOf<String?>(null) }
+    var selectedLibraryItem by remember { mutableStateOf<LibraryItem?>(null) }
     var backgroundLayer by remember { mutableStateOf<GraphicsLayer?>(null) }
 
     val carouselListState = rememberLazyListState()
@@ -258,7 +366,6 @@ private fun LibraryScreenContent(
         mutableStateOf(PrefManager.getLibraryLayout(isLandscape, isControllerConnected))
     }
 
-    // Auto-switch layout when controller or orientation changes
     LaunchedEffect(isLandscape, isControllerConnected) {
         val preferredLayout = PrefManager.getLibraryLayout(isLandscape, isControllerConnected)
         if (currentPaneType != preferredLayout) {
@@ -269,33 +376,19 @@ private fun LibraryScreenContent(
     var recDisclosureShown by remember { mutableStateOf(PrefManager.recDisclosureShown) }
     var showRecTeaserDialog by remember { mutableStateOf(false) }
     val onRecTeaserTapped = {
-        if (PrefManager.usageAnalyticsEnabled) PostHog.capture(event = "rec_teaser_tapped")
         showRecTeaserDialog = true
     }
-    val recTeaserVisible = state.appInfoList.firstOrNull()?.isRecTeaser == true
-    LaunchedEffect(recTeaserVisible) {
-        if (recTeaserVisible && PrefManager.usageAnalyticsEnabled) {
-            PostHog.capture(event = "rec_teaser_shown")
-        }
-    }
 
-    val rootFocusRequester = remember { FocusRequester() }
     val gridFirstItemFocusRequester = remember { FocusRequester() }
     val carouselFocusRequester = remember { FocusRequester() }
     val mode360FocusRequester = remember { FocusRequester() }
     var gridFocusTargetListIndex by remember { mutableIntStateOf(0) }
     var carouselFocusTargetListIndex by remember { mutableIntStateOf(0) }
     var mode360FocusTargetListIndex by remember { mutableIntStateOf(0) }
-    var pendingGridFocusRequest by remember { mutableStateOf(false) }
-    var pendingCarouselFocusRequest by remember { mutableStateOf(false) }
     var isSystemMenuOpen by remember { mutableStateOf(false) }
-    var selectedLibraryItem by remember { mutableStateOf<LibraryItem?>(null) }
     val favorites by FavoritesManager.favorites.collectAsStateWithLifecycle()
     val favoritesLoaded by FavoritesManager.loaded.collectAsStateWithLifecycle()
-    var controllerBootstrapNeeded by remember { mutableStateOf(true) }
-    var rootHasFocus by remember { mutableStateOf(false) }
     var tabBarHasFocus by remember { mutableStateOf(false) }
-    var recommendationItemCount by remember { mutableIntStateOf(0) }
 
     val storagePermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
@@ -303,9 +396,6 @@ private fun LibraryScreenContent(
 
     val folderPicker = rememberCustomGameFolderPicker(
         onPathSelected = { path ->
-            // When a folder is selected via OpenDocumentTree, the user has already granted
-            // URI permissions for that specific folder. We should verify we can access it
-            // rather than checking for broad storage permissions.
             val folder = File(path)
             val canAccess = try {
                 folder.exists() && (folder.isDirectory && folder.canRead())
@@ -313,8 +403,6 @@ private fun LibraryScreenContent(
                 false
             }
 
-            // Only request permissions if we can't access the folder AND it's outside the sandbox
-            // (folders selected via OpenDocumentTree should already be accessible)
             if (!canAccess && !CustomGameScanner.hasStoragePermission(context, path)) {
                 requestPermissionsForPath(context, path, storagePermissionLauncher)
             }
@@ -325,8 +413,6 @@ private fun LibraryScreenContent(
         },
     )
 
-    // Modern add path: import the picked folder into app-owned storage via the SAF grant,
-    // since the map-in-place flow needs MANAGE_EXTERNAL_STORAGE
     var showModernImportDialog by remember { mutableStateOf(false) }
     var importRemoveOriginal by rememberSaveable { mutableStateOf(false) }
     val importLauncher = rememberLauncherForActivityResult(
@@ -339,7 +425,6 @@ private fun LibraryScreenContent(
 
     var showAddCustomGameDialog by remember { mutableStateOf(false) }
     var showImportTypeDialog by remember { mutableStateOf(false) }
-    var showAndroidAppPicker by remember { mutableStateOf(false) }
 
     val onAddCustomGameClick = {
         HapticManager.trigger(HapticManager.HapticType.CLICK)
@@ -351,7 +436,6 @@ private fun LibraryScreenContent(
     fun requestContentFocusOrDefer() {
         if (!isListFocusable()) return
         lifecycleScope.launch {
-            // Give composition a moment to settle
             delay(64)
             runCatching {
                 when (currentPaneType) {
@@ -402,104 +486,32 @@ private fun LibraryScreenContent(
         selectedLibraryItem = null
     }
 
-    // Restore focus when returning from game detail (without reloading list)
     LaunchedEffect(selectedAppId) {
         if (selectedAppId == null) {
-            // Brief delay to let the UI settle after transition
             delay(100)
-            // Restore focus to content area
             if (isListFocusable()) {
                 requestContentFocusOrDefer()
             }
         }
     }
 
-    // Restore focus after tab change - handles both empty and populated tabs
     LaunchedEffect(state.currentTab) {
-        // Brief delay to let list populate after tab change
         delay(150)
-
-        // The user may have moved focus up into the tab bar during the delay; don't yank it back.
         if (tabBarHasFocus) return@LaunchedEffect
-
         if (isListFocusable()) {
-            // Tab has content - focus the first content item/container
             requestContentFocusOrDefer()
         }
     }
 
     LaunchedEffect(
-        pendingGridFocusRequest,
-        gridFocusTargetListIndex,
         state.appInfoList.size,
         selectedAppId,
         isSystemMenuOpen,
         state.isOptionsPanelOpen,
         state.isSearching,
     ) {
-        if (pendingGridFocusRequest && isListFocusable()) {
-            if (selectedAppId == null && !isSystemMenuOpen && !state.isOptionsPanelOpen && !state.isSearching) {
-                var retries = 0
-                while (pendingGridFocusRequest && retries < 8) {
-                    try {
-                        gridFirstItemFocusRequester.requestFocus()
-                        pendingGridFocusRequest = false
-                    } catch (_: IllegalStateException) {
-                        retries++
-                        // FocusRequester can be temporarily detached during recomposition.
-                        delay(32)
-                    }
-                }
-            }
-        }
-    }
-
-    LaunchedEffect(
-        pendingCarouselFocusRequest,
-        carouselFocusTargetListIndex,
-        state.appInfoList.size,
-        selectedAppId,
-        isSystemMenuOpen,
-        state.isOptionsPanelOpen,
-        state.isSearching,
-    ) {
-        if (pendingCarouselFocusRequest && isListFocusable()) {
-            if (selectedAppId == null && !isSystemMenuOpen && !state.isOptionsPanelOpen && !state.isSearching) {
-                val targetIndex = carouselFocusTargetListIndex
-                if (carouselListState.layoutInfo.visibleItemsInfo.none { it.index == targetIndex }) {
-                    carouselListState.scrollToItem(targetIndex)
-                }
-                var retries = 0
-                while (pendingCarouselFocusRequest && retries < 8) {
-                    try {
-                        carouselFocusRequester.requestFocus()
-                        pendingCarouselFocusRequest = false
-                    } catch (_: IllegalStateException) {
-                        retries++
-                        delay(32)
-                    }
-                }
-            }
-        }
-    }
-
-    // If the app list starts empty and populates later, bootstrap controller focus once content is ready.
-    LaunchedEffect(
-        state.appInfoList.size,
-        selectedAppId,
-        isSystemMenuOpen,
-        state.isOptionsPanelOpen,
-        state.isSearching,
-    ) {
-        val currentCount = state.appInfoList.size
-
-        if (selectedAppId == null &&
-            !isSystemMenuOpen &&
-            !state.isOptionsPanelOpen &&
-            !state.isSearching &&
-            !tabBarHasFocus
-        ) {
-            if (currentCount > 0) {
+        if (selectedAppId == null && !isSystemMenuOpen && !state.isOptionsPanelOpen && !state.isSearching && !tabBarHasFocus) {
+            if (state.appInfoList.isNotEmpty()) {
                 requestContentFocusOrDefer()
             }
         }
@@ -510,7 +522,7 @@ private fun LibraryScreenContent(
     )
 
     CompositionLocalProvider(LocalBackgroundLayer provides backgroundLayer) {
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
@@ -535,7 +547,6 @@ private fun LibraryScreenContent(
                                         }
                                         GameViewState.HERO_DETAILS -> {
                                             onSetGameViewState(GameViewState.ACTION_MENU)
-                                            // Trigger play dialog/action
                                             val focusedItem = focusedLibraryItem()
                                             if (focusedItem != null) {
                                                 selectedAppId = focusedItem.appId
@@ -574,8 +585,10 @@ private fun LibraryScreenContent(
                     } else false
                 }
         ) {
+            val screenHeight = this.maxHeight
+            val dockZoneTop = screenHeight - 120.dp
+
             if (selectedAppId == null) {
-                // Function to render the main library content (grid/carousel)
                 val mainContent = @Composable { blur: Dp, gridOverride: LazyGridState?, listOverride: LazyListState? ->
                     Box(modifier = Modifier.fillMaxSize().blur(blur)) {
                         if (showRecTeaserDialog) {
@@ -592,6 +605,7 @@ private fun LibraryScreenContent(
                             )
                         }
                     }
+
                     val showEmptyStateSplash = when (state.currentTab) {
                         LibraryTab.STEAM -> !SteamUtils.hasStoredCredentials() && !state.isLoading
                         LibraryTab.GOG -> !GOGService.hasStoredCredentials(context)
@@ -600,434 +614,203 @@ private fun LibraryScreenContent(
                         LibraryTab.LOCAL -> PrefManager.customGamesCount == 0
                         else -> false
                     }
-                    // Favorites tab has its own empty state. Only show it once favorites have loaded and
-                    // the list has settled, so a genuinely empty tab is explained instead of flashing a
-                    // blank screen (or the empty message before stored favorites arrive).
                     val showFavoritesEmptyState = state.currentTab == LibraryTab.FAVORITES &&
                         favoritesLoaded && !state.isLoading && state.appInfoList.isEmpty()
-                    if (showEmptyStateSplash) {
-                        val (messageResId, buttonResId, onAction) = when (state.currentTab) {
-                            LibraryTab.STEAM -> Triple(
-                                R.string.library_source_not_logged_in_steam,
-                                R.string.steam_sign_in,
-                                onGoOnline,
-                            )
-                            LibraryTab.GOG -> Triple(
-                                R.string.library_source_not_logged_in_gog,
-                                R.string.gog_settings_login_title,
-                                { gogOAuthLauncher.launch(Intent(context, GOGOAuthActivity::class.java)) },
-                            )
-                            LibraryTab.EPIC -> Triple(
-                                R.string.library_source_not_logged_in_epic,
-                                R.string.epic_settings_login_title,
-                                { epicOAuthLauncher.launch(Intent(context, EpicOAuthActivity::class.java)) },
-                            )
-                            LibraryTab.AMAZON -> Triple(
-                                R.string.library_source_not_logged_in_amazon,
-                                R.string.amazon_settings_login_title,
-                                { amazonOAuthLauncher.launch(Intent(context, AmazonOAuthActivity::class.java)) },
-                            )
-                            LibraryTab.LOCAL -> Triple(
-                                R.string.library_source_no_custom_games,
-                                R.string.add_custom_game_dialog_title,
-                                onAddCustomGameClick,
-                            )
-                            else -> throw IllegalStateException("showEmptyStateSplash is true only for Steam/GOG/Epic/Amazon/LOCAL")
-                        }
-                        LibrarySourceNotLoggedInSplash(
-                            messageResId = messageResId,
-                            signInButtonLabelResId = buttonResId,
-                            onSignInClick = onAction,
-                            modifier = Modifier.fillMaxSize(),
+
+                    if (state.currentTab == LibraryTab.PLAYGROUND) {
+                        PlaygroundTab(
+                            settings = state.playgroundSettings,
+                            onSettingsChange = onPlaygroundSettingsChange,
+                            items = state.playgroundItems,
+                            editingItemId = playgroundEditingItemId,
+                            onEditItem = onPlaygroundEditItem,
+                            onItemMoved = onPlaygroundItemMoved,
+                            onItemRemoved = onPlaygroundItemRemoved,
+                            onToggleDockStatus = onTogglePlaygroundItemDockStatus,
+                            onItemTapped = { item ->
+                                if (item is PlaygroundItem.AppItem) {
+                                    try {
+                                        val launchIntent = context.packageManager.getLaunchIntentForPackage(item.packageName)
+                                        if (launchIntent != null) {
+                                            context.startActivity(launchIntent)
+                                        } else {
+                                            SnackbarManager.show("Failed to launch app")
+                                        }
+                                    } catch (e: Exception) {
+                                        SnackbarManager.show("Error: ${e.message}")
+                                    }
+                                }
+                            },
+                            dockZoneTop = dockZoneTop,
+                            onAddWidget = { _ -> onShowWidgetPicker() }
                         )
+                    } else if (showEmptyStateSplash) {
+                        val (messageResId, buttonResId, onAction) = when (state.currentTab) {
+                            LibraryTab.STEAM -> Triple(R.string.library_source_not_logged_in_steam, R.string.steam_sign_in, onGoOnline)
+                            LibraryTab.GOG -> Triple(R.string.library_source_not_logged_in_gog, R.string.gog_settings_login_title, { gogOAuthLauncher.launch(Intent(context, GOGOAuthActivity::class.java)) })
+                            LibraryTab.EPIC -> Triple(R.string.library_source_not_logged_in_epic, R.string.epic_settings_login_title, { epicOAuthLauncher.launch(Intent(context, EpicOAuthActivity::class.java)) })
+                            LibraryTab.AMAZON -> Triple(R.string.library_source_not_logged_in_amazon, R.string.amazon_settings_login_title, { amazonOAuthLauncher.launch(Intent(context, AmazonOAuthActivity::class.java)) })
+                            LibraryTab.LOCAL -> Triple(R.string.library_source_no_custom_games, R.string.add_custom_game_dialog_title, onAddCustomGameClick)
+                            else -> throw IllegalStateException("showEmptyStateSplash error")
+                        }
+                        LibrarySourceNotLoggedInSplash(messageResId, buttonResId, onAction, Modifier.fillMaxSize())
                     } else if (showFavoritesEmptyState) {
                         if (favorites.isEmpty()) {
                             LibraryFavoritesEmptyState(
                                 titleResId = R.string.favorites_empty_title,
                                 messageResId = R.string.favorites_empty_message,
-                                actionLabelResId = R.string.favorites_empty_action,
-                                onAction = { onTabChanged(LibraryTab.ALL) },
                                 modifier = Modifier.fillMaxSize(),
+                                actionLabelResId = R.string.favorites_empty_action,
+                                onAction = { onTabChanged(LibraryTab.ALL) }
                             )
                         } else {
-                            // Favorites exist but none are visible — filtered out by the current search
-                            // or unavailable (source logged out / game removed).
                             LibraryFavoritesEmptyState(
                                 titleResId = R.string.favorites_empty_filtered_title,
                                 messageResId = R.string.favorites_empty_filtered_message,
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = Modifier.fillMaxSize()
                             )
                         }
                     } else {
-                        // Library list (content scrolls behind tab bar)
                         if (currentPaneType == PaneType.CAROUSEL) {
-                            LibraryCarouselPane(
-                                state = state,
-                                listState = listOverride ?: carouselListState,
-                                onPageChange = onPageChange,
-                                onNavigate = { appId ->
-                                    val item = state.appInfoList.find { it.appId == appId }
-                                    if (item?.isRecTeaser == true) {
-                                        if (!item.isRecLoading && !recDisclosureShown) {
-                                            onRecTeaserTapped()
-                                        }
-                                    } else {
-                                        selectedAppId = appId
-                                        selectedLibraryItem = item
-                                    }
-                                },
-                                onRefresh = onRefresh,
-                                modifier = Modifier.fillMaxSize(),
-                                firstCarouselItemFocusRequester = carouselFocusRequester,
-                                focusTargetListIndex = carouselFocusTargetListIndex,
-                                onFocusedIndexChanged = {
-                                    carouselFocusTargetListIndex = it
-                                    onFocusedIndexChanged(it)
-                                },
-                            )
+                            LibraryCarouselPane(state, listOverride ?: carouselListState, onPageChange, { appId ->
+                                val item = state.appInfoList.find { it.appId == appId }
+                                if (item?.isRecTeaser == true) { if (!item.isRecLoading && !recDisclosureShown) onRecTeaserTapped() }
+                                else { selectedAppId = appId; selectedLibraryItem = item }
+                            }, onRefresh, Modifier.fillMaxSize(), carouselFocusRequester, carouselFocusTargetListIndex, { carouselFocusTargetListIndex = it; onFocusedIndexChanged(it) })
                         } else if (currentPaneType == PaneType.MODE_360) {
-                            Library360Carousel(
-                                state = state,
-                                onNavigate = { appId ->
-                                    selectedAppId = appId
-                                    selectedLibraryItem = state.appInfoList.find { it.appId == appId }
-                                },
-                                onSetGameViewState = onSetGameViewState,
-                                firstItemFocusRequester = mode360FocusRequester,
-                                onFocusedIndexChanged = {
-                                    mode360FocusTargetListIndex = it
-                                    onFocusedIndexChanged(it)
-                                },
-                                modifier = Modifier.fillMaxSize()
-                            )
+                            Library360Carousel(state, { appId -> selectedAppId = appId; selectedLibraryItem = state.appInfoList.find { it.appId == appId } }, onSetGameViewState, Modifier.fillMaxSize(), mode360FocusRequester, { mode360FocusTargetListIndex = it; onFocusedIndexChanged(it) })
                         } else {
-                            LibraryListPane(
-                                state = state,
-                                listState = gridOverride ?: listState,
-                                currentLayout = currentPaneType,
-                                firstGridItemFocusRequester = gridFirstItemFocusRequester,
-                                focusTargetListIndex = gridFocusTargetListIndex,
-                                onPageChange = onPageChange,
-                                onNavigate = { appId ->
-                                    val item = state.appInfoList.find { it.appId == appId }
-                                    if (item?.isRecTeaser == true) {
-                                        if (!item.isRecLoading && !recDisclosureShown) {
-                                            onRecTeaserTapped()
-                                        }
-                                    } else {
-                                        selectedAppId = appId
-                                        selectedLibraryItem = item
-                                    }
-                                },
-                                onRefresh = onRefresh,
-                                modifier = Modifier.fillMaxSize(),
-                                onFocusedIndexChanged = {
-                                    gridFocusTargetListIndex = it
-                                    onFocusedIndexChanged(it)
-                                },
-                            )
+                            LibraryListPane(state, gridOverride ?: listState, currentPaneType, gridFirstItemFocusRequester, gridFocusTargetListIndex, onPageChange, { appId ->
+                                val item = state.appInfoList.find { it.appId == appId }
+                                if (item?.isRecTeaser == true) { if (!item.isRecLoading && !recDisclosureShown) onRecTeaserTapped() }
+                                else { selectedAppId = appId; selectedLibraryItem = item }
+                            }, onRefresh, Modifier.fillMaxSize(), { gridFocusTargetListIndex = it; onFocusedIndexChanged(it) })
                         }
                     }
                 }
 
                 Box(modifier = Modifier.fillMaxSize()) {
-                    // Layer 1: Recorded background content.
-                    // ROOT RECORDING: No padding on this box so coordinates are 1:1 with screen.
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .drawWithCache {
-                                val layer = obtainGraphicsLayer()
-                                onDrawWithContent {
-                                    layer.record {
-                                        this@onDrawWithContent.drawContent()
-                                    }
-                                    this@onDrawWithContent.drawLayer(layer)
-                                    backgroundLayer = layer
-                                }
-                            }
-                    ) {
-                        if (state.videoBackgroundPath.isNotEmpty()) {
-                            LoopingVideoBackground(
-                                videoPath = state.videoBackgroundPath,
-                                dimAlpha = state.videoBackgroundDimAlpha,
-                                onColorExtracted = { hex ->
-                                    if (state.mainColor != hex) {
-                                        onSetMainColor(hex)
-                                    }
-                                },
-                                modifier = Modifier.fillMaxSize()
-                            )
+                    Box(modifier = Modifier.fillMaxSize().drawWithCache {
+                        val layer = obtainGraphicsLayer()
+                        onDrawWithContent {
+                            layer.record { this@onDrawWithContent.drawContent() }
+                            this@onDrawWithContent.drawLayer(layer)
+                            backgroundLayer = layer
                         }
-
-                        // 1b. Padding is INSIDE the record box.
+                    }) {
+                        if (state.videoBackgroundPath.isNotEmpty()) {
+                            LoopingVideoBackground(state.videoBackgroundPath, Modifier.fillMaxSize(), state.videoBackgroundDimAlpha, { hex -> if (state.mainColor != hex) onSetMainColor(hex) })
+                        }
                         Box(modifier = Modifier.fillMaxSize().then(safePaddingModifier)) {
                             mainContent(0.dp, null, null)
                         }
                     }
 
-                    // Layer 2: Overlays (Tab bar, Search bar)
-                    Box(modifier = Modifier.fillMaxSize().then(safePaddingModifier)) {
-                        val isScrolling = listState.isScrollInProgress || carouselListState.isScrollInProgress
-                        val looks = LocalLooksState.current
+                    Box(modifier = Modifier.fillMaxSize()) {
 
-                        if (state.isSearching) {
-                            LibrarySearchBar(
-                                isVisible = true,
-                                searchQuery = state.searchQuery,
-                                resultCount = state.totalAppsInFilter,
-                                onScrollToTop = { listState.scrollToItem(0) },
-                                onSearchQuery = onSearchQuery,
-                                onDismiss = { onIsSearching(false) },
-                                isScrolling = isScrolling,
-                                distortionStrength = looks.liquidDistortion,
-                                modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
-                            )
-                        } else {
-                            LibraryTabBar(
-                                currentTab = state.currentTab,
-                                tabCounts = mapOf(
-                                    LibraryTab.ALL to state.allCount,
-                                    LibraryTab.FAVORITES to state.favoritesCount,
-                                    LibraryTab.STEAM to state.steamCount,
-                                    LibraryTab.GOG to state.gogCount,
-                                    LibraryTab.EPIC to state.epicCount,
-                                    LibraryTab.AMAZON to state.amazonCount,
-                                    LibraryTab.LOCAL to state.localCount,
-                                ),
-                                onTabSelected = onTabChanged,
-                                onOptionsClick = { onOptionsPanelToggle(true) },
-                                onSearchClick = { onIsSearching(true) },
-                                onAddGameClick = onAddCustomGameClick,
-                                onMenuClick = { isSystemMenuOpen = true },
-                                onNavigateDownToGrid = { requestContentFocusOrDefer() },
-                                onPreviousTab = onPreviousTab,
-                                onNextTab = onNextTab,
-                                isScrolling = isScrolling,
-                                distortionStrength = looks.liquidDistortion,
-                                modifier = Modifier
-                                    .align(Alignment.TopCenter)
-                                    .padding(top = 26.dp)
-                                    .fillMaxWidth()
-                                    .onFocusChanged { tabBarHasFocus = it.hasFocus },
-                            )
+                        Box(modifier = Modifier.fillMaxSize().then(safePaddingModifier)) {
+                            val isScrolling = listState.isScrollInProgress || carouselListState.isScrollInProgress
+                            val looks = LocalLooksState.current
+
+                            if (state.currentTab == LibraryTab.PLAYGROUND) {
+                                val appItems = state.playgroundItems.filterIsInstance<PlaygroundItem.AppItem>()
+                                val dockItems = appItems.filter { it.isInDock }
+                                PlaygroundDock(
+                                    dockItems = dockItems,
+                                    editingItemId = playgroundEditingItemId,
+                                    onEditItem = onPlaygroundEditItem,
+                                    onItemRemoved = onPlaygroundItemRemoved,
+                                    onToggleDockStatus = onTogglePlaygroundItemDockStatus,
+                                    onItemTapped = { item ->
+                                        if (item is PlaygroundItem.AppItem) {
+                                            try {
+                                                val launchIntent = context.packageManager.getLaunchIntentForPackage(item.packageName)
+                                                if (launchIntent != null) {
+                                                    context.startActivity(launchIntent)
+                                                } else {
+                                                    SnackbarManager.show("Failed to launch app")
+                                                }
+                                            } catch (e: Exception) {
+                                                SnackbarManager.show("Error: ${e.message}")
+                                            }
+                                        }
+                                    },
+                                    dockZoneTop = dockZoneTop,
+                                    modifier = Modifier.align(Alignment.BottomCenter)
+                                )
+                            }
+
+                            if (state.isSearching) {
+                                LibrarySearchBar(true, state.searchQuery, state.totalAppsInFilter, { listState.scrollToItem(0) }, onSearchQuery, { onIsSearching(false) }, isScrolling, looks.liquidDistortion, Modifier.align(Alignment.TopCenter).fillMaxWidth())
+                            } else {
+                                LibraryTabBar(
+                                    currentTab = state.currentTab,
+                                    tabCounts = mapOf(
+                                        LibraryTab.ALL to state.allCount,
+                                        LibraryTab.FAVORITES to state.favoritesCount,
+                                        LibraryTab.PLAYGROUND to state.playgroundItems.size,
+                                        LibraryTab.CLOUD to state.cloudCount,
+                                        LibraryTab.STEAM to state.steamCount,
+                                        LibraryTab.GOG to state.gogCount,
+                                        LibraryTab.EPIC to state.epicCount,
+                                        LibraryTab.AMAZON to state.amazonCount,
+                                        LibraryTab.LOCAL to state.localCount,
+                                    ),
+                                    onTabSelected = onTabChanged,
+                                    onOptionsClick = { onOptionsPanelToggle(true) },
+                                    onPlaygroundSettingsClick = onShowPlaygroundSettings,
+                                    onSearchClick = { onIsSearching(true) },
+                                    onAddGameClick = onAddCustomGameClick,
+                                    onMenuClick = { isSystemMenuOpen = true },
+                                    onNavigateDownToGrid = { requestContentFocusOrDefer() },
+                                    onPreviousTab = onPreviousTab,
+                                    onNextTab = onNextTab,
+                                    isScrolling = isScrolling,
+                                    distortionStrength = looks.liquidDistortion,
+                                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 26.dp).fillMaxWidth().onFocusChanged { tabBarHasFocus = it.hasFocus },
+                                )
+                            }
                         }
                     }
                 }
             } else {
-                LibraryDetailPane(
-                    libraryItem = selectedLibraryItem,
-                    onBack = { selectedAppId = null; selectedLibraryItem = null },
-                    onClickPlay = { onClickPlay(selectedLibraryItem?.appId ?: "", it) },
-                    onTestGraphics = { onTestGraphics(selectedLibraryItem?.appId ?: "") },
-                    onPlayWithDiagnostics = { onPlayWithDiagnostics(selectedLibraryItem?.appId ?: "") },
-                )
+                LibraryDetailPane(selectedLibraryItem, { direct -> onClickPlay(selectedLibraryItem?.appId ?: "", direct) }, { onTestGraphics(selectedLibraryItem?.appId ?: "") }, { onPlayWithDiagnostics(selectedLibraryItem?.appId ?: "") }, { selectedAppId = null; selectedLibraryItem = null })
             }
 
-            // Action bars and panels
             if (selectedAppId == null && !state.isOptionsPanelOpen && !isSystemMenuOpen) {
                 val libraryActions = if (state.isSearching) {
-                    listOf(
-                        LibraryActions.select,
-                        GamepadAction(
-                            button = GamepadButton.B,
-                            labelResId = R.string.back,
-                            onClick = {
-                                onIsSearching(false)
-                                onSearchQuery("")
-                            },
-                        ),
-                    )
+                    listOf(LibraryActions.select, GamepadAction(GamepadButton.B, R.string.back, { onIsSearching(false); onSearchQuery("") }))
                 } else {
-                    listOf(
-                        LibraryActions.select,
-                        GamepadAction(
-                            button = GamepadButton.SELECT,
-                            labelResId = R.string.options,
-                            onClick = { onOptionsPanelToggle(true) },
-                        ),
-                        GamepadAction(
-                            button = GamepadButton.START,
-                            labelResId = R.string.action_system,
-                            onClick = { isSystemMenuOpen = true },
-                        ),
-                        GamepadAction(
-                            button = GamepadButton.B,
-                            labelResId = R.string.back,
-                            onClick = { isSystemMenuOpen = true },
-                        ),
-                        GamepadAction(
-                            button = GamepadButton.Y,
-                            labelResId = R.string.search,
-                            onClick = { onIsSearching(true) },
-                        ),
-                    ) + listOfNotNull(
-                        focusedLibraryItem()?.let { item ->
-                            GamepadAction(
-                                button = GamepadButton.X,
-                                labelResId = if (item.appId in favorites) {
-                                    R.string.option_remove_from_favorites
-                                } else {
-                                    R.string.option_add_to_favorites
-                                },
-                                onClick = { toggleFocusedFavorite() },
-                            )
-                        },
-                    )
+                    listOf(LibraryActions.select, GamepadAction(GamepadButton.SELECT, R.string.options, { onOptionsPanelToggle(true) }), GamepadAction(GamepadButton.START, R.string.action_system, { isSystemMenuOpen = true }), GamepadAction(GamepadButton.B, R.string.back, { isSystemMenuOpen = true }), GamepadAction(GamepadButton.Y, R.string.search, { onIsSearching(true) })) +
+                    listOfNotNull(focusedLibraryItem()?.let { item -> GamepadAction(GamepadButton.X, if (item.appId in favorites) R.string.option_remove_from_favorites else R.string.option_add_to_favorites, { toggleFocusedFavorite() }) })
                 }
-
-                GamepadActionBar(
-                    actions = libraryActions,
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                    visible = true,
-                )
+                GamepadActionBar(libraryActions, Modifier.align(Alignment.BottomCenter), true)
             }
 
             if (selectedAppId == null) {
-                LibraryOptionsPanel(
-                    isOpen = state.isOptionsPanelOpen,
-                    onDismiss = { onOptionsPanelToggle(false) },
-                    selectedFilters = state.appInfoSortType,
-                    onFilterChanged = onFilterChanged,
-                    currentSortOption = state.currentSortOption,
-                    onSortOptionChanged = onSortOptionChanged,
-                    currentView = currentPaneType,
-                    onViewChanged = { newPaneType ->
-                    currentPaneType = newPaneType
-                    PrefManager.setLibraryLayout(isLandscape, isControllerConnected, newPaneType)
-                },
-                    steamCollections = state.steamCollections,
-                    selectedSteamCollectionIds = state.selectedSteamCollectionIds,
-                    steamCollectionCounts = state.steamCollectionCounts,
-                    skippedDynamicCollections = state.skippedDynamicCollections,
-                    isSteamConnected = isSteamConnected,
-                    isOffline = isOffline,
-                    onSteamCollectionToggle = onSteamCollectionToggle,
-                    onClearSteamCollections = onClearSteamCollections,
-                )
-
-                val gogLoggedIn = GOGAuthManager.hasStoredCredentials(context)
-                val epicLoggedIn = EpicAuthManager.hasStoredCredentials(context)
-                val amazonLoggedIn = AmazonAuthManager.hasStoredCredentials(context)
-
-                SystemMenu(
-                    isOpen = isSystemMenuOpen,
-                    onDismiss = { isSystemMenuOpen = false },
-                    onNavigateRoute = onNavigateRoute,
-                    onDownloadsClick = onDownloadsClick,
-                    onLogout = onLogout,
-                    onGoOnline = onGoOnline,
-                    isOffline = isOffline,
-                    gogLoggedIn = gogLoggedIn,
-                    epicLoggedIn = epicLoggedIn,
-                    amazonLoggedIn = amazonLoggedIn,
-                    onGogLoginClick = {
-                        gogOAuthLauncher.launch(Intent(context, GOGOAuthActivity::class.java))
-                    },
-                    onGogLogoutClick = {
-                        PlatformAuthUiHelpers.logoutGog(
-                            context = context,
-                            scope = lifecycleScope,
-                            callbacks = PlatformLogoutCallbacks(),
-                        )
-                    },
-                    onEpicLoginClick = {
-                        epicOAuthLauncher.launch(Intent(context, EpicOAuthActivity::class.java))
-                    },
-                    onEpicLogoutClick = {
-                        PlatformAuthUiHelpers.logoutEpic(
-                            context = context,
-                            scope = lifecycleScope,
-                            callbacks = PlatformLogoutCallbacks(),
-                        )
-                    },
-                    onAmazonLoginClick = {
-                        amazonOAuthLauncher.launch(Intent(context, AmazonOAuthActivity::class.java))
-                    },
-                    onAmazonLogoutClick = {
-                        PlatformAuthUiHelpers.logoutAmazon(
-                            context = context,
-                            scope = lifecycleScope,
-                            callbacks = PlatformLogoutCallbacks(),
-                        )
-                    },
-                )
+                LibraryOptionsPanel(state.isOptionsPanelOpen, { onOptionsPanelToggle(false) }, state.appInfoSortType, onFilterChanged, state.currentSortOption, onSortOptionChanged, currentPaneType, { currentPaneType = it; PrefManager.setLibraryLayout(isLandscape, isControllerConnected, it) }, state.steamCollections, state.selectedSteamCollectionIds, state.steamCollectionCounts, state.skippedDynamicCollections, isSteamConnected, isOffline, onSteamCollectionToggle, onClearSteamCollections)
+                SystemMenu(isSystemMenuOpen, { isSystemMenuOpen = false }, onNavigateRoute, onDownloadsClick, onLogout, onGoOnline, isOffline, GOGAuthManager.hasStoredCredentials(context), EpicAuthManager.hasStoredCredentials(context), AmazonAuthManager.hasStoredCredentials(context), { gogOAuthLauncher.launch(Intent(context, GOGOAuthActivity::class.java)) }, { PlatformAuthUiHelpers.logoutGog(context, lifecycleScope, PlatformLogoutCallbacks()) }, { epicOAuthLauncher.launch(Intent(context, EpicOAuthActivity::class.java)) }, { PlatformAuthUiHelpers.logoutEpic(context, lifecycleScope, PlatformLogoutCallbacks()) }, { amazonOAuthLauncher.launch(Intent(context, AmazonOAuthActivity::class.java)) }, { PlatformAuthUiHelpers.logoutAmazon(context, lifecycleScope, PlatformLogoutCallbacks()) })
             }
         }
 
-        // Add Android App Picker
-        if (showAndroidAppPicker) {
-            AndroidAppPicker(
-                onAppSelected = { app ->
-                    onAddAndroidApp(app.packageName)
-                    showAndroidAppPicker = false
-                },
-                onDismiss = { showAndroidAppPicker = false }
-            )
-        }
-
-        // Dual Import Type Dialog
         if (showImportTypeDialog) {
-            AlertDialog(
-                onDismissRequest = { showImportTypeDialog = false },
-                title = { Text(stringResource(R.string.add_custom_game_dialog_title)) },
-                text = {
-                    Column {
-                        // Import PC
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    showImportTypeDialog = false
-                                    if (BuildConfig.MODERN_ANDROID) {
-                                        showModernImportDialog = true
-                                    } else if (PrefManager.showAddCustomGameDialog) {
-                                        showAddCustomGameDialog = true
-                                    } else {
-                                        folderPicker.launchPicker()
-                                    }
-                                }
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.DesktopWindows, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text(stringResource(R.string.import_pc), style = MaterialTheme.typography.titleMedium)
-                                Text(stringResource(R.string.import_pc_desc), style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                        // Import App
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    showImportTypeDialog = false
-                                    showAndroidAppPicker = true
-                                }
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.Android, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text(stringResource(R.string.import_app), style = MaterialTheme.typography.titleMedium)
-                                Text(stringResource(R.string.import_app_desc), style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
+            AlertDialog(onDismissRequest = { showImportTypeDialog = false }, title = { Text(stringResource(R.string.add_custom_game_dialog_title)) }, text = {
+                Column {
+                    Row(modifier = Modifier.fillMaxWidth().clickable { showImportTypeDialog = false; if (BuildConfig.MODERN_ANDROID) showModernImportDialog = true else if (PrefManager.showAddCustomGameDialog) showAddCustomGameDialog = true else folderPicker.launchPicker() }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.DesktopWindows, null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(16.dp))
+                        Column { Text(stringResource(R.string.import_pc), style = MaterialTheme.typography.titleMedium); Text(stringResource(R.string.import_pc_desc), style = MaterialTheme.typography.bodySmall) }
                     }
-                },
-                confirmButton = {},
-                dismissButton = {
-                    TextButton(onClick = { showImportTypeDialog = false }) { Text(stringResource(R.string.cancel)) }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    Row(modifier = Modifier.fillMaxWidth().clickable { showImportTypeDialog = false; onShowAndroidAppPickerChange(true) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Android, null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(16.dp))
+                        Column { Text(stringResource(R.string.import_app), style = MaterialTheme.typography.titleMedium); Text(stringResource(R.string.import_app_desc), style = MaterialTheme.typography.bodySmall) }
+                    }
                 }
-            )
+            }, confirmButton = {}, dismissButton = { TextButton({ showImportTypeDialog = false }) { Text(stringResource(R.string.cancel)) } })
         }
 
-        // Pre-import dialog (modern add path)
         if (showModernImportDialog) {
             AlertDialog(
                 onDismissRequest = { showModernImportDialog = false },
@@ -1035,112 +818,36 @@ private fun LibraryScreenContent(
                 text = {
                     Column {
                         Text(stringResource(R.string.custom_game_import_dialog_message))
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.hapticClickable { importRemoveOriginal = !importRemoveOriginal },
-                        ) {
-                            Checkbox(
-                                checked = importRemoveOriginal,
-                                onCheckedChange = { importRemoveOriginal = it },
-                            )
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.hapticClickable { importRemoveOriginal = !importRemoveOriginal }) {
+                            Checkbox(importRemoveOriginal, { importRemoveOriginal = it })
                             Text(stringResource(R.string.custom_game_import_remove_original))
                         }
                     }
                 },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            HapticManager.trigger(HapticManager.HapticType.CLICK)
-                            showModernImportDialog = false
-                            importLauncher.launch(null)
-                        },
-                    ) {
-                        Text(stringResource(R.string.continue_action))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = {
-                        HapticManager.trigger(HapticManager.HapticType.CLICK)
-                        showModernImportDialog = false
-                    }) {
-                        Text(stringResource(R.string.cancel))
-                    }
-                },
+                confirmButton = { TextButton({ HapticManager.trigger(HapticManager.HapticType.CLICK); showModernImportDialog = false; importLauncher.launch(null) }) { Text(stringResource(R.string.continue_action)) } },
+                dismissButton = { TextButton({ HapticManager.trigger(HapticManager.HapticType.CLICK); showModernImportDialog = false }) { Text(stringResource(R.string.cancel)) } }
             )
         }
 
-        // Import progress dialog (modern add path)
         if (importState.isImporting) {
-            AlertDialog(
-                onDismissRequest = { },
-                title = { Text(stringResource(R.string.custom_game_importing)) },
-                text = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator()
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column {
-                            val mb = (importState.progress?.copiedBytes ?: 0L) / 1_000_000L
-                            Text("$mb MB")
-                            importState.progress?.currentFile?.let {
-                                Text(text = it, maxLines = 1)
-                            }
-                        }
-                    }
-                },
-                confirmButton = { },
-            )
+            AlertDialog(onDismissRequest = {}, confirmButton = {}, title = { Text(stringResource(R.string.custom_game_importing)) }, text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator()
+                    Spacer(Modifier.width(16.dp))
+                    Column { val mb = (importState.progress?.copiedBytes ?: 0L) / 1_000_000L; Text("$mb MB"); importState.progress?.currentFile?.let { Text(it, maxLines = 1) } }
+                }
+            })
         }
 
-        // Add custom game dialog
         if (showAddCustomGameDialog) {
             var dontShowAgain by remember { mutableStateOf(false) }
-            AlertDialog(
-                onDismissRequest = { showAddCustomGameDialog = false },
-                title = { Text(stringResource(R.string.add_custom_game_dialog_title)) },
-                text = {
-                    Column {
-                        Text(
-                            text = stringResource(R.string.add_custom_game_dialog_message),
-                            modifier = Modifier.padding(bottom = 8.dp),
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Checkbox(
-                                checked = dontShowAgain,
-                                onCheckedChange = { dontShowAgain = it },
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = stringResource(R.string.add_custom_game_dont_show_again),
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            if (dontShowAgain) {
-                                PrefManager.showAddCustomGameDialog = false
-                            }
-                            showAddCustomGameDialog = false
-                            folderPicker.launchPicker()
-                        },
-                    ) {
-                        Text(stringResource(android.R.string.ok))
-                    }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = { showAddCustomGameDialog = false },
-                    ) {
-                        Text(stringResource(android.R.string.cancel))
-                    }
-                },
-            )
+            AlertDialog(onDismissRequest = { showAddCustomGameDialog = false }, title = { Text(stringResource(R.string.add_custom_game_dialog_title)) }, text = {
+                Column {
+                    Text(stringResource(R.string.add_custom_game_dialog_message), Modifier.padding(bottom = 8.dp))
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Checkbox(dontShowAgain, { dontShowAgain = it }); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.add_custom_game_dont_show_again), Modifier.weight(1f)) }
+                }
+            }, confirmButton = { TextButton({ if (dontShowAgain) PrefManager.showAddCustomGameDialog = false; showAddCustomGameDialog = false; folderPicker.launchPicker() }) { Text(stringResource(android.R.string.ok)) } }, dismissButton = { TextButton({ showAddCustomGameDialog = false }) { Text(stringResource(android.R.string.cancel)) } })
         }
     }
 }

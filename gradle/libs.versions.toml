@@ -3,7 +3,7 @@ activityCompose = "1.10.0" # https://mvnrepository.com/artifact/androidx.activit
 agp = "8.8.0" # https://mvnrepository.com/artifact/com.android.application/com.android.application.gradle.plugin
 apache-compress = "1.28.0" # https://mvnrepository.com/artifact/org.apache.commons/commons-compress
 apng = "3.0.2" # https://mvnrepository.com/artifact/com.github.penfeizhou.android.animation/apng
-composeBom = "2025.01.01" # https://mvnrepository.com/artifact/androidx.compose/compose-bom
+composeBom = "2025.02.00" # https://mvnrepository.com/artifact/androidx.compose/compose-bom
 coreKtx = "1.15.0" # https://mvnrepository.com/artifact/androidx.core/core-ktx
 coroutines = "1.10.2" # https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-coroutines-core
 dagger-hilt = "2.55" # https://mvnrepository.com/artifact/com.google.dagger/hilt-android
@@ -32,11 +32,11 @@ mockito = "5.14.2" # https://mvnrepository.com/artifact/org.mockito/mockito-core
 mockitoKotlin = "5.3.1" # https://mvnrepository.com/artifact/org.mockito.kotlin/mockito-kotlin
 mockk = "1.13.5" # https://mvnrepository.com/artifact/io.mockk/mockk
 mockwebserver = "5.1.0"
-navigation-compose = "2.8.6" # https://mvnrepository.com/artifact/androidx.navigation/navigation-compose
+navigation-compose = "2.8.8" # https://mvnrepository.com/artifact/androidx.navigation/navigation-compose
 orgJson = "20231013"
 protobuf = "4.31.1" # https://mvnrepository.com/artifact/com.google.protobuf/protobuf-java
 robolectric = "4.14" # https://mvnrepository.com/artifact/org.robolectric/robolectric
-room-runtime = "2.8.4" # https://mvnrepository.com/artifact/androidx.room/room-runtime
+room-runtime = "2.8.5" # https://mvnrepository.com/artifact/androidx.room/room-runtime
 runner = "1.6.2" # https://mvnrepository.com/artifact/androidx.test/runner
 settings = "2.10.0" # https://github.com/alorma/Compose-Settings/releases
 spongycastle = "1.58.0.0" # https://mvnrepository.com/artifact/com.madgag.spongycastle/prov
@@ -84,6 +84,7 @@ landscapist-coil = { module = "com.github.skydoves:landscapist-coil", version.re
 libarchive-android = { module = "me.zhanghai.android.libarchive:library", version.ref = "libarchive-android" }
 media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
 media3-exoplayer-hls = { module = "androidx.media3:media3-exoplayer-hls", version.ref = "media3" }
+media3-session = { module = "androidx.media3:media3-session", version.ref = "media3" }
 media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 material-kolor = { group = "com.materialkolor", name = "material-kolor", version.ref = "materialKolor" }

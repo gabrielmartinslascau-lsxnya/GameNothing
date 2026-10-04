@@ -49,6 +49,8 @@ import kotlinx.coroutines.flow.flatMapMerge
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -1639,7 +1641,7 @@ class GOGDownloadManager @Inject constructor(
      * @param writeOffset Offset in the output file to write at
      * @return Result indicating success or failure
      */
-    internal fun decompressChunkToFile(
+    internal suspend fun decompressChunkToFile(
         chunkFile: File,
         chunk: FileChunk,
         outputFile: File,
@@ -1649,17 +1651,20 @@ class GOGDownloadManager @Inject constructor(
             val md5Digest = MessageDigest.getInstance("MD5")
             var totalBytesWritten = 0L
 
-            FileChannel.open(
-                outputFile.toPath(),
+            StorageUtils.openFileChannel(
+                context,
+                outputFile.path,
                 StandardOpenOption.WRITE,
                 StandardOpenOption.CREATE,
-            ).use { channel ->
+            ).use { channel: FileChannel ->
                 channel.position(writeOffset)
+
+                val bufferSize = 1024 * 1024 // 1MB buffer for high-speed transfers
 
                 // If no compressed size specified, data is already uncompressed
                 if (chunk.compressedSize == null) {
-                    chunkFile.inputStream().use { input ->
-                        val buffer = ByteArray(8192)
+                    chunkFile.inputStream().buffered(bufferSize).use { input ->
+                        val buffer = ByteArray(bufferSize)
                         val byteBuffer = ByteBuffer.wrap(buffer)
                         var bytesRead: Int
 
@@ -1671,15 +1676,16 @@ class GOGDownloadManager @Inject constructor(
                                 channel.write(byteBuffer)
                             }
                             totalBytesWritten += bytesRead
+                            yield()
                         }
                     }
                 } else {
                     // Decompress using zlib and stream directly to file
                     val inflater = Inflater()
                     try {
-                        chunkFile.inputStream().buffered().use { input ->
-                            val inputBuffer = ByteArray(8192)
-                            val outputBuffer = ByteArray(8192)
+                        chunkFile.inputStream().buffered(bufferSize).use { input ->
+                            val inputBuffer = ByteArray(bufferSize)
+                            val outputBuffer = ByteArray(bufferSize)
                             val byteBuffer = ByteBuffer.wrap(outputBuffer)
                             var inputBytesRead: Int
 
@@ -1696,6 +1702,7 @@ class GOGDownloadManager @Inject constructor(
                                             channel.write(byteBuffer)
                                         }
                                         totalBytesWritten += count
+                                        yield()
                                     } else {
                                         if (inflater.needsDictionary()) {
                                             throw java.io.IOException(
@@ -1718,6 +1725,7 @@ class GOGDownloadManager @Inject constructor(
                                         channel.write(byteBuffer)
                                     }
                                     totalBytesWritten += count
+                                    yield()
                                 } else {
                                     if (inflater.needsInput()) {
                                         throw java.io.IOException(

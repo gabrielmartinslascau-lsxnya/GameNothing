@@ -2,6 +2,9 @@ package app.gamenative.ui.enums
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Cloud
+import androidx.compose.material.icons.rounded.Dashboard
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -37,6 +40,16 @@ enum class LibraryTab(
         showAmazon = true,
         installedOnly = false,
     ),
+    INSTALLED(
+        labelResId = R.string.tab_installed,
+        showCustom = true,
+        showSteam = true,
+        showGoG = true,
+        showEpic = true,
+        showAmazon = true,
+        installedOnly = true,
+        icon = Icons.Rounded.CheckCircle,
+    ),
     FAVORITES(
         labelResId = R.string.tab_favorites,
         showCustom = true,
@@ -46,6 +59,26 @@ enum class LibraryTab(
         showAmazon = true,
         installedOnly = false,
         icon = Icons.Rounded.Star,
+    ),
+    PLAYGROUND(
+        labelResId = R.string.tab_playground,
+        showCustom = false,
+        showSteam = false,
+        showGoG = false,
+        showEpic = false,
+        showAmazon = false,
+        installedOnly = false,
+        icon = Icons.Rounded.Dashboard,
+    ),
+    CLOUD(
+        labelResId = R.string.tab_cloud,
+        showCustom = false,
+        showSteam = false,
+        showGoG = false,
+        showEpic = false,
+        showAmazon = false,
+        installedOnly = false,
+        icon = Icons.Rounded.Cloud,
     ),
     STEAM(
         labelResId = R.string.tab_steam,
@@ -103,6 +136,11 @@ enum class LibraryTab(
             get() {
                 var result = entries.toList()
                 if (!PrefManager.showRecommendations) result = result.filter { it != RECOMMENDED }
+                if (!PrefManager.showSteamInLibrary) result = result.filter { it != STEAM }
+                if (!PrefManager.showGOGInLibrary) result = result.filter { it != GOG }
+                if (!PrefManager.showEpicInLibrary) result = result.filter { it != EPIC }
+                if (!PrefManager.showAmazonInLibrary) result = result.filter { it != AMAZON }
+                if (!PrefManager.showCustomGamesInLibrary) result = result.filter { it != LOCAL }
                 return result
             }
 

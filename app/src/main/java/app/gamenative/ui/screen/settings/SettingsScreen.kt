@@ -61,6 +61,7 @@ fun SettingsScreen(
     onAppTheme: (AppTheme) -> Unit,
     onPaletteStyle: (PaletteStyle) -> Unit,
     onBack: () -> Unit,
+    onNavigateRoute: ((String) -> Unit)? = null,
 ) {
     SettingsScreenContent(
         viewModel = viewModel,
@@ -69,6 +70,7 @@ fun SettingsScreen(
         onAppTheme = onAppTheme,
         onPaletteStyle = onPaletteStyle,
         onBack = onBack,
+        onNavigateRoute = onNavigateRoute,
     )
 }
 
@@ -80,6 +82,7 @@ private fun SettingsScreenContent(
     onAppTheme: (AppTheme) -> Unit,
     onPaletteStyle: (PaletteStyle) -> Unit,
     onBack: () -> Unit,
+    onNavigateRoute: ((String) -> Unit)? = null,
 ) {
     val scrollState = rememberScrollState()
     val mainState by viewModel?.state?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(null) }
@@ -163,7 +166,7 @@ private fun SettingsScreenContent(
                         icon = Icons.Default.Gamepad,
                         iconTint = PluviaTheme.colors.accentCyan,
                     ) {
-                        SettingsGroupEmulation()
+                        SettingsGroupEmulation(onNavigateRoute = onNavigateRoute)
                     }
 
                     // Performance section

@@ -1,5 +1,8 @@
 package app.gamenative.ui.components
 
+import android.view.LayoutInflater
+import android.view.View
+import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.*
@@ -12,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,6 +42,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.net.toUri
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
 import app.gamenative.R
 import app.gamenative.ui.theme.BrandGradient
 import app.gamenative.ui.theme.PluviaTheme
@@ -46,6 +59,8 @@ import com.skydoves.landscapist.coil.CoilImage
 import kotlin.math.sin
 import kotlin.random.Random
 import kotlinx.coroutines.delay
+import timber.log.Timber
+import java.io.File
 
 @Composable
 fun BootingSplash(
@@ -53,6 +68,10 @@ fun BootingSplash(
     text: String = "Initializing...",
     progress: Float = -1f, // -1 for indeterminate, 0-1 for determinate
     heroImageUrl: String = "",
+    mode: Int = 0, // 0: Default, 1: Custom
+    customVideoPath: String = "",
+    isSystemReady: Boolean = false,
+    onReadyToDismiss: () -> Unit = {}
 ) {
     // Tips rotation (no animation cost, safe outside visibility check)
     val context = LocalContext.current
@@ -95,225 +114,317 @@ fun BootingSplash(
         }
     }
 
+    // Automatically dismiss default splash when system is ready
+    LaunchedEffect(isSystemReady, mode) {
+        if (isSystemReady && mode == 0) onReadyToDismiss()
+    }
+
+    // Keep splash visible until BOTH system is ready AND custom video ends (if in custom mode)
+    val isActuallyVisible = visible || (mode == 1 && !isSystemReady)
+
     AnimatedVisibility(
-        visible = visible,
+        visible = isActuallyVisible,
         enter = fadeIn(animationSpec = tween(durationMillis = 400)),
-        exit = fadeOut(animationSpec = tween(durationMillis = 300)),
+        exit = fadeOut(animationSpec = tween(durationMillis = 500)),
     ) {
-        // Animations only run while visible (inside AnimatedVisibility scope)
-        val infiniteTransition = rememberInfiniteTransition(label = "bootSplash")
-        val scrimColor = MaterialTheme.colorScheme.scrim
-        var heroImageFailed by remember(heroImageUrl) { mutableStateOf(false) }
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (mode == 1 && customVideoPath.isNotEmpty()) {
+                val videoFile = remember(customVideoPath) { File(customVideoPath) }
+                if (videoFile.exists()) {
+                    CustomVideoLoadingScreen(
+                        videoFile = videoFile,
+                        systemReady = isSystemReady,
+                        onReadyToDismiss = onReadyToDismiss
+                    )
+                } else {
+                    DefaultBootingSplash(text, heroImageUrl, tips, tipIndex)
+                }
+            } else {
+                DefaultBootingSplash(text, heroImageUrl, tips, tipIndex)
+            }
+        }
+    }
+}
 
-        val glowAlpha by infiniteTransition.animateFloat(
-            initialValue = 0.4f,
-            targetValue = 0.8f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(2000, easing = EaseInOutCubic),
-                repeatMode = RepeatMode.Reverse,
-            ),
-            label = "glowPulse",
-        )
+@Composable
+private fun DefaultBootingSplash(
+    text: String,
+    heroImageUrl: String,
+    tips: List<String>,
+    tipIndex: Int
+) {
+    // Animations only run while visible (inside AnimatedVisibility scope)
+    val infiniteTransition = rememberInfiniteTransition(label = "bootSplash")
+    val scrimColor = MaterialTheme.colorScheme.scrim
+    var heroImageFailed by remember(heroImageUrl) { mutableStateOf(false) }
 
-        val logoScale by infiniteTransition.animateFloat(
-            initialValue = 1f,
-            targetValue = 1.02f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(3000, easing = EaseInOutSine),
-                repeatMode = RepeatMode.Reverse,
-            ),
-            label = "logoScale",
-        )
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 0.8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = EaseInOutCubic),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "glowPulse",
+    )
 
-        val particlePhase by infiniteTransition.animateFloat(
-            initialValue = 0f,
-            targetValue = 360f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(20000, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart,
-            ),
-            label = "particlePhase",
-        )
+    val logoScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.02f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "logoScale",
+    )
 
-        val useHeroBackdrop = heroImageUrl.isNotEmpty() && !heroImageFailed
+    val particlePhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(20000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "particlePhase",
+    )
 
+    val useHeroBackdrop = heroImageUrl.isNotEmpty() && !heroImageFailed
+
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Gradient background only for the procedural (non-Nothing) logo splash
         Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center,
-        ) {
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.background,
+                            PluviaTheme.colors.surfacePanel,
+                            MaterialTheme.colorScheme.background,
+                        ),
+                    ),
+                ),
+        )
+
+        AmbientParticles(phase = particlePhase)
+
+        if (useHeroBackdrop) {
+            val desaturate = remember {
+                ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
+            }
+
+            CoilImage(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = 1.06f
+                        scaleY = 1.06f
+                    }
+                    .alpha(0.38f)
+                    .blur(7.dp),
+                imageModel = { heroImageUrl },
+                imageOptions = ImageOptions(
+                    contentScale = ContentScale.Crop,
+                    contentDescription = null,
+                    colorFilter = desaturate,
+                ),
+                loading = {},
+                failure = {
+                    heroImageFailed = true
+                },
+                previewPlaceholder = painterResource(R.drawable.ic_logo_color),
+            )
+
+            // Single soft legibility scrim: light at the top, building toward the
+            // bottom where the status/tips text sits. No heavy top/bottom bands.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.background,
-                                PluviaTheme.colors.surfacePanel,
-                                MaterialTheme.colorScheme.background,
+                        brush = Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0.0f to scrimColor.copy(alpha = 0.48f),
+                                0.4f to scrimColor.copy(alpha = 0.48f),
+                                1.0f to scrimColor.copy(alpha = 0.62f),
                             ),
                         ),
                     ),
             )
+        }
 
-            AmbientParticles(phase = particlePhase)
+        // Main content
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(horizontal = 32.dp),
+        ) {
+            Spacer(modifier = Modifier.weight(0.4f))
 
-            if (useHeroBackdrop) {
-                val desaturate = remember {
-                    ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
-                }
-
-                CoilImage(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            scaleX = 1.06f
-                            scaleY = 1.06f
-                        }
-                        .alpha(0.38f)
-                        .blur(7.dp),
-                    imageModel = { heroImageUrl },
-                    imageOptions = ImageOptions(
-                        contentScale = ContentScale.Crop,
-                        contentDescription = null,
-                        colorFilter = desaturate,
+            // Logo with glow effect
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.scale(logoScale),
+            ) {
+                // Glow layer (blurred behind)
+                Text(
+                    text = "GameNothing",
+                    style = MaterialTheme.typography.displaySmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 36.sp,
+                        letterSpacing = 2.sp,
                     ),
-                    loading = {},
-                    failure = {
-                        heroImageFailed = true
-                    },
-                    previewPlaceholder = painterResource(R.drawable.ic_logo_color),
+                    color = PluviaTheme.colors.accentCyan.copy(alpha = glowAlpha * 0.6f),
+                    modifier = Modifier
+                        .blur(20.dp)
+                        .padding(20.dp)
+                        .alpha(glowAlpha),
                 )
 
-                // Single soft legibility scrim: light at the top, building toward the
-                // bottom where the status/tips text sits. No heavy top/bottom bands.
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colorStops = arrayOf(
-                                    0.0f to scrimColor.copy(alpha = 0.48f),
-                                    0.4f to scrimColor.copy(alpha = 0.48f),
-                                    1.0f to scrimColor.copy(alpha = 0.62f),
-                                ),
-                            ),
+                // Main logo text
+                Text(
+                    text = "GameNothing",
+                    style = MaterialTheme.typography.displaySmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 36.sp,
+                        letterSpacing = 2.sp,
+                        shadow = Shadow(
+                            color = PluviaTheme.colors.accentCyan.copy(alpha = 0.5f),
+                            offset = Offset(0f, 0f),
+                            blurRadius = 20f,
                         ),
+                        brush = Brush.horizontalGradient(
+                            colors = BrandGradient,
+                        ),
+                    ),
                 )
             }
 
-            // Main content
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(horizontal = 32.dp),
-            ) {
-                Spacer(modifier = Modifier.weight(0.4f))
+            Spacer(modifier = Modifier.height(28.dp))
 
-                // Logo with glow effect
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.scale(logoScale),
-                ) {
-                    // Glow layer (blurred behind)
-                    Text(
-                        text = "GameNothing",
-                        style = MaterialTheme.typography.displaySmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 36.sp,
-                            letterSpacing = 2.sp,
-                        ),
-                        color = PluviaTheme.colors.accentCyan.copy(alpha = glowAlpha * 0.6f),
-                        modifier = Modifier
-                            .blur(20.dp)
-                            .padding(20.dp)
-                            .alpha(glowAlpha),
-                    )
+            DotsLoadingIndicator()
 
-                    // Main logo text
-                    Text(
-                        text = "GameNothing",
-                        style = MaterialTheme.typography.displaySmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 36.sp,
-                            letterSpacing = 2.sp,
-                            shadow = Shadow(
-                                color = PluviaTheme.colors.accentCyan.copy(alpha = 0.5f),
-                                offset = Offset(0f, 0f),
-                                blurRadius = 20f,
-                            ),
-                            brush = Brush.horizontalGradient(
-                                colors = BrandGradient,
-                            ),
-                        ),
-                    )
-                }
+            Spacer(modifier = Modifier.height(20.dp))
 
-                Spacer(modifier = Modifier.height(28.dp))
-
-                DotsLoadingIndicator()
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Status text
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Medium,
-                        letterSpacing = 1.sp,
-                        shadow = Shadow(
-                            color = scrimColor.copy(alpha = if (useHeroBackdrop) 0.9f else 0f),
-                            offset = Offset(0f, 1f),
-                            blurRadius = 6f,
-                        ),
+            // Status text
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 1.sp,
+                    shadow = Shadow(
+                        color = scrimColor.copy(alpha = if (useHeroBackdrop) 0.9f else 0f),
+                        offset = Offset(0f, 1f),
+                        blurRadius = 6f,
                     ),
-                    color = if (useHeroBackdrop) {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
-                    } else {
-                        Color.White.copy(alpha = 0.7f)
-                    },
-                    textAlign = TextAlign.Center,
-                )
+                ),
+                color = if (useHeroBackdrop) {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
+                } else {
+                    Color.White.copy(alpha = 0.7f)
+                },
+                textAlign = TextAlign.Center,
+            )
 
-                Spacer(modifier = Modifier.height(15.dp))
-                Spacer(modifier = Modifier.weight(0.3f))
+            Spacer(modifier = Modifier.height(15.dp))
+            Spacer(modifier = Modifier.weight(0.3f))
 
-                // Tips section
-                if (tips.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 48.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Crossfade(
-                            targetState = tipIndex,
-                            animationSpec = tween(durationMillis = 800, easing = EaseInOutCubic),
-                            label = "tipCrossfade",
-                        ) { idx ->
-                            Text(
-                                text = tips[idx],
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    lineHeight = 20.sp,
-                                    shadow = Shadow(
-                                        color = scrimColor.copy(alpha = if (useHeroBackdrop) 0.9f else 0f),
-                                        offset = Offset(0f, 1f),
-                                        blurRadius = 6f,
-                                    ),
+            // Tips section
+            if (tips.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 48.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Crossfade(
+                        targetState = tipIndex,
+                        animationSpec = tween(durationMillis = 800, easing = EaseInOutCubic),
+                        label = "tipCrossfade",
+                    ) { idx ->
+                        Text(
+                            text = tips[idx],
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                lineHeight = 20.sp,
+                                shadow = Shadow(
+                                    color = scrimColor.copy(alpha = if (useHeroBackdrop) 0.9f else 0f),
+                                    offset = Offset(0f, 1f),
+                                    blurRadius = 6f,
                                 ),
-                                color = if (useHeroBackdrop) {
-                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.76f)
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 24.dp),
-                            )
-                        }
+                            ),
+                            color = if (useHeroBackdrop) {
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.76f)
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp),
+                        )
                     }
                 }
             }
         }
+    }
+}
+
+@OptIn(UnstableApi::class)
+@Composable
+private fun CustomVideoLoadingScreen(
+    videoFile: File,
+    systemReady: Boolean,
+    onReadyToDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var videoEnded by remember { mutableStateOf(false) }
+
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context).build().apply {
+            setMediaItem(MediaItem.fromUri(videoFile.toUri()))
+            repeatMode = Player.REPEAT_MODE_OFF // explicitly no loop
+            prepare()
+            playWhenReady = true
+        }
+    }
+
+    DisposableEffect(Unit) {
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_ENDED) videoEnded = true
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                Timber.tag("BootingSplash").e(error, "Video player error in CustomVideoLoadingScreen")
+                videoEnded = true
+            }
+        }
+        exoPlayer.addListener(listener)
+        onDispose {
+            exoPlayer.removeListener(listener)
+            exoPlayer.release()
+        }
+    }
+
+    // Dismiss only when BOTH video ended AND system is ready (assets loaded)
+    LaunchedEffect(videoEnded, systemReady) {
+        if (videoEnded && systemReady) onReadyToDismiss()
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+        AndroidView(
+            factory = { ctx ->
+                // Inflate from XML to ensure we use TextureView (allows alpha fades)
+                val view = LayoutInflater.from(ctx).inflate(R.layout.pluvia_video_player, null) as PlayerView
+                view.apply {
+                    player = exoPlayer
+                    useController = false
+                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
     }
 }
 

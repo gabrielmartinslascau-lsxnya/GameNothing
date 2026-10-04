@@ -1,14 +1,15 @@
 package app.gamenative.utils
 
+import android.content.Context
+import android.net.Uri
+import androidx.core.net.toUri
+import app.gamenative.PrefManager
+import app.gamenative.ui.components.getPathFromTreeUri
 import `in`.dragonbra.javasteam.depotdownloader.BaseCaseInsensitiveFileSystem
 import `in`.dragonbra.javasteam.depotdownloader.DepotDownloader
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
-import okio.FileMetadata
-import okio.FileSystem
-import okio.Path
-import okio.Sink
-import okio.Source
+import okio.*
 import timber.log.Timber
 
 /**
@@ -46,10 +47,38 @@ class CaseInsensitiveFileSystem(
         }
     }
 
-    private companion object {
-        val DIRECTORY_OPS = setOf("createDirectory", "createDirectories", "deleteRecursively")
-        val CHUNK_DIR_SEGMENTS = listOf(DepotDownloader.CONFIG_DIR, "staging", "chunks")
-        const val REDIRECT_MIN_FREE_BYTES = 1L shl 30
+    companion object {
+        private val DIRECTORY_OPS = setOf("createDirectory", "createDirectories", "deleteRecursively")
+        private val CHUNK_DIR_SEGMENTS = listOf(DepotDownloader.CONFIG_DIR, "staging", "chunks")
+        private const val REDIRECT_MIN_FREE_BYTES = 1L shl 30
+
+        fun create(
+            context: Context,
+            targetPath: String,
+            showDebugLog: Boolean = false,
+            chunkStagingRedirect: Path? = null
+        ): CaseInsensitiveFileSystem {
+            val delegate = if (targetPath.startsWith("content://")) {
+                SAFFileSystem(context, targetPath.toUri())
+            } else if (isExternalPath(context, targetPath)) {
+                val safUri: String? = PrefManager.externalStoragePath.takeIf { it.startsWith("content://") }
+                if (safUri != null) {
+                    val treeRoot = getPathFromTreeUri(context, safUri.toUri())
+                    if (treeRoot != null && targetPath.startsWith(treeRoot)) {
+                         SAFFileSystem(context, safUri.toUri())
+                    } else SYSTEM
+                } else SYSTEM
+            } else {
+                SYSTEM
+            }
+
+            return CaseInsensitiveFileSystem(delegate, showDebugLog, chunkStagingRedirect)
+        }
+
+        private fun isExternalPath(context: Context, path: String): Boolean {
+            val internalRoot = context.dataDir.path
+            return !path.startsWith(internalRoot)
+        }
     }
 
     private fun chunkRedirectTarget(path: Path): Path? {

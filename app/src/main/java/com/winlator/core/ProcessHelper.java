@@ -204,7 +204,9 @@ public abstract class ProcessHelper {
         Thread stdoutDrainer = null;
         Thread stderrDrainer = null;
         try {
-            if (BuildConfig.MODERN_ANDROID) command = "/system/bin/linker64 " + command;
+            if (BuildConfig.MODERN_ANDROID && !command.contains("libproot") && !command.startsWith("/system/bin/linker64")) {
+                command = "/system/bin/linker64 " + command;
+            }
 
             if (BuildConfig.DEBUG) {
                 Log.d("ProcessHelper", "Executing with output: " + Arrays.toString(splitCommand(command)) + ", " + Arrays.toString(envp) + ", " + workingDir);
@@ -304,7 +306,9 @@ public abstract class ProcessHelper {
         int pid = -1;
         java.lang.Process process = null;
         try {
-            if (BuildConfig.MODERN_ANDROID) command = "/system/bin/linker64 " + command;
+            if (BuildConfig.MODERN_ANDROID && !command.contains("libproot") && !command.startsWith("/system/bin/linker64")) {
+                command = "/system/bin/linker64 " + command;
+            }
 
             if (BuildConfig.DEBUG) {
                 Log.d("ProcessHelper", "Executing: " + Arrays.toString(splitCommand(command)) + ", " + Arrays.toString(envp) + ", " + workingDir);
@@ -337,7 +341,9 @@ public abstract class ProcessHelper {
 
     public static java.lang.Process startProcess(String command, String[] envp, File workingDir) {
         try {
-            if (BuildConfig.MODERN_ANDROID) command = "/system/bin/linker64 " + command;
+            if (BuildConfig.MODERN_ANDROID && !command.contains("libproot") && !command.startsWith("/system/bin/linker64")) {
+                command = "/system/bin/linker64 " + command;
+            }
 
             if (BuildConfig.DEBUG) {
                 Log.d("ProcessHelper", "Executing: " + Arrays.toString(splitCommand(command)) + ", " + Arrays.toString(envp) + ", " + workingDir);

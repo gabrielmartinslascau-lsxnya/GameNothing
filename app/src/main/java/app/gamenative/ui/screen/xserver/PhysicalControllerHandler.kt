@@ -55,11 +55,17 @@ class PhysicalControllerHandler(
         for (keyCode in activeAxisBindings.toList()) {
             if (keyCode == exceptKeyCode) continue
             activeAxisBindings.remove(keyCode)
-            controller.getControllerBinding(keyCode)?.takeIf { it.binding != Binding.OPEN_RADIAL_MENU }?.let {
-                handleInputEvent(it.binding, false, 0f)
+            controller.getControllerBinding(keyCode)?.let { cb ->
+                for (binding in cb.bindings) {
+                    if (binding != Binding.OPEN_RADIAL_MENU) {
+                        handleInputEvent(binding, false, 0f)
+                    }
+                }
             }
         }
     }
+
+    fun getActiveProfileId(): Int = profile?.id ?: -1
 
     fun setProfile(profile: ControlsProfile?) {
         releaseActiveAxes()
@@ -99,12 +105,14 @@ class PhysicalControllerHandler(
             val controller = profile?.getController(event.deviceId)
             if (controller != null) {
                 val controllerBinding = controller.getControllerBinding(event.keyCode)
-                if (radialMenuPressed && controllerBinding?.binding == Binding.OPEN_RADIAL_MENU) {
+                val isRadialMenuOpener = controllerBinding?.bindings?.contains(Binding.OPEN_RADIAL_MENU) == true
+
+                if (radialMenuPressed && isRadialMenuOpener) {
                     if (event.keyCode == radialMenuOpenerKeyCode ||
                         radialMenuOpenerKeyCode == KeyEvent.KEYCODE_UNKNOWN
                     ) {
                         handleInputEvent(
-                            controllerBinding.binding,
+                            Binding.OPEN_RADIAL_MENU,
                             event.action == KeyEvent.ACTION_DOWN,
                             sourceKeyCode = event.keyCode,
                             sourceDeviceId = event.deviceId,
@@ -120,30 +128,32 @@ class PhysicalControllerHandler(
                 }
 
                 if (controllerBinding != null) {
-                    // Some controllers emit BOTH a digital KeyEvent for L2/R2 and an analog axis value in MotionEvent.
-                    // If this physical key is mapped to a virtual trigger AND the device exposes trigger axes,
-                    // ignore the KeyEvent to avoid an initial "full press" spike. MotionEvent will provide the analog value.
-                    if ((event.keyCode == KeyEvent.KEYCODE_BUTTON_L2 || event.keyCode == KeyEvent.KEYCODE_BUTTON_R2) &&
-                        (controllerBinding.binding == Binding.GAMEPAD_BUTTON_L2 || controllerBinding.binding == Binding.GAMEPAD_BUTTON_R2) &&
-                        deviceHasTriggerAxis(event.device, event.keyCode)
-                    ) {
-                        return true
+                    for (binding in controllerBinding.bindings) {
+                        // Some controllers emit BOTH a digital KeyEvent for L2/R2 and an analog axis value in MotionEvent.
+                        // If this physical key is mapped to a virtual trigger AND the device exposes trigger axes,
+                        // ignore the KeyEvent to avoid an initial "full press" spike. MotionEvent will provide the analog value.
+                        if ((event.keyCode == KeyEvent.KEYCODE_BUTTON_L2 || event.keyCode == KeyEvent.KEYCODE_BUTTON_R2) &&
+                            (binding == Binding.GAMEPAD_BUTTON_L2 || binding == Binding.GAMEPAD_BUTTON_R2) &&
+                            deviceHasTriggerAxis(event.device, event.keyCode)
+                        ) {
+                            continue
+                        }
+                        val offset = if (event.action == KeyEvent.ACTION_DOWN &&
+                            (binding == Binding.GAMEPAD_BUTTON_L2 || binding == Binding.GAMEPAD_BUTTON_R2)
+                        ) {
+                            1f
+                        } else {
+                            0f
+                        }
+                        handleInputEvent(
+                            binding,
+                            event.action == KeyEvent.ACTION_DOWN,
+                            offset,
+                            sourceKeyCode = event.keyCode,
+                            sourceDeviceId = event.deviceId,
+                            sourceController = controller,
+                        )
                     }
-                    val offset = if (event.action == KeyEvent.ACTION_DOWN &&
-                        (controllerBinding.binding == Binding.GAMEPAD_BUTTON_L2 || controllerBinding.binding == Binding.GAMEPAD_BUTTON_R2)
-                    ) {
-                        1f
-                    } else {
-                        0f
-                    }
-                    handleInputEvent(
-                        controllerBinding.binding,
-                        event.action == KeyEvent.ACTION_DOWN,
-                        offset,
-                        sourceKeyCode = event.keyCode,
-                        sourceDeviceId = event.deviceId,
-                        sourceController = controller,
-                    )
 
                     sendGamepadState()
                     return true
@@ -198,15 +208,17 @@ class PhysicalControllerHandler(
                 // Process trigger buttons (L2/R2)
                 var controllerBinding = controller.getControllerBinding(KeyEvent.KEYCODE_BUTTON_L2)
                 if (controllerBinding != null) {
-                    handleInputEvent(
-                        controllerBinding.binding,
-                        controller.state.triggerL > 0f,
-                        controller.state.triggerL,
-                        fromMotion = true,
-                        sourceKeyCode = KeyEvent.KEYCODE_BUTTON_L2,
-                        sourceDeviceId = event.deviceId,
-                        sourceController = controller,
-                    )
+                    for (binding in controllerBinding.bindings) {
+                        handleInputEvent(
+                            binding,
+                            controller.state.triggerL > 0f,
+                            controller.state.triggerL,
+                            fromMotion = true,
+                            sourceKeyCode = KeyEvent.KEYCODE_BUTTON_L2,
+                            sourceDeviceId = event.deviceId,
+                            sourceController = controller,
+                        )
+                    }
                     if (radialMenuPressed) {
                         sendGamepadState()
                         return true
@@ -215,15 +227,17 @@ class PhysicalControllerHandler(
 
                 controllerBinding = controller.getControllerBinding(KeyEvent.KEYCODE_BUTTON_R2)
                 if (controllerBinding != null) {
-                    handleInputEvent(
-                        controllerBinding.binding,
-                        controller.state.triggerR > 0f,
-                        controller.state.triggerR,
-                        fromMotion = true,
-                        sourceKeyCode = KeyEvent.KEYCODE_BUTTON_R2,
-                        sourceDeviceId = event.deviceId,
-                        sourceController = controller,
-                    )
+                    for (binding in controllerBinding.bindings) {
+                        handleInputEvent(
+                            binding,
+                            controller.state.triggerR > 0f,
+                            controller.state.triggerR,
+                            fromMotion = true,
+                            sourceKeyCode = KeyEvent.KEYCODE_BUTTON_R2,
+                            sourceDeviceId = event.deviceId,
+                            sourceController = controller,
+                        )
+                    }
                     if (radialMenuPressed) {
                         sendGamepadState()
                         return true
@@ -365,30 +379,34 @@ class PhysicalControllerHandler(
 
                 // always send press (gamepad bindings need continuous offset updates)
                 activeAxisBindings.add(activeKey)
-                controller.getControllerBinding(activeKey)?.let {
-                    handleInputEvent(
-                        it.binding,
-                        true,
-                        values[i],
-                        fromMotion = true,
-                        sourceKeyCode = activeKey,
-                        sourceDeviceId = deviceId,
-                        sourceController = controller,
-                    )
-                    if (radialMenuPressed) return
-                }
-                // release opposite direction (if it was active)
-                if (activeAxisBindings.remove(oppositeKey)) {
-                    controller.getControllerBinding(oppositeKey)?.let {
+                controller.getControllerBinding(activeKey)?.let { cb ->
+                    for (binding in cb.bindings) {
                         handleInputEvent(
-                            it.binding,
-                            false,
-                            0f,
+                            binding,
+                            true,
+                            values[i],
                             fromMotion = true,
-                            sourceKeyCode = oppositeKey,
+                            sourceKeyCode = activeKey,
                             sourceDeviceId = deviceId,
                             sourceController = controller,
                         )
+                        if (radialMenuPressed) return
+                    }
+                }
+                // release opposite direction (if it was active)
+                if (activeAxisBindings.remove(oppositeKey)) {
+                    controller.getControllerBinding(oppositeKey)?.let { cb ->
+                        for (binding in cb.bindings) {
+                            handleInputEvent(
+                                binding,
+                                false,
+                                0f,
+                                fromMotion = true,
+                                sourceKeyCode = oppositeKey,
+                                sourceDeviceId = deviceId,
+                                sourceController = controller,
+                            )
+                        }
                     }
                 }
             } else {
@@ -623,8 +641,12 @@ class PhysicalControllerHandler(
             else -> 0f
         }
         if (triggerValue <= 0f) return
-        activeController.getControllerBinding(keyCode)?.takeIf { it.binding != Binding.OPEN_RADIAL_MENU }?.let {
-            handleInputEvent(it.binding, false, 0f, fromMotion = true, sourceKeyCode = keyCode)
+        activeController.getControllerBinding(keyCode)?.let { cb ->
+            for (binding in cb.bindings) {
+                if (binding != Binding.OPEN_RADIAL_MENU) {
+                    handleInputEvent(binding, false, 0f, fromMotion = true, sourceKeyCode = keyCode)
+                }
+            }
         }
     }
 
@@ -723,7 +745,8 @@ class PhysicalControllerHandler(
         for (i in axes.indices) {
             if (Math.abs(values[i]) <= ControlElement.STICK_DEAD_ZONE) continue
             val keyCode = ExternalControllerBinding.getKeyCodeForAxis(axes[i], Mathf.sign(values[i]))
-            if (keyCode == radialMenuOpenerKeyCode) {
+            val cb = controller.getControllerBinding(keyCode)
+            if (cb != null && cb.bindings.contains(Binding.OPEN_RADIAL_MENU)) {
                 return true
             }
         }

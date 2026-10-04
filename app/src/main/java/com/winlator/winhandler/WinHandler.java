@@ -43,8 +43,10 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 
@@ -88,7 +90,7 @@ public class WinHandler {
     private long lastStandalonePhoneRumbleMs = 0;
     private boolean isShowingAssignDialog = false;
     private Context activity;
-    private final java.util.Set<Integer> ignoredDeviceIds = new java.util.HashSet<>();
+    private final Set<Integer> ignoredDeviceIds = new HashSet<>();
     private RandomAccessFile gamepadRaf;
     private RandomAccessFile[] extraGamepadRafs = new RandomAccessFile[MAX_PLAYERS - 1];
 
@@ -96,7 +98,7 @@ public class WinHandler {
 
     /**
      * The handler of the running session, or null while no session is up. Published from
-     * {@link #start()} so code outside the UI layer can reach the live handler.
+     * start() so code outside the UI layer can reach the live handler.
      */
     public static WinHandler getActiveInstance() {
         return activeInstance;
@@ -710,20 +712,20 @@ public class WinHandler {
         }
     }
 
-    public void start() {
+    public void start(File targetShmDir) {
         try {
             this.localhost = InetAddress.getLocalHost();
-            Context context = activity.getApplicationContext();
-            File gamepadShmDir = new File(
-                    context.getFilesDir(),
-                    "gamepad_shm"
-            );
-
-            if (!gamepadShmDir.exists() && !gamepadShmDir.mkdirs()) {
-                throw new IOException("Failed to create directory: " + gamepadShmDir.getAbsolutePath());
+            File shmDir = targetShmDir;
+            if (shmDir == null) {
+                Context context = activity.getApplicationContext();
+                shmDir = new File(context.getFilesDir(), "gamepad_shm");
             }
 
-            File p1_memFile = new File(gamepadShmDir, "gamepad.mem");
+            if (!shmDir.exists() && !shmDir.mkdirs()) {
+                throw new IOException("Failed to create directory: " + shmDir.getAbsolutePath());
+            }
+
+            File p1_memFile = new File(shmDir, "gamepad.mem");
             if (gamepadBuffer == null) {
                 gamepadRaf = new RandomAccessFile(p1_memFile, "rw");
                 gamepadRaf.setLength(64);
@@ -733,7 +735,7 @@ public class WinHandler {
             }
 
             for (int i = 0; i < extraGamepadBuffers.length; i++) {
-                File extra_mem_path = new File(gamepadShmDir, "gamepad" + (i + 1) + ".mem");
+                File extra_mem_path = new File(shmDir, "gamepad" + (i + 1) + ".mem");
                 if (extraGamepadBuffers[i] != null) continue;
                 extraGamepadRafs[i] = new RandomAccessFile(extra_mem_path, "rw");
                 extraGamepadRafs[i].setLength(64);

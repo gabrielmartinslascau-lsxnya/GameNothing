@@ -29,17 +29,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gamenative.PrefManager
 import app.gamenative.ui.component.settings.HapticSettingsSwitch
 import app.gamenative.ui.model.MainViewModel
-import app.gamenative.ui.theme.glassContentColor
 import app.gamenative.ui.theme.settingsTileColors
 import app.gamenative.ui.theme.settingsTileColorsAlt
 import app.gamenative.utils.HapticManager
 import com.alorma.compose.settings.ui.SettingsGroup
-import com.alorma.compose.settings.ui.SettingsSwitch
 import kotlin.math.roundToInt
 
 import androidx.compose.ui.platform.LocalContext
 import java.io.File
 import java.util.Locale
+import android.content.Context
 
 @Composable
 fun SettingsGroupExperimental(viewModel: MainViewModel) {
@@ -52,10 +51,7 @@ fun SettingsGroupExperimental(viewModel: MainViewModel) {
         var cacheSizeMb by remember { mutableDoubleStateOf(0.0) }
 
         LaunchedEffect(Unit) {
-            val totalSize = calculateDirSize(context.cacheDir) +
-                          calculateDirSize(File(context.filesDir, "image_cache")) +
-                          calculateDirSize(context.codeCacheDir)
-            cacheSizeMb = totalSize / (1024.0 * 1024.0)
+            cacheSizeMb = calculateTotalCacheSize(context)
         }
 
         HapticSettingsSwitch(
@@ -156,6 +152,16 @@ fun SettingsGroupExperimental(viewModel: MainViewModel) {
 
         HapticSettingsSwitch(
             colors = settingsTileColorsAlt(),
+            state = state.fasterExternalLoading,
+            title = { Text(text = "Faster External Loading") },
+            subtitle = { Text(text = "Experimental: Optimize GPU driver logic for games stored on SD/USB. Set to OFF if games fail to launch.") },
+            onCheckedChange = {
+                viewModel.setFasterExternalLoading(it)
+            }
+        )
+
+        HapticSettingsSwitch(
+            colors = settingsTileColorsAlt(),
             state = false, // Always off, just triggers the intent
             title = { Text(text = "Default Launcher") },
             subtitle = { Text(text = "Set GameNothing as your device's home launcher.") },
@@ -165,6 +171,13 @@ fun SettingsGroupExperimental(viewModel: MainViewModel) {
             }
         )
     }
+}
+
+private fun calculateTotalCacheSize(context: Context): Double {
+    val totalSize = calculateDirSize(context.cacheDir) +
+            calculateDirSize(File(context.filesDir, "image_cache")) +
+            calculateDirSize(context.codeCacheDir)
+    return totalSize / (1024.0 * 1024.0)
 }
 
 private fun calculateDirSize(dir: File): Long {

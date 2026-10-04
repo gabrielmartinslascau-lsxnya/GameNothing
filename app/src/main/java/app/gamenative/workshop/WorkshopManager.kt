@@ -7,6 +7,8 @@ import app.gamenative.data.DownloadInfo
 import app.gamenative.data.GameSource
 import app.gamenative.service.SteamService
 import app.gamenative.utils.ContainerUtils
+import app.gamenative.PluviaApp
+import app.gamenative.utils.CaseInsensitiveFileSystem
 import app.gamenative.utils.Net
 import app.gamenative.workshop.compatibility.SlayTheSpireModTheSpireCompatibility
 import app.gamenative.workshop.compatibility.WorkshopCompatibilityOverride
@@ -1061,6 +1063,11 @@ object WorkshopManager {
                         maxDecompress = maxDecompress,
                         parentJob = parentJob,
                         autoStartDownload = false,
+                        filesystem = CaseInsensitiveFileSystem.create(
+                            context = PluviaApp.instance,
+                            targetPath = dir.absolutePath,
+                            showDebugLog = false,
+                        ),
                     )
                     dd.addListener(object : IDownloadListener {
                         override fun onDownloadStarted(dl: DownloadItem) {

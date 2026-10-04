@@ -92,7 +92,7 @@ public class InputControlsManager {
                 }
 
                 if (targetFile != null) {
-                    FileUtils.copy(context, assetPath, targetFile);
+                    // FileUtils.copy(context, assetPath, targetFile); // Avoid overwriting user-edited profiles during app updates
                 } else if (originProfile != null) {
                     // New asset profile — add if not already present
                     File defaultFile = new File(profilesDir, assetFile);
@@ -204,29 +204,36 @@ public class InputControlsManager {
 
     public ControlsProfile importProfile(JSONObject data) {
         try {
-            if (!data.has("id") || !data.has("name")) return null;
-            int newId = ++maxProfileId;
-            File newFile = ControlsProfile.getProfileFile(context, newId);
-            data.put("id", newId);
-            FileUtils.writeString(newFile, data.toString());
-            ControlsProfile newProfile = loadProfile(context, newFile);
+            if (!data.has("name")) return null;
+            String profileName = data.getString("name");
 
-            int foundIndex = -1;
-            for (int i = 0; i < profiles.size(); i++) {
-                ControlsProfile profile = profiles.get(i);
-                if (profile.getName().equals(newProfile.getName())) {
-                    foundIndex = i;
+            // Look for existing profile with the same name
+            ControlsProfile existingProfile = null;
+            for (ControlsProfile p : getProfiles()) {
+                if (p.getName().equals(profileName)) {
+                    existingProfile = p;
                     break;
                 }
             }
 
-            if (foundIndex != -1) {
-                profiles.set(foundIndex, newProfile);
+            int targetId = (existingProfile != null) ? existingProfile.id : ++maxProfileId;
+            File targetFile = ControlsProfile.getProfileFile(context, targetId);
+
+            data.put("id", targetId);
+            FileUtils.writeString(targetFile, data.toString());
+
+            ControlsProfile newProfile = loadProfile(context, targetFile);
+            if (newProfile != null) {
+                if (existingProfile != null) {
+                    profiles.set(profiles.indexOf(existingProfile), newProfile);
+                } else {
+                    profiles.add(newProfile);
+                }
             }
-            else profiles.add(newProfile);
             return newProfile;
         }
-        catch (JSONException e) {
+        catch (Exception e) {
+            Log.e("InputControlsManager", "Import failed", e);
             return null;
         }
     }

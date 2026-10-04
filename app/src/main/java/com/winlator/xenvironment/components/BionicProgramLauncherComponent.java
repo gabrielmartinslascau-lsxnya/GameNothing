@@ -185,39 +185,35 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
     }
 
     private int execGuestProgram() {
-
         final int MAX_PLAYERS = 4;
-
-        // Get the number of enabled players directly from ControllerManager.
-        for (int i = 0; i < MAX_PLAYERS; i++) {
-            String memPath;
-            if (i == 0) {
-                // Player 1 uses the original, non-numbered path that is known to work.
-                memPath = "/data/data/app.gamenative/files/imagefs/tmp/gamepad.mem";
-            } else {
-                // Players 2, 3, 4 use a 1-based index.
-                memPath = "/data/data/app.gamenative/files/imagefs/tmp/gamepad" + i + ".mem";
-            }
-
-            File memFile = new File(memPath);
-            memFile.getParentFile().mkdirs();
-            try (RandomAccessFile raf = new RandomAccessFile(memFile, "rw")) {
-                raf.setLength(64);
-            } catch (IOException e) {
-                Log.e("EVSHIM_HOST", "Failed to create mem file for player index "+i, e);
-            }
-        }
         Context context = environment.getContext();
         ImageFs imageFs = ImageFs.find(context);
         File rootDir = imageFs.getRootDir();
+
+        // Use standard path for gamepad shared memory (internal storage).
+        File shmDir = new File(context.getFilesDir(), "gamepad_shm");
+        shmDir.mkdirs();
+
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            String fileName = (i == 0) ? "gamepad.mem" : "gamepad" + i + ".mem";
+            File memFile = new File(shmDir, fileName);
+            try (RandomAccessFile raf = new RandomAccessFile(memFile, "rw")) {
+                raf.setLength(64);
+            } catch (IOException e) {
+                Log.e("EVSHIM_HOST", "Failed to create mem file for player index " + i, e);
+            }
+        }
 
         PrefManager.init(context);
         boolean enableBox86_64Logs = PrefManager.getBoolean("enable_box86_64_logs", true);
         boolean shareAndroidClipboard = PrefManager.getBoolean("share_android_clipboard", false);
         boolean enablePebLogs = PrefManager.getBoolean("enable_peb_logs", false);
 
+        if (this.envVars == null) this.envVars = new EnvVars();
+        EnvVars envVars = this.envVars;
+
         // Always set this to defer handling to WineRequestComponent
-        envVars.put("WINE_OPEN_WITH_ANDROID_BROwSER", "1"); // Pipetto wine has a typo, so we need 2 envvar for it to work
+        envVars.put("WINE_OPEN_WITH_ANDROID_BROwSER", "1");
         envVars.put("WINE_OPEN_WITH_ANDROID_BROWSER", "1");
 
         if (shareAndroidClipboard) {
@@ -228,13 +224,11 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
             envVars.put("WINE_LOG_PEB_DATA", "1");
         }
 
-        EnvVars envVars = new EnvVars();
-
-        // Use the ControllerManager's dynamic count for the environment variable
         envVars.put("EVSHIM_MAX_PLAYERS", String.valueOf(MAX_PLAYERS));
-        if (true) {
-            envVars.put("EVSHIM_SHM_ID", 1);
-        }
+        envVars.put("EVSHIM_BASE_PATH", context.getFilesDir().getAbsolutePath());
+        envVars.put("EVSHIM_WINE", "1");
+        envVars.put("EVSHIM_SHM_NAME", "controller-shm0");
+
         addBox64EnvVars(envVars, enableBox86_64Logs);
         envVars.putAll(FEXCorePresetManager.getEnvVars(context, fexcorePreset));
 
@@ -252,6 +246,12 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
         envVars.put("TMPDIR", rootDir.getPath() + "/usr/tmp");
         new File(imageFs.home_path + "/.wine/drive_c" + rootDir.getPath() + "/usr/tmp").mkdirs();
         envVars.put("DISPLAY", ":0");
+
+        if (app.gamenative.PrefManager.INSTANCE.getFasterExternalLoading()) {
+            envVars.put("ZINK_DESCRIPTORS", "lazy");
+            envVars.put("mesa_glthread", "true");
+            envVars.put("MESA_SHADER_CACHE_MAX_SIZE", "2GB");
+        }
 
         String winePath = imageFs.getWinePath() + "/bin";
 
@@ -298,18 +298,32 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
         envVars.put("ANDROID_RESOLV_DNS", primaryDNS);
         envVars.put("WINE_NEW_NDIS", "1");
 
-        String ld_preload = "";
+        StringBuilder ldPreloadBuilder = new StringBuilder();
         String sysvPath = imageFs.getLibDir() + "/libandroid-sysvshm.so";
         String evshimPath = context.getApplicationInfo().nativeLibraryDir + "/libevshim.so";
         String replacePath = imageFs.getLibDir() + "/" + BuildConfig.PRELOAD_BIONIC_SO;
 
-        if (new File(sysvPath).exists()) ld_preload += sysvPath;
+        if (new File(sysvPath).exists()) {
+            if (ldPreloadBuilder.length() > 0) ldPreloadBuilder.append(":");
+            ldPreloadBuilder.append(sysvPath);
+        }
 
+        if (new File(evshimPath).exists()) {
+            if (ldPreloadBuilder.length() > 0) ldPreloadBuilder.append(":");
+            ldPreloadBuilder.append(evshimPath);
+        }
 
-        ld_preload += ":" + evshimPath;
-        ld_preload += ":" + replacePath;
+        if (new File(replacePath).exists()) {
+            if (ldPreloadBuilder.length() > 0) ldPreloadBuilder.append(":");
+            ldPreloadBuilder.append(replacePath);
+        }
 
-        envVars.put("LD_PRELOAD", ld_preload);
+        String existingLdPreload = envVars.get("LD_PRELOAD");
+        if (!existingLdPreload.isEmpty()) {
+            ldPreloadBuilder.append(":").append(existingLdPreload);
+        }
+
+        envVars.put("LD_PRELOAD", ldPreloadBuilder.toString());
         envVars.put("EVSHIM_WINE", 1);
         envVars.put("EVSHIM_SHM_NAME", "controller-shm0");
 
@@ -646,7 +660,7 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
         Context context = environment.getContext();
         ImageFs imageFs = ImageFs.find(context);
         File rootDir = imageFs.getRootDir();
-        EnvVars envVars = new EnvVars();
+        if (this.envVars == null) this.envVars = new EnvVars();
         addBox64EnvVars(envVars, false);
 
         envVars.put("HOME", imageFs.home_path);

@@ -5,12 +5,15 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,6 +47,8 @@ internal fun PhysicalControllerConfigSection(
     profile: ControlsProfile,
     onDismiss: () -> Unit,
     onSave: () -> Unit,
+    onShowProfiles: () -> Unit,
+    onSaveProfile: () -> Unit
 ) {
     val context = LocalContext.current
 
@@ -245,62 +250,24 @@ internal fun PhysicalControllerConfigSection(
                         }
                     },
                     actions = {
-                        // Reset button
-                        IconButton(onClick = {
-                            Log.d("gncontrol", "=== Reset: Resetting controller bindings ===")
-                            workingBindings.clear()
-
-                            val manager = com.winlator.inputcontrols.InputControlsManager(context)
-                            val defaultProfile = manager.getProfile(0)
-                            if (defaultProfile != null) {
-                                val defaultControllers = defaultProfile.getControllers()
-                                if (defaultControllers.isNotEmpty()) {
-                                    val defaultController = defaultControllers[0]
-                                    for (binding in defaultController.getControllerBindings()) {
-                                        workingBindings[binding.getKeyCodeForAxis()] = binding.getBinding()
-                                    }
-                                }
-                            }
-
-                            // Ensure Home/Guide/PS button is always set to OPEN_NAVIGATION_MENU
-                            workingBindings[KeyEvent.KEYCODE_BUTTON_MODE] = com.winlator.inputcontrols.Binding.OPEN_NAVIGATION_MENU
-                            Log.d("gncontrol", "Set Home button (KEYCODE_BUTTON_MODE) to OPEN_NAVIGATION_MENU")
-
-                            refreshKey++
-                        }) {
-                            Icon(Icons.Default.Refresh, null)
+                        // Profiles button (Load)
+                        IconButton(onClick = onShowProfiles) {
+                            Icon(Icons.AutoMirrored.Filled.List, "Load named profile")
                         }
 
-                        // Save button
-                        IconButton(onClick = {
-                            Log.d("gncontrol", "=== Save: Applying ${workingBindings.size} bindings ===")
-                            controller?.let { ctrl ->
-                                val existingBindings = ctrl.getControllerBindings().toList()
-                                for (binding in existingBindings) {
-                                    ctrl.removeControllerBinding(binding)
-                                }
-
-                                for ((keyCode, binding) in workingBindings) {
-                                    if (binding != null) {
-                                        val newBinding = ExternalControllerBinding()
-                                        newBinding.setKeyCode(keyCode)
-                                        newBinding.setBinding(binding)
-                                        ctrl.addControllerBinding(newBinding)
-                                    }
-                                }
-
-                                val manager = com.winlator.inputcontrols.InputControlsManager(context)
-                                val defaultProfile = manager.getProfile(0)
-                                if (defaultProfile != null) {
-                                    copyElementsIfNeeded(context, profile, defaultProfile)
-                                }
-
-                                profile.save()
-                                Log.d("gncontrol", "Saved profile ${profile.name}")
-                            }
-                            onSave()
-                        }) {
-                            Icon(Icons.Default.Save, null)
+                        // Save Profile button (Named)
+                        IconButton(
+                            onClick = {
+                                Log.d("gncontrol", "Save Profile clicked")
+                                onSaveProfile()
+                            },
+                            modifier = Modifier.focusGroup()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Save,
+                                contentDescription = "Save as named profile",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
                         }
                     },
                 )

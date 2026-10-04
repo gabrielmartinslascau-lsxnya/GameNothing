@@ -25,6 +25,7 @@ import com.winlator.core.WineRegistryEditor
 import com.winlator.xenvironment.ImageFs
 import `in`.dragonbra.javasteam.types.KeyValue
 import `in`.dragonbra.javasteam.util.HardwareUtils
+import com.winlator.winhandler.WinHandler
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -1349,6 +1350,82 @@ object SteamUtils {
             "vietnamese",
         )
         supportedLanguagesFile.toFile().writeText(supportedLanguages.joinToString("\n"))
+    }
+
+    /**
+     * Injects Xbox controller support files (xinput_config.ini and mappings) into
+     * the target directory. This ensures controller support works even on external
+     * storage where hardcoded paths would fail.
+     */
+    fun injectXboxControllerSupport(context: Context, targetDir: File, container: Container) {
+        try {
+            if (!targetDir.exists() && !targetDir.mkdirs()) {
+                Timber.w("Could not create target directory for controller injection: ${targetDir.absolutePath}")
+                return
+            }
+
+            // 1. Create steam_settings if missing
+            val settingsDir = File(targetDir, "steam_settings")
+            if (!settingsDir.exists() && !settingsDir.mkdirs()) {
+                Timber.w("Could not create steam_settings dir for controller injection")
+                return
+            }
+
+            // 2. Create controller folder
+            val controllerDir = File(settingsDir, "controller")
+            if (!controllerDir.exists() && !controllerDir.mkdirs()) {
+                Timber.w("Could not create controller dir for injection")
+                return
+            }
+
+            // 3. Copy default mappings from assets if they don't exist
+            val assetManager = context.assets
+            val assetFiles = assetManager.list("steaminput") ?: emptyArray()
+            for (assetName in assetFiles) {
+                val targetFile = File(controllerDir, assetName)
+                if (!targetFile.exists()) {
+                    assetManager.open("steaminput/$assetName").use { input ->
+                        targetFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                }
+            }
+
+            // 4. Generate xinput_config.ini based on global settings
+            val xinputConfig = File(targetDir, "xinput_config.ini")
+            val configContent = buildString {
+                appendLine("[Standard]")
+                appendLine("A=${if (PrefManager.swapFaceButtons) "B" else "A"}")
+                appendLine("B=${if (PrefManager.swapFaceButtons) "A" else "B"}")
+                appendLine("X=${if (PrefManager.swapFaceButtons) "Y" else "X"}")
+                appendLine("Y=${if (PrefManager.swapFaceButtons) "X" else "Y"}")
+                appendLine("LB=LBUMPER")
+                appendLine("RB=RBUMPER")
+                appendLine("LT=LTRIGGER")
+                appendLine("RT=RTRIGGER")
+                appendLine("Start=START")
+                appendLine("Back=BACK")
+                appendLine("L3=LSTICK")
+                appendLine("R3=RSTICK")
+                appendLine("Up=DUP")
+                appendLine("Down=DDOWN")
+                appendLine("Left=DLEFT")
+                appendLine("Right=DRIGHT")
+                appendLine()
+                appendLine("[Options]")
+                val isXInputEnabled = container.inputType == WinHandler.PreferredInputApi.XINPUT.ordinal ||
+                        container.inputType == WinHandler.PreferredInputApi.BOTH.ordinal
+                appendLine("EnableXInput=${if (isXInputEnabled) 1 else 0}")
+                appendLine("HookXInput=1")
+                appendLine("ShmPath=/data/data/app.gamenative/files/gamepad_shm")
+            }
+            xinputConfig.writeText(configContent)
+
+            Timber.i("Injected Xbox controller support into ${targetDir.absolutePath}")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to inject Xbox controller support")
+        }
     }
 
     /**

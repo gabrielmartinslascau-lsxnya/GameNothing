@@ -111,6 +111,7 @@ object PrefManager {
 
         // Initialize reactive states - non-blocking fallback if latch times out
         _fontType = getFontTypeSync()
+        _crosshairEnabled = getPref(CROSSHAIR_ENABLED, false)
     }
 
     private fun awaitInit() {
@@ -837,6 +838,34 @@ object PrefManager {
             setPref(DINPUT_MAPPER_TYPE, value)
         }
 
+    private val GYRO_AIMING_ENABLED = booleanPreferencesKey("gyro_aiming_enabled")
+    var gyroAimingEnabled: Boolean
+        get() = getPref(GYRO_AIMING_ENABLED, false)
+        set(value) {
+            setPref(GYRO_AIMING_ENABLED, value)
+        }
+
+    private val GYRO_SENSITIVITY = floatPreferencesKey("gyro_sensitivity")
+    var gyroSensitivity: Float
+        get() = getPref(GYRO_SENSITIVITY, 1.0f)
+        set(value) {
+            setPref(GYRO_SENSITIVITY, value)
+        }
+
+    private val GYRO_INVERT_X = booleanPreferencesKey("gyro_invert_x")
+    var gyroInvertX: Boolean
+        get() = getPref(GYRO_INVERT_X, false)
+        set(value) {
+            setPref(GYRO_INVERT_X, value)
+        }
+
+    private val GYRO_INVERT_Y = booleanPreferencesKey("gyro_invert_y")
+    var gyroInvertY: Boolean
+        get() = getPref(GYRO_INVERT_Y, false)
+        set(value) {
+            setPref(GYRO_INVERT_Y, value)
+        }
+
     // External display input mode (off|touchpad|keyboard|hybrid)
     private val EXTERNAL_DISPLAY_INPUT_MODE = stringPreferencesKey("external_display_input_mode")
     var externalDisplayInputMode: String
@@ -1162,6 +1191,15 @@ object PrefManager {
         }
         set(value) {
             setPref(LIBRARY_STEAM_COLLECTIONS, value.joinToString(COLLECTION_ID_SEPARATOR))
+        }
+
+    private val CROSSHAIR_ENABLED = booleanPreferencesKey("crosshair_enabled")
+    private var _crosshairEnabled by mutableStateOf(false)
+    var crosshairEnabled: Boolean
+        get() = _crosshairEnabled
+        set(value) {
+            _crosshairEnabled = value
+            setPref(CROSSHAIR_ENABLED, value)
         }
 
     /**
@@ -1786,6 +1824,13 @@ object PrefManager {
             setPref(USAGE_ANALYTICS_ENABLED, value)
         }
 
+    private val FASTER_EXTERNAL_LOADING = booleanPreferencesKey("faster_external_loading")
+    var fasterExternalLoading: Boolean
+        get() = getPref(FASTER_EXTERNAL_LOADING, false)
+        set(value) {
+            setPref(FASTER_EXTERNAL_LOADING, value)
+        }
+
     private val NEXUS_LAST_PLACEMENT_JSON = stringPreferencesKey("nexus_last_placement_json")
     var nexusLastPlacementJson: String
         get() = getPref(NEXUS_LAST_PLACEMENT_JSON, "{}")
@@ -1839,6 +1884,32 @@ object PrefManager {
         get() = getPref(HAS_COMPLETED_TUTORIAL, false)
         set(value) = setPref(HAS_COMPLETED_TUTORIAL, value)
 
+    /* Linux Environment Preferences */
+    private val LINUX_PROTON_VERSION = stringPreferencesKey("linux_proton_version")
+    var linuxProtonVersion: String
+        get() = getPref(LINUX_PROTON_VERSION, "proton-11.0-arm64ec")
+        set(value) = setPref(LINUX_PROTON_VERSION, value)
+
+    private val LINUX_DXVK_VERSION = stringPreferencesKey("linux_dxvk_version")
+    var linuxDxvkVersion: String
+        get() = getPref(LINUX_DXVK_VERSION, "2.3")
+        set(value) = setPref(LINUX_DXVK_VERSION, value)
+
+    private val LINUX_FEX_PRESET = stringPreferencesKey("linux_fex_preset")
+    var linuxFexPreset: String
+        get() = getPref(LINUX_FEX_PRESET, "compatibility")
+        set(value) = setPref(LINUX_FEX_PRESET, value)
+
+    private val LINUX_DRIVER = stringPreferencesKey("linux_driver")
+    var linuxDriver: String
+        get() = getPref(LINUX_DRIVER, "Turnip")
+        set(value) = setPref(LINUX_DRIVER, value)
+
+    private val IS_LINUX_INSTALLED = booleanPreferencesKey("is_linux_installed")
+    var isLinuxInstalled: Boolean
+        get() = getPref(IS_LINUX_INSTALLED, false)
+        set(value) = setPref(IS_LINUX_INSTALLED, value)
+
     private val POWER_CONTROL_DEFAULT_ENABLED = booleanPreferencesKey("power_control_default_enabled")
     var powerControlDefaultEnabled: Boolean
         get() = getPref(POWER_CONTROL_DEFAULT_ENABLED, DeviceGate.isDeviceSupported())
@@ -1870,8 +1941,40 @@ object PrefManager {
         get() = getPref(MUSIC_VOLUME, 1f)
         set(value) = setPref(MUSIC_VOLUME, value.coerceIn(0f, 1f))
 
+
     private val MUSIC_PLAYER_ENABLED = booleanPreferencesKey("music_player_enabled")
     var musicPlayerEnabled: Boolean
         get() = getPref(MUSIC_PLAYER_ENABLED, true)
         set(value) = setPref(MUSIC_PLAYER_ENABLED, value)
+
+    private val LOADING_SCREEN_MODE = intPreferencesKey("loading_screen_mode")
+    var loadingScreenMode: Int
+        get() = getPref(LOADING_SCREEN_MODE, 0) // 0: Default, 1: Custom
+        set(value) = setPref(LOADING_SCREEN_MODE, value)
+
+    private val CUSTOM_LOADING_VIDEO_PATH = stringPreferencesKey("custom_loading_video_path")
+    var customLoadingVideoPath: String
+        get() = getPref(CUSTOM_LOADING_VIDEO_PATH, "")
+        set(value) = setPref(CUSTOM_LOADING_VIDEO_PATH, value)
+
+    /* Playground State */
+    private val PLAYGROUND_GRID_MODE = intPreferencesKey("playground_grid_mode")
+    var playgroundGridMode: Int
+        get() = getPref(PLAYGROUND_GRID_MODE, 0) // 0: SNAP, 1: FREE
+        set(value) = setPref(PLAYGROUND_GRID_MODE, value)
+
+    private val PLAYGROUND_GRID_SIZE = intPreferencesKey("playground_grid_size")
+    var playgroundGridSize: Int
+        get() = getPref(PLAYGROUND_GRID_SIZE, 5)
+        set(value) = setPref(PLAYGROUND_GRID_SIZE, value)
+
+    private val PLAYGROUND_DOCK_COUNT = intPreferencesKey("playground_dock_count")
+    var playgroundDockCount: Int
+        get() = getPref(PLAYGROUND_DOCK_COUNT, 5)
+        set(value) = setPref(PLAYGROUND_DOCK_COUNT, value)
+
+    private val PLAYGROUND_ITEMS_JSON = stringPreferencesKey("playground_items_json")
+    var playgroundItemsJson: String
+        get() = getPref(PLAYGROUND_ITEMS_JSON, "[]")
+        set(value) = setPref(PLAYGROUND_ITEMS_JSON, value)
 }

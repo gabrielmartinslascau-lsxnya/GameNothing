@@ -48,6 +48,7 @@ import kotlinx.coroutines.flow.flatMapMerge
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import timber.log.Timber
@@ -1265,7 +1266,8 @@ class EpicDownloadManager @Inject constructor(
                     chunkFile.inputStream().use { input ->
                         input.skip(chunkPart.offset.toLong())
 
-                        val buffer = ByteArray(65536) // Increased to 64KB for better I/O performance
+                        val bufferSize = 1024 * 1024 // 1MB buffer for high-speed transfers
+                        val buffer = ByteArray(bufferSize)
                         var remaining = chunkPart.size.toLong()
 
                         while (remaining > 0) {
@@ -1276,6 +1278,7 @@ class EpicDownloadManager @Inject constructor(
 
                             output.write(buffer, 0, bytesRead)
                             remaining -= bytesRead
+                            yield() // Ensure responsiveness
                         }
                     }
                 }
@@ -1314,14 +1317,16 @@ class EpicDownloadManager @Inject constructor(
             chunkFile.inputStream().use { input ->
                 input.skip(chunk.offset.toLong())
 
-                FileChannel.open(
-                    outputFile.toPath(),
+                StorageUtils.openFileChannel(
+                    context,
+                    outputFile.path,
                     StandardOpenOption.WRITE,
                     StandardOpenOption.CREATE,
-                ).use { channel ->
+                ).use { channel: FileChannel ->
                     channel.position(chunk.fileOffset)
 
-                    val buffer = ByteArray(65536) // 64KB buffer for memory efficiency
+                    val bufferSize = 1024 * 1024 // 1MB buffer for high-speed transfers
+                    val buffer = ByteArray(bufferSize)
                     val byteBuffer = ByteBuffer.wrap(buffer)
                     var remaining = chunk.size.toLong()
 
@@ -1336,6 +1341,7 @@ class EpicDownloadManager @Inject constructor(
                             channel.write(byteBuffer)
                         }
                         remaining -= bytesRead
+                        yield() // Ensure responsiveness
                     }
                 }
             }

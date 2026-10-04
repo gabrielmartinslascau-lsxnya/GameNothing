@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.hardware.input.InputManager;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -65,6 +66,7 @@ public class ControllerManager {
 
     private static final long ASSIGN_SETTLE_MS = 300L;
     private final Map<String, Long> firstSeenByIdentifier = new HashMap<>();
+    private final Map<String, Runnable> pendingRemovals = new HashMap<>();
     private final Handler settleHandler = new Handler(Looper.getMainLooper());
     private final Runnable settleAssignRunnable = this::autoAssignConnectedDevices;
     private final Set<String> sessionActiveIdentifiers = new HashSet<>();
@@ -184,32 +186,49 @@ public class ControllerManager {
      * @return True if the device is a game controller.
      */
     public static boolean isGameController(InputDevice device) {
-        if (device == null) return false;
+        if (device == null || device.isVirtual()) return false;
 
+        // Composite HID keyboards often report SOURCE_JOYSTICK.
+        // Real game controllers usually have SOURCE_GAMEPAD.
         boolean isGamepad = device.supportsSource(InputDevice.SOURCE_GAMEPAD);
         boolean isJoystick = device.supportsSource(InputDevice.SOURCE_JOYSTICK);
 
-        boolean hasAxes =
-                device.getMotionRange(android.view.MotionEvent.AXIS_X) != null ||
-                        device.getMotionRange(android.view.MotionEvent.AXIS_Y) != null;
+        // If it's not a gamepad, check if it has axes and is NOT a full keyboard
+        if (!isGamepad) {
+            if (!isJoystick) return false;
 
+            // Check for standard joystick axes
+            boolean hasAxes = device.getMotionRange(MotionEvent.AXIS_X) != null &&
+                             device.getMotionRange(MotionEvent.AXIS_Y) != null;
+            if (!hasAxes) return false;
+
+            // Filter out full keyboards: they usually have KEYCODE_Q, KEYCODE_W, etc.
+            // Also check for composite HID devices that report too many keys
+            boolean[] hasAlphaKeys = device.hasKeys(
+                KeyEvent.KEYCODE_Q, KeyEvent.KEYCODE_W, KeyEvent.KEYCODE_E,
+                KeyEvent.KEYCODE_R, KeyEvent.KEYCODE_T, KeyEvent.KEYCODE_Y,
+                KeyEvent.KEYCODE_A, KeyEvent.KEYCODE_S, KeyEvent.KEYCODE_D,
+                KeyEvent.KEYCODE_F, KeyEvent.KEYCODE_G, KeyEvent.KEYCODE_H
+            );
+            int alphaCount = 0;
+            for (boolean b : hasAlphaKeys) if (b) alphaCount++;
+            if (alphaCount >= 5) return false;
+        }
+
+        // Must have at least some "gamepad" buttons to be considered a controller
         boolean[] hasGamepadKeysArray = device.hasKeys(
                 KeyEvent.KEYCODE_BUTTON_A,
                 KeyEvent.KEYCODE_BUTTON_B,
                 KeyEvent.KEYCODE_BUTTON_X,
-                KeyEvent.KEYCODE_BUTTON_Y
+                KeyEvent.KEYCODE_BUTTON_Y,
+                KeyEvent.KEYCODE_BUTTON_START,
+                KeyEvent.KEYCODE_BUTTON_SELECT
         );
 
-        boolean hasGamepadKeys = false;
-        for (boolean hasKey : hasGamepadKeysArray) {
-            if (hasKey) {
-                hasGamepadKeys = true;
-                break;
-            }
-        }
+        for (boolean hasKey : hasGamepadKeysArray) if (hasKey) return true;
 
-        return (isGamepad && hasGamepadKeys) ||
-                (isJoystick && hasAxes);
+        // If no gamepad buttons, check for D-Pad or Joysticks
+        return isGamepad || (device.getMotionRange(MotionEvent.AXIS_Z) != null || device.getMotionRange(MotionEvent.AXIS_HAT_X) != null);
     }
 
     /**
@@ -221,7 +240,7 @@ public class ControllerManager {
     public static String getDeviceIdentifier(InputDevice device) {
         if (device == null) return null;
         // The descriptor is the most reliable unique ID for a device.
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             return device.getDescriptor();
         }
         // Fallback for older Android versions
@@ -396,6 +415,13 @@ public class ControllerManager {
             return;
         }
 
+        // Cancel any pending removal if the same device re-connects
+        Runnable pending = pendingRemovals.remove(deviceIdentifier);
+        if (pending != null) {
+            settleHandler.removeCallbacks(pending);
+            Log.d(TAG, "Canceled pending removal for settled device: " + deviceIdentifier);
+        }
+
         knownDeviceIdentifiers.put(deviceId, deviceIdentifier);
         scanForDevices();
         int existing = getSlotForDevice(deviceId);
@@ -462,19 +488,55 @@ public class ControllerManager {
 
     public void onDeviceDisconnected(int deviceId) {
         String deviceIdentifier = getDeviceIdentifierForDeviceId(deviceId);
+        if (deviceIdentifier == null) {
+            knownDeviceIdentifiers.remove(deviceId);
+            scanForDevices();
+            return;
+        }
+
+        // Check if this device is assigned to a slot.
         int slot = getSlotForIdentifier(deviceIdentifier);
-        knownDeviceIdentifiers.remove(deviceId);
-        scanForDevices();
-        if (slot >= 0) {
-            slotAssignments.remove(slot);
-            if (deviceIdentifier != null) {
-                lastKnownSlotByIdentifier.put(deviceIdentifier, slot);
+        if (slot < 0) {
+            knownDeviceIdentifiers.remove(deviceId);
+            scanForDevices();
+            return;
+        }
+
+        // If it was assigned, wait a moment before unassigning to handle "ghost" disconnects
+        // (common when controllers report multiple device IDs for sensors/touchpads).
+        if (pendingRemovals.containsKey(deviceIdentifier)) return;
+
+        Log.d(TAG, "Device disconnected, scheduling settle-removal: " + deviceIdentifier);
+        Runnable removeTask = () -> {
+            pendingRemovals.remove(deviceIdentifier);
+            // Verify it's STILL disconnected before finalizing removal
+            if (isDeviceActuallyConnected(deviceIdentifier)) {
+                Log.d(TAG, "Settle-removal aborted: device re-appeared: " + deviceIdentifier);
+                return;
             }
+
+            knownDeviceIdentifiers.remove(deviceId);
+            slotAssignments.remove(slot);
+            lastKnownSlotByIdentifier.put(deviceIdentifier, slot);
             markSlotRecentlyFreed(slot);
+            scanForDevices();
             saveAssignments();
             notifySlotsChanged();
-            Log.i(TAG, "Unassigned disconnected deviceId=" + deviceId + " from Player " + (slot + 1));
+            Log.i(TAG, "Finalized unassignment of disconnected deviceId=" + deviceId + " from Player " + (slot + 1));
+        };
+
+        pendingRemovals.put(deviceIdentifier, removeTask);
+        settleHandler.postDelayed(removeTask, ASSIGN_SETTLE_MS);
+    }
+
+    private boolean isDeviceActuallyConnected(String identifier) {
+        int[] ids = inputManager.getInputDeviceIds();
+        if (ids == null) return false;
+        for (int id : ids) {
+            InputDevice d = inputManager.getInputDevice(id);
+            if (d != null && identifier.equals(getDeviceIdentifier(d))) return true;
         }
+        return false;
     }
 
     private void markSlotRecentlyFreed(int slot) {
@@ -506,19 +568,30 @@ public class ControllerManager {
         markActive(deviceId);
         int slot = getSlotForDevice(deviceId);
         if (slot == 0) return false;
-        InputDevice occupant = getAssignedDeviceForSlot(0);
-        if (occupant == null) return false;
-        String occupantIdentifier = getDeviceIdentifier(occupant);
-        if (occupantIdentifier == null || sessionActiveIdentifiers.contains(occupantIdentifier)) return false;
+
         String deviceIdentifier = getDeviceIdentifierForDeviceId(deviceId);
         if (deviceIdentifier == null) return false;
-        assignDeviceIdentifierToSlot(0, deviceIdentifier);
-        if (slot > 0) {
-            assignDeviceIdentifierToSlot(slot, occupantIdentifier);
+
+        InputDevice occupant = getAssignedDeviceForSlot(0);
+        if (occupant == null) {
+            // Player 1 slot is empty, claim it immediately
+            assignDeviceIdentifierToSlot(0, deviceIdentifier);
+            enabledSlots[0] = true;
+            Log.i(TAG, "deviceId=" + deviceId + " claimed empty Player 1 slot");
+        } else {
+            String occupantIdentifier = getDeviceIdentifier(occupant);
+            if (occupantIdentifier == null || sessionActiveIdentifiers.contains(occupantIdentifier)) return false;
+
+            // Player 1 is idle, displace them
+            assignDeviceIdentifierToSlot(0, deviceIdentifier);
+            if (slot > 0) {
+                assignDeviceIdentifierToSlot(slot, occupantIdentifier);
+            }
+            Log.i(TAG, "deviceId=" + deviceId + " displaced idle Player 1");
         }
+
         saveAssignments();
         notifySlotsChanged();
-        Log.i(TAG, "deviceId=" + deviceId + " displaced idle Player 1");
         return true;
     }
 
@@ -527,7 +600,7 @@ public class ControllerManager {
         if (identifier == null || !sessionActiveIdentifiers.add(identifier)) return;
         InputDevice device = inputManager.getInputDevice(deviceId);
         if (device != null &&
-                (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q || device.isExternal())) {
+                (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || device.isExternal())) {
             sessionUsedExternalController = true;
         }
     }

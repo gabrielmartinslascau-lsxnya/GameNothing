@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -70,6 +71,9 @@ import androidx.compose.ui.window.DialogProperties
 import app.gamenative.R
 import app.gamenative.data.GameSource
 import app.gamenative.ui.screen.library.GameMigrationDialog
+import app.gamenative.utils.BackgroundOperation
+import app.gamenative.utils.BackgroundOperationManager
+import app.gamenative.utils.OperationType
 import app.gamenative.ui.theme.PluviaTheme
 import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.utils.ContainerStorageManager
@@ -258,6 +262,16 @@ class ContainerStorageManagerUiState internal constructor(
         moveMovedFiles = 0
         moveTotalFiles = 1
 
+        val operationId = "move_${entry.containerId}"
+        BackgroundOperationManager.startOperation(
+            BackgroundOperation(
+                id = operationId,
+                type = OperationType.TRANSFER,
+                displayName = "Moving $entryName",
+                isCancellable = false
+            )
+        )
+
         scope.launch {
             val result = try {
                 ContainerStorageManager.moveGame(
@@ -269,14 +283,29 @@ class ContainerStorageManagerUiState internal constructor(
                         moveProgress = fileProgress
                         moveMovedFiles = movedFiles
                         moveTotalFiles = totalFiles
+
+                        BackgroundOperationManager.updateOperation(operationId) { op ->
+                            op.copy(
+                                progress = (movedFiles.toFloat() + fileProgress) / totalFiles.toFloat(),
+                                statusMessage = currentFile
+                            )
+                        }
                     },
-                )
+                ).also {
+                    // Final cleanup progress update
+                    moveCurrentFile = "Cleaning up..."
+                    moveProgress = 1f
+                    BackgroundOperationManager.updateOperation(operationId) { op ->
+                        op.copy(progress = 1f, statusMessage = "Cleaning up...")
+                    }
+                }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
                 Result.failure(error)
             } finally {
                 movingEntryName = null
+                BackgroundOperationManager.finishOperation(operationId)
             }
 
             if (result.isSuccess) {
@@ -295,12 +324,12 @@ class ContainerStorageManagerUiState internal constructor(
                 )
                 refresh()
             } else {
+                val errorMessage = result.exceptionOrNull()?.message
+                    ?: appContext.getString(R.string.container_storage_unknown_error)
                 SnackbarManager.show(
                     appContext.getString(
                         R.string.container_storage_move_failed,
-                        entryName,
-                        result.exceptionOrNull()?.message
-                            ?: appContext.getString(R.string.container_storage_unknown_error),
+                        "$entryName ($errorMessage)",
                     ),
                 )
             }
@@ -550,6 +579,16 @@ fun ContainerStorageManagerContent(
                             onUninstall = { state.requestUninstall(entry) },
                         )
                     }
+
+                    item {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Warning: Manual changes in System Files may require a 'Refresh' in Settings to update game records. Do not delete critical app folders.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        )
+                    }
                 }
             }
         }
@@ -738,6 +777,18 @@ private fun StorageEntryCard(
                             enabled = actionsEnabled,
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    }
+                    if (!entry.installPath.isNullOrBlank()) {
+                        StorageActionButton(
+                            text = "Advanced: System Files (Expert)",
+                            icon = Icons.Default.Folder,
+                            onClick = {
+                                StorageUtils.openSystemFileManager(context, entry.installPath)
+                            },
+                            enabled = actionsEnabled,
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                         )
                     }
                     if (entry.canUninstallGame) {

@@ -57,6 +57,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -103,6 +105,7 @@ import app.gamenative.gamefixes.GameInputCompatibility
 import app.gamenative.powercontrol.PowerManager
 import app.gamenative.service.AchievementWatcher
 import app.gamenative.service.SteamService
+import app.gamenative.service.amazon.AmazonService
 import app.gamenative.service.epic.EpicOverlayManager
 import app.gamenative.service.epic.EpicService
 import app.gamenative.service.gog.GOGService
@@ -111,6 +114,16 @@ import app.gamenative.ui.component.PerformanceQuickMenuState
 import app.gamenative.ui.component.QuickMenu
 import app.gamenative.ui.component.QuickMenuAction
 import app.gamenative.ui.component.SteamInviteState
+import app.gamenative.utils.ControlProfileManager
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material3.AlertDialog
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.PopupProperties
+import app.gamenative.data.ControlProfile
+import app.gamenative.linux.LinuxContainerManager
+import app.gamenative.ui.component.ControlProfileDrawer
+import app.gamenative.ui.component.dialog.SaveProfileDialog
+import app.gamenative.ui.component.dialog.ShooterModeSettingsDialog
 import app.gamenative.ui.component.parseBooleanExtra
 import app.gamenative.ui.component.parsePositiveFpsLimit
 import app.gamenative.ui.data.PerformanceHudConfig
@@ -129,6 +142,7 @@ import app.gamenative.utils.ExecutableSelectionUtils
 import app.gamenative.utils.LsfgQuickMenuHelper
 import app.gamenative.utils.LsfgVkManager
 import app.gamenative.utils.ManifestComponentHelper
+import app.gamenative.utils.MusicManager
 import app.gamenative.utils.PreInstallSteps
 import app.gamenative.utils.SteamTokenLogin
 import app.gamenative.utils.SteamUtils
@@ -138,7 +152,6 @@ import app.gamenative.utils.downloader.DXWrapperDownloader
 import app.gamenative.utils.downloader.GraphicsDriverDownloader
 import app.gamenative.utils.downloader.WinComponentDownloader
 import app.gamenative.utils.launchdependencies.BionicSteamAssetsDependency
-import com.posthog.PostHog
 import com.winlator.PrefManager as WinlatorPrefManager
 import com.winlator.alsaserver.ALSAClient
 import com.winlator.container.Container
@@ -397,8 +410,9 @@ fun XServerScreen(
         isExiting.set(false)
     }
 
-    val container = remember(appId) {
-        ContainerUtils.getContainer(context, appId)
+    val effectiveAppId = if (appId.isNullOrEmpty() || appId == "STEAM_0") "CUSTOM_GAME_99999" else appId
+    val container = remember(effectiveAppId) {
+        ContainerUtils.getOrCreateContainer(context, effectiveAppId)
     }
     val activity = remember(context) { BrightnessManager.findActivity(context) }
 
@@ -569,6 +583,33 @@ fun XServerScreen(
     var lsfgMultiplier by rememberSaveable(container.id) { mutableIntStateOf(initialLsfgSettings.multiplier) }
     var lsfgFlowScale by rememberSaveable(container.id) { mutableStateOf(initialLsfgSettings.flowScale) }
     var lsfgPerformanceMode by rememberSaveable(container.id) { mutableStateOf(initialLsfgSettings.performanceMode) }
+
+    var showSaveProfileDialog by rememberSaveable { mutableStateOf(false) }
+    var isManagingPhysicalProfiles by rememberSaveable { mutableStateOf(false) }
+    var isUIBlocked by remember { mutableStateOf(false) }
+    var customVirtualProfiles by remember { mutableStateOf(ControlProfileManager.loadProfiles(context, false)) }
+    var customPhysicalProfiles by remember { mutableStateOf(ControlProfileManager.loadProfiles(context, true)) }
+    var activePhysicalProfile by remember { mutableStateOf<ControlsProfile?>(null) }
+
+    // Persistent active profile name tracking
+    var activeVirtualProfileName by remember(container.id) {
+        mutableStateOf(container.getExtra("activeVirtualProfileName", ""))
+    }
+    var activePhysicalProfileName by remember(container.id) {
+        mutableStateOf(container.getExtra("activePhysicalProfileName", ""))
+    }
+
+    // Drawer state persistence (Recovers if app restarts)
+    val drawerPersistKey = "drawer_open_persist"
+    var showProfileDrawer by rememberSaveable(container.id) {
+        mutableStateOf(container.getExtra(drawerPersistKey, "false").toBoolean())
+    }
+
+    fun setDrawerVisible(visible: Boolean) {
+        showProfileDrawer = visible
+        container.putExtra(drawerPersistKey, visible.toString())
+        container.saveData()
+    }
 
     fun persistFpsLimiterState() {
         container.putExtra(FPS_LIMITER_ENABLED_EXTRA, fpsLimiterEnabled)
@@ -997,6 +1038,22 @@ fun XServerScreen(
         controllerManager.autoAssignConnectedDevices()
         hasPhysicalController = controllerManager.getDetectedDevices().isNotEmpty()
         controllerSlotStatusVersion++
+
+        // Re-apply correct profile if physical controller changes
+        val manager = PluviaApp.inputControlsManager
+        val profileIdStr = container.getExtra("physicalProfileId", container.getExtra("profileId", "0"))
+        val profileId = profileIdStr.toIntOrNull() ?: 0
+        val targetProfile = if (profileId != 0) manager?.getProfile(profileId) else null
+        if (targetProfile != null) {
+            physicalControllerHandler?.setProfile(targetProfile)
+
+            // Sync UI state
+            val profileName = targetProfile.name
+            if (activePhysicalProfileName != profileName) {
+                activePhysicalProfileName = profileName
+            }
+        }
+
         xServerView?.getxServer()?.winHandler?.refreshControllerMappingsForHotplug()
 
         if (!usingScreenMirror &&
@@ -1011,10 +1068,10 @@ fun XServerScreen(
 
             if (profiles.isNotEmpty()) {
                 // Use current profile (custom or Profile 0)
-                val profileIdStr = container.getExtra("profileId", "0")
-                val profileId = profileIdStr.toIntOrNull() ?: 0
-                val targetProfile = if (profileId != 0) {
-                    manager?.getProfile(profileId)
+                val virtualProfileIdStr = container.getExtra("profileId", "0")
+                val virtualProfileId = virtualProfileIdStr.toIntOrNull() ?: 0
+                val targetVirtualProfile = if (virtualProfileId != 0) {
+                    manager?.getProfile(virtualProfileId)
                 } else {
                     null
                 } ?: manager?.getProfile(0) ?: profiles.getOrNull(2) ?: profiles.first()
@@ -1022,7 +1079,7 @@ fun XServerScreen(
                 if (!showElementEditor && !keepPausedForEditor && !showQuickMenu && !isEditMode) {
                     Timber.d("No external devices attached, showing on-screen controls")
                     if (!areControlsVisible) {
-                        showInputControls(targetProfile, xServerView!!.getxServer().winHandler, container)
+                        showInputControls(targetVirtualProfile, xServerView!!.getxServer().winHandler, container)
                         areControlsVisible = true
                     }
 
@@ -1127,11 +1184,10 @@ fun XServerScreen(
 
     // Shows the soft keyboard, anchored to [anchor]. Handles the Android 12+
     // post-delay quirk and routes input to the external display IME when needed.
-    val showSoftKeyboard: (View, String) -> Unit = { anchor, analyticsEvent ->
+    val showSoftKeyboard: (View, String) -> Unit = { anchor, _ ->
         anchor.post {
             if (anchor.windowToken != null) {
                 val show = {
-                    if (PrefManager.usageAnalyticsEnabled) PostHog.capture(event = analyticsEvent)
                     val isExternalDisplaySession =
                         (anchor.display?.displayId ?: Display.DEFAULT_DISPLAY) != Display.DEFAULT_DISPLAY
 
@@ -1160,10 +1216,8 @@ fun XServerScreen(
 
             QuickMenuAction.INPUT_CONTROLS -> {
                 if (areControlsVisible) {
-                    if (PrefManager.usageAnalyticsEnabled) PostHog.capture(event = "onscreen_controller_disabled")
                     hideInputControls()
                 } else {
-                    if (PrefManager.usageAnalyticsEnabled) PostHog.capture(event = "onscreen_controller_enabled")
                     val manager = PluviaApp.inputControlsManager
                     val profiles = manager?.getProfiles(false) ?: listOf()
                     if (profiles.isNotEmpty()) {
@@ -1198,7 +1252,6 @@ fun XServerScreen(
             }
 
             QuickMenuAction.EDIT_CONTROLS -> {
-                if (PrefManager.usageAnalyticsEnabled) PostHog.capture(event = "edit_controls_in_game")
                 keepPausedForEditor = true
 
                 // Get or create profile for this container
@@ -1349,43 +1402,30 @@ fun XServerScreen(
             }
 
             QuickMenuAction.EDIT_PHYSICAL_CONTROLLER -> {
-                if (PrefManager.usageAnalyticsEnabled) PostHog.capture(event = "edit_physical_controller_from_menu")
                 keepPausedForEditor = true
                 showPhysicalControllerDialog = true
                 true
             }
 
             QuickMenuAction.RADIAL_MENU -> {
-                if (PrefManager.usageAnalyticsEnabled) PostHog.capture(event = "edit_radial_menu_from_menu")
                 PluviaApp.radialMenuCoordinator?.showSettingsDialog() == true
             }
+
+            QuickMenuAction.CROSSHAIR -> {
+                PrefManager.crosshairEnabled = !PrefManager.crosshairEnabled
+                false
+            }
+
 
             QuickMenuAction.PERFORMANCE_HUD -> {
                 val enabled = !isPerformanceHudEnabled
                 isPerformanceHudEnabled = enabled
                 PrefManager.showFps = enabled
                 updatePerformanceHud(enabled)
-                if (PrefManager.usageAnalyticsEnabled) {
-                    PostHog.capture(
-                        event = "performance_hud_toggled",
-                        properties = mapOf("enabled" to enabled),
-                    )
-                }
                 false
             }
 
             QuickMenuAction.EXIT_GAME -> {
-                PostHog.capture(
-                    event = "game_closed",
-                    properties = buildMap {
-                        put("game_name", ContainerUtils.resolveGameName(appId))
-                        put("game_store", ContainerUtils.extractGameSourceFromContainerId(appId).name)
-                        if (PrefManager.usageAnalyticsEnabled) {
-                            put("max_controllers", ControllerManager.getInstance().sessionUsedControllerCount)
-                            put("external_controller_used", ControllerManager.getInstance().sessionUsedExternalController)
-                        }
-                    },
-                )
                 imeInputReceiver?.hideKeyboard()
                 // Resume processes before exiting so they can receive SIGTERM cleanly.
                 // Don't resume audio to avoid resume->suspend race condition causing ANR.
@@ -1406,7 +1446,6 @@ fun XServerScreen(
             ?.isVisible(WindowInsetsCompat.Type.ime()) == true
 
         if (imeVisible) {
-            if (PrefManager.usageAnalyticsEnabled) PostHog.capture(event = "onscreen_keyboard_disabled")
             imeInputReceiver?.hideKeyboard()
             view.post {
                 if (Build.VERSION.SDK_INT >= 30) {
@@ -2427,37 +2466,31 @@ fun XServerScreen(
                             // Check if container has a custom profile associated
                             val profileIdStr = container.getExtra("profileId", "0")
                             val profileId = profileIdStr.toIntOrNull() ?: 0
+
+                            val physicalProfileIdStr = container.getExtra("physicalProfileId", profileIdStr)
+                            val physicalProfileId = physicalProfileIdStr.toIntOrNull() ?: 0
+
                             Timber.d("=== Profile Loading Start ===")
-                            Timber.d("Container: ${container.name}, ProfileID from extra: $profileId")
+                            Timber.d("Container: ${container.name}, ProfileID: $profileId, PhysicalProfileID: $physicalProfileId")
 
-                            val customProfile = if (profileId != 0) manager?.getProfile(profileId) else null
+                            val virtualProfile = if (profileId != 0) manager?.getProfile(profileId) else null
+                            val physicalProfile = if (physicalProfileId != 0) manager?.getProfile(physicalProfileId) else virtualProfile
 
-                            val targetProfile = if (customProfile != null) {
-                                // Use the custom profile associated with this container
-                                Timber.d("Using CUSTOM profile: ${customProfile.name} (ID: ${customProfile.id})")
-                                customProfile
-                            } else {
-                                // Use Profile 0 (Physical Controller Default) as fallback
-                                val fallback = manager?.getProfile(0) ?: profiles.getOrNull(2) ?: profiles.first()
-                                Timber.d("Using DEFAULT profile: ${fallback.name} (ID: ${fallback.id})")
-                                fallback
-                            }
-                            Timber.d("Profile loaded successfully: ${targetProfile.name}")
+                            val targetProfile = virtualProfile ?: manager?.getProfile(0) ?: profiles.getOrNull(2) ?: profiles.first()
+                            val targetPhysicalProfile = physicalProfile ?: targetProfile
 
-                            // Load controllers for this profile
-                            val controllers = targetProfile.loadControllers()
-                            Timber.d("Controllers loaded: ${controllers.size} controller(s)")
-                            controllers.forEachIndexed { index, controller ->
-                                Timber.d("  [$index] ID: ${controller.id}, Name: ${controller.name}, Bindings: ${controller.controllerBindingCount}")
-                            }
+                            Timber.d("Using VIRTUAL profile: ${targetProfile.name} (ID: ${targetProfile.id})")
+                            Timber.d("Using PHYSICAL profile: ${targetPhysicalProfile.name} (ID: ${targetPhysicalProfile.id})")
 
-                            Timber.d("=== Profile Loading Complete ===")
+                            // IMPORTANT: Load controllers first so mark as loaded
+                            targetPhysicalProfile.loadControllers()
+
                             setProfile(targetProfile)
-                            PluviaApp.radialMenuCoordinator?.setProfile(targetProfile)
+                            PluviaApp.radialMenuCoordinator?.setProfile(targetPhysicalProfile)
 
                             val radialMenuCoordinator = PluviaApp.radialMenuCoordinator
-                            physicalControllerHandler = PhysicalControllerHandler(
-                                targetProfile,
+                            val handler = PhysicalControllerHandler(
+                                targetPhysicalProfile,
                                 xServerView.getxServer(),
                                 gameBack,
                                 onShowKeyboard = {
@@ -2468,7 +2501,11 @@ fun XServerScreen(
                                 },
                                 onRadialMenuVectorChanged = radialMenuCoordinator?.let { it::onRadialMenuVectorChanged },
                             )
-                            radialMenuCoordinator?.bindPhysicalControllerHandler(physicalControllerHandler)
+                            physicalControllerHandler = handler
+                            radialMenuCoordinator?.bindPhysicalControllerHandler(handler)
+
+                            // Force native re-bind
+                            xServerView.getxServer().winHandler?.reassertPrimaryController()
 
                             // Store profile for auto-show logic
                             loadedProfile = targetProfile
@@ -2712,21 +2749,6 @@ fun XServerScreen(
                 onDelete = {
                     PluviaApp.inputControlsView?.removeElement()
                 },
-                onSave = {
-                    // Save profile changes
-                    PluviaApp.inputControlsView?.profile?.save()
-                    // Clear snapshot since changes were accepted
-                    elementPositionsSnapshot = emptyMap()
-                    // Exit edit mode
-                    isEditMode = false
-                    PluviaApp.inputControlsView?.setEditMode(false)
-                    // Force redraw on next frame to ensure grid is removed
-                    PluviaApp.inputControlsView?.post {
-                        PluviaApp.inputControlsView?.invalidate()
-                    }
-                    keepPausedForEditor = false
-                    resumeIfAllowedAfterOverlay()
-                },
                 onClose = {
                     // Restore element positions from snapshot (cancel behavior)
                     if (elementPositionsSnapshot.isNotEmpty()) {
@@ -2763,6 +2785,14 @@ fun XServerScreen(
                         }
                     }
                 },
+                onShowProfiles = {
+                    isManagingPhysicalProfiles = false
+                    setDrawerVisible(true)
+                },
+                onSaveProfile = {
+                    isManagingPhysicalProfiles = false
+                    showSaveProfileDialog = true
+                }
             )
         }
 
@@ -2887,7 +2917,7 @@ fun XServerScreen(
     }
 
     if (showShooterModeDialog) {
-        app.gamenative.ui.component.dialog.ShooterModeSettingsDialog(
+        ShooterModeSettingsDialog(
             shooterConfig = currentShooterConfig,
             defaultJoystickOpacity = PrefManager.getFloat(
                 "controls_opacity",
@@ -2906,7 +2936,7 @@ fun XServerScreen(
 
     if (showPlayingBlockedDialog) {
         val remoteName = playingBlockedRemoteName ?: stringResource(R.string.main_app_running_unknown_game)
-        androidx.compose.material3.AlertDialog(
+        AlertDialog(
             onDismissRequest = {},
             title = { Text(text = stringResource(R.string.main_app_running_title)) },
             text = { Text(text = stringResource(R.string.main_app_running_message, remoteName)) },
@@ -2977,9 +3007,13 @@ fun XServerScreen(
         }
 
         if (profile != null) {
-            androidx.compose.ui.window.Dialog(
+            // Track for saving
+            LaunchedEffect(profile) { activePhysicalProfile = profile }
+
+            Dialog(
                 onDismissRequest = {
                     showPhysicalControllerDialog = false
+                    activePhysicalProfile = null
                     keepPausedForEditor = false
                     resumeIfAllowedAfterOverlay()
                 },
@@ -2995,6 +3029,14 @@ fun XServerScreen(
                             showPhysicalControllerDialog = false
                             keepPausedForEditor = false
                             resumeIfAllowedAfterOverlay()
+                        },
+                        onShowProfiles = {
+                            isManagingPhysicalProfiles = true
+                            setDrawerVisible(true)
+                        },
+                        onSaveProfile = {
+                            isManagingPhysicalProfiles = true
+                            showSaveProfileDialog = true
                         },
                         onSave = {
                             // Ensure controllersLoaded is true before saving
@@ -3018,21 +3060,181 @@ fun XServerScreen(
                             showPhysicalControllerDialog = false
                             keepPausedForEditor = false
                             resumeIfAllowedAfterOverlay()
-                        },
+                        }
                     )
                 }
             }
         }
     }
 
-    // var ranSetup by rememberSaveable { mutableStateOf(false) }
-    // LaunchedEffect(lifecycleOwner) {
-    //     if (!ranSetup) {
-    //         ranSetup = true
-    //
-    //
-    //     }
-    // }
+    // Absolute Top Layer (Rendered last)
+    if (showSaveProfileDialog) {
+        SaveProfileDialog(
+            visible = true,
+            existingProfileNames = (if (isManagingPhysicalProfiles) customPhysicalProfiles else customVirtualProfiles).map { it.name },
+            onDismiss = { if (!isUIBlocked) showSaveProfileDialog = false },
+            onSave = { name ->
+                if (isUIBlocked) return@SaveProfileDialog
+
+                // REDUNDANT VALIDATION: Ensure name is not empty or duplicate
+                val existingNames = (if (isManagingPhysicalProfiles) customPhysicalProfiles else customVirtualProfiles).map { it.name }
+                if (name.isBlank()) {
+                    SnackbarManager.show("Profile name cannot be empty")
+                    return@SaveProfileDialog
+                }
+                if (existingNames.any { it.equals(name, ignoreCase = true) }) {
+                    SnackbarManager.show("A profile with this name already exists")
+                    return@SaveProfileDialog
+                }
+
+                isUIBlocked = true
+
+                val profileToSave = if (isManagingPhysicalProfiles) activePhysicalProfile else PluviaApp.inputControlsView?.profile
+                if (profileToSave != null) {
+                    try {
+                        // 1. Save to custom storage for the "Named Profiles" list
+                        val jsonObject = profileToSave.toJSONObject()
+                        if (jsonObject != null) {
+                            val profileData = jsonObject.toString()
+                            val newProfile = ControlProfile(name, profileData)
+                            if (ControlProfileManager.saveProfile(context, newProfile, isManagingPhysicalProfiles)) {
+
+                                // 2. IMPORTANT: Persist into Winlator's internal profile system so it stays across boots
+                                val manager = PluviaApp.inputControlsManager ?: InputControlsManager(context)
+                                jsonObject.put("name", name)
+                                val winlatorProfile = manager.importProfile(jsonObject)
+
+                                if (winlatorProfile != null) {
+                                    if (isManagingPhysicalProfiles) {
+                                        customPhysicalProfiles = ControlProfileManager.loadProfiles(context, true)
+                                        activePhysicalProfileName = name
+                                        container.putExtra("activePhysicalProfileName", name)
+                                        container.putExtra("physicalProfileId", winlatorProfile.id.toString())
+                                    } else {
+                                        customVirtualProfiles = ControlProfileManager.loadProfiles(context, false)
+                                        activeVirtualProfileName = name
+                                        container.putExtra("activeVirtualProfileName", name)
+                                        container.putExtra("profileId", winlatorProfile.id.toString())
+                                    }
+                                    container.saveData()
+
+                                    // FORCE RELOAD in current session
+                                    xServerView?.getxServer()?.winHandler?.reassertPrimaryController()
+                                }
+
+                                showSaveProfileDialog = false
+                                SnackbarManager.show("Profile '$name' saved permanently")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "Failed to save profile")
+                        SnackbarManager.show("Failed to save profile")
+                    } finally {
+                        isUIBlocked = false
+                    }
+                } else {
+                    isUIBlocked = false
+                    SnackbarManager.show("No active profile to save")
+                }
+            },
+        )
+    }
+
+    if (showProfileDrawer) {
+        // Force refresh profiles list when drawer opens
+        LaunchedEffect(showProfileDrawer, isManagingPhysicalProfiles) {
+            if (isManagingPhysicalProfiles) {
+                customPhysicalProfiles = ControlProfileManager.loadProfiles(context, true)
+            } else {
+                customVirtualProfiles = ControlProfileManager.loadProfiles(context, false)
+            }
+        }
+
+        ControlProfileDrawer(
+            visible = true,
+            profiles = if (isManagingPhysicalProfiles) customPhysicalProfiles else customVirtualProfiles,
+            activeProfileName = if (isManagingPhysicalProfiles) activePhysicalProfileName else activeVirtualProfileName,
+            onDismiss = { if (!isUIBlocked) setDrawerVisible(false) },
+            onProfileSelected = { profile ->
+                if (isUIBlocked) return@ControlProfileDrawer
+                isUIBlocked = true
+
+                try {
+                    val jsonObj = JSONObject(profile.data)
+                    val manager = PluviaApp.inputControlsManager ?: InputControlsManager(context)
+                    val controlsProfile = manager.importProfile(jsonObj)
+                    if (controlsProfile != null) {
+                        if (isManagingPhysicalProfiles) {
+                            // NON-DESTRUCTIVE: Just switch the active profile ID and name
+                            // instead of copying bindings into the current profile.
+                            activePhysicalProfile = controlsProfile
+                            physicalControllerHandler?.setProfile(controlsProfile)
+                            PluviaApp.radialMenuCoordinator?.setProfile(controlsProfile)
+
+                            container.putExtra("physicalProfileId", controlsProfile.id.toString())
+                            container.putExtra("activePhysicalProfileName", profile.name)
+                            activePhysicalProfileName = profile.name
+                            container.saveData()
+
+                            // Force native re-bind with WATCHDOG retry logic
+                            scope.launch {
+                                var confirmed = false
+                                repeat(3) { attempt ->
+                                    if (!confirmed) {
+                                        Timber.d("Mapping Watchdog: Re-asserting controller (Attempt ${attempt + 1})")
+                                        xServerView?.getxServer()?.winHandler?.reassertPrimaryController()
+                                        delay(800)
+
+                                        // Sync Check
+                                        if (physicalControllerHandler?.getActiveProfileId() == controlsProfile.id) {
+                                            confirmed = true
+                                            Timber.d("Mapping Watchdog: Sync Confirmed")
+                                        }
+                                    }
+                                }
+                            }
+
+                            controllerSlotStatusVersion++
+                            SnackbarManager.show("Physical mapping applied: ${profile.name}")
+                        } else {
+                            // Apply to both Virtual and Physical systems
+                            showInputControls(controlsProfile, xServerView!!.getxServer().winHandler, container)
+                            container.putExtra("profileId", controlsProfile.id.toString())
+                            container.putExtra("activeVirtualProfileName", profile.name)
+                            activeVirtualProfileName = profile.name
+                            container.saveData()
+
+                            // Force native re-bind with WATCHDOG
+                            scope.launch {
+                                repeat(3) {
+                                    xServerView?.getxServer()?.winHandler?.reassertPrimaryController()
+                                    delay(800)
+                                }
+                            }
+
+                            SnackbarManager.show("Applied profile: ${profile.name}")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to apply profile")
+                    SnackbarManager.show("Failed to apply profile")
+                } finally {
+                    isUIBlocked = false
+                }
+                setDrawerVisible(false)
+            },
+            onDeleteProfile = { profile ->
+                if (isUIBlocked) return@ControlProfileDrawer
+                if (ControlProfileManager.deleteProfile(context, profile.name, isManagingPhysicalProfiles)) {
+                    if (isManagingPhysicalProfiles) {
+                        customPhysicalProfiles = ControlProfileManager.loadProfiles(context, true)
+                    } else {
+                        customVirtualProfiles = ControlProfileManager.loadProfiles(context, false)
+                    }
+                }
+            },
+        )
+    }
 }
 
 /** Lives outside XServerScreen because that composable sits at the dex verifier's 255-register
@@ -3090,9 +3292,10 @@ private fun EditModeToolbar(
     onAdd: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onSave: () -> Unit,
     onClose: () -> Unit,
     onDuplicate: (Int) -> Unit,
+    onShowProfiles: () -> Unit,
+    onSaveProfile: () -> Unit
 ) {
     var duplicateProfileOpen by remember { mutableStateOf(false) }
     var toolbarOffsetX by remember { mutableStateOf(0f) }
@@ -3181,9 +3384,16 @@ private fun EditModeToolbar(
                 }
             }
 
-            // Save button
-            TextButton(onClick = onSave) {
-                Icon(Icons.Default.Check, contentDescription = "Save", tint = androidx.compose.ui.graphics.Color.White)
+            // Profiles button
+            TextButton(onClick = onShowProfiles) {
+                Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Profiles", tint = androidx.compose.ui.graphics.Color.White)
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Profiles", color = androidx.compose.ui.graphics.Color.White)
+            }
+
+            // Save Profile button
+            TextButton(onClick = onSaveProfile) {
+                Icon(Icons.Default.Save, contentDescription = "Save", tint = androidx.compose.ui.graphics.Color.White)
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(stringResource(R.string.save), color = androidx.compose.ui.graphics.Color.White)
             }
@@ -3870,9 +4080,17 @@ private fun setupXEnvironment(
                 guestProgramLauncherComponent.setSteamAppId(numericAppId.toString())
             }
         }
-        gameExecutable = "wine explorer /desktop=shell," + xServer.screenInfo + " " +
-            getWineStartCommand(context, appId, container, bootToContainer, testGraphics, appLaunchInfo, envVars, guestProgramLauncherComponent, gameSource, offline) +
-            (if (container.execArgs.isNotEmpty()) " " + container.execArgs else "")
+        val rawStartCommand = getWineStartCommand(context, appId, container, bootToContainer, testGraphics, appLaunchInfo, envVars, guestProgramLauncherComponent, gameSource, offline)
+        val isNativeLinuxScript = container.executablePath.startsWith("/") || rawStartCommand.startsWith("/")
+        if (isNativeLinuxScript) {
+            val linuxScriptPath = if (rawStartCommand.startsWith("/")) rawStartCommand else container.executablePath
+            val (prootCmd, _) = LinuxContainerManager.buildProotCommand(context, linuxScriptPath)
+            envVars.put("GUEST_PROGRAM_LAUNCHER_COMMAND", prootCmd)
+            gameExecutable = linuxScriptPath
+        } else {
+            gameExecutable = "wine explorer /desktop=shell," + xServer.screenInfo + " " +
+                rawStartCommand + (if (container.execArgs.isNotEmpty()) " " + container.execArgs else "")
+        }
         preInstallCommands = PreInstallSteps.getPreInstallCommands(
             container,
             appId,
@@ -4184,9 +4402,27 @@ private fun setupXEnvironment(
         }
     }
 
-    // put in separate scope since winhandler start method does some network stuff
+    // Injects Xbox controller support and starts the WinHandler.
+    // Shared memory remains in internal storage for maximum reliability and JNI compatibility.
+    val gameIdInt = ContainerUtils.extractGameIdFromContainerId(appId)
+    val installPath = when (gameSource) {
+        GameSource.STEAM -> gameIdInt?.let { SteamService.getAppDirPath(it) }
+        GameSource.GOG -> gameIdInt?.let { GOGService.getInstallPath(it.toString()) }
+        GameSource.EPIC -> gameIdInt?.let { runBlocking { EpicService.getInstance()?.epicManager?.getGameById(it)?.installPath } }
+        GameSource.AMAZON -> gameIdInt?.let { AmazonService.getInstallPathByAppId(it) }
+        else -> null
+    }
+
+    if (installPath != null) {
+        val gameDir = File(installPath)
+        if (gameDir.exists()) {
+            SteamUtils.injectXboxControllerSupport(context, gameDir, container)
+        }
+    }
+
+    // starts the WinHandler using default internal storage paths.
     CoroutineScope(Dispatchers.IO).launch {
-        xServer.winHandler.start()
+        xServer.winHandler.start(null)
     }
     envVars.clear()
     xServerState.value = xServerState.value.copy(
@@ -4524,6 +4760,11 @@ private fun getWineStartCommand(
         // a unique .exe in the game folder (ignoring installers like "unins*").
         var executablePath = container.executablePath
 
+        if (executablePath.startsWith("/")) {
+            Timber.tag("XServerScreen").i("Custom Game path is native Linux script: $executablePath")
+            return executablePath
+        }
+
         // Find the A: drive (which should map to the game folder)
         var gameFolderPath: String? = null
         for (drive in Container.drivesIterator(container.drives)) {
@@ -4652,7 +4893,7 @@ private fun exit(
     frameRating: FrameRating?,
     appInfo: SteamApp?,
     container: Container,
-    appId: String,
+    _appId: String,
     onExit: (onComplete: (() -> Unit)?) -> Unit,
     navigateBack: () -> Unit,
 ) {
@@ -4662,17 +4903,6 @@ private fun exit(
         Timber.i("Exit already in progress, ignoring duplicate request")
         return
     }
-
-    PostHog.capture(
-        event = "game_exited",
-        properties = mapOf(
-            "game_name" to ContainerUtils.resolveGameName(appId),
-            "game_store" to ContainerUtils.extractGameSourceFromContainerId(appId).name,
-            "session_length" to (frameRating?.sessionLengthSec ?: 0),
-            "avg_fps" to (frameRating?.avgFPS ?: 0.0),
-            "container_config" to container.containerJson,
-        ),
-    )
 
     // Store session data in container metadata
     frameRating?.let { rating ->
@@ -5034,6 +5264,10 @@ private fun extractx86_64InputDlls(context: Context, container: Container) {
     if ("proton-9.0-x86_64" == wineVersion) {
         val wineFolder: File = File(imageFs.getWinePath() + "/lib/wine/")
         Log.d("XServerDisplayActivity", "Extracting input dlls to " + wineFolder.getPath())
+        val success: Boolean = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context.assets, inputAsset, wineFolder)
+        if (!success) {
+            Log.d("XServerDisplayActivity", "Failed to extract input dlls")
+        }
     } else {
         Log.d("XServerDisplayActivity", "Wine version is not proton-9.0-x86_64, skipping input dlls extraction")
     }
@@ -6047,7 +6281,7 @@ private fun extractSteamFiles(
         BionicSteamAssetsDependency.extractLsteamclientIntoPrefix(context, container)
 
         try {
-            val accountId = SteamService.userSteamId?.accountID?.toInt() ?: 0
+            val accountId = PrefManager.steamUserAccountId
             val userRegFile = File(container.rootDir, ".wine/user.reg")
             val steamRoot = "C:\\Program Files (x86)\\Steam"
             val activeProcessKey = "Software\\Valve\\Steam\\ActiveProcess"

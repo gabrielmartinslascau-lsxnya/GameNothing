@@ -75,6 +75,7 @@ import app.gamenative.utils.ManifestData
 import app.gamenative.utils.ManifestEntry
 import app.gamenative.utils.ManifestInstaller
 import app.gamenative.utils.PaddingUtils
+import app.gamenative.utils.computePercentResolutions
 import com.winlator.box86_64.Box86_64Preset
 import com.winlator.box86_64.Box86_64PresetManager
 import com.winlator.container.Container
@@ -1044,6 +1045,8 @@ fun ContainerConfigDialog(
             R.string.container_config_custom_resolution_error_aspect,
         )
 
+        val percentResolutions = remember(context) { computePercentResolutions(context) }
+
         val state = ContainerConfigState(
             config = configState,
             graphicsDrivers = graphicsDriversRef,
@@ -1095,6 +1098,7 @@ fun ContainerConfigDialog(
             pendingDriveLetter = pendingDriveLetterRef,
             driveLetterMenuExpanded = driveLetterMenuExpandedRef,
             screenSizes = screenSizes,
+            percentResolutions = percentResolutions,
             baseGraphicsDrivers = baseGraphicsDrivers,
             dxWrappers = dxWrappers,
             displayRenderers = displayRenderers,

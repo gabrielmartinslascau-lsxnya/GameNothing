@@ -7,7 +7,7 @@ set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} -s")
 
 add_link_options("-Wl,-z,max-page-size=16384")
 
-#add_subdirectory(proot)
+add_subdirectory(proot)
 add_subdirectory(virglrenderer)
 add_subdirectory(patchelf)
 add_subdirectory(extras/adrenotools)

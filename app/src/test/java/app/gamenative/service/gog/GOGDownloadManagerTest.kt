@@ -318,7 +318,7 @@ class GOGDownloadManagerTest {
     // ===== Chunk Decompression Tests =====
 
     @Test
-    fun decompressChunkToFile_compressedChunk_writesCorrectly() {
+    fun decompressChunkToFile_compressedChunk_writesCorrectly() = runTest {
         val tempDir = Files.createTempDirectory("gog-chunk-test").toFile()
 
         // Arrange: Create compressed chunk
@@ -348,7 +348,7 @@ class GOGDownloadManagerTest {
     }
 
     @Test
-    fun decompressChunkToFile_uncompressedChunk_copiesDirectly() {
+    fun decompressChunkToFile_uncompressedChunk_copiesDirectly() = runTest {
         val tempDir = Files.createTempDirectory("gog-chunk-test").toFile()
 
         // Arrange: Create uncompressed chunk (compressedSize = null)
@@ -377,7 +377,7 @@ class GOGDownloadManagerTest {
     }
 
     @Test
-    fun decompressChunkToFile_nonZeroOffset_writesAtCorrectPosition() {
+    fun decompressChunkToFile_nonZeroOffset_writesAtCorrectPosition() = runTest {
         val tempDir = Files.createTempDirectory("gog-chunk-test").toFile()
 
         // Arrange: Pre-create file with some data
@@ -414,7 +414,7 @@ class GOGDownloadManagerTest {
     }
 
     @Test
-    fun decompressChunkToFile_sizeMismatch_fails() {
+    fun decompressChunkToFile_sizeMismatch_fails() = runTest {
         val tempDir = Files.createTempDirectory("gog-chunk-test").toFile()
 
         // Arrange: Compressed data with wrong expected size
@@ -444,7 +444,7 @@ class GOGDownloadManagerTest {
     }
 
     @Test
-    fun decompressChunkToFile_md5Mismatch_fails() {
+    fun decompressChunkToFile_md5Mismatch_fails() = runTest {
         val tempDir = Files.createTempDirectory("gog-chunk-test").toFile()
 
         // Arrange: Valid compressed data but wrong MD5
@@ -472,7 +472,7 @@ class GOGDownloadManagerTest {
     }
 
     @Test
-    fun decompressChunkToFile_emptyMd5_failsValidation() {
+    fun decompressChunkToFile_emptyMd5_failsValidation() = runTest {
         val tempDir = Files.createTempDirectory("gog-chunk-test").toFile()
 
         // Arrange: Compressed chunk with empty MD5 string
@@ -500,7 +500,7 @@ class GOGDownloadManagerTest {
     }
 
     @Test
-    fun decompressChunkToFile_corruptedZlibData_fails() {
+    fun decompressChunkToFile_corruptedZlibData_fails() = runTest {
         val tempDir = Files.createTempDirectory("gog-chunk-test").toFile()
 
         // Arrange: Invalid zlib data
@@ -556,7 +556,7 @@ class GOGDownloadManagerTest {
         return hash.joinToString("") { "%02x".format(it) }
     }
 
-    private fun testDecompressChunkToFile(
+    private suspend fun testDecompressChunkToFile(
         chunkFile: File,
         chunk: app.gamenative.service.gog.api.FileChunk,
         outputFile: File,

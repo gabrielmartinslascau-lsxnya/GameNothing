@@ -69,6 +69,12 @@ interface IAppTheme {
 
     val videoBackgroundDimAlphaFlow: StateFlow<Float>
     var videoBackgroundDimAlpha: Float
+
+    val loadingScreenModeFlow: StateFlow<Int>
+    var loadingScreenMode: Int
+
+    val customLoadingVideoPathFlow: StateFlow<String>
+    var customLoadingVideoPath: String
 }
 
 class AppThemeImpl : IAppTheme {
@@ -123,6 +129,12 @@ class AppThemeImpl : IAppTheme {
 
     override val videoBackgroundDimAlphaFlow: MutableStateFlow<Float> = MutableStateFlow(PrefManager.videoBackgroundDimAlpha)
     override var videoBackgroundDimAlpha: Float by VideoBackgroundDimAlphaDelegate()
+
+    override val loadingScreenModeFlow: MutableStateFlow<Int> = MutableStateFlow(PrefManager.loadingScreenMode)
+    override var loadingScreenMode: Int by LoadingScreenModeDelegate()
+
+    override val customLoadingVideoPathFlow: MutableStateFlow<String> = MutableStateFlow(PrefManager.customLoadingVideoPath)
+    override var customLoadingVideoPath: String by CustomLoadingVideoPathDelegate()
 
     inner class AppThemeDelegate : ReadWriteProperty<Any, AppTheme> {
         override fun getValue(thisRef: Any, property: KProperty<*>): AppTheme = PrefManager.appTheme
@@ -257,6 +269,22 @@ class AppThemeImpl : IAppTheme {
         override fun setValue(thisRef: Any, property: KProperty<*>, value: Float) {
             videoBackgroundDimAlphaFlow.value = value
             PrefManager.videoBackgroundDimAlpha = value
+        }
+    }
+
+    inner class LoadingScreenModeDelegate : ReadWriteProperty<Any, Int> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): Int = PrefManager.loadingScreenMode
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: Int) {
+            loadingScreenModeFlow.value = value
+            PrefManager.loadingScreenMode = value
+        }
+    }
+
+    inner class CustomLoadingVideoPathDelegate : ReadWriteProperty<Any, String> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): String = PrefManager.customLoadingVideoPath
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: String) {
+            customLoadingVideoPathFlow.value = value
+            PrefManager.customLoadingVideoPath = value
         }
     }
 }

@@ -120,6 +120,8 @@
     <string name="tab_gog">GOG</string>
     <string name="tab_epic">Epic</string>
     <string name="tab_amazon">Amazon</string>
+    <string name="tab_cloud">Cloud</string>
+    <string name="tab_playground">Playground</string>
     <string name="tab_installed">Installed</string>
     <string name="tab_local">Custom</string>
     <string name="library_tab_with_count">%1$s (%2$d)</string>
@@ -1111,6 +1113,7 @@
     <string name="settings_info_privacy_subtitle">Opens a link to GameNative\'s privacy policy</string>
     <string name="settings_info_usage_analytics_title">Usage analytics</string>
     <string name="settings_info_usage_analytics_subtitle">We never track personal information. Disabling this stops non-essential analytics, however core game performance data is still collected as a legitimate interest to improve compatibility.</string>
+    <string name="app_filter_four_by_three">4:3 Aspect Ratio</string>
 
     <!-- Settings: Feel Group -->
     <string name="settings_feel_title" translatable="false">Feel</string>
@@ -1194,7 +1197,7 @@
     <string name="container_storage_move_to_external_button">Move to external</string>
     <string name="container_storage_move_to_internal_button">Move to internal</string>
     <string name="container_storage_move_success">Moved %1$s to %2$s storage</string>
-    <string name="container_storage_move_failed">Failed to move %1$s: %2$s</string>
+    <string name="container_storage_move_failed">Failed to move game: %1$s</string>
     <string name="container_storage_move_external_disabled">Enable Write to external storage first</string>
     <string name="container_storage_location_internal">Internal</string>
     <string name="container_storage_location_external">External</string>
@@ -2385,4 +2388,5 @@
     <string name="settings_thermal_threshold">Temp Threshold (°C)</string>
     <string name="settings_thermal_limit">Performance Cap (%)</string>
     <string name="settings_thermal_current">Current Temp: %1.1f°C</string>
+    <string name="crosshair_toggle">Crosshair</string>
 </resources>

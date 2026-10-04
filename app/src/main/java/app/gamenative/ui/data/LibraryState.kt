@@ -1,6 +1,8 @@
 package app.gamenative.ui.data
 
 import app.gamenative.PrefManager
+import app.gamenative.ui.screen.library.components.PlaygroundSettings
+import app.gamenative.ui.screen.library.components.PlaygroundItem
 import app.gamenative.data.GameCompatibilityStatus
 import app.gamenative.data.GameSource
 import app.gamenative.data.LibraryItem
@@ -79,7 +81,11 @@ data class LibraryState(
     val epicCount: Int = 0,
     val amazonCount: Int = 0,
     val localCount: Int = 0,
+    val cloudCount: Int = 0,
     val favoritesCount: Int = 0,
+
+    val playgroundSettings: PlaygroundSettings = PlaygroundSettings(),
+    val playgroundItems: List<PlaygroundItem> = emptyList(),
 
     val mainColor: String = PrefManager.mainColor,
     val videoBackgroundPath: String = PrefManager.videoBackgroundPath,

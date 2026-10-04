@@ -1036,7 +1036,7 @@
     <string name="container_storage_move_to_external_button">外部に移動</string>
     <string name="container_storage_move_to_internal_button">社内に移動</string>
     <string name="container_storage_move_success">%1$s を %2$s ストレージに移動しました</string>
-    <string name="container_storage_move_failed">%1$s の移動に失敗しました: %2$s</string>
+    <string name="container_storage_move_failed">%1$s の移動に失敗しました</string>
     <string name="container_storage_move_external_disabled">最初に外部ストレージへの書き込みを有効にする</string>
     <string name="container_storage_location_internal">内部</string>
     <string name="container_storage_location_external">外部の</string>

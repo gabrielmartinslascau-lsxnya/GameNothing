@@ -27,9 +27,9 @@ import app.gamenative.R
 internal fun LibraryFavoritesEmptyState(
     @StringRes titleResId: Int,
     @StringRes messageResId: Int,
-    modifier: Modifier = Modifier,
     @StringRes actionLabelResId: Int? = null,
     onAction: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier

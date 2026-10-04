@@ -365,33 +365,35 @@ public class ExternalController {
     }
 
     public static boolean isGameController(InputDevice device) {
-        if (device == null) return false;
-        if (device.isVirtual()) return false;
+        if (device == null || device.isVirtual()) return false;
 
         boolean isGamepad = device.supportsSource(InputDevice.SOURCE_GAMEPAD);
         boolean isJoystick = device.supportsSource(InputDevice.SOURCE_JOYSTICK);
 
-        boolean hasAxes =
-                device.getMotionRange(android.view.MotionEvent.AXIS_X) != null ||
-                        device.getMotionRange(android.view.MotionEvent.AXIS_Y) != null;
+        if (!isGamepad) {
+            if (!isJoystick) return false;
+            boolean hasAxes = device.getMotionRange(MotionEvent.AXIS_X) != null &&
+                             device.getMotionRange(MotionEvent.AXIS_Y) != null;
+            if (!hasAxes) return false;
+
+            boolean[] hasAlphaKeys = device.hasKeys(KeyEvent.KEYCODE_Q, KeyEvent.KEYCODE_W, KeyEvent.KEYCODE_A, KeyEvent.KEYCODE_S);
+            int alphaCount = 0;
+            for (boolean b : hasAlphaKeys) if (b) alphaCount++;
+            if (alphaCount >= 3) return false;
+        }
 
         boolean[] hasGamepadKeysArray = device.hasKeys(
                 KeyEvent.KEYCODE_BUTTON_A,
                 KeyEvent.KEYCODE_BUTTON_B,
                 KeyEvent.KEYCODE_BUTTON_X,
-                KeyEvent.KEYCODE_BUTTON_Y
+                KeyEvent.KEYCODE_BUTTON_Y,
+                KeyEvent.KEYCODE_BUTTON_START,
+                KeyEvent.KEYCODE_BUTTON_SELECT
         );
 
-        boolean hasGamepadKeys = false;
-        for (boolean hasKey : hasGamepadKeysArray) {
-            if (hasKey) {
-                hasGamepadKeys = true;
-                break;
-            }
-        }
+        for (boolean hasKey : hasGamepadKeysArray) if (hasKey) return true;
 
-        return (isGamepad && hasGamepadKeys) ||
-                (isJoystick && hasAxes);
+        return isGamepad || (device.getMotionRange(MotionEvent.AXIS_Z) != null || device.getMotionRange(MotionEvent.AXIS_HAT_X) != null);
     }
 
     public static float getCenteredAxis(MotionEvent event, int axis, int historyPos) {

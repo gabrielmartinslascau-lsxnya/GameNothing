@@ -413,6 +413,7 @@ object SteamGridDB {
     suspend fun fetchGameImages(
         gameName: String,
         gameFolderPath: String,
+        force: Boolean = false,
     ): ImageFetchResult = withContext(Dispatchers.IO) {
         val apiKey = getApiKey()
         if (apiKey == null) {
@@ -472,7 +473,7 @@ object SteamGridDB {
                     )
         }?.isNotEmpty() == true
 
-        if (existingGridHero && existingGridCapsule && existingHero && existingLogo) {
+        if (!force && existingGridHero && existingGridCapsule && existingHero && existingLogo) {
             Timber.tag("SteamGridDB").d("All images already exist for '$gameName', skipping fetch")
             val gridHeroFile = gameFolder.listFiles { file ->
                 file.isFile &&

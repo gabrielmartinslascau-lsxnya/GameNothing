@@ -97,6 +97,7 @@ object SteamControllerVdfUtils {
                             val actionName = when (tokens[0].lowercase()) {
                                 "game_action" -> tokens.getOrNull(2)?.trimEnd(',')
                                 "xinput_button" -> tokens.getOrNull(1)?.trimEnd(',')
+                                "action" -> tokens.getOrNull(2)?.trimEnd(',') // Support modern IGA manifests
                                 else -> null
                             }
 

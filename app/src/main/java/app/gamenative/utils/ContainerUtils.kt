@@ -1203,16 +1203,10 @@ object ContainerUtils {
             containerId
         }
 
-        // Split by underscores and find the last numeric part
         val parts = idWithoutSuffix.split("_")
-        // The last part should be the numeric ID
-        val lastPart = parts.lastOrNull() ?: throw IllegalArgumentException("Invalid container ID format: $containerId")
+        val lastPart = parts.lastOrNull() ?: return 0
 
-        return try {
-            lastPart.toInt()
-        } catch (e: NumberFormatException) {
-            throw IllegalArgumentException("Could not extract game ID from container ID: $containerId", e)
-        }
+        return lastPart.toIntOrNull() ?: 0
     }
 
     /**

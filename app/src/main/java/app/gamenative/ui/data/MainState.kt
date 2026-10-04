@@ -24,6 +24,7 @@ data class MainState(
     val testGraphics: Boolean = false,
     val diagnostics: Boolean = false,
     val showBootingSplash: Boolean = false,
+    val isSystemReady: Boolean = false,
     val bootingSplashText: String = "Booting...",
     val bootingSplashHeroImageUrl: String = "",
 
@@ -41,10 +42,14 @@ data class MainState(
     val glassMode: GlassMode = GlassMode.STANDARD,
     val glassColor: String = "#FFFFFF",
     val fontType: FontType = FontType.NDOT,
+    val fasterExternalLoading: Boolean = false,
     val downloadBarStyle: app.gamenative.enums.DownloadBarStyle = app.gamenative.enums.DownloadBarStyle.NOTHING,
 
     val videoBackgroundPath: String = "",
     val videoBackgroundDimAlpha: Float = 0.4f,
+
+    val loadingScreenMode: Int = 0,
+    val customLoadingVideoPath: String = "",
 
     // Connection state for background reconnection
     // Default to DISCONNECTED - service will start and set to CONNECTING

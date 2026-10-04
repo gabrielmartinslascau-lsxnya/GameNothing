@@ -1,5 +1,6 @@
 package app.gamenative.ui.model
 
+import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.net.Uri
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -31,6 +32,7 @@ import app.gamenative.db.dao.AmazonGameDao
 import app.gamenative.db.dao.EpicGameDao
 import app.gamenative.db.dao.GOGGameDao
 import app.gamenative.db.dao.LibraryPlayHistoryDao
+import app.gamenative.playground.PlaygroundWidgetHostManager
 import app.gamenative.db.dao.SteamAppDao
 import app.gamenative.di.IAppTheme
 import app.gamenative.events.AndroidEvent
@@ -48,7 +50,13 @@ import app.gamenative.ui.data.GameMetadata
 import app.gamenative.ui.data.statsFor
 import app.gamenative.ui.enums.AppFilter
 import app.gamenative.ui.enums.LibraryTab
+import app.gamenative.ui.screen.library.components.PlaygroundSettings
+import app.gamenative.ui.screen.library.components.PlaygroundItem
+import app.gamenative.ui.screen.library.components.GridMode
 import app.gamenative.ui.enums.LibraryTab.Companion.next
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 import app.gamenative.ui.enums.LibraryTab.Companion.previous
 import app.gamenative.ui.enums.SortOption
 import app.gamenative.ui.util.SnackbarManager
@@ -89,6 +97,16 @@ import java.util.concurrent.atomic.AtomicLong
 private const val PLAYABLE_FPS_THRESHOLD = 30
 private const val PROVEN_RUNS_THRESHOLD = 5
 
+private val CURATED_FOUR_BY_THREE_APP_IDS = setOf(
+    10, 70, 6910, 38400, 38410, 32370, 221380, 2270, 2310, 238210, 12140, 316790
+)
+
+private val CLOUD_PACKAGE_WHITELIST = setOf(
+    "com.playstation.remoteplay",
+    "com.valvesoftware.steamlink",
+    "com.microsoft.xboxone.smartglass"
+)
+
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
     private val libraryPlayHistoryDao: LibraryPlayHistoryDao,
@@ -99,6 +117,8 @@ class LibraryViewModel @Inject constructor(
     private val appTheme: IAppTheme,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
+
+    val playgroundWidgetHostManager = PlaygroundWidgetHostManager(context)
 
     private val _state = MutableStateFlow(LibraryState(isLoading = true))
     val state: StateFlow<LibraryState> = _state.asStateFlow()
@@ -128,6 +148,10 @@ class LibraryViewModel @Inject constructor(
 
     private val onMoveCustomGame: (AndroidEvent.MoveCustomGame) -> Unit = { event ->
         moveCustomGame(event.appId, event.targetPath)
+    }
+
+    private val onWidgetBound: (AndroidEvent.WidgetBound) -> Unit = { event ->
+        addWidgetToPlayground(event.appWidgetId)
     }
 
     // How many items loaded on one page of results
@@ -346,6 +370,19 @@ class LibraryViewModel @Inject constructor(
         PluviaApp.events.on<AndroidEvent.CustomGameImagesFetched, Unit>(onCustomGameImagesFetched)
         PluviaApp.events.on<AndroidEvent.RecommendationToggleChanged, Unit>(onRecommendationToggleChanged)
         PluviaApp.events.on<AndroidEvent.MoveCustomGame, Unit>(onMoveCustomGame)
+        PluviaApp.events.on<AndroidEvent.WidgetBound, Unit>(onWidgetBound)
+
+        // Load Playground State
+        val pgSettings = PlaygroundSettings(
+            gridMode = if (PrefManager.playgroundGridMode == 0) GridMode.SNAP else GridMode.FREE,
+            gridSize = PrefManager.playgroundGridSize
+        )
+        val pgItems = try {
+            Json.decodeFromString<List<PlaygroundItem>>(PrefManager.playgroundItemsJson)
+        } catch (e: Exception) {
+            emptyList()
+        }
+        _state.update { it.copy(playgroundSettings = pgSettings, playgroundItems = pgItems) }
 
         refreshRecommendationHero()
     }
@@ -391,6 +428,7 @@ class LibraryViewModel @Inject constructor(
         PluviaApp.events.off<AndroidEvent.CustomGameImagesFetched, Unit>(onCustomGameImagesFetched)
         PluviaApp.events.off<AndroidEvent.RecommendationToggleChanged, Unit>(onRecommendationToggleChanged)
         PluviaApp.events.off<AndroidEvent.MoveCustomGame, Unit>(onMoveCustomGame)
+        PluviaApp.events.off<AndroidEvent.WidgetBound, Unit>(onWidgetBound)
         super.onCleared()
     }
 
@@ -674,6 +712,120 @@ class LibraryViewModel @Inject constructor(
         _state.update { it.copy(gameViewState = newState) }
     }
 
+    fun onPlaygroundSettingsChange(settings: PlaygroundSettings) {
+        PrefManager.playgroundGridMode = if (settings.gridMode == GridMode.SNAP) 0 else 1
+        PrefManager.playgroundGridSize = settings.gridSize
+        _state.update { it.copy(playgroundSettings = settings) }
+    }
+
+    fun onPlaygroundItemMoved(id: String, xDp: Float, yDp: Float) {
+        val currentItems = _state.value.playgroundItems.toMutableList()
+        val index = currentItems.indexOfFirst { it.id == id }
+        if (index != -1) {
+            val item = currentItems[index]
+            val updated = when (item) {
+                is PlaygroundItem.AppItem -> item.copy(xDp = xDp, yDp = yDp)
+                is PlaygroundItem.WidgetItem -> item.copy(xDp = xDp, yDp = yDp)
+            }
+            currentItems[index] = updated
+            PrefManager.playgroundItemsJson = Json.encodeToString(currentItems)
+            _state.update { it.copy(playgroundItems = currentItems) }
+        }
+    }
+
+    fun onPlaygroundItemRemoved(id: String) {
+        Timber.d("Playground: Removing item $id")
+        val currentItems = _state.value.playgroundItems.toMutableList()
+        val itemToRemove = currentItems.find { it.id == id }
+
+        if (itemToRemove != null) {
+            if (itemToRemove is PlaygroundItem.WidgetItem) {
+                playgroundWidgetHostManager.deleteWidgetId(itemToRemove.appWidgetId)
+            }
+            currentItems.remove(itemToRemove)
+
+            Timber.d("Playground: Item $id removed. New count: ${currentItems.size}")
+            PrefManager.playgroundItemsJson = Json.encodeToString(currentItems)
+            _state.update { it.copy(playgroundItems = currentItems) }
+        } else {
+            Timber.w("Playground: Failed to find item $id for removal")
+        }
+    }
+
+    fun onTogglePlaygroundItemDockStatus(id: String, newX: Float? = null, newY: Float? = null) {
+        Timber.d("Playground: Toggling dock status for $id at ($newX, $newY)")
+        val currentItems = _state.value.playgroundItems.toMutableList()
+        val index = currentItems.indexOfFirst { it.id == id }
+        if (index != -1) {
+            val item = currentItems[index]
+            val updated = when (item) {
+                is PlaygroundItem.AppItem -> item.copy(
+                    isInDock = !item.isInDock,
+                    xDp = newX ?: item.xDp,
+                    yDp = newY ?: item.yDp
+                )
+                is PlaygroundItem.WidgetItem -> item.copy(
+                    isInDock = !item.isInDock,
+                    xDp = newX ?: item.xDp,
+                    yDp = newY ?: item.yDp
+                )
+            }
+            currentItems[index] = updated
+            Timber.d("Playground: Item $id dock status now: ${updated.isInDock}")
+            PrefManager.playgroundItemsJson = Json.encodeToString(currentItems)
+            _state.update { it.copy(playgroundItems = currentItems) }
+        } else {
+            Timber.w("Playground: Failed to find item $id for dock toggle")
+        }
+    }
+
+    fun addAppToPlayground(packageName: String, activityClassName: String) {
+        val currentItems = _state.value.playgroundItems.toMutableList()
+        val id = "app_${packageName}_${System.currentTimeMillis()}"
+        currentItems.add(
+            PlaygroundItem.AppItem(
+                id = id,
+                xDp = 100f,
+                yDp = 100f,
+                packageName = packageName,
+                activityClassName = activityClassName
+            )
+        )
+        PrefManager.playgroundItemsJson = Json.encodeToString(currentItems)
+        _state.update { it.copy(playgroundItems = currentItems) }
+    }
+
+    fun addWidgetToPlayground(appWidgetId: Int) {
+        val currentItems = _state.value.playgroundItems.toMutableList()
+        val id = "widget_${appWidgetId}_${System.currentTimeMillis()}"
+
+        val appWidgetManager = AppWidgetManager.getInstance(context)
+        val info = appWidgetManager.getAppWidgetInfo(appWidgetId)
+
+        // Convert cells to Dp roughly, or use minWidth/minHeight
+        // Android widgets use a formula: 70 * cells - 30
+        val widthDp = info?.minWidth?.toFloat()?.coerceAtLeast(100f) ?: 200f
+        val heightDp = info?.minHeight?.toFloat()?.coerceAtLeast(100f) ?: 100f
+
+        currentItems.add(
+            PlaygroundItem.WidgetItem(
+                id = id,
+                xDp = 150f,
+                yDp = 150f,
+                appWidgetId = appWidgetId,
+                widthDp = widthDp,
+                heightDp = heightDp,
+                isInDock = false
+            )
+        )
+        PrefManager.playgroundItemsJson = Json.encodeToString(currentItems)
+        _state.update { it.copy(playgroundItems = currentItems) }
+    }
+
+    fun onIsAddingAppsToPlayground(value: Boolean) {
+        _state.update { it.copy(isSearching = value) } // Reuse searching state or add new?
+    }
+
     fun setMainColor(hex: String) {
         appTheme.mainColor = hex
     }
@@ -798,6 +950,13 @@ class LibraryViewModel @Inject constructor(
                 .filter { item ->
                     if (currentState.searchQuery.isNotEmpty()) {
                         matches(item.name, currentState.searchQuery)
+                    } else {
+                        true
+                    }
+                }
+                .filter { item ->
+                    if (currentState.appInfoSortType.contains(AppFilter.FOUR_BY_THREE)) {
+                        CURATED_FOUR_BY_THREE_APP_IDS.contains(item.id)
                     } else {
                         true
                     }
@@ -1041,6 +1200,16 @@ class LibraryViewModel @Inject constructor(
             // Filter Android Apps
             val androidAppEntries = PrefManager.androidAppShortcuts
                 .mapNotNull { pkg ->
+                    // Exclusivity filter: Cloud tab only shows whitelist, Local tab shows everything else
+                    val isCloudApp = CLOUD_PACKAGE_WHITELIST.contains(pkg)
+                    val tab = currentState.currentTab
+                    val allowed = when (tab) {
+                        LibraryTab.CLOUD -> isCloudApp
+                        LibraryTab.LOCAL -> !isCloudApp
+                        else -> true
+                    }
+                    if (!allowed) return@mapNotNull null
+
                     try {
                         val pm = context.packageManager
                         val info = pm.getApplicationInfo(pkg, 0)
@@ -1129,6 +1298,7 @@ class LibraryViewModel @Inject constructor(
                 AmazonService.hasStoredCredentials(context)
 
             val includeAndroidApp = currentTab == LibraryTab.ALL ||
+                currentTab == LibraryTab.CLOUD ||
                 currentTab == LibraryTab.LOCAL
 
             val allEntries = buildList {
@@ -1315,6 +1485,7 @@ class LibraryViewModel @Inject constructor(
                         0
                     },
                     localCount = if (currentState.showCustomGamesInLibrary) customEntries.size else 0,
+                    cloudCount = androidAppEntries.count { CLOUD_PACKAGE_WHITELIST.contains(it.item.iconHash) },
                     steamCollectionCounts = steamCollectionCounts,
                     favoritesCount = FavoritesUtils.countPresent(favoriteIds, favoriteEligible),
                 )

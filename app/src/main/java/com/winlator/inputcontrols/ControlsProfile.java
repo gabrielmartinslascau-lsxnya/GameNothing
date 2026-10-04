@@ -126,10 +126,8 @@ public class ControlsProfile implements Comparable<ControlsProfile> {
         return elementsLoaded;
     }
 
-    public void save() {
+    public JSONObject toJSONObject() {
         File file = getProfileFile(context, id);
-        Log.d("ControlsProfile", "Saving profile: " + name + " (ID: " + id + ") to " + file.getAbsolutePath());
-
         try {
             JSONObject data = new JSONObject();
             data.put("id", id);
@@ -138,8 +136,12 @@ public class ControlsProfile implements Comparable<ControlsProfile> {
 
             JSONArray elementsJSONArray = new JSONArray();
             if (!elementsLoaded && file.isFile()) {
-                JSONObject profileJSONObject = new JSONObject(FileUtils.readString(file));
-                elementsJSONArray = profileJSONObject.getJSONArray("elements");
+                String json = FileUtils.readString(file);
+                if (json != null && !json.isEmpty()) {
+                    JSONObject profileJSONObject = new JSONObject(json);
+                    elementsJSONArray = profileJSONObject.optJSONArray("elements");
+                    if (elementsJSONArray == null) elementsJSONArray = new JSONArray();
+                }
             }
             else for (ControlElement element : elements) elementsJSONArray.put(element.toJSONObject());
             data.put("elements", elementsJSONArray);
@@ -171,12 +173,16 @@ public class ControlsProfile implements Comparable<ControlsProfile> {
             }
             if (radialMenusJSONArray.length() > 0) data.put("radialMenus", radialMenusJSONArray);
 
-            FileUtils.writeString(file, data.toString());
-            Log.d("ControlsProfile", "Profile saved successfully: " + name + " (controllers: " + controllersJSONArray.length() + ", elements: " + elementsJSONArray.length() + ")");
+            return data;
         }
         catch (JSONException e) {
-            Log.e("ControlsProfile", "Failed to save profile: " + name + " (ID: " + id + ")", e);
+            return null;
         }
+    }
+
+    public void save() {
+        JSONObject data = toJSONObject();
+        if (data != null) FileUtils.writeString(getProfileFile(context, id), data.toString());
     }
 
     public static File getProfileFile(Context context, int id) {
@@ -283,7 +289,16 @@ public class ControlsProfile implements Comparable<ControlsProfile> {
                     JSONObject controllerBindingJSONObject = controllerBindingsJSONArray.getJSONObject(j);
                     ExternalControllerBinding controllerBinding = new ExternalControllerBinding();
                     controllerBinding.setKeyCode(controllerBindingJSONObject.getInt("keyCode"));
-                    controllerBinding.setBinding(Binding.fromString(controllerBindingJSONObject.getString("binding")));
+
+                    if (controllerBindingJSONObject.has("bindings")) {
+                        JSONArray bindingsArray = controllerBindingJSONObject.getJSONArray("bindings");
+                        for (int k = 0; k < bindingsArray.length(); k++) {
+                            controllerBinding.addBinding(Binding.fromString(bindingsArray.getString(k)));
+                        }
+                    } else if (controllerBindingJSONObject.has("binding")) {
+                        controllerBinding.setBinding(Binding.fromString(controllerBindingJSONObject.getString("binding")));
+                    }
+
                     controller.addControllerBinding(controllerBinding);
                 }
                 controllers.add(controller);

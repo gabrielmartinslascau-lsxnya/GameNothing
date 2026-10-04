@@ -10,7 +10,7 @@ add_library(talloc STATIC
 include_directories(src
                     talloc)
 
-add_executable(libproot.so
+add_library(proot SHARED
                src/cli/cli.c
                src/cli/proot.c
                src/cli/note.c
@@ -41,8 +41,21 @@ add_executable(libproot.so
                src/ptrace/ptrace.c
                src/ptrace/wait.c)
 
-target_link_libraries(libproot.so
-                      talloc)
+set_target_properties(proot PROPERTIES OUTPUT_NAME "proot")
+target_link_libraries(proot talloc)
 
 add_library(proot-loader SHARED
             src/loader/loader.c)
+set_target_properties(proot-loader PROPERTIES OUTPUT_NAME "proot-loader")
+
+add_custom_command(TARGET proot POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+    $<TARGET_FILE:proot>
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../jniLibs/${ANDROID_ABI}/libproot.so"
+)
+
+add_custom_command(TARGET proot-loader POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+    $<TARGET_FILE:proot-loader>
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../jniLibs/${ANDROID_ABI}/libproot-loader.so"
+)

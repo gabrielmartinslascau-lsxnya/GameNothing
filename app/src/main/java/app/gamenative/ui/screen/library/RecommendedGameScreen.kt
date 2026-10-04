@@ -58,7 +58,6 @@ import app.gamenative.R
 import app.gamenative.data.RecommendedGame
 import app.gamenative.ui.component.focusRing
 import app.gamenative.ui.screen.library.components.VideoHero
-import com.posthog.PostHog
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
 
@@ -376,19 +375,6 @@ internal fun RecommendedGameScreen(
                 Button(
                     interactionSource = buyInteractionSource,
                     onClick = {
-                        if (PrefManager.usageAnalyticsEnabled) {
-                            PostHog.capture(
-                                event = "recommendation_link_clicked",
-                                properties = mapOf(
-                                    "game_name" to game.name,
-                                    "game_id" to game.id,
-                                    "affiliate_url" to game.affiliateUrl,
-                                    "rank" to recRank,
-                                    "source" to recSource,
-                                    "because_played" to (game.becausePlayed ?: ""),
-                                ),
-                            )
-                        }
                         val browserIntent = Intent(Intent.ACTION_VIEW, game.affiliateUrl.toUri())
                         context.startActivity(browserIntent)
                     },

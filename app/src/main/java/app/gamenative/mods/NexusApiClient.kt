@@ -258,6 +258,27 @@ class NexusApiClient(
         throw lastError ?: NexusApiException("Nexus collection was not found", 404)
     }
 
+    suspend fun getLatestMods(gameDomain: String): List<NexusModInfo> = withContext(Dispatchers.IO) {
+        val jsonText = execute("/games/$gameDomain/mods/latest.json")
+        val array = JSONArray(jsonText)
+        buildList {
+            for (i in 0 until array.length()) {
+                val item = array.optJSONObject(i) ?: continue
+                val modId = item.optLong("mod_id")
+                if (modId > 0) {
+                    add(
+                        NexusModInfo(
+                            modId = modId,
+                            name = item.optString("name", "Mod $modId"),
+                            summary = item.optString("summary", ""),
+                            version = item.optString("version", "1.0"),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
     private fun getCollectionRevisionGraph(reference: NexusCollectionReference): NexusCollectionInfo {
         val payload = collectionRevisionGraphPayload(reference)
         var lastError: NexusApiException? = null

@@ -1,18 +1,29 @@
 package app.gamenative.ui.component.dialog
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -21,6 +32,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
@@ -32,6 +45,7 @@ import app.gamenative.ui.component.NoExtractOutlinedTextField
 import app.gamenative.ui.component.settings.SettingsListDropdown
 import app.gamenative.ui.theme.settingsTileColors
 import app.gamenative.ui.theme.settingsTileColorsAlt
+import app.gamenative.utils.getNativeScreenResolution
 import com.alorma.compose.settings.ui.SettingsGroup
 import com.alorma.compose.settings.ui.SettingsSwitch
 import com.winlator.container.Container
@@ -40,6 +54,7 @@ import com.winlator.core.DefaultVersion
 import com.winlator.core.KeyValueSet
 import com.winlator.core.StringUtils
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @Composable
 fun GeneralTabContent(
@@ -62,77 +77,6 @@ fun GeneralTabContent(
         else -> 1
     }
 
-    if (state.showCustomResolutionDialog.value) {
-        AlertDialog(
-            onDismissRequest = { state.showCustomResolutionDialog.value = false },
-            title = { Text(text = stringResource(R.string.container_config_custom_resolution_title)) },
-            text = {
-                val heightFocusRequester = remember { FocusRequester() }
-                Column {
-                    Row {
-                        NoExtractOutlinedTextField(
-                            modifier = Modifier.width(128.dp),
-                            value = state.customScreenWidth.value,
-                            onValueChange = { state.customScreenWidth.value = it },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                            keyboardActions = KeyboardActions(onNext = { heightFocusRequester.requestFocus() }),
-                            label = { Text(text = stringResource(R.string.width)) },
-                            singleLine = true,
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            modifier = Modifier.align(Alignment.CenterVertically),
-                            text = stringResource(R.string.container_config_custom_resolution_separator),
-                            style = TextStyle(fontSize = 16.sp),
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        NoExtractOutlinedTextField(
-                            modifier = Modifier.width(128.dp).focusRequester(heightFocusRequester),
-                            value = state.customScreenHeight.value,
-                            onValueChange = { state.customScreenHeight.value = it },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            label = { Text(text = stringResource(R.string.height)) },
-                            singleLine = true,
-                        )
-                    }
-                    if (state.customResolutionValidationError.value != null) {
-                        Text(
-                            text = state.customResolutionValidationError.value!!,
-                            color = androidx.compose.material3.MaterialTheme.colorScheme.error,
-                            style = TextStyle(fontSize = 16.sp),
-                            modifier = Modifier.padding(top = 8.dp),
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val widthInt = state.customScreenWidth.value.toIntOrNull() ?: 0
-                        val heightInt = state.customScreenHeight.value.toIntOrNull() ?: 0
-                        if (widthInt == 0 || heightInt == 0) {
-                            state.customResolutionValidationError.value = nonzeroResolutionError
-                        } else if (widthInt <= heightInt) {
-                            state.customResolutionValidationError.value = aspectResolutionError
-                        } else {
-                            state.customResolutionValidationError.value = null
-                            state.applyScreenSizeToConfig()
-                            state.showCustomResolutionDialog.value = false
-                        }
-                    },
-                ) {
-                    Text(text = stringResource(R.string.ok))
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { state.showCustomResolutionDialog.value = false },
-                ) {
-                    Text(text = stringResource(R.string.cancel))
-                }
-            },
-        )
-    }
 
     SettingsGroup {
         run {
@@ -292,20 +236,10 @@ fun GeneralTabContent(
             title = { Text(text = stringResource(R.string.language)) },
             colors = settingsTileColors(),
         )
-        SettingsListDropdown(
-            colors = settingsTileColors(),
-            title = { Text(text = stringResource(R.string.screen_size)) },
-            value = state.screenSizeIndex.value,
-            items = state.screenSizes,
-            onItemSelected = {
-                state.screenSizeIndex.value = it
-                if (it == 0) {
-                    state.showCustomResolutionDialog.value = true
-                } else {
-                    state.applyScreenSizeToConfig()
-                }
-            },
-        )
+
+        ResolutionPickerSection(state, nonzeroResolutionError, aspectResolutionError)
+
+
         SettingsSwitch(
             colors = settingsTileColorsAlt(),
             title = { Text(text = stringResource(R.string.portrait_mode)) },
@@ -430,6 +364,194 @@ fun GeneralTabContent(
                 }
                 state.config.value = config.copy(suspendPolicy = policy)
             },
+        )
+    }
+}
+
+@Composable
+private fun ResolutionPickerSection(
+    state: ContainerConfigState,
+    nonzeroResolutionError: String,
+    aspectResolutionError: String,
+) {
+    val currentResolution = state.config.value.screenSize
+    val (currentWidth, currentHeight) = remember(currentResolution) {
+        val parts = currentResolution.split("x")
+        parts.getOrNull(0)?.toIntOrNull() to parts.getOrNull(1)?.toIntOrNull()
+    }
+
+    if (state.showCustomResolutionDialog.value) {
+        AlertDialog(
+            onDismissRequest = { state.showCustomResolutionDialog.value = false },
+            title = { Text(text = stringResource(R.string.container_config_custom_resolution_title)) },
+            text = {
+                val heightFocusRequester = remember { FocusRequester() }
+                Column {
+                    Row {
+                        NoExtractOutlinedTextField(
+                            modifier = Modifier.width(128.dp),
+                            value = state.customScreenWidth.value,
+                            onValueChange = {
+                                state.customScreenWidth.value = it
+                                state.customResolutionValidationError.value = null
+                            },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(onNext = { heightFocusRequester.requestFocus() }),
+                            label = { Text(text = stringResource(R.string.width)) },
+                            singleLine = true,
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            modifier = Modifier.align(Alignment.CenterVertically),
+                            text = stringResource(R.string.container_config_custom_resolution_separator),
+                            style = TextStyle(fontSize = 16.sp),
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        NoExtractOutlinedTextField(
+                            modifier = Modifier.width(128.dp).focusRequester(heightFocusRequester),
+                            value = state.customScreenHeight.value,
+                            onValueChange = {
+                                state.customScreenHeight.value = it
+                                state.customResolutionValidationError.value = null
+                            },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            label = { Text(text = stringResource(R.string.height)) },
+                            singleLine = true,
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    val context = LocalContext.current
+                    val nativeRes = remember(context) { getNativeScreenResolution(context) }
+
+                    // Ratio Presets: Set a standard base to scale from
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        listOf("16:9", "4:3", "Native").forEach { ratio ->
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    val (w, h) = when (ratio) {
+                                        "16:9" -> 1920 to 1080
+                                        "4:3" -> 1280 to 960
+                                        else -> nativeRes
+                                    }
+                                    state.customScreenWidth.value = w.toString()
+                                    state.customScreenHeight.value = h.toString()
+                                },
+                                label = { Text(ratio, fontSize = 12.sp) }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    var sliderValue by remember {
+                        val w = state.customScreenWidth.value.toIntOrNull() ?: nativeRes.first
+                        mutableFloatStateOf((w.toFloat() / nativeRes.first.toFloat()).coerceIn(0.1f, 1f))
+                    }
+
+                    Column {
+                        Text(
+                            text = "Scale: ${(sliderValue * 100).roundToInt()}%",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Slider(
+                            value = sliderValue,
+                            onValueChange = {
+                                sliderValue = it
+                                val currentW = state.customScreenWidth.value.toIntOrNull() ?: nativeRes.first
+                                val currentH = state.customScreenHeight.value.toIntOrNull() ?: nativeRes.second
+
+                                // Scale relative to the current aspect ratio in the boxes
+                                val ratio = currentW.toFloat() / currentH.toFloat()
+                                val targetW = (nativeRes.first * it).roundToInt()
+                                val targetH = (targetW / ratio).roundToInt()
+
+                                // Ensure even numbers
+                                state.customScreenWidth.value = ((targetW / 2) * 2).toString()
+                                state.customScreenHeight.value = ((targetH / 2) * 2).toString()
+                            },
+                            valueRange = 0.1f..1f,
+                            steps = 18
+                        )
+                    }
+
+                    if (state.customResolutionValidationError.value != null) {
+                        Text(
+                            text = state.customResolutionValidationError.value!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = TextStyle(fontSize = 16.sp),
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val widthInt = state.customScreenWidth.value.toIntOrNull() ?: 0
+                        val heightInt = state.customScreenHeight.value.toIntOrNull() ?: 0
+                        if (widthInt == 0 || heightInt == 0) {
+                            state.customResolutionValidationError.value = nonzeroResolutionError
+                        } else if (widthInt <= heightInt) {
+                            state.customResolutionValidationError.value = aspectResolutionError
+                        } else {
+                            state.customResolutionValidationError.value = null
+                            state.screenSizeIndex.value = 0
+                            state.applyScreenSizeToConfig()
+                            state.showCustomResolutionDialog.value = false
+                        }
+                    },
+                ) {
+                    Text(text = stringResource(R.string.ok))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { state.showCustomResolutionDialog.value = false },
+                ) {
+                    Text(text = stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
+    SettingsGroup(title = { Text(text = stringResource(R.string.screen_size)) }) {
+        state.percentResolutions.forEach { option ->
+            val isSelected = currentWidth == option.width && currentHeight == option.height
+            ListItem(
+                headlineContent = { Text(option.label) },
+                trailingContent = {
+                    RadioButton(
+                        selected = isSelected,
+                        onClick = {
+                            state.customScreenWidth.value = option.width.toString()
+                            state.customScreenHeight.value = option.height.toString()
+                            state.screenSizeIndex.value = 0
+                            state.applyScreenSizeToConfig()
+                        }
+                    )
+                },
+                modifier = Modifier.clickable {
+                    state.customScreenWidth.value = option.width.toString()
+                    state.customScreenHeight.value = option.height.toString()
+                    state.screenSizeIndex.value = 0
+                    state.applyScreenSizeToConfig()
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
+        }
+
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.other)) },
+            supportingContent = { Text(stringResource(R.string.container_config_custom_resolution_title)) },
+            modifier = Modifier.clickable { state.showCustomResolutionDialog.value = true },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
         )
     }
 }

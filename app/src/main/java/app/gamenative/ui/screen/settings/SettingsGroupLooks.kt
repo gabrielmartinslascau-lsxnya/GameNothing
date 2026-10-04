@@ -67,14 +67,6 @@ fun SettingsGroupLooks(viewModel: MainViewModel) {
             lifecycleScope.launch {
                 val result = withContext(Dispatchers.IO) {
                     try {
-                        val descriptor = context.contentResolver.openAssetFileDescriptor(uri, "r")
-                        val fileSize = descriptor?.length ?: 0L
-                        descriptor?.close()
-
-                        if (fileSize > 50 * 1024 * 1024) {
-                            return@withContext "File size must be under 50MB"
-                        }
-
                         val backgroundsDir = File(context.filesDir, "backgrounds")
                         if (!backgroundsDir.exists()) backgroundsDir.mkdirs()
 
@@ -93,10 +85,43 @@ fun SettingsGroupLooks(viewModel: MainViewModel) {
                     }
                 }
 
-                if (result == "File size must be under 50MB") {
-                    SnackbarManager.show(result)
-                } else if (result != null) {
+                if (result != null) {
                     viewModel.setVideoBackgroundPath(result)
+                } else {
+                    SnackbarManager.show("Failed to import video")
+                }
+            }
+        }
+    }
+
+    val loadingVideoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            lifecycleScope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    try {
+                        val backgroundsDir = File(context.filesDir, "backgrounds")
+                        if (!backgroundsDir.exists()) backgroundsDir.mkdirs()
+
+                        val fileName = "custom_loading_${System.currentTimeMillis()}.mp4"
+                        val destFile = File(backgroundsDir, fileName)
+
+                        context.contentResolver.openInputStream(uri)?.use { input ->
+                            destFile.outputStream().use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+
+                        destFile.absolutePath
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+
+                if (result != null) {
+                    viewModel.setCustomLoadingVideoPath(result)
+                    viewModel.setLoadingScreenMode(1) // Set to Custom
                 } else {
                     SnackbarManager.show("Failed to import video")
                 }
@@ -241,6 +266,31 @@ fun SettingsGroupLooks(viewModel: MainViewModel) {
                     }
                 )
             }
+        }
+
+        val loadingScreenOptions = listOf("Default", "Custom")
+
+        SettingsListDropdown(
+            colors = settingsTileColorsAlt(),
+            value = state.loadingScreenMode,
+            items = loadingScreenOptions,
+            onItemSelected = { index ->
+                if (index == 1) {
+                    loadingVideoPickerLauncher.launch("video/*")
+                } else {
+                    viewModel.setLoadingScreenMode(0)
+                }
+            },
+            title = { Text(text = "Loading Screen") }
+        )
+
+        if (state.loadingScreenMode == 1 && state.customLoadingVideoPath.isNotEmpty()) {
+            Text(
+                text = "Custom loading screen: ${File(state.customLoadingVideoPath).name}",
+                style = MaterialTheme.typography.bodySmall,
+                color = contentColor.copy(alpha = 0.6f),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
         }
 
         // Grayness Scale Slider
