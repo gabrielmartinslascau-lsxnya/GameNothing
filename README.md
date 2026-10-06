@@ -8,6 +8,8 @@ Log in, import your library, and play your games—online or offline—with zero
 
 **100% free. Zero data collection, zero limits on what you can add or how much you can store. It's your device — own it.**
 
+**Note:** v1.0 is currently in **BETA**. Some features like control mapping, static wallpapers, and SGSR upscaling aren't in yet—they'll arrive in the future. The big one? The new Linux environment and driver fixes are coming in **v2.0**. For now, treat this beta as a placeholder for the real magic.
+
 ---
 
 ### 📥 [Click Here to Download Latest GameNothing Release!](https://github.com/gabrielmartinslascau-lsxnya/GameNothing/releases)
@@ -23,7 +25,7 @@ Log in, import your library, and play your games—online or offline—with zero
 - **adjustable distortion slider for liquid glass**
 - **colour picker (any colour you wish for)**
 - **live wallpaper support, no size limit (v1.0 beta)**
-- **static wallpaper support (coming in 1.1+)**
+- **static wallpaper support (coming in v2.0+)**
 - **"Material You" wallpaper color extraction**
 
 [image goes here]
@@ -56,7 +58,7 @@ Log in, import your library, and play your games—online or offline—with zero
 
 ## 🚀 What to Expect in the Future
 
-> **Note:** this started life as v0.6.0 alongside the official GameNative 1.2.1 sync release — turned out to be way too much to still call it a point release. Say hello to **v1.0.0**.
+> **Note:** this started life as v0.6.0 alongside the official GameNative 1.2.1 sync release — turned out to be way too much to still call it a point release. Say hello to **v2.0.0**.
 
 | Version | Key Features | Status |
 | :--- | :--- | :--- |
@@ -65,37 +67,36 @@ Log in, import your library, and play your games—online or offline—with zero
 | **BETA v0.1.2** | **Major Overhaul:** "Legion" logo redesign, haptics integration, controller support, launch animations, 4 new colors, aggressive caching system (cache view), improved tutorial, faster game launch times, glow effects, color saturation tweaks, scrolling optimizations, and initial emulator rebrand to "GameNothing". | `OUTDATED` |
 | **v0.2.0** | **Out of Beta:** Full USB drive support, custom game directories (internal/external/SD), base sync with GameNative 1.2.0, interactive beginner setup tutorial, redesigned download progress bar, instant UI response rates, controller loading optimizations, and custom driver support for non-rooted / non-AYN devices. | `OUTDATED` |
 | **v0.5.0** | **The Console OS Milestone:** Full app rebrand to **GameNothing**, native Android **Home Launcher** mode (complete OS replacement), initial 360° interactive carousel navigation with floor reflections, **HSV Colour Picker 2.0** popup, initial **AGSL Liquid Glass** shader, persistent **Background Music Bar / MP3 player**, unmuted trailer audio in Hero view, **Material You wallpaper color extraction**, and initial USB loading logic. | `CURRENT RELEASE` |
-| **v1.0.0 (Beta)** | **The "This Was Supposed to Be 0.6" Release:** Full **GameNative 1.2.1** base sync, complete **USB Storage Rework** (1MB buffered auto-mover + manual System Files override), **AGSL Liquid Glass 2.0**, reworked **360° Carousel Mode**, no more live wallpaper size limits, custom app-launch loading screens (bring your own video instead of the default animation), a real-resolution-aware custom resolution picker, a new Cloud/Remote Play tab (PS Remote Play, Steam Link, Xbox), and an early-access **Playground tab** (freeform Android home screen inside the app — still in testing). *Note: Control mapping, static wallpapers, and SGSR upscaling didn't make the cut for this release. The Linux environment + driver fix are the main event for v1.1/2.0, making this beta a placeholder for the real magic.* | `IT GOT OUT OF HAND, IN A GOOD WAY` |
-| **v1.x and beyond** | The **Linux environment** and **driver fix** land here. Plus the features that missed the 1.0 beta cut: **control mapping**, **static wallpapers**, **SGSR upscaling**. More customization, more control, more of your phone actually being yours. | `TBD` |
+| **v1.0.0 (Beta)** | **The "This Was Supposed to Be 0.6" Release:** Full **GameNative 1.2.1** base sync, complete **USB Storage Rework** (1MB buffered auto-mover + manual System Files override), **AGSL Liquid Glass 2.0**, reworked **360° Carousel Mode**, no more live wallpaper size limits, custom app-launch loading screens, a real-resolution-aware custom resolution picker, a new Cloud/Remote Play tab, and an early-access **Playground tab**. *Note: Control mapping, static wallpapers, and SGSR upscaling didn't make the cut. The Linux environment + driver fix are the main event for v2.0, making this beta a placeholder for the real magic.* | `CURRENT BETA` |
+| **v2.0.0 (Mega Update)** | **The "Everything, Everywhere, All at Once" Release:** The ultimate merge. Includes **every feature from GameNative 1.2.1 + 1.3 pre-release + 1.3 release** (Headless Steam Client, Native Rust download engine, EA/Rockstar support, Microphone input, Native LSFG, and massive Container Size reduction via Copy-on-Write sharing). PLUS the brand new **Linux Environment (Debian)** for native desktop apps, tModLoader, and full browsing. PLUS the **driver fix** for seamless System/Turnip switching. PLUS the return of **Control Mapping**, **Static Wallpapers**, and **SGSR Upscaling**. | `IN DEVELOPMENT` |
+| **v2.x and beyond** | More customization, more control, more of your phone actually being yours. | `TBD` |
 
 ---
 
-## 🛠️ What's Coming in v1.0.0 (GameNothing Rework & GameNative 1.2.1 Sync)
+## 🛠️ What's Coming in v2.0.0 (The Mega Update)
 
-**v1.0.0** launches alongside **GameNative 1.2.1**, bringing the biggest set of internal GameNothing upgrades yet, on top of core GameNative updates:
+**v2.0.0** is the biggest leap forward for GameNothing. It combines the upstream GameNative 1.3 release with your own custom features and the highly anticipated Linux runtime.
 
-### ⚡ GameNothing Engine & Storage Rework
-- **Full USB Storage Rework:** Dual-tier storage management featuring an optimized 1MB buffered in-app auto-mover for routine transfers, plus a native **"Manage via System Files"** manual override shortcut to bypass Scoped Storage bottlenecks for massive 40GB+ games (*like Halo MCC, Cyberpunk, etc*).
-- **Upgraded AGSL Liquid Glass 2.0:** Higher precision shader rendering with cleaner blur scaling with near 0 lag.
-- **Enhanced 360° Carousel Mode:** Significantly smoother carousel physics, fixed touch/gesture overrides, and fixed 360° portrait mode container clicks.
-- **Stability & Tutorial Updates:** Updated interactive setup tutorial for HSV Colour Picker 2.0, BGM player bug fixes, trailer memory leak fixes, and default launcher exit safeguards.
+### 🐧 The Linux Environment (Debian)
+- **A True Dual-Boot Experience:** A dedicated "Playground" tab that seamlessly switches from Android gaming to a full Debian Linux desktop environment.
+- **Inspired by DroidDeck:** Built with a heavily customized PRoot + X11 architecture. Run native Linux games (like tModLoader), browse the web with a real desktop Firefox, and use your device like a full PC.
+- **Heavily Credited:** This feature was heavily inspired by the incredible work on **DroidDeck** and is built upon the foundation of **GameNative**. 
 
-### 🎨 Personalization & Display
-- **No More Live Wallpaper Limits:** Live wallpapers are no longer capped at any size — add whatever you want. *(Static wallpapers are coming in 1.1).*
-- **Custom Loading Screens:** Keep the default procedural dot animation, or swap in your own video for the app-launch screen.
-- **Real Resolution, No Guessing:** New percentage-based resolution picker calculated from your device's actual screen resolution and aspect ratio — no more hardcoded 16:9 presets pretending every phone is the same shape.
+### 🚀 GameNative 1.3 Sync (All the Good Stuff)
+- **Native Rust Download Engine:** One-at-a-time download queue to significantly speed up downloads.
+- **Massive Container Size Reduction:** Sharing components across containers (Copy-on-Write) drops container sizes by up to **2GB per game**. Perfect for your external pen drive setup!
+- **Headless Steam Client:** Fixes DRM issues and gets online multiplayer working in more games.
+- **EA & Rockstar Support:** New launcher stubs and install-script fixes for *NFS: Most Wanted* and Rockstar titles.
+- **Native LSFG Pipeline:** Now the default frame generation method, fixing LSFG on most devices.
+- **Microphone Input Support:** In-game voice chat is finally possible.
 
-### ☁️ Cloud & Connectivity
-- **New Cloud/Remote Play Tab:** One-tap access to PS Remote Play, Steam Link, and the official Xbox app — stream from your own console or PC straight from GameNothing.
+### 🎨 Personalization & Display (The Missing Pieces)
+- **Control Mapping:** Full custom control mapping for touch and physical controllers.
+- **Static Wallpapers:** The static wallpaper support that missed the 1.0 Beta cut.
+- **SGSR Upscaling:** The Snapdragon Game Super Resolution upscaling for crisper visuals on Adreno devices.
 
-### 🧪 Playground Tab *(Testing Phase)*
-- **Your Own Little Home Screen, Inside GameNothing:** A brand new tab where you can place any Android app, anywhere — adjustable grid density, snap-to-grid or fully free placement, a resizable dock, and support for real Android widgets. Still rough around the edges, shipping early so it can actually get used and broken in before it's called finished.
-
-### 🎮 GameNative 1.2.1 Base Sync
-- **Performance & Storage:** Fixed FPS limiter performance regression (games like *Mewgenics*), made fast external loading a toggle to resolve 1.2.0 external launch bugs, and added a "Disable Epic Overlay" container setting to prevent CEF virtual memory crashes on save load.
-- **Controls & Gyro:** Added configurable gyro aiming & tilt steering, simultaneous & sequential multi-action bindings, Joy-Con pairing fixes, and resolved P1/P2 controller assignment regressions.
-- **Library & Mods:** Steam achievements viewer, re-integrated Nexus Mods support (no manual mod adding required), customizable library tabs, curated 4:3 filter for Steam library (RP Nova), and Epic Games multi-save fix.
-- **Compatibility & Fixes:** Updated GOG installer v1 (fixes registry keys and CD drive prompts for older games), fixed DLC download bugs (e.g. Season Pass downloads), added automated AI debugging for game launches, and initial Quest XR support.
+### 🛠️ The Driver Fix
+- **Seamless Driver Switching:** No more black screens. The app now completely tears down the XServer/Wine environment when you switch between the System Driver and custom Turnip drivers, ensuring DX12 games like *Grounded 2* actually boot.
 
 ---
 
