@@ -2,8 +2,6 @@
 
 [image goes here]
 
-(small *, I chose the wrong license)
-
 Transform your Android device or handheld console into an OEM-grade gaming OS. **GameNothing** is a full-featured Home Launcher replacement and frontend built for high-performance PC game emulation, seamless USB-OTG game storage management, and complete visual customization.
 
 Log in, import your library, and play your games—online or offline—with zero telemetry bloat.
@@ -99,6 +97,21 @@ Log in, import your library, and play your games—online or offline—with zero
 
 ### 🛠️ The Driver Fix
 - **Seamless Driver Switching:** No more black screens. The app now completely tears down the XServer/Wine environment when you switch between the System Driver and custom Turnip drivers, ensuring DX12 games like *Grounded 2* actually boot.
+
+---
+
+## 🙏 Credits & Acknowledgements
+
+GameNothing would not exist without the incredible work of the open-source community. Massive respect and credit go to:
+
+### 🎮 GameNative
+The **entire core foundation** of this project. GameNothing is a heavily customized fork of **GameNative** (originally created by **utkarshdalal** and the GameNative team). The emulation layer, container management, FEX/Box64 integration, and the upstream 1.3.0 sync are all their brilliant work. Without their continuous development, this fork would literally be an empty UI shell. 
+
+### 🐧 DroidDeck
+The **direct inspiration** for the upcoming Linux environment. The PRoot + X11 architecture, the seamless switching between Android and a full Linux desktop, and the vision of having a true dual-boot OS on a mobile device was heavily pioneered by **DroidDeck** and its creator **The412Banner**. They proved it was possible, and GameNothing is building upon that blueprint.
+
+### 🧪 Early Supporters
+Big thanks to the handful of people on TikTok who actually downloaded it and gave feedback, even on low-end hardware. Your motivation kept this project going.
 
 ---
 
