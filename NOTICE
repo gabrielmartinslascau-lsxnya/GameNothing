@@ -1,0 +1,14 @@
+GameNothing
+Copyright (C) 2026 Gabriel Martins Lascau
+
+This software is a fork of GameNative (https://github.com/utkarshdalal/GameNative).
+The original GameNative codebase is the copyright of its respective authors
+and is licensed under the GNU General Public License v3.0.
+
+All original code, UI designs, features, and modifications added to this fork
+(including but not limited to: the Liquid Glass UI, the Playground tab,
+the custom driver management logic, and the Linux environment integration)
+are the exclusive copyright of Gabriel Martins Lascau.
+
+This entire combined work is distributed under the terms of the
+GNU General Public License v3.0.
