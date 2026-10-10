@@ -2,6 +2,8 @@
 
 [image goes here]
 
+(small *, I chose the wrong license)
+
 Transform your Android device or handheld console into an OEM-grade gaming OS. **GameNothing** is a full-featured Home Launcher replacement and frontend built for high-performance PC game emulation, seamless USB-OTG game storage management, and complete visual customization.
 
 Log in, import your library, and play your games—online or offline—with zero telemetry bloat.
