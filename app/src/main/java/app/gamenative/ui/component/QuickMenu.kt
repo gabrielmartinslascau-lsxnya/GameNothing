@@ -709,7 +709,14 @@ private fun LooksQuickMenuTab(
             exit = shrinkVertically() + fadeOut()
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                // Liquid Glass is now the sole renderer.
+                QuickMenuToggleRow(
+                    title = "Glass Mode: " + if (looks.glassMode == GlassMode.LIQUID) "Liquid" else "Normal",
+                    enabled = looks.glassMode == GlassMode.LIQUID,
+                    onToggle = {
+                        viewModel.setGlassMode(if (looks.glassMode == GlassMode.LIQUID) GlassMode.STANDARD else GlassMode.LIQUID)
+                    },
+                    accentColor = looks.mainColor
+                )
                 QuickMenuAdjustmentRow(
                     title = "Liquid Distortion",
                     valueText = String.format(Locale.US, "%.1fx", 1f + looks.liquidDistortion * 9f),

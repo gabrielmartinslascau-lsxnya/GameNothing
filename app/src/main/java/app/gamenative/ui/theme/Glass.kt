@@ -34,39 +34,90 @@ import androidx.compose.ui.unit.toSize
 import app.gamenative.enums.GlassMode
 
 /**
- * AGSL Shader for True Liquid Glass Refraction.
+ * AGSL Shader for Normal Glass Refraction (Magnifying Glass effect).
  * Implements physical UV magnification (Spherical Bulge) for a true lens effect.
  */
-private const val LENS_SHADER = """
+private const val LENS_SHADER_NORMAL = """
     uniform shader uBackground;
     uniform float2 uElementSize;
     uniform float uDistortionStrength;
     uniform float uCornerRadius;
 
-    float sdRoundedRect(float2 p, float2 b, float r) {
-        float2 q = abs(p) - b + r;
-        return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
-    }
-
     half4 main(float2 fragCoord) {
-        float2 localCoord = fragCoord;
         float2 b = uElementSize * 0.5;
+        if (b.x <= 0.0 || b.y <= 0.0) {
+            return uBackground.eval(fragCoord);
+        }
 
-        // local centered coordinate
-        float2 p = localCoord - b;
+        float2 p = fragCoord - b;
         float dist = length(p);
 
-        // Liquid Warp: content is magnified from the center of the panel
-        // uDistortionStrength (0.0 to 1.0) - High multiplier for visible effect
-        float strength = uDistortionStrength * 1.2;
+        // Spherical lens magnification
+        float maxRadius = length(b);
+        float normDist = clamp(dist / max(maxRadius, 1.0), 0.0, 1.0);
 
-        // Magnification factor: pulls inner pixels out toward the edges
-        float factor = 1.0 / (1.0 + strength * (1.0 - smoothstep(0.0, length(b), dist)));
+        // Quadratic falloff: maximum magnification in center, tapering smoothly to 1.0 at edges
+        float magnification = 1.0 + uDistortionStrength * 0.8;
+        float factor = mix(magnification, 1.0, normDist * normDist);
 
-        float2 refractedCoord = b + p * factor;
+        // Chromatic dispersion for magnifying lens
+        float2 refractOffset = (p / max(factor, 0.001)) - p;
 
-        // Sample the background using the corrected local coordinate
-        return uBackground.eval(refractedCoord);
+        float2 maxBounds = uElementSize - float2(0.5);
+        float2 rOffset = clamp(b + p + refractOffset * 1.04, float2(0.5), maxBounds);
+        float2 gOffset = clamp(b + p + refractOffset, float2(0.5), maxBounds);
+        float2 bOffset = clamp(b + p + refractOffset * 0.96, float2(0.5), maxBounds);
+
+        half r = uBackground.eval(rOffset).r;
+        half g = uBackground.eval(gOffset).g;
+        half bColor = uBackground.eval(bOffset).b;
+        half a = uBackground.eval(gOffset).a;
+
+        return half4(r, g, bColor, a);
+    }
+"""
+
+/**
+ * AGSL Shader for 3D Optical Liquid Glass Refraction (Match Flutter liquid_glass.frag).
+ * Calculates edge distance bevel factor and distorts coordinates along radial vectors.
+ */
+private const val LENS_SHADER_LIQUID = """
+    uniform shader uBackground;
+    uniform float2 uElementSize;
+    uniform float uDistortionStrength;
+    uniform float uCornerRadius;
+
+    half4 main(float2 fragCoord) {
+        float2 b = uElementSize * 0.5;
+        if (b.x <= 0.0 || b.y <= 0.0) {
+            return uBackground.eval(fragCoord);
+        }
+
+        float2 p = fragCoord - b;
+
+        // Simple distance from center
+        float dist = length(p);
+
+        // Distance from edge (in pixels)
+        float edgeDist = min(b.x, b.y) - dist;
+
+        // Bevel width (pixels)
+        float bevelWidth = 15.0;
+
+        // 1.0 at the edge, fading to 0.0 inside
+        float edgeFactor = smoothstep(0.0, bevelWidth, edgeDist);
+
+        // Direction from center
+        float2 dir = dist > 0.001 ? (p / dist) : float2(0.0);
+
+        // Distort outward near the edge (Inverted Magnifying Glass)
+        float2 refractedCoord = fragCoord + (dir * uDistortionStrength * 20.0 * edgeFactor);
+
+        // Clamp to prevent out-of-bounds sampling
+        float2 maxBounds = uElementSize - float2(0.5);
+        float2 clampedCoord = clamp(refractedCoord, float2(0.5), maxBounds);
+
+        return uBackground.eval(clampedCoord);
     }
 """
 
@@ -94,7 +145,18 @@ fun PluviaGlassPanel(
         return
     }
 
-    // Liquid Glass is the sole, default renderer
+    // Determine shader mode
+    val selectedShader = when (looks.glassMode) {
+        GlassMode.LIQUID -> LENS_SHADER_LIQUID
+        else -> LENS_SHADER_NORMAL
+    }
+
+    val runtimeShader = remember(selectedShader) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            try { RuntimeShader(selectedShader) } catch (_: Throwable) { null }
+        } else null
+    }
+
     val liquidRadius = 48.dp
     val effectiveShape = RoundedCornerShape(liquidRadius)
     val currentCornerRadiusPx = 48f
@@ -129,20 +191,26 @@ fun PluviaGlassPanel(
                     this.clip = true
                     this.shape = effectiveShape
 
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && backgroundLayer != null && nodeSize.width > 0f) {
-                        val liquidDistortionValue = distortionStrength ?: looks.liquidDistortion
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && runtimeShader != null && backgroundLayer != null && nodeSize.width > 0f) {
+                        try {
+                            val liquidDistortionValue = if (isScrolling) 0f else (distortionStrength ?: looks.liquidDistortion)
 
-                        val shader = RuntimeShader(LENS_SHADER).apply {
-                            setFloatUniform("uElementSize", nodeSize.width, nodeSize.height)
-                            setFloatUniform("uDistortionStrength", liquidDistortionValue)
-                            setFloatUniform("uCornerRadius", currentCornerRadiusPx.dp.toPx())
+                            runtimeShader.setFloatUniform("uElementSize", nodeSize.width, nodeSize.height)
+                            runtimeShader.setFloatUniform("uDistortionStrength", liquidDistortionValue)
+                            runtimeShader.setFloatUniform("uCornerRadius", currentCornerRadiusPx.dp.toPx())
+
+                            val shaderEffect = RenderEffect.createRuntimeShaderEffect(runtimeShader, "uBackground")
+                            val liquidBlur = (12f + (looks.blurIntensiveness * 0.25f))
+                            val blurEffect = RenderEffect.createBlurEffect(liquidBlur, liquidBlur, Shader.TileMode.CLAMP)
+
+                            renderEffect = RenderEffect.createChainEffect(shaderEffect, blurEffect).asComposeRenderEffect()
+                        } catch (_: Throwable) {
+                            renderEffect = RenderEffect.createBlurEffect(
+                                looks.blurIntensiveness,
+                                looks.blurIntensiveness,
+                                Shader.TileMode.CLAMP
+                            ).asComposeRenderEffect()
                         }
-
-                        val shaderEffect = RenderEffect.createRuntimeShaderEffect(shader, "uBackground")
-                        val liquidBlur = (12f + (looks.blurIntensiveness * 0.25f))
-                        val blurEffect = RenderEffect.createBlurEffect(liquidBlur, liquidBlur, Shader.TileMode.CLAMP)
-
-                        renderEffect = RenderEffect.createChainEffect(shaderEffect, blurEffect).asComposeRenderEffect()
                     } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         renderEffect = RenderEffect.createBlurEffect(
                             looks.blurIntensiveness,

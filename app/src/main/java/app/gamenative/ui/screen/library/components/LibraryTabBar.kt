@@ -33,16 +33,22 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -58,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import app.gamenative.R
 import app.gamenative.ui.component.focusRing
 import app.gamenative.ui.enums.LibraryTab
+import app.gamenative.ui.theme.LocalBackgroundLayer
 import app.gamenative.ui.theme.PluviaTheme
 import app.gamenative.ui.theme.PluviaGlassPanel
 import app.gamenative.ui.theme.glassContentColor
@@ -215,84 +222,126 @@ private fun CompactLibraryTabBar(
                 type = HapticManager.HapticType.MENU,
             )
 
-            Row(
+            val density = LocalDensity.current
+            var compactTabContentLayer by remember { mutableStateOf<GraphicsLayer?>(null) }
+
+            val compactIndicatorOffset by animateDpAsState(
+                targetValue = with(density) { (tabPositions[currentIndex] ?: 0f).toDp() },
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium,
+                ),
+                label = "compactIndicatorOffset",
+            )
+
+            val compactIndicatorWidth by animateDpAsState(
+                targetValue = with(density) { (tabWidths[currentIndex] ?: 60f).toDp() },
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium,
+                ),
+                label = "compactIndicatorWidth",
+            )
+
+            Box(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(20.dp))
                     .background(Color.White.copy(alpha = 0.05f))
                     .horizontalScroll(scrollState)
                     .padding(4.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
+                contentAlignment = Alignment.CenterStart,
             ) {
-                tabs.forEachIndexed { index, tab ->
-                    val isSelected = tab == currentTab
-                    val tabInteractionSource = remember { MutableInteractionSource() }
-                    val isTabFocused by tabInteractionSource.collectIsFocusedAsState()
-                    Box(
-                        modifier = Modifier
-                            .onGloballyPositioned { coordinates ->
-                                tabPositions[index] = coordinates.positionInParent().x
-                                tabWidths[index] = coordinates.size.width.toFloat()
+                Row(
+                    modifier = Modifier.drawWithCache {
+                        val layer = obtainGraphicsLayer()
+                        onDrawWithContent {
+                            layer.record {
+                                this@onDrawWithContent.drawContent()
                             }
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(
-                                when {
-                                    isSelected -> MaterialTheme.colorScheme.primary
-                                    isTabFocused -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                                    else -> Color.Transparent
-                                },
-                            )
-                            .focusRing(tabInteractionSource, RoundedCornerShape(16.dp), width = 2.dp)
-                            .hapticSelectable(
-                                selected = isSelected,
-                                interactionSource = tabInteractionSource,
-                                onClick = { onTabSelected(tab) },
-                                type = HapticManager.HapticType.CLICK,
-                            )
-                            .padding(horizontal = if (tab.icon != null) 8.dp else 14.dp, vertical = 8.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        val count = tabCounts[tab]
-                        val tabColor = when {
-                            isSelected -> MaterialTheme.colorScheme.onPrimary
-                            isTabFocused -> MaterialTheme.colorScheme.primary
-                            else -> contentColor.copy(alpha = 0.8f)
+                            drawLayer(layer)
+                            compactTabContentLayer = layer
                         }
-                        if (tab.icon != null) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = tab.icon,
-                                    contentDescription = stringResource(tab.labelResId),
-                                    tint = tabColor,
-                                    modifier = Modifier.size(18.dp),
-                                )
-                                if (count != null && count > 0) {
-                                    Text(
-                                        text = "($count)",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        maxLines = 1,
-                                        color = tabColor,
-                                        modifier = Modifier.padding(start = 4.dp),
-                                    )
+                    },
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    tabs.forEachIndexed { index, tab ->
+                        val isSelected = tab == currentTab
+                        val tabInteractionSource = remember { MutableInteractionSource() }
+                        val isTabFocused by tabInteractionSource.collectIsFocusedAsState()
+                        Box(
+                            modifier = Modifier
+                                .onGloballyPositioned { coordinates ->
+                                    tabPositions[index] = coordinates.positionInParent().x
+                                    tabWidths[index] = coordinates.size.width.toFloat()
                                 }
+                                .clip(RoundedCornerShape(16.dp))
+                                .focusRing(tabInteractionSource, RoundedCornerShape(16.dp), width = 2.dp)
+                                .hapticSelectable(
+                                    selected = isSelected,
+                                    interactionSource = tabInteractionSource,
+                                    onClick = { onTabSelected(tab) },
+                                    type = HapticManager.HapticType.CLICK,
+                                )
+                                .padding(horizontal = if (tab.icon != null) 8.dp else 14.dp, vertical = 8.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            val count = tabCounts[tab]
+                            val tabColor = when {
+                                isSelected -> MaterialTheme.colorScheme.primary
+                                isTabFocused -> MaterialTheme.colorScheme.primary
+                                else -> contentColor.copy(alpha = 0.8f)
                             }
-                        } else {
-                            val label = if (count != null && count > 0) {
-                                stringResource(R.string.library_tab_with_count, stringResource(tab.labelResId), count)
+                            if (tab.icon != null) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = tab.icon,
+                                        contentDescription = stringResource(tab.labelResId),
+                                        tint = tabColor,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                    if (count != null && count > 0) {
+                                        Text(
+                                            text = "($count)",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            maxLines = 1,
+                                            color = tabColor,
+                                            modifier = Modifier.padding(start = 4.dp),
+                                        )
+                                    }
+                                }
                             } else {
-                                stringResource(tab.labelResId)
+                                val label = if (count != null && count > 0) {
+                                    stringResource(R.string.library_tab_with_count, stringResource(tab.labelResId), count)
+                                } else {
+                                    stringResource(tab.labelResId)
+                                }
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = tabColor,
+                                )
                             }
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                color = tabColor,
-                            )
                         }
+                    }
+                }
+
+                if (compactTabContentLayer != null && compactIndicatorWidth > 0.dp) {
+                    CompositionLocalProvider(LocalBackgroundLayer provides compactTabContentLayer) {
+                        PluviaGlassPanel(
+                            modifier = Modifier
+                                .offset { IntOffset(compactIndicatorOffset.roundToPx(), 0) }
+                                .width(compactIndicatorWidth)
+                                .height(36.dp),
+                            cornerRadius = 18,
+                            isScrolling = isScrolling,
+                            distortionStrength = distortionStrength
+                        ) {}
                     }
                 }
             }
@@ -420,8 +469,6 @@ private fun ExpandedLibraryTabBar(
         scrollState.animateScrollTo((targetCenter - viewportCenter).coerceAtLeast(0))
     }
 
-    val contentColor = glassContentColor()
-
     PluviaGlassPanel(
         modifier = modifier
             .fillMaxWidth()
@@ -472,6 +519,8 @@ private fun ExpandedLibraryTabBar(
                 type = HapticManager.HapticType.MENU,
             )
 
+            var tabContentLayer by remember { mutableStateOf<GraphicsLayer?>(null) }
+
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -481,24 +530,17 @@ private fun ExpandedLibraryTabBar(
                     .padding(4.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                // Sliding pill indicator (rendered behind tabs)
-                Box(
-                    modifier = Modifier
-                        .offset { IntOffset(indicatorOffset.roundToPx(), 0) }
-                        .width(indicatorWidth)
-                        .height(40.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(
-                            brush = Brush.horizontalGradient(
-                                colors = listOf(
-                                    MaterialTheme.colorScheme.primary,
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
-                                ),
-                            ),
-                        ),
-                )
-
                 Row(
+                    modifier = Modifier.drawWithCache {
+                        val layer = obtainGraphicsLayer()
+                        onDrawWithContent {
+                            layer.record {
+                                this@onDrawWithContent.drawContent()
+                            }
+                            drawLayer(layer)
+                            tabContentLayer = layer
+                        }
+                    },
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -513,6 +555,21 @@ private fun ExpandedLibraryTabBar(
                                 tabWidths[index] = width
                             },
                         )
+                    }
+                }
+
+                // Active Floating Refraction Glass Lens Indicator
+                if (tabContentLayer != null && indicatorWidth > 0.dp) {
+                    CompositionLocalProvider(LocalBackgroundLayer provides tabContentLayer) {
+                        PluviaGlassPanel(
+                            modifier = Modifier
+                                .offset { IntOffset(indicatorOffset.roundToPx(), 0) }
+                                .width(indicatorWidth)
+                                .height(40.dp),
+                            cornerRadius = 20,
+                            isScrolling = isScrolling,
+                            distortionStrength = distortionStrength
+                        ) {}
                     }
                 }
             }
@@ -673,7 +730,7 @@ private fun TabItem(
                     imageVector = tab.icon,
                     contentDescription = stringResource(tab.labelResId),
                     tint = when {
-                        isSelected -> MaterialTheme.colorScheme.onPrimary
+                        isSelected -> MaterialTheme.colorScheme.primary
                         else -> glassContentColor().copy(alpha = textAlpha)
                     },
                     modifier = Modifier.size(20.dp),
@@ -685,7 +742,7 @@ private fun TabItem(
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                         maxLines = 1,
                         color = when {
-                            isSelected -> MaterialTheme.colorScheme.onPrimary
+                            isSelected -> MaterialTheme.colorScheme.primary
                             else -> glassContentColor().copy(alpha = textAlpha)
                         },
                         modifier = Modifier.padding(start = 4.dp),
@@ -700,7 +757,7 @@ private fun TabItem(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = when {
-                    isSelected -> MaterialTheme.colorScheme.onPrimary
+                    isSelected -> MaterialTheme.colorScheme.primary
                     else -> glassContentColor().copy(alpha = textAlpha)
                 },
                 textAlign = TextAlign.Center,

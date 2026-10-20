@@ -157,8 +157,18 @@ fun SettingsGroupLooks(viewModel: MainViewModel) {
                 exit = shrinkVertically() + fadeOut()
             ) {
                 Column {
-                    // Removed Standard and True Glass modes - Liquid is sole renderer
                     val contentColor = glassContentColor()
+                    val glassModeOptions = listOf("Normal", "Liquid")
+
+                    SettingsListDropdown(
+                        colors = settingsTileColorsAlt(),
+                        value = if (state.glassMode == GlassMode.LIQUID) 1 else 0,
+                        items = glassModeOptions,
+                        onItemSelected = { index ->
+                            viewModel.setGlassMode(if (index == 1) GlassMode.LIQUID else GlassMode.STANDARD)
+                        },
+                        title = { Text(text = "Glass Mode", color = contentColor) }
+                    )
 
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                         Text(
