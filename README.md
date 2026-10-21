@@ -1,99 +1,128 @@
-<div align="center">
+# GameNothing
 
-# GameNative
+[image goes here]
 
-**Play the PC games you already own — from Steam, Epic and GOG — on your Android device, with cloud saves.**
+**Emulators? What are they?** 
 
-<a href="https://trendshift.io/repositories/14497" target="_blank"><img src="https://trendshift.io/api/badge/repositories/14497" alt="utkarshdalal%2FGameNative | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+GameNothing isn't just an app; it's a complete transformation of your Android device. We took the concept of a launcher, mashed it with a high-performance PC emulation engine, and wrapped it in a custom UI so clean it makes stock Android look like a spreadsheet. 
 
-<a href="https://www.star-history.com/utkarshdalal/gamenative">
- <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=utkarshdalal/GameNative&theme=dark" />
-  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=utkarshdalal/GameNative" />
-  <img alt="Star History Rank" src="https://api.star-history.com/badge?repo=utkarshdalal/GameNative" />
- </picture>
+Transform your phone or handheld into an OEM-grade gaming OS. Play GTA 5, Halo, or No Man's Sky at *2937391 fps* on a 6" screen (results may vary based on the laws of physics, but the vibe is 100% there). Log in, import your library, and play your games—online or offline—with zero telemetry bloat.
+
+**100% free. Zero data collection. No limits on what you can add. It's your device — own it.**
+
+**Note:** v1.0 is currently in **BETA**. Some features like control mapping, static wallpapers, and SGSR upscaling aren't in yet—they'll arrive in the future. The biggest features—a full Linux desktop and better graphics drivers—are coming in **v2.0**. For now, treat this beta as a stepping stone.
+
+<br>
+
+<a href="https://github.com/gabrielmartinslascau-lsxnya/GameNothing/releases">
+  <img src="https://img.shields.io/badge/Download_Latest_Release-APK-brightgreen?style=for-the-badge&logo=android" alt="Download APK">
 </a>
 
-[![GitHub Release](https://img.shields.io/github/v/release/utkarshdalal/GameNative?style=flat-square&logo=github&label=latest)](https://github.com/utkarshdalal/GameNative/releases/latest)
-[![GitHub stars](https://img.shields.io/github/stars/utkarshdalal/GameNative?style=flat-square&logo=github&color=ffd700)](https://github.com/utkarshdalal/GameNative/stargazers)
-[![Discord](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscord.com%2Fapi%2Fv9%2Finvites%2F2hKv4VfZfE%3Fwith_counts%3Dtrue&query=%24.approximate_member_count&style=flat-square&logo=discord&logoColor=white&label=discord&color=5865F2&suffix=%20members)](https://discord.gg/2hKv4VfZfE)
-[![License](https://img.shields.io/badge/license-GPL%203.0-blue?style=flat-square)](https://github.com/utkarshdalal/GameNative/blob/master/LICENSE)
-[![Ko-fi](https://img.shields.io/badge/ko--fi-support-FF5E5B?style=flat-square&logo=ko-fi&logoColor=white)](https://ko-fi.com/gamenative)
+---
 
-[**Download**](https://downloads.gamenative.app/releases/1.1.1/gamenative-v1.1.1.apk) · [**Discord**](https://discord.gg/2hKv4VfZfE) · [**Support on Ko-fi**](https://ko-fi.com/gamenative)
+## 🔥 What GameNothing Brings to Your Device
 
-<video src="https://github.com/user-attachments/assets/95b5397b-908a-44ef-a10a-dac7723580b0" autoplay loop muted playsinline width="100%"></video>
+[image goes here]
 
-</div>
+- **Choose your own animations**
+- **Physics-accurate glass panels (Normal & "Broken Glass" modes)**
+- **Adjustable distortion slider for the glass effects**
+- **Colour picker (any colour you wish for)**
+- **Live wallpaper support, no size limit (v1.0 beta)**
+- **Static wallpaper support (coming in v2.0+)**
+- **"Material You" wallpaper color extraction**
+
+[image goes here]
+
+- **Haptics (3 modes)**
+- **Nothing styled fonts (Ndot & Bricolage Grotesque)**
+- **Custom download bars (2 types)**
+
+[image goes here]
+
+- **Aggressive caching for fast loading**
+- **Floating RAM viewer "bubble"**
+- **Refresh rate control up to 144hz for fluid gaming**
+- **Dedicated MP3 player with FLAC support**
+- **Full USB storage pipeline rework (automated high-speed mover + manual system files bypass)**
+
+[image goes here]
+
+- **Steam, GOG, Amazon, and Epic Games integration**
+- **Custom games (external or internal)**
+- **Cloud saves & Nexus Mods support**
+- **Local mods**
+- **and a whole lot more!**
 
 ---
 
-GameNative lets you run the PC games in your Steam, Epic and GOG libraries directly on Android — no streaming required. Your saves sync to the cloud, so you can stop on your PC and keep going on your phone.
+<details>
+<summary><b> Click here to see the Roadmap & Future Updates</b></summary>
+<br>
 
-It's still early. Not every game runs yet, and some need tweaking to play well, but the community is constantly finding and sharing configs that work — and these get applied automatically. You can see if anyone has tried running your game successfully at https://gamenative.app/compatibility.
+### 🚀 What to Expect in the Future
 
-## What you get
+> **Note:** This started life as v0.6.0, but it got way too big. Say hello to the path toward **v2.0.0**.
 
-- Play games you actually own on Steam, Epic, GOG and Amazon
-- Cloud saves that carry over between your PC and your phone
-- Automatically applied known configs, so many games just work out of the box with no tweaking required
-- Controller and touch support, with a custom control editor and on-screen HUD
-- Steam DLC, workshop and branch support
-- Active support over Discord if you need help getting a game running
+| Version | Key Features | Status |
+| :--- | :--- | :--- |
+| **BETA v0.1.0 - v0.5.0** | The early days. Laid the foundation with Nothing fonts, glass panels, the 360° carousel, the first AGSL shader, the MP3 player, and wallpaper color extraction. | `OUTDATED` |
+| **v1.0.0 (Beta)** | **The "This Was Supposed to Be 0.6" Release:** Full **GameNative 1.2.1** base sync, complete USB Storage Rework, upgraded AGSL Glass 2.0, reworked 360° Carousel, custom loading screens, a new resolution picker, a Cloud/Remote Play tab, and the early-access **Playground tab**. *Note: The Linux environment + driver fix are the main event for v2.0.* | `CURRENT BETA` |
+| **v2.0.0 (Mega Update)** | **The Ultimate Update.** Brings every new feature from GameNative 1.3.0 (Headless Steam, Rust Download Engine, EA/Rockstar support, 2GB container savings). PLUS the brand new **Linux Environment (Debian)**. PLUS the physics-accurate **"Broken Glass"** visuals. | `IN DEVELOPMENT` |
 
-## Demo
+</details>
 
-[TechDweeb](https://www.youtube.com/@TechDweeb) walks through setting up GameNative on an Android handheld in a couple of minutes:
+<details>
+<summary><b> Click here to see What's Coming in v2.0.0</b></summary>
+<br>
 
-<div align="center">
+### 🛠️ The Mega Update Breakdown
 
-<a href="https://youtu.be/QqIChmAu2_A?si=Ha6xzTQXZA2H8HUN&t=53" target="_blank"><img src="https://github.com/user-attachments/assets/6957e3a1-34ac-41f5-b558-0f1868dbf3d4" alt="Youtube Video" /></a>
+**Broken Glass Progress:** 
+`[████████████████░░░░]` 80% (In Development)
 
-</div>
+### 🎨 The "Broken Glass" Update (New Visuals)
+- **Two Glass Styles:** Choose between the classic "Normal" magnifying glass look, or the new "Broken Glass" look.
+- **Realistic Distortion:** The new glass uses real-world physics (Index of Refraction 1.52, Thickness 58) to bend the background edges, making it look like thick, real glass.
+- **Chromatic Aberration:** Color splitting at the edges for ultra-realism.
 
-## How to use
+### 🐧 The Linux Desktop (Debian)
+- **A Real Computer in Your Pocket:** A dedicated "Playground" tab that switches your phone into a full Debian Linux computer.
+- **Run PC Apps:** Run a real desktop web browser, play modded Terraria (tModLoader), and use programs that normal Android can't run.
 
-1. Download the latest release [here](https://downloads.gamenative.app/releases//gamenative-v.apk)
-2. Install the APK on your Android device
-3. Log in to your Steam account
-4. Install your game
-5. Hit play and enjoy
+### 🚀 GameNative 1.3 Update (The Engine)
+- **Faster Downloads:** The new native Rust download engine.
+- **Saves Storage Space:** Container sharing drops game sizes by up to 2GB per game.
+- **Fixes Steam:** Headless Steam client fixes online multiplayer and DRM issues.
+- **EA & Rockstar Games:** Support added for games like *The Sims 4* and *Red Dead Redemption 2*.
+- **Voice Chat:** Microphone input is finally supported.
+- **Native LSFG:** Smoother gameplay using the Lossless Scaling frame generation pipeline.
 
-## Support
+</details>
 
-The fastest way to get help is the [Discord server](https://discord.gg/2hKv4VfZfE) — we're 35k+ strong and someone's usually around.
+<details>
+<summary><b> Click here for Credits & Acknowledgements</b></summary>
+<br>
 
-Please **don't** open issues on GitHub; they're closed automatically. Bring it to Discord instead.
+### 🎮 GameNative
+The **entire core foundation** of this project. GameNothing is a heavily customized fork of **GameNative** (created by **utkarshdalal** and their team). They built the emulator, the container system, and the 1.3.0 update. 
 
-If you'd like to chip in, you can support the project on [Ko-fi](https://ko-fi.com/gamenative).
+### 🫧 The Liquid Glass Devs
+A massive shoutout to **Kyant0** (AndroidLiquidGlass), **sdegenaar** (Liquid Glass Widgets for Flutter), and the broader graphics community for figuring out the actual physics and math behind the "Mornye" glass effect. 
 
-## Contributing
+### 🐧 DroidDeck
+The **inspiration** for the Linux Desktop. The creator of **DroidDeck** (**The412Banner**) proved that you can run a full Linux desktop on an Android phone. We are following their blueprint.
 
-Want to help out? Message us to get into the **#development** channel on [Discord](https://discord.gg/2hKv4VfZfE), or open a thread there. Things we're currently looking for help with live on our [Trello board](https://trello.com/b/vGRkFoAM/open-source-board).
+### 🧪 Early Supporters
+A huge thank you to the handful of people on TikTok who downloaded the early versions and gave feedback. You kept this project alive.
 
-### Building
-
-Most of the time you don't need this — if you just want to play, grab the release above. This is for contributors.
-
-1. Build it like any normal Android Studio project. Ask on Discord if you get stuck.
-2. **SteamGridDB API key (optional):** to pull game artwork for custom games, add your key to `local.properties`:
-   ```properties
-   STEAMGRIDDB_API_KEY=your_api_key_here
-   ```
-   You can get one from your [SteamGridDB preferences](https://www.steamgriddb.com/profile/preferences). Without it everything still works — it just won't fetch images.
-
-## Supporters
-
-Thanks to our [Ko-fi sponsors](https://ko-fi.com/gamenative) and [GitHub sponsors](https://github.com/sponsors/utkarshdalal?preview=true), including [CodeRabbit](https://coderabbit.link/gnative).
-
-[![Star History Chart](https://star-history.dera.page/svg?repos=utkarshdalal/GameNative&type=Date&theme=dark)](https://star-history.dera.page/#utkarshdalal/GameNative&Date)
-
-## License
-
-[GPL 3.0](https://github.com/utkarshdalal/GameNative/blob/master/LICENSE).
-
-See [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) for attributions, copyleft source offers, and notices about third-party and proprietary components bundled with the app.
+</details>
 
 ---
 
-**Disclaimer:** This software is meant for playing games that you legally own. Don't use it for piracy or anything else illegal. The maintainer takes no responsibility for misuse.
+## ⚠️ Bug Reports & Feedback
+
+**IMPORTANT:** If you find a bug, **DO NOT report it to the original GameNative repository**. GameNothing is a custom fork. 
+
+* **In-App Bug Reporting:** Open the menu `☰ (Top Left) -> Settings -> Scroll down -> Debug -> Report Bug` to send a message directly to me.
+* **Direct Message & Feature Requests:** Message me on TikTok **[@lsxnothing](https://www.tiktok.com/@lsxnothing)** (or *evil rolfy*) for any questions, suggestions, or bugs!
