@@ -1,7 +1,5 @@
 # GameNothing
 
-[image goes here]
-
 **Emulators? What are they?** 
 
 GameNothing isn't just an app; it's a complete transformation of your Android device. We took the concept of a launcher, mashed it with a high-performance PC emulation engine, and wrapped it in a custom UI so clean it makes stock Android look like a spreadsheet. 
@@ -22,7 +20,10 @@ Transform your phone or handheld into an OEM-grade gaming OS. Play GTA 5, Halo, 
 
 ## 🔥 What GameNothing Brings to Your Device
 
-[image goes here]
+
+https://github.com/user-attachments/assets/f5140039-0bf2-4df4-9526-84f28bd25080
+
+
 
 - **Choose your own animations**
 - **Physics-accurate glass panels (Normal & "Broken Glass" modes)**
@@ -77,6 +78,9 @@ Transform your phone or handheld into an OEM-grade gaming OS. Play GTA 5, Halo, 
 <br>
 
 ### 🛠️ The Mega Update Breakdown
+
+
+<img width="1568" height="823" alt="WhatsApp Image 2026-10-21 at 22 37 21" src="https://github.com/user-attachments/assets/674e286d-bb24-45cc-a3dd-81dc452bd851" />
 
 **Broken Glass Progress:** 
 `[████████████████░░░░]` 80% (In Development)
