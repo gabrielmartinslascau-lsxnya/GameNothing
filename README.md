@@ -21,7 +21,11 @@ Transform your phone or handheld into an OEM-grade gaming OS. Play GTA 5, Halo, 
 ## 🔥 What GameNothing Brings to Your Device
 
 
-https://github.com/user-attachments/assets/f5140039-0bf2-4df4-9526-84f28bd25080
+
+
+https://github.com/user-attachments/assets/b6ca0e0c-3fdb-4201-a521-242b1dac9f5b
+
+
 
 
 
@@ -32,6 +36,14 @@ https://github.com/user-attachments/assets/f5140039-0bf2-4df4-9526-84f28bd25080
 - **Live wallpaper support, no size limit (v1.0 beta)**
 - **Static wallpaper support (coming in v2.0+)**
 - **"Material You" wallpaper color extraction**
+
+
+
+
+
+
+https://github.com/user-attachments/assets/ac83a23c-e8c3-437c-a449-64f9fbc4e40c
+
 
 [image goes here]
 
