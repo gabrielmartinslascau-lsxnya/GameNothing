@@ -28,6 +28,9 @@
 
 ---
 
+[GameNothing.Promo.1.html](https://github.com/user-attachments/files/34770054/GameNothing.Promo.1.html)
+
+
 ## 👋 What is this?
 
 GameNothing turns your Android phone or handheld into something that feels like a purpose-built gaming console. It's three things in one app:
