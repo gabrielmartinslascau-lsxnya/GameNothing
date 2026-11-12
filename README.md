@@ -1,9 +1,8 @@
-# GameNothing (TEMPORARILY ABANDONED, SORRY!)
+# GameNothing
 
 
 
-
-https://github.com/user-attachments/assets/ea65669b-4788-4d43-8952-0c75c2c16437
+[![Watch the GameNothing promo](docs/promo/thumb.png)](https://<your-username>.github.io/GameNothing/promo/)
 
 
 **Emulators? What are they?** 
