@@ -2,8 +2,9 @@
 
 
 
-[![Watch the GameNothing promo](docs/promo/thumb.png)](https://<your-username>.github.io/GameNothing/promo/)
+[![GameNothing promo](docs/promo/thumb.png)](https://<gabrielmartinslascau-lsxnya>.github.io/GameNothing/promo/)
 
+[Watch the interactive promo](https://claude.ai/artifact/ShpaGZctGr1bqk6mkzsyAV)
 
 **Emulators? What are they?** 
 
