@@ -1,6 +1,6 @@
 <div align="center">
 
-# (add image here) GameNothing
+# GameNothing
 
 ### Your phone, but make it a gaming OS.
 
