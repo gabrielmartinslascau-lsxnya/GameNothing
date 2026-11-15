@@ -9,7 +9,7 @@
 <a href="https://github.com/gabrielmartinslascau-lsxnya/GameNothing/releases">
   <img src="https://img.shields.io/badge/Download_Latest_Release-APK-brightgreen?style=for-the-badge&logo=android" alt="Download APK">
 </a>
-<a href="https://github.com/user-attachments/files/34770054/GameNothing.Promo.1.html">
+<a href="https://github.com/user-attachments/files/34876188/GameNothing.2.0.Promo.html">
   <img src="https://img.shields.io/badge/▶_Interactive_Promo-HTML-ff2d87?style=for-the-badge" alt="Interactive Promo">
 </a>
 <a href="https://www.tiktok.com/@lsxnothing">
@@ -18,11 +18,12 @@
 
 <br><br>
 
-<sub>↑ Tap <b>Interactive Promo</b> to download, then open it in Chrome. It's a 35-second interactive page: drag the glass slider, hit replay, enjoy.</sub>
+<sub>↑ Tap <b>Interactive Promo</b> to download the file, then open it in Chrome. It's about a minute long, with real footage and benchmarks.</sub>
 
 </div>
 
 ---
+
 
 ## 👋 What is this?
 
