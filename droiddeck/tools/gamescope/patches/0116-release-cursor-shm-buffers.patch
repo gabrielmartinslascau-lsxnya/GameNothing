@@ -1,0 +1,12 @@
+--- a/src/wlserver.cpp
++++ b/src/wlserver.cpp
+@@ -203,6 +203,9 @@
+ }
+ 
+ void xwayland_surface_commit(struct wlr_surface *wlr_surface) {
++	if ( wlr_surface->role && strcmp( wlr_surface->role->name, "wl_pointer-cursor" ) == 0 )
++		return;
++
+ 	wlr_surface->current.committed = 0;
+ 
+ 	wlserver_x11_surface_info *wlserver_x11_surface_info = get_wl_surface_info(wlr_surface)->x11_surface;

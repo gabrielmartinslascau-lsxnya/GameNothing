@@ -14,47 +14,43 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.util.lerp
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.util.lerp
 import app.gamenative.PluviaApp
 import app.gamenative.events.AndroidEvent
-import app.gamenative.ui.screen.library.components.ambient.AmbientModeConstants.BAR_BASE_ALPHA
 import app.gamenative.ui.screen.library.components.ambient.AmbientModeConstants.BAR_HEIGHT_DP
-import app.gamenative.ui.screen.library.components.ambient.AmbientModeConstants.BAR_TRACK_ALPHA
 import app.gamenative.ui.screen.library.components.ambient.AmbientModeConstants.DRIFT_AMPLITUDE_PX
 import app.gamenative.ui.screen.library.components.ambient.AmbientModeConstants.DRIFT_PERIOD_MS
 import app.gamenative.ui.screen.library.components.ambient.AmbientModeConstants.ENTER_DURATION_MS
 import app.gamenative.ui.screen.library.components.ambient.AmbientModeConstants.EXIT_DURATION_MS
 import app.gamenative.ui.screen.library.components.ambient.AmbientModeConstants.IDLE_TIMEOUT_MS
+import app.gamenative.ui.screen.library.components.ambient.AmbientModeConstants.BAR_BASE_ALPHA
+import app.gamenative.ui.screen.library.components.ambient.AmbientModeConstants.BAR_TRACK_ALPHA
 import app.gamenative.ui.screen.library.components.ambient.AmbientModeConstants.SHIMMER_PERIOD_MS
 import app.gamenative.ui.screen.library.components.ambient.AmbientModeConstants.SHIMMER_WIDTH_FRACTION
 import app.gamenative.ui.theme.BrandGradient
 import app.gamenative.utils.ShakeDetector
 import kotlinx.coroutines.delay
 
-import app.gamenative.utils.BackgroundOperationManager
-import app.gamenative.utils.OperationType
-
 /**
- * Only compose while a download or background operation is active. Brightness is restored on disposal.
+ * Only compose while a download is active. Brightness is restored on disposal.
  */
 @Composable
 internal fun AmbientDownloadOverlay(
@@ -66,15 +62,6 @@ internal fun AmbientDownloadOverlay(
 ) {
     val activity = LocalActivity.current as? ComponentActivity ?: return
     val context = LocalContext.current
-
-    val backgroundOps = BackgroundOperationManager.operations
-    val isAnyOpActive = backgroundOps.isNotEmpty()
-
-    // Use the first active operation if no download is active
-    val activeOp = backgroundOps.firstOrNull()
-    val effectiveGameName = if (downloadProgress > 0) gameName else activeOp?.displayName ?: ""
-    val effectiveProgress = if (downloadProgress > 0) downloadProgress else activeOp?.progress ?: 0f
-    val effectiveStatus = if (downloadProgress > 0) "" else activeOp?.statusMessage ?: ""
 
     var interactionCounter by remember { mutableIntStateOf(0) }
     var isIdle by remember { mutableStateOf(false) }
@@ -132,7 +119,7 @@ internal fun AmbientDownloadOverlay(
         onDispose { shakeDetector.stop() }
     }
 
-    val targetAlpha = if (isIdle && (downloadProgress > 0 || isAnyOpActive)) 1f else 0f
+    val targetAlpha = if (isIdle) 1f else 0f
     val ambientAlpha by animateFloatAsState(
         targetValue = targetAlpha,
         animationSpec = tween(
@@ -184,8 +171,8 @@ internal fun AmbientDownloadOverlay(
         ) {
             if (isDvdMode && ambientAlpha == 1f) {
                 DvdBouncingOverlay(
-                    gameName = effectiveGameName,
-                    downloadProgress = effectiveProgress,
+                    gameName = gameName,
+                    downloadProgress = downloadProgress,
                     iconUrl = iconUrl,
                 )
             } else {
@@ -204,7 +191,7 @@ internal fun AmbientDownloadOverlay(
                             .alpha(textAlpha),
                     ) {
                         Text(
-                            text = effectiveGameName,
+                            text = gameName,
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Medium,
                                 letterSpacing = 0.5.sp,
@@ -212,18 +199,9 @@ internal fun AmbientDownloadOverlay(
                             color = Color.White,
                             maxLines = 1,
                         )
-                        if (effectiveStatus.isNotEmpty()) {
-                            Text(
-                                text = effectiveStatus,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.7f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "${(effectiveProgress * 100).toInt()}%",
+                            text = "${(downloadProgress * 100).toInt()}%",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.White,
                         )
@@ -232,7 +210,7 @@ internal fun AmbientDownloadOverlay(
             }
 
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val progress = effectiveProgress.coerceIn(0f, 1f)
+                val progress = downloadProgress.coerceIn(0f, 1f)
                 val t = if (originBounds != null) ambientAlpha else 1f
 
                 val destX = 0f

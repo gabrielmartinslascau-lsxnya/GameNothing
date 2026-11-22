@@ -7,7 +7,6 @@ import com.winlator.xconnector.XOutputStream;
 import com.winlator.xconnector.XStreamLock;
 import com.winlator.xserver.Drawable;
 import com.winlator.xserver.GraphicsContext;
-import com.winlator.xserver.ShmFramePacer;
 import com.winlator.xserver.XClient;
 import com.winlator.xserver.XLock;
 import com.winlator.xserver.XServer;
@@ -19,8 +18,6 @@ import com.winlator.xserver.errors.XRequestError;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-
-import app.gamenative.PrefManager;
 
 public class MITSHMExtension implements Extension {
     public static final byte MAJOR_OPCODE = -101;
@@ -122,11 +119,11 @@ public class MITSHMExtension implements Extension {
         // counts as a presented frame.
         int clippedW = Math.min((int) srcWidth, drawable.width - Math.max(0, (int) dstX));
         int clippedH = Math.min((int) srcHeight, drawable.height - Math.max(0, (int) dstY));
-        if (clippedW > 0 && clippedH > 0
+        if (!app.gamenative.PrefManager.INSTANCE.getFasterExternalLoading()
+                && clippedW > 0 && clippedH > 0
                 && clippedW * clippedH * 5 >= drawable.width * drawable.height * 4
-                && client.connectorClient != null
-                && !PrefManager.INSTANCE.getFasterExternalLoading()) {
-            long delayNs = ShmFramePacer.framePresented(drawableId);
+                && client.connectorClient != null) {
+            long delayNs = com.winlator.xserver.ShmFramePacer.framePresented(drawableId);
             if (delayNs > 0) {
                 client.connectorClient.getConnector().pauseClientReads(client.connectorClient, delayNs);
             }

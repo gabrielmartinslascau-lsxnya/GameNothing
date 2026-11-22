@@ -6,6 +6,10 @@ import android.content.pm.PackageManager
 
 object IconSwitcher {
 
+    fun applyLauncherIcon(context: Context, useAlt: Boolean) {
+        applyLauncherIcon(context, if (useAlt) 1 else 0)
+    }
+
     fun applyLauncherIcon(context: Context, variant: Int) {
         val packageManager = context.packageManager
 

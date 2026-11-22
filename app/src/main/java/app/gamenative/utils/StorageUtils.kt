@@ -12,15 +12,33 @@ import android.provider.DocumentsContract
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import app.gamenative.PrefManager
-import java.io.*
-import java.nio.file.*
+import app.gamenative.ui.components.getPathFromTreeUri as resolveTreeUriPath
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
+import java.nio.ByteBuffer
+import java.nio.channels.FileChannel
+import java.nio.file.FileVisitResult
+import java.nio.file.Files
+import java.nio.file.LinkOption
+import java.nio.file.OpenOption
+import java.nio.file.Path
+import java.nio.file.Paths
+import java.nio.file.SimpleFileVisitor
+import java.nio.file.StandardCopyOption
+import java.nio.file.StandardOpenOption
 import java.nio.file.attribute.BasicFileAttributes
+import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import timber.log.Timber
-import java.nio.channels.FileChannel
-import kotlin.math.abs
 
 object StorageUtils {
 
@@ -44,16 +62,17 @@ object StorageUtils {
 
             // Check if it's our internal provider first
             val appDataRoot = context.dataDir.absolutePath
+            val authority = "${context.packageName}.documents"
             if (folderPath.startsWith(appDataRoot)) {
                 val relPath = folderPath.removePrefix(appDataRoot).trimStart('/')
                 val docId = if (relPath.isEmpty()) "root" else "root:$relPath"
-                uri = DocumentsContract.buildTreeDocumentUri("app.gamenative.documents", docId)
-            } else if (rootId != null) {
+                uri = DocumentsContract.buildTreeDocumentUri(authority, docId)
+            } else if (rootId != null && volume != null) {
                 val volumePath = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    volume?.directory?.absolutePath
+                    volume.directory?.absolutePath
                 } else {
                     try {
-                        val getPath = volume!!.javaClass.getMethod("getPath")
+                        val getPath = volume.javaClass.getMethod("getPath")
                         getPath.invoke(volume) as? String
                     } catch (e: Exception) {
                         null
@@ -165,21 +184,81 @@ object StorageUtils {
 
     suspend fun getFolderSize(folderPath: String): Long {
         val folder = File(folderPath)
-        if (folder.exists()) {
-            var bytes = 0L
-            val tree = folder.walk()
-            tree.forEach {
-                bytes += it.length()
-                // allow interruption if run as coroutine
-                yield()
-            }
-            return bytes
-        }
-        return 0L
+        if (!folder.exists()) return 0L
+        val job = currentCoroutineContext()[Job]
+        val bytes = directorySizeOnDisk(folder.toPath()) { job?.isActive != false }
+        job?.ensureActive()
+        return bytes
     }
 
+    /**
+     * Bytes of regular files under [root]. Symlinks (file or directory) are never followed
+     * or counted, so a link that points back into the tree (GOG's `_CommonRedist/ISI/rootdir`)
+     * or out to Workshop content cannot inflate the result.
+     *
+     * A file with several hard links is counted once, and only if every one of its links lives
+     * inside the walked tree: an inode is added when the number of links seen reaches `nlink`.
+     * Links that are shared with something outside (every container hard-links Proton, DXVK,
+     * VKD3D, FEX and WowBox64 files from a shared store) therefore count zero, as before.
+     *
+     * [shouldContinue] is polled per file; returning false stops the walk early.
+     */
+    fun directorySizeOnDisk(root: Path, shouldContinue: () -> Boolean = { true }): Long {
+        // The root itself may legitimately be a symlink (callers pass whatever path the store
+        // recorded); resolve it so the walk below, which never follows links, still descends.
+        val start = runCatching { root.toRealPath() }.getOrDefault(root)
+        if (!Files.isDirectory(start)) return 0L
+
+        var totalBytes = 0L
+        val linksSeen = HashMap<Any, Int>()
+        runCatching {
+            Files.walkFileTree(
+                start,
+                object : SimpleFileVisitor<Path>() {
+                    override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
+                        if (!shouldContinue()) return FileVisitResult.TERMINATE
+                        if (!attrs.isRegularFile) return FileVisitResult.CONTINUE
+                        val nlink = hardLinkCount(file)
+                        if (nlink > 1) {
+                            val key = attrs.fileKey() ?: inodeKey(file) ?: return FileVisitResult.CONTINUE
+                            val seen = (linksSeen[key] ?: 0) + 1
+                            linksSeen[key] = seen
+                            if (seen != nlink) return FileVisitResult.CONTINUE
+                        }
+                        totalBytes += attrs.size()
+                        return FileVisitResult.CONTINUE
+                    }
+
+                    override fun preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult {
+                        return if (shouldContinue()) FileVisitResult.CONTINUE else FileVisitResult.TERMINATE
+                    }
+
+                    override fun visitFileFailed(file: Path, exc: IOException?): FileVisitResult {
+                        Timber.w(exc, "Failed to size file: $file")
+                        return FileVisitResult.CONTINUE
+                    }
+                },
+            )
+        }.onFailure {
+            Timber.w(it, "Failed to calculate size for $root")
+        }
+
+        return totalBytes
+    }
+
+    private fun hardLinkCount(path: Path): Int =
+        runCatching { (Files.getAttribute(path, "unix:nlink", LinkOption.NOFOLLOW_LINKS) as Number).toInt() }
+            .getOrDefault(1)
+
+    private fun inodeKey(path: Path): Pair<Long, Long>? =
+        runCatching {
+            val dev = (Files.getAttribute(path, "unix:dev", LinkOption.NOFOLLOW_LINKS) as Number).toLong()
+            val ino = (Files.getAttribute(path, "unix:ino", LinkOption.NOFOLLOW_LINKS) as Number).toLong()
+            dev to ino
+        }.getOrNull()
+
     fun formatBinarySize(bytes: Long, decimalPlaces: Int = 2): String {
-        if (bytes <= 0) return "0 B"
+        require(bytes > Long.MIN_VALUE) { "Out of range" }
         require(decimalPlaces >= 0) { "Negative decimal places unsupported" }
 
         val isNegative = bytes < 0
@@ -251,6 +330,49 @@ object StorageUtils {
     }
 
     /**
+     * Returns whether [appFilesDir] should be offered as a separate install target.
+     *
+     * Primary storage is not always backed by built-in storage. When Android migrates primary
+     * shared storage to adopted media, the SD-backed volume remains primary but has a non-default
+     * storage UUID.
+     */
+    fun isExternalInstallTarget(storageManager: StorageManager?, appFilesDir: File): Boolean {
+        val volume = storageManager?.getStorageVolume(appFilesDir)
+            ?: return runCatching { Environment.isExternalStorageRemovable(appFilesDir) }.getOrDefault(false)
+        if (!volume.isPrimary) return true
+
+        val resolvedStorageUuid = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            volume.storageUuid
+        } else {
+            try {
+                storageManager.getUuidForPath(appFilesDir)
+            } catch (_: Exception) {
+                null
+            }
+        }
+
+        return isNonDefaultPrimaryStorage(
+            resolvedStorageUuid = resolvedStorageUuid,
+            legacyVolumeUuid = volume.uuid,
+            isPhysicalPrimary = volume.isRemovable && !volume.isEmulated,
+            allowLegacyUuidFallback = Build.VERSION.SDK_INT < Build.VERSION_CODES.S,
+            defaultStorageUuid = StorageManager.UUID_DEFAULT,
+        )
+    }
+
+    internal fun isNonDefaultPrimaryStorage(
+        resolvedStorageUuid: java.util.UUID?,
+        legacyVolumeUuid: String?,
+        isPhysicalPrimary: Boolean,
+        allowLegacyUuidFallback: Boolean,
+        defaultStorageUuid: java.util.UUID,
+    ): Boolean {
+        if (resolvedStorageUuid != null) return resolvedStorageUuid != defaultStorageUuid
+        if (isPhysicalPrimary) return true
+        return allowLegacyUuidFallback && !legacyVolumeUuid.isNullOrBlank()
+    }
+
+    /**
      * Gets all app-specific external files directories, using StorageManager as a fallback
      * for cases where context.getExternalFilesDirs(null) might return null or incomplete results
      * (e.g. USB OTG drives, which most devices omit from getExternalFilesDirs).
@@ -306,10 +428,11 @@ object StorageUtils {
      */
     fun getFastDocumentUri(context: Context, path: String): Uri? {
         val appDataRoot = context.dataDir.absolutePath
+        val authority = "${context.packageName}.documents"
         if (path.startsWith(appDataRoot)) {
             val relPath = path.removePrefix(appDataRoot).trimStart('/')
             val docId = if (relPath.isEmpty()) "root" else "root:$relPath"
-            return DocumentsContract.buildDocumentUri("app.gamenative.documents", docId)
+            return DocumentsContract.buildDocumentUri(authority, docId)
         }
 
         val safUri: String = PrefManager.externalStoragePath.takeIf { it.startsWith("content://") } ?: return null
@@ -334,6 +457,10 @@ object StorageUtils {
      * drives when broad storage permissions are available.
      */
     fun getPathFromTreeUri(context: Context, uri: Uri): String? {
+        // Prefer CustomGameFolderPicker volume resolver
+        val resolved = resolveTreeUriPath(context, uri)
+        if (resolved != null) return resolved
+
         val docId = try {
             val treeId = DocumentsContract.getTreeDocumentId(uri)
             if (DocumentsContract.isDocumentUri(context, uri)) {
@@ -378,7 +505,6 @@ object StorageUtils {
             }
 
             // Fallback for some devices where UUID isn't used or matches differently
-            // but we have a direct path candidate
             val fallbackPath = "/storage/$type"
             if (File(fallbackPath).exists()) {
                 return if (relativePath.isNotEmpty()) "$fallbackPath/$relativePath" else fallbackPath
@@ -388,11 +514,25 @@ object StorageUtils {
     }
 
     /**
+     * Resolves a raw string (which may be a filesystem path, content URI, or tree URI)
+     * to a direct filesystem path accessible by File and native I/O.
+     */
+    fun resolveStoragePath(context: Context, pathOrUri: String?): String? {
+        if (pathOrUri.isNullOrBlank()) return null
+        if (pathOrUri.startsWith("content://")) {
+            val parsedUri = runCatching { pathOrUri.toUri() }.getOrNull() ?: return null
+            return getPathFromTreeUri(context, parsedUri)
+        }
+        return pathOrUri
+    }
+
+    /**
      * Returns available space on the volume containing [path] in bytes.
      */
     fun getAvailableSpaceGB(context: Context, path: String): Long {
+        val resolved = resolveStoragePath(context, path) ?: path
         return try {
-            getAvailableSpaceForUncreatedPath(path)
+            getAvailableSpaceForUncreatedPath(resolved)
         } catch (e: Exception) {
             0L
         }
@@ -406,7 +546,7 @@ object StorageUtils {
         root: DocumentFile,
         relativePath: String,
         createIfMissing: Boolean = false,
-        isDirectory: Boolean = false
+        isDirectory: Boolean = false,
     ): DocumentFile? {
         val segments = relativePath.split('/').filter { it.isNotEmpty() && it != "." && it != ".." }
         var current = root
@@ -439,7 +579,7 @@ object StorageUtils {
         context: Context,
         rootUri: Uri,
         relativePath: String,
-        mode: String = "rw"
+        mode: String = "rw",
     ): ParcelFileDescriptor? {
         val root = DocumentFile.fromTreeUri(context, rootUri) ?: return null
         val doc = getDocumentFile(root, relativePath, createIfMissing = mode.contains('w'))
@@ -453,12 +593,16 @@ object StorageUtils {
     fun openFileChannel(
         context: Context,
         path: String,
-        vararg options: OpenOption
+        vararg options: OpenOption,
     ): FileChannel {
         if (path.startsWith("content://")) {
-            val mode = if (options.contains(StandardOpenOption.APPEND)) "wa"
-            else if (options.contains(StandardOpenOption.WRITE)) "rw"
-            else "r"
+            val mode = if (options.contains(StandardOpenOption.APPEND)) {
+                "wa"
+            } else if (options.contains(StandardOpenOption.WRITE)) {
+                "rw"
+            } else {
+                "r"
+            }
             val pfd = context.contentResolver.openFileDescriptor(path.toUri(), mode)
                 ?: throw IOException("Could not open file descriptor for $path")
             return FileOutputStream(pfd.fileDescriptor).channel
@@ -497,7 +641,7 @@ object StorageUtils {
     fun openOutputStream(
         context: Context,
         path: String,
-        append: Boolean = false
+        append: Boolean = false,
     ): OutputStream {
         if (path.startsWith("content://")) {
             val mode = if (append) "wa" else "wt"
@@ -536,7 +680,7 @@ object StorageUtils {
      */
     fun openInputStream(
         context: Context,
-        path: String
+        path: String,
     ): InputStream {
         if (path.startsWith("content://")) {
             return context.contentResolver.openInputStream(path.toUri())
@@ -567,8 +711,15 @@ object StorageUtils {
         }
     }
 
+    /**
+     * Checks if the device has any removable storage (SD card or USB OTG).
+     */
+    fun hasRemovableStorage(context: Context): Boolean {
+        val sm = context.getSystemService(Context.STORAGE_SERVICE) as? StorageManager ?: return false
+        return sm.storageVolumes.any { it.isRemovable && it.state == Environment.MEDIA_MOUNTED }
+    }
+
     suspend fun moveDirectory(
-        context: Context,
         sourceDir: String,
         targetDir: String,
         onProgressUpdate: (currentFile: String, fileProgress: Float, movedFiles: Int, totalFiles: Int) -> Unit,
@@ -590,7 +741,9 @@ object StorageUtils {
                 sourceRootPath,
                 object : SimpleFileVisitor<Path>() {
                     override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
-                        allFiles.add(file)
+                        if (Files.isRegularFile(file)) {
+                            allFiles.add(file)
+                        }
                         return FileVisitResult.CONTINUE
                     }
 
@@ -604,67 +757,60 @@ object StorageUtils {
             val totalFiles = allFiles.size
             var filesMoved = 0
 
-            Timber.d("Starting move of $totalFiles files from $sourceDir to $targetDir")
-
             for (sourceFilePath in allFiles) {
                 val relativePath = sourceRootPath.relativize(sourceFilePath)
                 val targetFilePath = targetRootPath.resolve(relativePath)
 
                 Files.createDirectories(targetFilePath.parent)
 
-                Timber.d("Moving file %d/%d: %s", filesMoved + 1, totalFiles, relativePath)
-
                 try {
                     Files.move(sourceFilePath, targetFilePath, StandardCopyOption.ATOMIC_MOVE)
-                    filesMoved++
 
                     withContext(Dispatchers.Main) {
-                        onProgressUpdate(relativePath.toString(), 1f, filesMoved, totalFiles)
+                        onProgressUpdate(relativePath.toString(), 1f, filesMoved++, totalFiles)
                     }
                 } catch (e: Exception) {
-                    val sourcePathStr = sourceFilePath.toString()
-                    val targetPathStr = targetFilePath.toString()
                     val fileSize = Files.size(sourceFilePath)
                     var bytesCopied = 0L
-                    val bufferSize = 1024 * 1024 // 1 MB buffer
 
-                    try {
-                        openInputStream(context, sourcePathStr).buffered(bufferSize).use { input ->
-                            openOutputStream(context, targetPathStr).buffered(bufferSize).use { output ->
-                                val buffer = ByteArray(bufferSize)
-                                var bytesRead: Int
-                                while (input.read(buffer).also { bytesRead = it } != -1) {
-                                    output.write(buffer, 0, bytesRead)
-                                    bytesCopied += bytesRead
+                    FileChannel.open(sourceFilePath, StandardOpenOption.READ).use { sourceChannel ->
+                        FileChannel.open(
+                            targetFilePath,
+                            StandardOpenOption.CREATE,
+                            StandardOpenOption.WRITE,
+                            StandardOpenOption.TRUNCATE_EXISTING,
+                        ).use { targetChannel ->
+                            val buffer = ByteBuffer.allocateDirect(8 * 1024 * 1024)
+                            var bytesRead: Int
 
-                                    val fileProgress = if (fileSize > 0) {
-                                        bytesCopied.toFloat() / fileSize
-                                    } else {
-                                        1f
-                                    }
+                            while (sourceChannel.read(buffer).also { bytesRead = it } > 0) {
+                                buffer.flip()
+                                targetChannel.write(buffer)
+                                buffer.compact()
 
-                                    withContext(Dispatchers.Main) {
-                                        onProgressUpdate(relativePath.toString(), fileProgress, filesMoved, totalFiles)
-                                    }
-                                    yield()
+                                bytesCopied += bytesRead
+
+                                val fileProgress = if (fileSize > 0) {
+                                    bytesCopied.toFloat() / fileSize
+                                } else {
+                                    1f
                                 }
-                                output.flush()
-                            }
-                        }
 
-                        Files.delete(sourceFilePath)
-                        filesMoved++
-                        withContext(Dispatchers.Main) {
-                            onProgressUpdate(relativePath.toString(), 1f, filesMoved, totalFiles)
+                                withContext(Dispatchers.Main) {
+                                    onProgressUpdate(relativePath.toString(), fileProgress, filesMoved, totalFiles)
+                                }
+                            }
+
+                            targetChannel.force(true)
                         }
-                    } catch (copyError: Exception) {
-                        Timber.e(copyError, "Failed to copy file via buffered streams: $sourcePathStr")
-                        throw copyError
+                    }
+
+                    Files.delete(sourceFilePath)
+                    withContext(Dispatchers.Main) {
+                        onProgressUpdate(relativePath.toString(), 1f, filesMoved++, totalFiles)
                     }
                 }
             }
-
-            Timber.d("Move complete, starting directory cleanup")
 
             Files.walkFileTree(
                 sourceRootPath,
@@ -713,20 +859,29 @@ object StorageUtils {
         }
     }
 
+    suspend fun moveDirectory(
+        context: Context,
+        sourceDir: String,
+        targetDir: String,
+        onProgressUpdate: (currentFile: String, fileProgress: Float, movedFiles: Int, totalFiles: Int) -> Unit,
+    ): Result<Unit> = moveDirectory(
+        sourceDir = sourceDir,
+        targetDir = targetDir,
+        onProgressUpdate = onProgressUpdate,
+    )
+
     /**
      * Move games from internal only storage to user storage.
      * This should be removed after a few versions and just
      * remove the old path to free up space.
      */
     suspend fun moveGamesFromOldPath(
-        context: Context,
         sourceDir: String,
         targetDir: String,
         onProgressUpdate: (currentFile: String, fileProgress: Float, movedFiles: Int, totalFiles: Int) -> Unit,
         onComplete: () -> Unit,
     ) = withContext(Dispatchers.IO) {
         moveDirectory(
-            context = context,
             sourceDir = sourceDir,
             targetDir = targetDir,
             onProgressUpdate = onProgressUpdate,
@@ -737,11 +892,16 @@ object StorageUtils {
         }
     }
 
-    /**
-     * Checks if the device has any removable storage (SD card or USB OTG).
-     */
-    fun hasRemovableStorage(context: Context): Boolean {
-        val sm = context.getSystemService(Context.STORAGE_SERVICE) as? StorageManager ?: return false
-        return sm.storageVolumes.any { it.isRemovable && it.state == Environment.MEDIA_MOUNTED }
-    }
+    suspend fun moveGamesFromOldPath(
+        context: Context,
+        sourceDir: String,
+        targetDir: String,
+        onProgressUpdate: (currentFile: String, fileProgress: Float, movedFiles: Int, totalFiles: Int) -> Unit,
+        onComplete: () -> Unit,
+    ) = moveGamesFromOldPath(
+        sourceDir = sourceDir,
+        targetDir = targetDir,
+        onProgressUpdate = onProgressUpdate,
+        onComplete = onComplete,
+    )
 }

@@ -47,7 +47,7 @@ fun PowerControlQuickMenuTab(
         onAdaptiveFpsCapToggled = { enabled ->
             coroutineScope.launch(Dispatchers.IO) {
                 PowerManager.currentProfile.let { profile ->
-                    PowerManager.setPowerProfile(profile.copy(enableAdaptiveFpsCap = enabled))
+                    PowerManager.setPowerProfile(profile.copy(adaptiveFpsCapEnabled = enabled))
                 }
                 PowerManager.refreshUiState()
             }
@@ -80,7 +80,7 @@ fun PowerControlQuickMenuTab(
                 PowerManager.currentProfile.let { profile ->
                     val updatedProfile = profile.copy(
                         enableAutoTuning = enabled,
-                        name = PerformancePreset.CUSTOM.displayName,
+                        name = PerformancePreset.CUSTOM.displayName
                     )
                     PowerManager.setPowerProfile(updatedProfile)
                 }
@@ -102,7 +102,7 @@ fun PowerControlQuickMenuTab(
                 PowerManager.currentProfile.let { profile ->
                     val updatedProfile = profile.copy(
                         tuningStrategy = strategy,
-                        name = PerformancePreset.CUSTOM.displayName,
+                        name = PerformancePreset.CUSTOM.displayName
                     )
                     PowerManager.setPowerProfile(updatedProfile)
                 }
@@ -112,18 +112,21 @@ fun PowerControlQuickMenuTab(
         },
         onProfileSelected = { profile ->
             coroutineScope.launch(Dispatchers.IO) {
-                Timber.d("Applying profile: $profile")
-
                 // Update PowerManager's current profile reference immediately
                 // Preserve current enableFanControl and enableGamePinning settings
-                val currentProfile = PowerManager.currentProfile
+                val currentProfile = PowerManager.currentProfile.copy()
+                Timber.d("Current profile: $currentProfile")
+
                 val updatedProfile = profile.copy(
-                    enableAdaptiveFpsCap = currentProfile.enableAdaptiveFpsCap,
+                    enablePowerControl = currentProfile.enablePowerControl,
+                    adaptiveFpsCapEnabled = currentProfile.adaptiveFpsCapEnabled,
                     enableAutoTuning = false,
                     enablePerClusterTuning = false,
                     enableFanControl = currentProfile.enableFanControl,
                     enableGamePinning = currentProfile.enableGamePinning,
                 )
+
+                Timber.d("Applying profile: $updatedProfile")
                 PowerManager.setPowerProfile(updatedProfile)
 
                 val success = PowerManager.update {
@@ -224,27 +227,27 @@ fun PowerControlSuccessCpuOnlyPreview() {
                     name = PerformancePreset.PERFORMANCE.displayName,
                     governor = CpuGovernor.PERFORMANCE,
                     minCpuFreq = 300000,
-                    maxCpuFreq = 2800000,
+                    maxCpuFreq = 2800000
                 ),
                 availableProfiles = listOf(
                     PowerProfile(
                         name = PerformancePreset.PERFORMANCE.displayName,
                         governor = CpuGovernor.PERFORMANCE,
                         minCpuFreq = 300000,
-                        maxCpuFreq = 2800000,
+                        maxCpuFreq = 2800000
                     ),
                     PowerProfile(
                         name = PerformancePreset.BALANCED.displayName,
                         governor = CpuGovernor.SCHEDUTIL,
                         minCpuFreq = 300000,
-                        maxCpuFreq = 2200000,
+                        maxCpuFreq = 2200000
                     ),
                     PowerProfile(
                         name = PerformancePreset.POWER_SAVE.displayName,
                         governor = CpuGovernor.POWERSAVE,
                         minCpuFreq = 300000,
-                        maxCpuFreq = 1400000,
-                    ),
+                        maxCpuFreq = 1400000
+                    )
                 ),
                 cpuInfo = CpuDisplayInfo(
                     currentGovernor = "performance",
@@ -273,21 +276,21 @@ fun PowerControlSuccessWithGpuPreview() {
                     name = PerformancePreset.BALANCED.displayName,
                     governor = CpuGovernor.SCHEDUTIL,
                     minCpuFreq = 300000,
-                    maxCpuFreq = 2200000,
+                    maxCpuFreq = 2200000
                 ),
                 availableProfiles = listOf(
                     PowerProfile(
                         name = PerformancePreset.PERFORMANCE.displayName,
                         governor = CpuGovernor.PERFORMANCE,
                         minCpuFreq = 300000,
-                        maxCpuFreq = 2800000,
+                        maxCpuFreq = 2800000
                     ),
                     PowerProfile(
                         name = PerformancePreset.BALANCED.displayName,
                         governor = CpuGovernor.SCHEDUTIL,
                         minCpuFreq = 300000,
-                        maxCpuFreq = 2200000,
-                    ),
+                        maxCpuFreq = 2200000
+                    )
                 ),
                 cpuInfo = CpuDisplayInfo(
                     currentGovernor = "schedutil",
@@ -308,7 +311,7 @@ fun PowerControlSuccessWithGpuPreview() {
                 ramInfo = RamDisplayInfo(
                     minBusLevel = 0,
                     maxBusLevel = 4,
-                    maxAvailableBusLevel = 4,
+                    maxAvailableBusLevel = 4
                 ),
             ),
             isDriverSupported = true,

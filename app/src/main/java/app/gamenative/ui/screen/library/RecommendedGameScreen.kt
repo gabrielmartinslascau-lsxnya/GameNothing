@@ -2,7 +2,6 @@ package app.gamenative.ui.screen.library
 
 import android.content.Intent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,8 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,24 +38,29 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
-import app.gamenative.PrefManager
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import app.gamenative.R
 import app.gamenative.data.RecommendedGame
 import app.gamenative.ui.component.focusRing
 import app.gamenative.ui.screen.library.components.VideoHero
+import app.gamenative.PrefManager
+import app.gamenative.utils.ConversionTracker
+import app.gamenative.data.gog.GogRecommendationsRepository
+import com.posthog.PostHog
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
 
@@ -91,7 +94,7 @@ internal fun RecommendedGameScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(Color.Transparent)
             .verticalScroll(scrollState),
     ) {
         // Hero section
@@ -99,7 +102,7 @@ internal fun RecommendedGameScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(280.dp)
-                .graphicsLayer { clip = true },
+                .clipToBounds(),
         ) {
             if (media.isEmpty()) {
                 VideoHero(
@@ -365,6 +368,9 @@ internal fun RecommendedGameScreen(
                         action = action,
                         campaignId = game.id,
                         recSource = recSource,
+                        recRank = recRank,
+                        ctaIndex = index,
+                        ctaCount = game.featuredCtas.size,
                         focusRequester = firstActionFocusRequester.takeIf { index == 0 },
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -375,7 +381,26 @@ internal fun RecommendedGameScreen(
                 Button(
                     interactionSource = buyInteractionSource,
                     onClick = {
-                        val browserIntent = Intent(Intent.ACTION_VIEW, game.affiliateUrl.toUri())
+                        val clickId = ConversionTracker.newClickId()
+                        val sid = GogRecommendationsRepository.affiliateSubId(recSource, recRank, clickId)
+                        val url = GogRecommendationsRepository.withAffiliateSubId(game.affiliateUrl, sid)
+                        if (PrefManager.usageAnalyticsEnabled) {
+                            PostHog.capture(
+                                event = "recommendation_link_clicked",
+                                properties = mapOf(
+                                    "game_name" to game.name,
+                                    "game_id" to game.id,
+                                    "affiliate_url" to game.affiliateUrl,
+                                    "rank" to recRank,
+                                    "source" to recSource,
+                                    "because_played" to (game.becausePlayed ?: ""),
+                                    "seed_count" to game.becauseGames.size,
+                                    "sid" to sid,
+                                    "click_id" to (clickId ?: ""),
+                                ),
+                            )
+                        }
+                        val browserIntent = Intent(Intent.ACTION_VIEW, url.toUri())
                         context.startActivity(browserIntent)
                     },
                     modifier = Modifier

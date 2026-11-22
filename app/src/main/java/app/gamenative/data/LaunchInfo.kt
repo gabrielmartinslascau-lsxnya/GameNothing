@@ -15,4 +15,6 @@ data class LaunchInfo(
     @Serializable(with = OsEnumSetSerializer::class)
     val configOS: EnumSet<OS>,
     val configArch: OSArch,
+    val arguments: String = "",
+    val option: Int = -1,
 )

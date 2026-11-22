@@ -1,6 +1,8 @@
 package app.gamenative.ui.data
 
+import app.gamenative.data.BootAdItem
 import app.gamenative.enums.AppTheme
+import app.gamenative.enums.DownloadBarStyle
 import app.gamenative.enums.FontType
 import app.gamenative.enums.GlassMode
 import app.gamenative.ui.enums.ConnectionState
@@ -20,13 +22,17 @@ data class MainState(
     val hasCrashedLastStart: Boolean = false,
     val isSteamConnected: Boolean = false,
     val launchedAppId: String = "",
+    val execArgs: String? = null,
     val bootToContainer: Boolean = false,
     val testGraphics: Boolean = false,
     val diagnostics: Boolean = false,
+    val debugRun: Boolean = false,
     val showBootingSplash: Boolean = false,
-    val isSystemReady: Boolean = false,
+    val alreadyClearedBootingSplash: Boolean = false,
     val bootingSplashText: String = "Booting...",
     val bootingSplashHeroImageUrl: String = "",
+    val bootAd: BootAdItem? = null,
+    val isSystemReady: Boolean = false,
 
     val mainColor: String = "#9C27B0",
     val wallpaperColor: String = "#121416",
@@ -34,19 +40,24 @@ data class MainState(
     val refreshRateEnabled: Boolean = false,
 
     val jigglyAnimations: Boolean = true,
-    val glassPanels: Boolean = false,
+    val glassPanels: Boolean = true,
     val glassTransparency: Float = 0.3f,
     val glassBlurIntensity: Float = 16f,
     val blurIntensiveness: Float = 16f,
+    val brokenGlassRefraction: Float = 0.5f,
+    val brokenGlassDispersion: Float = 0.6f,
+    val brokenGlassThickness: Float = 58f,
+    val brokenGlassLuminance: Float = 0.5f,
     val liquidDistortion: Float = 0.5f,
     val glassMode: GlassMode = GlassMode.STANDARD,
     val glassColor: String = "#FFFFFF",
     val fontType: FontType = FontType.NDOT,
     val fasterExternalLoading: Boolean = false,
-    val downloadBarStyle: app.gamenative.enums.DownloadBarStyle = app.gamenative.enums.DownloadBarStyle.NOTHING,
+    val downloadBarStyle: DownloadBarStyle = DownloadBarStyle.NOTHING,
 
     val videoBackgroundPath: String = "",
     val videoBackgroundDimAlpha: Float = 0.4f,
+    val autoExtractWallpaperColor: Boolean = true,
 
     val loadingScreenMode: Int = 0,
     val customLoadingVideoPath: String = "",

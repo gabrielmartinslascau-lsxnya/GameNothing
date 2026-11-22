@@ -1,6 +1,8 @@
 package app.gamenative.statsgen
 
 import `in`.dragonbra.javasteam.steam.handlers.steamuserstats.callback.UserStatsCallback
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 
 class StatsAchievementsGenerator {
@@ -106,7 +108,7 @@ class StatsAchievementsGenerator {
                             icon = achievementBuilder["icon"]?.toString(),
                             iconGray = achievementBuilder["icon_gray"]?.toString(),
                             icongray = achievementBuilder["icongray"]?.toString(),
-                            progress = achievementBuilder["progress"] as? Map<String, Any>,
+                            progress = achievementBuilder["progress"] as? Map<String, Any>
                         )
                         achievementsOut.add(achievement)
                     }
@@ -142,7 +144,7 @@ class StatsAchievementsGenerator {
                         type = statBuilder["type"]?.toString() ?: "int",
                         default = statBuilder["default"]?.toString() ?: "0",
                         global = statBuilder["global"]?.toString() ?: "0",
-                        min = statBuilder["min"]?.toString(),
+                        min = statBuilder["min"]?.toString()
                     )
                     statsOut.add(statObj)
                 }
@@ -151,13 +153,17 @@ class StatsAchievementsGenerator {
 
         // Use expandedAchievements from JavaSteam and match achievements with the correct timestamp
         val expandedByName = userStats.getExpandedAchievements().filter { it.name != null }.associateBy { it.name!! }
+        // live bit, not expanded.isUnlocked (reads unlockTime[], which survives a reset). no block = no expanded entry.
+        val liveStats = userStats.stats.associate { it.statId to it.statValue }
         val achievementsWithTimestamps = achievementsOut.map { ach ->
             val expanded = expandedByName[ach.name]
-            if (expanded != null && expanded.isUnlocked) {
+            val liveEarned = nameToBlockBit[ach.name]
+                ?.let { (blockId, bitIndex) -> ((liveStats[blockId] ?: 0) and (1 shl bitIndex)) != 0 } == true
+            if (liveEarned) {
                 ach.copy(
                     unlocked = true,
-                    unlockTimestamp = expanded.unlockTimestamp,
-                    formattedUnlockTime = expanded.getFormattedUnlockTime(),
+                    unlockTimestamp = expanded?.unlockTimestamp?.takeIf { it > 0 } ?: (System.currentTimeMillis() / 1000).toInt(),
+                    formattedUnlockTime = expanded?.getFormattedUnlockTime(),
                 )
             } else {
                 ach
@@ -265,7 +271,7 @@ class StatsAchievementsGenerator {
 
             val orderedKeys = listOf(
                 "hidden", "displayName", "description", "icon", "icon_gray", "name",
-                "earned", "earn_time", "formattedUnlockTime",
+                "earned", "earn_time", "formattedUnlockTime"
             )
 
             for ((index, ach) in outputAchievements.withIndex()) {

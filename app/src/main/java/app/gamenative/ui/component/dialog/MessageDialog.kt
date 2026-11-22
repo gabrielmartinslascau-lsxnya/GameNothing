@@ -1,17 +1,25 @@
 package app.gamenative.ui.component.dialog
 
 import android.content.res.Configuration
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Gamepad
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -22,7 +30,12 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import app.gamenative.ui.theme.BrokenGlassDialogSurface
+import app.gamenative.ui.theme.LocalLooksState
 import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.ui.theme.glassContentColor
 
 @Composable
 fun MessageDialog(
@@ -38,63 +51,146 @@ fun MessageDialog(
     title: String? = null,
     message: String? = null,
     useHtmlInMsg: Boolean = false,
-    confirmBtnColor: Color = Color.Unspecified,
-    dismissBtnColor: Color = Color.Unspecified,
 ) {
-    when {
-        visible -> {
-            AlertDialog(
-                icon = icon?.let { { Icon(imageVector = icon, contentDescription = null) } },
-                title = title?.let { { Text(it) } },
-                text = message?.let {
-                    {
-                        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+    if (!visible) return
+
+    val looks = LocalLooksState.current
+    if (looks.isGlassEnabled) {
+        val textColor = glassContentColor()
+        Dialog(onDismissRequest = { onDismissRequest?.invoke() }) {
+            BrokenGlassDialogSurface(
+                cornerRadius = 28,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                ) {
+                    if (icon != null) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = textColor,
+                            modifier = Modifier.align(Alignment.CenterHorizontally),
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                    if (title != null) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = textColor,
+                            modifier = if (icon != null) Modifier.align(Alignment.CenterHorizontally) else Modifier,
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                    if (message != null) {
+                        Column(
+                            modifier = Modifier
+                                .heightIn(max = 360.dp)
+                                .verticalScroll(rememberScrollState()),
+                        ) {
                             if (useHtmlInMsg) {
                                 Text(
                                     text = AnnotatedString.fromHtml(
-                                        htmlString = it,
+                                        htmlString = message,
                                         linkStyles = TextLinkStyles(
                                             style = SpanStyle(
                                                 textDecoration = TextDecoration.Underline,
                                                 fontStyle = FontStyle.Italic,
-                                                color = Color.Blue,
+                                                color = MaterialTheme.colorScheme.primary,
                                             ),
                                         ),
                                     ),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = textColor.copy(alpha = 0.88f),
                                 )
                             } else {
-                                Text(it)
+                                Text(
+                                    text = message,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = textColor.copy(alpha = 0.88f),
+                                )
                             }
                         }
+                        Spacer(modifier = Modifier.height(20.dp))
                     }
-                },
-                onDismissRequest = { onDismissRequest?.invoke() },
-                dismissButton = onDismissClick?.let {
-                    {
-                        TextButton(onClick = it) {
-                            Text(text = dismissBtnText, color = dismissBtnColor)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        onDismissClick?.let {
+                            TextButton(onClick = it) {
+                                Text(dismissBtnText)
+                            }
                         }
-                    }
-                },
-                confirmButton = {
-                    Row {
-                        // Action button (displayed first if available)
                         if (actionBtnText != null && onActionClick != null) {
                             TextButton(onClick = onActionClick) {
                                 Text(actionBtnText)
                             }
                         }
-
-                        // Confirm button
                         onConfirmClick?.let {
                             TextButton(onClick = it) {
-                                Text(text = confirmBtnText, color = confirmBtnColor)
+                                Text(confirmBtnText)
                             }
                         }
                     }
-                },
-            )
+                }
+            }
         }
+    } else {
+        AlertDialog(
+            icon = icon?.let { { Icon(imageVector = icon, contentDescription = null) } },
+            title = title?.let { { Text(it) } },
+            text = message?.let {
+                {
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                        if (useHtmlInMsg) {
+                            Text(
+                                text = AnnotatedString.fromHtml(
+                                    htmlString = it,
+                                    linkStyles = TextLinkStyles(
+                                        style = SpanStyle(
+                                            textDecoration = TextDecoration.Underline,
+                                            fontStyle = FontStyle.Italic,
+                                            color = Color.Blue,
+                                        ),
+                                    ),
+                                ),
+                            )
+                        } else {
+                            Text(it)
+                        }
+                    }
+                }
+            },
+            onDismissRequest = { onDismissRequest?.invoke() },
+            dismissButton = onDismissClick?.let {
+                {
+                    TextButton(onClick = it) {
+                        Text(dismissBtnText)
+                    }
+                }
+            },
+            confirmButton = {
+                Row {
+                    // Action button (displayed first if available)
+                    if (actionBtnText != null && onActionClick != null) {
+                        TextButton(onClick = onActionClick) {
+                            Text(actionBtnText)
+                        }
+                    }
+
+                    // Confirm button
+                    onConfirmClick?.let {
+                        TextButton(onClick = it) {
+                            Text(confirmBtnText)
+                        }
+                    }
+                }
+            },
+        )
     }
 }
 

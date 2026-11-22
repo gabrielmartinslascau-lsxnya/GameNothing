@@ -7,6 +7,7 @@ import app.gamenative.ui.screen.library.appscreen.BaseAppScreen
 import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.utils.BestConfigService
 import app.gamenative.utils.ContainerUtils
+import app.gamenative.utils.SessionReport
 import app.gamenative.utils.ManifestInstaller
 import java.io.IOException
 import kotlin.text.Charsets
@@ -98,6 +99,7 @@ object ContainerConfigTransfer {
                 configJson = configJson,
                 matchType = matchType,
                 applyKnownConfig = true,
+                keepRedistOff = true,
             )
             val bestConfigMap = parsedResult.config
 
@@ -109,7 +111,7 @@ object ContainerConfigTransfer {
                         CoroutineScope(Dispatchers.IO).launch {
                             try {
                                 val forced = BestConfigService.parseConfigToContainerData(
-                                    context, configJson, matchType, true, forceApply = true,
+                                    context, configJson, matchType, true, forceApply = true, keepRedistOff = true,
                                 )
                                 if (forced.isNullOrEmpty()) {
                                     SnackbarManager.show(context.getString(R.string.best_config_known_config_invalid))
@@ -196,6 +198,7 @@ object ContainerConfigTransfer {
                 val currentData = ContainerUtils.toContainerData(container)
                 val updatedData = ContainerUtils.applyBestConfigMapToContainerData(currentData, bestConfigMap)
                 ContainerUtils.applyToContainer(context, container, updatedData)
+                SessionReport.markConfigApplied(container, "imported")
             }
 
             SnackbarManager.show(
@@ -225,3 +228,4 @@ object ContainerConfigTransfer {
         }
     }
 }
+

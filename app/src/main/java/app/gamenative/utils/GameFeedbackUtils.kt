@@ -53,6 +53,9 @@ object GameFeedbackUtils {
                         ""
                     }
                 }
+                GameSource.XBOX -> {
+                    app.gamenative.service.xbox.XboxService.getXboxGameByAppId(gameId)?.title ?: ""
+                }
                 GameSource.EPIC -> {
                     val game = EpicService.getEpicGameOf(gameId)
                     game?.title ?: ""
@@ -113,9 +116,7 @@ object GameFeedbackUtils {
                     Timber.w("GameFeedbackUtils: Failed to parse avg_fps: $avgFpsStr")
                     null
                 }
-            } else {
-                null
-            }
+            } else null
             val sessionLengthSec = if (sessionLengthSecStr.isNotEmpty()) {
                 try {
                     sessionLengthSecStr.toInt()
@@ -123,9 +124,7 @@ object GameFeedbackUtils {
                     Timber.w("GameFeedbackUtils: Failed to parse session_length_sec: $sessionLengthSecStr")
                     null
                 }
-            } else {
-                null
-            }
+            } else null
 
             Timber.i("GameFeedbackUtils: Submitting game feedback: game=$gameName, device=${Build.MODEL}, rating=$rating, tags=${tags.joinToString()}, avgFps=$avgFps, sessionLengthSec=$sessionLengthSec")
 

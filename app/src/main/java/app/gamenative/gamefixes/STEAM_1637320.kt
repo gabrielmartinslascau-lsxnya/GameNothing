@@ -10,3 +10,4 @@ val STEAM_Fix_1637320: KeyedGameFix = KeyedLaunchArgFix(
     gameId = "1637320",
     launchArgs = "--rendering-driver vulkan",
 )
+

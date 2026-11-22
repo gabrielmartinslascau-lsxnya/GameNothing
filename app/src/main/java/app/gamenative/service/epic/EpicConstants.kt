@@ -1,7 +1,9 @@
 package app.gamenative.service.epic
 
 import android.net.Uri
+import app.gamenative.PluviaApp
 import app.gamenative.PrefManager
+import app.gamenative.utils.StorageUtils
 import java.io.File
 import java.nio.file.Paths
 import java.security.SecureRandom
@@ -60,7 +62,49 @@ object EpicConstants {
         CONTAINER_LANGUAGE_TO_EPIC_INSTALL_TAGS[containerLanguage.lowercase()]
             ?: CONTAINER_LANGUAGE_TO_EPIC_INSTALL_TAGS.getValue(EPIC_FALLBACK_CONTAINER_LANGUAGE)
 
-    // ! OAuth Configuration - Using Legendary's official credentials (Do not worry, these are hard-coded and not sensitive.)
+    const val EPIC_DEFAULT_LOCALE = "en-US"
+
+    /**
+     * Maps container language to the `-epiclocale` launch value. Languages the Epic Games Launcher supports use the
+     * codes the launcher sends; the others use their ISO language code. Keys match [CONTAINER_LANGUAGE_TO_EPIC_INSTALL_TAGS].
+     */
+    internal val CONTAINER_LANGUAGE_TO_EPIC_LOCALE: Map<String, String> = mapOf(
+        "arabic" to "ar",
+        "bulgarian" to "bg",
+        "schinese" to "zh-Hans",
+        "tchinese" to "zh-Hant",
+        "czech" to "cs",
+        "danish" to "da",
+        "dutch" to "nl",
+        "english" to EPIC_DEFAULT_LOCALE,
+        "finnish" to "fi",
+        "french" to "fr",
+        "german" to "de",
+        "greek" to "el",
+        "hungarian" to "hu",
+        "italian" to "it",
+        "japanese" to "ja",
+        "koreana" to "ko",
+        "norwegian" to "nb",
+        "polish" to "pl",
+        "portuguese" to "pt-PT",
+        "brazilian" to "pt-BR",
+        "romanian" to "ro",
+        "russian" to "ru",
+        "spanish" to "es-ES",
+        "latam" to "es-MX",
+        "swedish" to "sv",
+        "thai" to "th",
+        "turkish" to "tr",
+        "ukrainian" to "uk",
+        "vietnamese" to "vi",
+    )
+
+    /** Returns the locale passed to Epic games at launch (for example, `fr`). Unknown languages use [EPIC_DEFAULT_LOCALE]. */
+    fun containerLanguageToEpicLocale(containerLanguage: String): String =
+        CONTAINER_LANGUAGE_TO_EPIC_LOCALE[containerLanguage.lowercase()] ?: EPIC_DEFAULT_LOCALE
+
+    //! OAuth Configuration - Using Legendary's official credentials (Do not worry, these are hard-coded and not sensitive.)
     const val EPIC_CLIENT_ID = "34a02cf8f4414e29b15921876da36f9a"
     const val EPIC_CLIENT_SECRET = "daafbccc737745039dffe53d94fc76cf"
 
@@ -94,10 +138,8 @@ object EpicConstants {
     }
 
     const val EPIC_LIBRARY_API_URL = "https://library-service.live.use1a.on.epicgames.com/library/api/public/items"
-
     // Epic CDN for game assets
     const val EPIC_CATALOG_API_URL = "https://catalog-public-service-prod06.ol.epicgames.com/catalog/api"
-
     // Epic Launcher API for manifests
     const val EPIC_LAUNCHER_API_URL = "https://launcher-public-service-prod06.ol.epicgames.com"
 
@@ -120,8 +162,10 @@ object EpicConstants {
      * External Epic games installation path
      * {externalStoragePath}/Epic/games/
      */
-    fun externalEpicGamesPath(): String {
-        val path = Paths.get(PrefManager.externalStoragePath, "Epic", "games").toString()
+    fun externalEpicGamesPath(context: android.content.Context? = null): String {
+        val ctx = context ?: PluviaApp.instance
+        val root = StorageUtils.resolveStoragePath(ctx, PrefManager.externalStoragePath) ?: PrefManager.externalStoragePath
+        val path = Paths.get(root, "Epic", "games").toString()
         // Ensure directory exists for StatFs
         File(path).mkdirs()
         return path
@@ -131,8 +175,9 @@ object EpicConstants {
      * Default Epic games installation path - uses external storage if available
      */
     fun defaultEpicGamesPath(context: android.content.Context): String {
-        return if (PrefManager.useExternalStorage && File(PrefManager.externalStoragePath).exists()) {
-            val path = externalEpicGamesPath()
+        val root = StorageUtils.resolveStoragePath(context, PrefManager.externalStoragePath) ?: PrefManager.externalStoragePath
+        return if (PrefManager.useExternalStorage && File(root).exists()) {
+            val path = externalEpicGamesPath(context)
             Timber.i("Epic using external storage: $path")
             path
         } else {

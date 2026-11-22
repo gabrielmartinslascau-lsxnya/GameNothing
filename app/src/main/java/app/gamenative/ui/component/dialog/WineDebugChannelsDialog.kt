@@ -37,7 +37,7 @@ fun WineDebugChannelsDialog(
             Column(
                 modifier = Modifier
                     .verticalScroll(rememberScrollState())
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 8.dp)
             ) {
                 allChannels.forEach { channel ->
                     Row(
@@ -46,11 +46,8 @@ fun WineDebugChannelsDialog(
                             .toggleable(
                                 value = selectedChannels.contains(channel),
                                 onValueChange = { isChecked ->
-                                    if (isChecked) {
-                                        selectedChannels.add(channel)
-                                    } else {
-                                        selectedChannels.remove(channel)
-                                    }
+                                    if (isChecked) selectedChannels.add(channel)
+                                    else selectedChannels.remove(channel)
                                 },
                                 role = Role.Checkbox,
                             )
@@ -76,6 +73,6 @@ fun WineDebugChannelsDialog(
             TextButton(onClick = onDismiss) {
                 Text(text = stringResource(R.string.cancel))
             }
-        },
+        }
     )
 }

@@ -31,13 +31,13 @@ data class AppInfo(
     val name: String,
     val packageName: String,
     val icon: Drawable,
-    val isSystem: Boolean = false
+    val isSystem: Boolean = false,
 )
 
 @Composable
 fun AndroidAppPicker(
     onAppsSelected: (List<String>) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
     var allApps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
@@ -48,7 +48,7 @@ fun AndroidAppPicker(
     val filteredApps = remember(allApps, searchQuery) {
         allApps.filter {
             it.name.contains(searchQuery, ignoreCase = true) ||
-            it.packageName.contains(searchQuery, ignoreCase = true)
+                it.packageName.contains(searchQuery, ignoreCase = true)
         }
     }
 
@@ -57,14 +57,11 @@ fun AndroidAppPicker(
             val pm = context.packageManager
             pm.getInstalledApplications(PackageManager.GET_META_DATA)
                 .filter { info ->
-                    // Standard heuristic for launcher apps: must have a launch intent
                     val launchIntent = pm.getLaunchIntentForPackage(info.packageName)
-
                     val systemExcludeList = listOf(
                         "com.android.launcher", "com.google.android.launcher",
-                        "com.android.systemui", "com.google.android.packageinstaller"
+                        "com.android.systemui", "com.google.android.packageinstaller",
                     )
-
                     launchIntent != null && !systemExcludeList.any { info.packageName.contains(it) }
                 }
                 .map { info ->
@@ -72,7 +69,7 @@ fun AndroidAppPicker(
                         name = info.loadLabel(pm).toString(),
                         packageName = info.packageName,
                         icon = info.loadIcon(pm),
-                        isSystem = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                        isSystem = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0,
                     )
                 }.sortedBy { it.name }
         }
@@ -91,7 +88,7 @@ fun AndroidAppPicker(
                     placeholder = { Text("Search apps...") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -114,12 +111,12 @@ fun AndroidAppPicker(
                                         else selectedPackages.add(app.packageName)
                                     }
                                     .padding(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Image(
                                     bitmap = app.icon.toBitmap().asImageBitmap(),
                                     contentDescription = null,
-                                    modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp))
+                                    modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
                                 )
                                 Spacer(modifier = Modifier.width(16.dp))
                                 Column(modifier = Modifier.weight(1f)) {
@@ -131,7 +128,7 @@ fun AndroidAppPicker(
                                     onCheckedChange = {
                                         if (it) selectedPackages.add(app.packageName)
                                         else selectedPackages.remove(app.packageName)
-                                    }
+                                    },
                                 )
                             }
                         }
@@ -142,13 +139,13 @@ fun AndroidAppPicker(
         confirmButton = {
             Button(
                 onClick = { onAppsSelected(selectedPackages.toList()) },
-                enabled = selectedPackages.isNotEmpty()
+                enabled = selectedPackages.isNotEmpty(),
             ) {
                 Text("Add Selected (${selectedPackages.size})")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
+        },
     )
 }

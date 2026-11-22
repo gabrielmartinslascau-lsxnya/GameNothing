@@ -1,8 +1,6 @@
 package app.gamenative.ui.theme
 
 import android.app.Activity
-import android.os.Build
-import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -11,11 +9,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorMatrix
-import androidx.compose.ui.graphics.asComposeRenderEffect
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import app.gamenative.PrefManager
@@ -149,56 +143,6 @@ val BrandGradient = listOf(PluviaCyan, PluviaPurple, PluviaPink)
 private val LocalPluviaColors = staticCompositionLocalOf { DarkPluviaColors }
 
 /**
- * Material3 dark color scheme using Pluvia colors.
- */
-private val DarkColorScheme = darkColorScheme(
-    primary = PluviaPrimary,
-    onPrimary = PluviaForeground,
-    primaryContainer = PluviaPrimary.copy(alpha = 0.2f),
-    onPrimaryContainer = PluviaForeground,
-
-    secondary = PluviaSecondary,
-    onSecondary = PluviaForeground,
-    secondaryContainer = PluviaSecondary.copy(alpha = 0.8f),
-    onSecondaryContainer = PluviaForeground,
-
-    tertiary = PluviaCyan,
-    onTertiary = PluviaForeground,
-    tertiaryContainer = PluviaCyan.copy(alpha = 0.2f),
-    onTertiaryContainer = PluviaForeground,
-
-    background = PluviaBackground,
-    onBackground = PluviaForeground,
-
-    surface = PluviaCard,
-    onSurface = PluviaForeground,
-    surfaceVariant = PluviaSecondary,
-    onSurfaceVariant = PluviaForegroundMuted,
-    surfaceTint = PluviaPrimary,
-
-    inverseSurface = PluviaForeground,
-    inverseOnSurface = PluviaBackground,
-    inversePrimary = PluviaPrimary,
-
-    error = PluviaDestructive,
-    onError = PluviaForeground,
-    errorContainer = PluviaDestructive.copy(alpha = 0.2f),
-    onErrorContainer = PluviaForeground,
-
-    outline = PluviaForegroundMuted,
-    outlineVariant = PluviaSecondary,
-
-    scrim = Color.Black.copy(alpha = 0.5f),
-    surfaceBright = PluviaSecondary,
-    surfaceDim = PluviaBackground,
-    surfaceContainer = PluviaCard,
-    surfaceContainerHigh = PluviaSecondary,
-    surfaceContainerHighest = PluviaSecondary.copy(alpha = 0.9f),
-    surfaceContainerLow = PluviaBackground,
-    surfaceContainerLowest = PluviaBackground,
-)
-
-/**
  * Returns a suitable "on" color (White or Black) for a given background color.
  */
 fun Color.onColor(): Color {
@@ -215,9 +159,8 @@ fun PluviaTheme(
     style: PaletteStyle = PaletteStyle.TonalSpot,
     content: @Composable () -> Unit,
 ) {
-    // Force recomposition when PrefManager colors change (for callers who don't pass arguments)
-    val reactiveMainColor = remember(mainColor) { mainColor }
-    val reactiveWallpaperColor = remember(wallpaperColor) { wallpaperColor }
+    val reactiveMainColor = remember(mainColor) { mainColor.desaturated(0.85f) }
+    val reactiveWallpaperColor = remember(wallpaperColor) { wallpaperColor.desaturated(0.85f) }
 
     val onMain = reactiveMainColor.onColor()
 
@@ -227,9 +170,9 @@ fun PluviaTheme(
         primaryContainer = reactiveMainColor.copy(alpha = 0.2f),
         onPrimaryContainer = Color.White,
 
-        secondary = PluviaSecondary,
+        secondary = PluviaSecondary.desaturated(0.85f),
         onSecondary = Color.White,
-        secondaryContainer = PluviaSecondary.copy(alpha = 0.8f),
+        secondaryContainer = PluviaSecondary.desaturated(0.85f).copy(alpha = 0.8f),
         onSecondaryContainer = Color.White,
 
         tertiary = reactiveMainColor,
@@ -240,9 +183,9 @@ fun PluviaTheme(
         background = reactiveWallpaperColor,
         onBackground = Color.White,
 
-        surface = PluviaCard,
+        surface = PluviaCard.desaturated(0.85f),
         onSurface = Color.White,
-        surfaceVariant = PluviaSecondary,
+        surfaceVariant = PluviaSecondary.desaturated(0.85f),
         onSurfaceVariant = Color.White, // Force white instead of grey
         surfaceTint = reactiveMainColor,
 
@@ -250,20 +193,20 @@ fun PluviaTheme(
         inverseOnSurface = reactiveWallpaperColor,
         inversePrimary = reactiveMainColor,
 
-        error = PluviaDestructive,
+        error = PluviaDestructive.desaturated(0.85f),
         onError = Color.White,
-        errorContainer = PluviaDestructive.copy(alpha = 0.2f),
+        errorContainer = PluviaDestructive.desaturated(0.85f).copy(alpha = 0.2f),
         onErrorContainer = Color.White,
 
         outline = Color.White.copy(alpha = 0.5f),
-        outlineVariant = PluviaSecondary,
+        outlineVariant = PluviaSecondary.desaturated(0.85f),
 
         scrim = Color.Black.copy(alpha = 0.5f),
-        surfaceBright = PluviaSecondary,
+        surfaceBright = PluviaSecondary.desaturated(0.85f),
         surfaceDim = reactiveWallpaperColor,
-        surfaceContainer = PluviaCard,
-        surfaceContainerHigh = PluviaSecondary,
-        surfaceContainerHighest = PluviaSecondary.copy(alpha = 0.9f),
+        surfaceContainer = PluviaCard.desaturated(0.85f),
+        surfaceContainerHigh = PluviaSecondary.desaturated(0.85f),
+        surfaceContainerHighest = PluviaSecondary.desaturated(0.85f).copy(alpha = 0.9f),
         surfaceContainerLow = reactiveWallpaperColor,
         surfaceContainerLowest = reactiveWallpaperColor,
     )
@@ -283,25 +226,11 @@ fun PluviaTheme(
     }
 
     CompositionLocalProvider(LocalPluviaColors provides pluviaColors) {
-        val desatModifier = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            Modifier.graphicsLayer {
-                // Apply a global 15% desaturation via ColorMatrix
-                val desatMatrix = ColorMatrix().apply {
-                    setToSaturation(0.85f)
-                }
-                renderEffect = android.graphics.RenderEffect.createColorFilterEffect(
-                    android.graphics.ColorMatrixColorFilter(desatMatrix.values)
-                ).asComposeRenderEffect()
-            }
-        } else Modifier
-
-        Box(modifier = desatModifier) {
-            MaterialTheme(
-                colorScheme = colorScheme,
-                typography = getPluviaTypography(),
-                content = content,
-            )
-        }
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = getPluviaTypography(),
+            content = content,
+        )
     }
 }
 
@@ -360,10 +289,11 @@ object DarkColors {
 // Settings tile color helpers
 @Composable
 fun settingsTileColors(): SettingsTileColors {
-    val isGlass = PrefManager.glassPanels
     val contentColor = glassContentColor()
     return SettingsTileDefaults.colors(
+        containerColor = Color.Transparent,
         titleColor = contentColor,
+        iconColor = contentColor.copy(alpha = 0.85f),
         subtitleColor = contentColor.copy(alpha = 0.7f),
         actionColor = MaterialTheme.colorScheme.primary,
     )
@@ -371,17 +301,20 @@ fun settingsTileColors(): SettingsTileColors {
 
 @Composable
 fun settingsTileColorsAlt(): SettingsTileColors {
-    val isGlass = PrefManager.glassPanels
     val contentColor = glassContentColor()
     return SettingsTileDefaults.colors(
+        containerColor = Color.Transparent,
         titleColor = contentColor,
+        iconColor = contentColor.copy(alpha = 0.85f),
         subtitleColor = contentColor.copy(alpha = 0.7f),
     )
 }
 
 @Composable
 fun settingsTileColorsDebug(): SettingsTileColors = SettingsTileDefaults.colors(
+    containerColor = Color.Transparent,
     titleColor = PluviaDestructive,
+    iconColor = PluviaForegroundMuted,
     subtitleColor = PluviaForegroundMuted,
     actionColor = PluviaCyan,
 )

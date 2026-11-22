@@ -20,6 +20,10 @@ val keystoreProperties: Properties? = if (keystorePropertiesFile.exists()) {
     }
 } else null
 
+// Add PostHog API key and host as build-time variables
+val posthogApiKey: String = project.findProperty("POSTHOG_API_KEY") as String? ?: System.getenv("POSTHOG_API_KEY") ?: ""
+val posthogHost: String = project.findProperty("POSTHOG_HOST") as String? ?: System.getenv("POSTHOG_HOST") ?: "https://us.i.posthog.com"
+
 val metaAppId: String = project.findProperty("META_APP_ID") as String? ?: System.getenv("META_APP_ID") ?: ""
 val productSku: String = project.findProperty("PRODUCT_SKU") as String? ?: System.getenv("PRODUCT_SKU") ?: ""
 
@@ -31,6 +35,10 @@ room {
 val copyDebugManifest by tasks.registering(Copy::class) {
     from(rootProject.file("manifest.json"))
     into(layout.buildDirectory.dir("generated/debugManifest"))
+}
+
+base {
+    archivesName.set("gamenothing")
 }
 
 android {
@@ -52,7 +60,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "app.gamenothing"
+        applicationId = "app.gamenative"
 
         minSdk = 26
 
@@ -60,13 +68,17 @@ android {
         buildConfigField("boolean", "XR_BUILD", "false")
         buildConfigField("boolean", "MODERN_XR", "false")
 
-        versionCode = 21
-        versionName = "1.2.0"
+        versionCode = 26
+        // GameNothing 2.0 patch 4 (heavy fork of GameNative 1.4.0)
+        versionName = "2.0-patch4"
 
         buildConfigField("boolean", "GOLD", "false")
         fun secret(name: String) =
             project.findProperty(name) as String? ?: System.getenv(name) ?: ""
 
+        buildConfigField("String", "POSTHOG_API_KEY", "\"${secret("POSTHOG_API_KEY")}\"")
+        buildConfigField("String", "POSTHOG_HOST",  "\"${secret("POSTHOG_HOST")}\"")
+        buildConfigField("String", "REVENUECAT_API_KEY", "\"${secret("REVENUECAT_API_KEY").ifEmpty { "goog_iCoffJTvTFYjqalcgCdtXDErPQa" }}\"")
         buildConfigField("String", "STEAMGRIDDB_API_KEY", "\"${secret("STEAMGRIDDB_API_KEY")}\"")
         buildConfigField("String", "CLOUD_PROJECT_NUMBER", "\"${secret("CLOUD_PROJECT_NUMBER")}\"")
         val iconValue = "@mipmap/ic_launcher"
@@ -97,18 +109,11 @@ android {
             "ro",      // Română
             "pl",      // Polish
             "ru",      // Russian
+            "tr",      // Turkish
             "ko",      // Korean
             "ja",      // Japanese
             // TODO: Add more languages here using the ISO 639-1 locale code with regional qualifiers (e.g., "pt-rPT" for European Portuguese)
         )
-
-        externalNativeBuild {
-            // For ndk-build, instead use the ndkBuild block.
-            cmake {
-                // Passes optional arguments to CMake.
-                arguments += listOf("-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")
-            }
-        }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -116,7 +121,8 @@ android {
         }
 
         proguardFiles(
-            getDefaultProguardFile("proguard-android-optimize.txt"),
+            // getDefaultProguardFile("proguard-android-optimize.txt"),
+            getDefaultProguardFile("proguard-android.txt"),
             "proguard-rules.pro",
         )
     }
@@ -141,16 +147,17 @@ android {
         }
         create("modern") {
             dimension = "androidApi"
-            minSdk = 29
-            targetSdk = 36
+            isDefault = true
+            minSdk = 26
+            targetSdk = 28
             ndk.abiFilters += listOf("arm64-v8a")
             buildConfigField("boolean", "MODERN_ANDROID", "true")
             buildConfigField("String", "PRELOAD_BIONIC_SO", "\"libredirect-bionic-wx.so\"")
         }
         create("modernXr") {
             dimension = "androidApi"
-            minSdk = 29
-            targetSdk = 36
+            minSdk = 26
+            targetSdk = 28
             ndk.abiFilters += listOf("arm64-v8a")
             buildConfigField("boolean", "MODERN_ANDROID", "true")
             buildConfigField("String", "PRELOAD_BIONIC_SO", "\"libredirect-bionic-wx.so\"")
@@ -201,6 +208,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -221,11 +232,38 @@ android {
             // 'extractNativeLibs' was not enough to keep the jniLibs and
             // the libs went missing after adding on-demand feature delivery
             useLegacyPackaging = true
+            pickFirsts += listOf(
+                "**/libffi.so",
+                "**/libwayland-server.so",
+                "**/libpulse.so",
+                "**/libsndfile.so",
+                "**/libpulseaudio.so",
+                "**/libpulsecore-13.0.so",
+                "**/libpulsecommon-13.0.so",
+                "**/libltdl.so",
+                "**/libc++_shared.so",
+                "**/libtermux.so",
+                "**/libhook_impl.so",
+                "**/libmain_hook.so",
+                "**/libfile_redirect_hook.so",
+                "**/libgsl_alloc_hook.so"
+            )
         }
     }
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+            all {
+                // two 3 GB test JVMs on the 4-core / 16 GB CI runner; the Gradle daemon may grow to 8 GB
+                // (gradle.properties) but has finished compiling by the time the tests run
+                it.maxParallelForks = 2
+                it.maxHeapSize = "3g"
+                it.testLogging { events("started", "failed") }
+                // downloads and installs every manifest.json entry; run with -PmanifestTests
+                if (!project.hasProperty("manifestTests")) {
+                    it.exclude("**/ManifestIdCorrelationTest*")
+                }
+            }
         }
     }
 
@@ -268,7 +306,7 @@ android {
                 srcDirs("src/modern/assets", "src/main/assets")
             }
             jniLibs {
-                srcDirs("src/modern/jniLibs")
+                setSrcDirs(listOf("src/modern/jniLibs", "src/modernXr/jniLibs"))
             }
         }
         getByName("debug") {
@@ -279,6 +317,76 @@ android {
     kotlinter {
         ignoreFormatFailures  = false
     }
+
+    val hostCanRunXrPayloadScripts = System.getProperty("os.name").startsWith("Windows")
+
+    tasks.register<Exec>("buildModernXrNative") {
+        enabled = hostCanRunXrPayloadScripts
+        commandLine(
+            "powershell",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            rootProject.file("tools/build-xr-native.ps1").absolutePath,
+        )
+    }
+
+    tasks.register<Exec>("buildWindowsXrRuntime") {
+        enabled = hostCanRunXrPayloadScripts
+        commandLine(
+            "powershell",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            rootProject.file("tools/build-windows-xr-runtime.ps1").absolutePath,
+        )
+    }
+
+    tasks.register<Exec>("stageWineXrBridge") {
+        enabled = hostCanRunXrPayloadScripts
+        dependsOn("buildModernXrNative")
+        val companion = providers.environmentVariable("GAMENATIVE_WINE_XR_BRIDGE")
+        doFirst {
+            check(companion.isPresent) { "GAMENATIVE_WINE_XR_BRIDGE must point to the ARM64X Wine builtin companion" }
+        }
+        commandLine(
+            "powershell",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            rootProject.file("tools/stage-wine-xr-bridge.ps1").absolutePath,
+            "-CompanionPath",
+            companion.getOrElse(""),
+        )
+    }
+
+    tasks.register<Exec>("stageOpenComposite") {
+        enabled = hostCanRunXrPayloadScripts
+        commandLine(
+            "powershell",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            rootProject.file("tools/stage-opencomposite.ps1").absolutePath,
+        )
+    }
+
+    tasks.register<Exec>("verifyModernXrPayload") {
+        enabled = hostCanRunXrPayloadScripts
+        dependsOn("buildModernXrNative", "buildWindowsXrRuntime", "stageWineXrBridge", "stageOpenComposite")
+        commandLine(
+            "powershell",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            rootProject.file("tools/verify-xr-payload.ps1").absolutePath,
+        )
+    }
+
+    tasks.register("prepareModernXrPayload") {
+        dependsOn("verifyModernXrPayload")
+    }
+
 
     // externalNativeBuild {
     //   cmake {
@@ -341,6 +449,7 @@ dependencies {
 
     // Chrome Custom Tabs for GOG OAuth
     implementation("androidx.browser:browser:1.8.0")
+    implementation("com.revenuecat.purchases:purchases:10.15.1")
     implementation("androidx.documentfile:documentfile:1.0.1")
 
     // JavaSteam
@@ -372,6 +481,7 @@ dependencies {
     implementation(libs.libarchive.android)
     implementation(libs.zstd.jni) { artifact { type = "aar" } }
     implementation(libs.xz)
+    implementation(libs.jzlib)
 
     // Jetpack Compose
     implementation(platform(libs.androidx.compose.bom))
@@ -379,7 +489,6 @@ dependencies {
     implementation(libs.landscapist.coil)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.exoplayer.hls)
-    implementation(libs.media3.session)
     implementation(libs.media3.ui)
     debugImplementation(libs.androidx.ui.tooling)
 
@@ -392,7 +501,6 @@ dependencies {
     implementation(libs.kotlin.coroutines)
     implementation(libs.timber)
     implementation(libs.zxing)
-    implementation("androidx.palette:palette-ktx:1.0.0")
 
     // Google Protobufs
     implementation(libs.protobuf.java)
@@ -413,6 +521,7 @@ dependencies {
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.room.testing)
     androidTestImplementation(libs.androidx.runner)
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.test.manifest)
@@ -426,6 +535,15 @@ dependencies {
     testImplementation(libs.orgJson)
     testImplementation(libs.mockwebserver)
 
+    // PostHog removed (Zero-telemetry rule - local no-op stub used instead)
+    // implementation("com.posthog:posthog-android:3.8.0")
+
+    // Media3 Session for GameNothing MediaPlaybackService
+    implementation("androidx.media3:media3-session:1.9.1")
+
+    // Palette for wallpaper color extraction
+    implementation("androidx.palette:palette-ktx:1.0.0")
+
     implementation("com.auth0.android:jwtdecode:2.0.2")
 
     // Samsung Performance SDK
@@ -433,15 +551,12 @@ dependencies {
 
     "modernXrImplementation"("com.meta.horizon.platform.sdk:core-kotlin:0.2.2")
     "modernXrImplementation"("com.meta.horizon.platform.sdk:iap-kotlin:0.2.2")
+
+    // DroidDeck Embedded Library Module
+    implementation(project(":droiddeck"))
 }
 
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-        freeCompilerArgs.addAll(
-            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
-            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
-            "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi"
-        )
-    }
-}
+
+
+
+

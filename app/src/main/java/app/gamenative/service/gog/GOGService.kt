@@ -5,16 +5,24 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
-import app.gamenative.PluviaApp
 import app.gamenative.data.DownloadInfo
 import app.gamenative.data.GOGCredentials
 import app.gamenative.data.GOGGame
 import app.gamenative.data.LaunchInfo
 import app.gamenative.data.LibraryItem
 import app.gamenative.events.AndroidEvent
-import app.gamenative.service.NotificationHelper
+import app.gamenative.PluviaApp
+import app.gamenative.PrefManager
+import app.gamenative.R
+import app.gamenative.data.GameSource
+import app.gamenative.enums.Marker
+import app.gamenative.service.download.GameDownloadService
 import app.gamenative.ui.util.SnackbarManager
+import app.gamenative.service.NotificationHelper
+import app.gamenative.utils.CloudSaveBackupManager
 import app.gamenative.utils.ContainerUtils
+import app.gamenative.utils.LocaleHelper
+import app.gamenative.utils.MarkerUtils
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -22,6 +30,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import javax.inject.Inject
 import kotlinx.coroutines.*
 import timber.log.Timber
+
 
 /**
  * GOG Service - thin abstraction layer that delegates to managers.
@@ -39,6 +48,13 @@ import timber.log.Timber
  */
 @AndroidEntryPoint
 class GOGService : Service() {
+
+    override fun attachBaseContext(newBase: Context) {
+        PrefManager.init(newBase)
+        val languageCode = PrefManager.appLanguage
+        val context = LocaleHelper.applyLanguage(newBase, languageCode)
+        super.attachBaseContext(context)
+    }
 
     companion object {
         private const val ACTION_SYNC_LIBRARY = "app.gamenative.GOG_SYNC_LIBRARY"
@@ -150,6 +166,10 @@ class GOGService : Service() {
                     instance.gogManager.deleteAllNonInstalledGames()
                     Timber.i("[GOGService] All non-installed GOG games removed from database")
 
+                    // Hidden-game metadata and the owned-id list belong to the logged-out account.
+                    instance.gogManager.clearHiddenFlags()
+                    PrefManager.gogOwnedProductIds = emptySet()
+
                     // Stop the service
                     stop()
 
@@ -172,11 +192,8 @@ class GOGService : Service() {
 
         private fun setSyncInProgress(inProgress: Boolean) {
             syncInProgress = inProgress
-            if (inProgress) {
-                getInstance()?.notifierOrNull?.showSyncing(NotificationHelper.NOTIFICATION_ID_GOG)
-            } else {
-                getInstance()?.notifierOrNull?.showIdle(NotificationHelper.NOTIFICATION_ID_GOG)
-            }
+            if (inProgress) getInstance()?.notifierOrNull?.showSyncing(NotificationHelper.NOTIFICATION_ID_GOG)
+            else getInstance()?.notifierOrNull?.showIdle(NotificationHelper.NOTIFICATION_ID_GOG)
         }
 
         fun isSyncInProgress(): Boolean = syncInProgress
@@ -348,7 +365,38 @@ class GOGService : Service() {
                 ?: Result.failure(Exception("Service not available"))
         }
 
-        fun downloadGame(context: Context, gameId: String, installPath: String, containerLanguage: String): Result<DownloadInfo?> {
+        private const val PENDING_DLC_IDS_FILE = ".pending_dlc_ids"
+
+        /** New DLC ids of an unfinished download, kept beside it so a resume after a restart still installs them. */
+        private fun readPendingDlcIds(installPath: String): Set<String> =
+            File(installPath, PENDING_DLC_IDS_FILE).takeIf { it.isFile }?.readLines()?.filter { it.isNotBlank() }?.toSet().orEmpty()
+
+        private fun writePendingDlcIds(installPath: String, dlcIds: Set<String>) {
+            try {
+                File(installPath).mkdirs()
+                File(installPath, PENDING_DLC_IDS_FILE).writeText(dlcIds.joinToString("\n"))
+            } catch (e: Exception) {
+                Timber.tag("GOG").w(e, "Failed to save pending DLC ids for $installPath")
+            }
+        }
+
+        private fun clearPendingDlcIds(installPath: String) {
+            File(installPath, PENDING_DLC_IDS_FILE).delete()
+        }
+
+        /**
+         * @param dlcIds DLC product ids to install with the base game. The DLCs already installed
+         * ([GOGManager.getInstalledDlcIds]) are always kept; null adds only the selection of an
+         * unfinished download, for verify, language change and resume. DLCs are recorded as
+         * installed only once the download succeeds, and only those the download actually planned.
+         */
+        fun downloadGame(
+            context: Context,
+            gameId: String,
+            installPath: String,
+            containerLanguage: String,
+            dlcIds: Set<String>? = null,
+        ): Result<DownloadInfo?> {
             val instance = getInstance() ?: return Result.failure(Exception("Service not available"))
 
             // Create DownloadInfo for progress tracking
@@ -364,6 +412,15 @@ class GOGService : Service() {
             instance.activeDownloads[gameId] = downloadInfo
             instance.notifierOrNull?.trackDownload(downloadInfo, "", NotificationHelper.NOTIFICATION_ID_GOG)
 
+            // Register with centralized queue and auto-pause other downloads
+            GameDownloadService.registerDownload(
+                gameSource = GameSource.GOG,
+                gameId = gameId,
+                downloadInfo = downloadInfo,
+                installPath = installPath,
+                containerLanguage = containerLanguage,
+            )
+
             // Launch download in service scope so it runs independently
             val job = instance.scope.launch {
                 try {
@@ -371,35 +428,55 @@ class GOGService : Service() {
                     val commonRedistDir = File(installPath, "_CommonRedist")
                     Timber.tag("GOG").d("Will install dependencies to _CommonRedist")
 
+                    val wasInstalled = instance.gogManager.getGameFromDbById(gameId)?.isInstalled == true
+                    val installedDlcIds = instance.gogManager.getInstalledDlcIds(gameId)
+                    val recordedDlcIds = instance.gogManager.getRecordedDlcIds(gameId)
+                    val newDlcIds = (dlcIds ?: readPendingDlcIds(installPath)) - recordedDlcIds
+                    if (newDlcIds.isEmpty()) clearPendingDlcIds(installPath) else writePendingDlcIds(installPath, newDlcIds)
                     val result = instance.gogDownloadManager.downloadGame(
-                        gameId, File(installPath),
-                        downloadInfo, containerLanguage, true, commonRedistDir,
+                        gameId = gameId,
+                        installPath = File(installPath),
+                        downloadInfo = downloadInfo,
+                        language = containerLanguage,
+                        dlcIds = installedDlcIds + newDlcIds,
+                        supportDir = commonRedistDir,
                     )
 
                     if (result.isFailure) {
                         val error = result.exceptionOrNull()
                         Timber.e(error, "[Download] Failed for game $gameId")
                         downloadInfo.setProgress(-1.0f)
-                        downloadInfo.setActive(false)
 
                         SnackbarManager.show("Download failed: ${error?.message ?: "Unknown error"}")
                     } else {
                         Timber.i("[Download] Completed successfully for game $gameId")
 
+                        val plannedDlcIds = result.getOrDefault(emptySet())
+                        if (wasInstalled && recordedDlcIds.isNotEmpty()) {
+                            instance.gogManager.addInstalledDlcIds(gameId, plannedDlcIds - recordedDlcIds)
+                        } else {
+                            instance.gogManager.setInstalledDlcIds(gameId, plannedDlcIds)
+                        }
+                        val addedDlcIds = plannedDlcIds intersect newDlcIds
+                        if (addedDlcIds.isNotEmpty()) {
+                            MarkerUtils.removeMarker(installPath, Marker.GOG_SCRIPT_INSTALLED)
+                            MarkerUtils.removeMarker(installPath, Marker.GOG_SUPPORT_INSTALLED)
+                        }
+                        clearPendingDlcIds(installPath)
+
+                        // Transfer is complete - unregister from GameDownloadService
+                        GameDownloadService.unregisterDownload(context, GameSource.GOG, gameId)
+
                         // Download cloud saves so they're ready before first launch.
                         // Status message keeps isDownloading() true so Play stays hidden during sync.
+                        // A DLC added to an installed game leaves its saves to the launch sync.
                         val appId = "GOG_$gameId"
                         val numericGameId = gameId.toIntOrNull()
+                        val addedDlcToInstall = wasInstalled && addedDlcIds.isNotEmpty()
                         try {
                             val gogGame = instance.gogManager.getGameFromDbById(gameId)
-                            val locations = if (gogGame !=
-                                null
-                            ) {
-                                instance.gogManager.getSaveDirectoryPath(context, appId, gogGame.title)
-                            } else {
-                                null
-                            }
-                            if (numericGameId != null && !locations.isNullOrEmpty() && !ContainerUtils.isLocalSavesOnly(context, appId)) {
+                            val locations = if (gogGame != null) instance.gogManager.getSaveDirectoryPath(context, appId, gogGame.title) else null
+                            if (!addedDlcToInstall && numericGameId != null && !locations.isNullOrEmpty() && !ContainerUtils.isLocalSavesOnly(context, appId)) {
                                 try {
                                     downloadInfo.setPostInstallSyncing(true)
                                     PluviaApp.events.emit(AndroidEvent.PostInstallSyncStatusChanged(numericGameId, true))
@@ -423,7 +500,6 @@ class GOGService : Service() {
 
                         SnackbarManager.show("Download completed successfully!")
                         downloadInfo.setProgress(1.0f)
-                        downloadInfo.setActive(false)
                     }
                 } catch (e: CancellationException) {
                     downloadInfo.setPostInstallSyncing(false)
@@ -435,8 +511,6 @@ class GOGService : Service() {
                     downloadInfo.setPostInstallSyncing(false)
                     downloadInfo.updateStatusMessage(null)
                     PluviaApp.events.emit(AndroidEvent.PostInstallSyncStatusChanged(gameId.toIntOrNull() ?: -1, false))
-                    downloadInfo.setProgress(-1.0f)
-                    downloadInfo.setActive(false)
 
                     SnackbarManager.show("Download error: ${e.message ?: "Unknown error"}")
                 } finally {
@@ -451,6 +525,11 @@ class GOGService : Service() {
             return Result.success(downloadInfo)
         }
 
+        suspend fun getDlcOptions(context: Context, gameId: String, language: String): Result<List<GogDlcOption>> {
+            val instance = getInstance() ?: return Result.failure(Exception("Service not available"))
+            return instance.gogDownloadManager.getDlcOptions(context, gameId, language)
+        }
+
         suspend fun refreshSingleGame(gameId: String, context: Context): Result<GOGGame?> {
             return getInstance()?.gogManager?.refreshSingleGame(gameId, context)
                 ?: Result.failure(Exception("Service not available"))
@@ -461,6 +540,12 @@ class GOGService : Service() {
          * Delegates to GOGManager.deleteGame
          */
         suspend fun deleteGame(context: Context, libraryItem: LibraryItem): Result<Unit> {
+            // the close-time upload reads the dir we are about to delete; see CloseSyncTracker.
+            // derive the key the same way the reserve side does -- a container id can carry a
+            // duplicate suffix ("GOG_123(1)") that keyOf strips, and a raw id would then miss the wait.
+            app.gamenative.service.cloud.CloseSyncTracker.awaitIdle(
+                app.gamenative.service.cloud.CloseSyncTracker.keyOf(GameSource.GOG, libraryItem.gameId),
+            )
             return getInstance()?.gogManager?.deleteGame(context, libraryItem)
                 ?: Result.failure(Exception("Service not available"))
         }
@@ -529,6 +614,9 @@ class GOGService : Service() {
                     Timber.tag("GOG").i("[Cloud Saves] Found ${saveLocations.size} save location(s) for $appId")
 
                     var allSucceeded = true
+                    val backupSession = CloudSaveBackupManager.session(context, CloudSaveBackupManager.PROVIDER_GOG, gameId.toString()) {
+                        saveLocations.map { CloudSaveBackupManager.BackupRoot(it.name, java.io.File(it.location)) }
+                    }
 
                     // Sync each save location
                     for ((index, location) in saveLocations.withIndex()) {
@@ -578,6 +666,7 @@ class GOGService : Service() {
                                 dirname = location.name,
                                 lastSyncTimestamp = timestamp,
                                 preferredAction = preferredAction,
+                                beforeOverwrite = { backupSession.ensure() },
                             )
 
                             if (newTimestamp != timestamp) {
@@ -746,12 +835,16 @@ class GOGService : Service() {
 
         // Start as foreground service
         val notification = notificationHelper.createServiceNotification(NotificationHelper.NOTIFICATION_ID_GOG, "Connected")
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            startForeground(NotificationHelper.NOTIFICATION_ID_GOG, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        } else {
-            startForeground(NotificationHelper.NOTIFICATION_ID_GOG, notification)
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                startForeground(NotificationHelper.NOTIFICATION_ID_GOG, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+            } else {
+                startForeground(NotificationHelper.NOTIFICATION_ID_GOG, notification)
+            }
+            notificationHelper.markActive(NotificationHelper.NOTIFICATION_ID_GOG)
+        } catch (e: Exception) {
+            Timber.w(e, "[GOGService] startForeground not allowed, continuing as a background service")
         }
-        notificationHelper.markActive(NotificationHelper.NOTIFICATION_ID_GOG)
 
         // Determine if we should sync based on the action
         val shouldSync = when (intent?.action) {
@@ -806,6 +899,8 @@ class GOGService : Service() {
                         // Mark that initial sync has been performed
                         hasPerformedInitialSync = true
                     }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Timber.e(e, "[GOGService]: Exception starting background sync")
                 } finally {

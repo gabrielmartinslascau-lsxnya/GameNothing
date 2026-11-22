@@ -1,14 +1,18 @@
 package app.gamenative.service.gog
 
 import android.content.Context
-import java.util.concurrent.TimeUnit
+import app.gamenative.data.GOGGame
+import app.gamenative.data.GOGCredentials
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
 import timber.log.Timber
+import java.util.concurrent.TimeUnit
 
 /**
  * Parsed/Formartted details returned by GOGApiClient.
@@ -29,6 +33,36 @@ data class ParsedGogGame(
     val downloadSize: Long,
     val isSecret: Boolean,
     val isDlc: Boolean,
+    val dlcs: List<GogDlcRef> = emptyList(),
+    val downloads: GogProductDownloads = GogProductDownloads(),
+)
+
+data class GogDlcRef(
+    val id: String,
+    val title: String,
+)
+
+/** `downloads.installers` and `downloads.bonus_content` of a products response. */
+data class GogProductDownloads(
+    val installers: List<GogDownloadItem> = emptyList(),
+    val bonusContent: List<GogDownloadItem> = emptyList(),
+)
+
+data class GogDownloadItem(
+    val id: String,
+    val name: String,
+    val type: String,
+    val os: String,
+    val language: String,
+    val totalSize: Long,
+    val files: List<GogDownloadFile>,
+)
+
+/** [downlink] resolves (with the bearer token) to `{downlink, checksum}`. */
+data class GogDownloadFile(
+    val id: String,
+    val size: Long,
+    val downlink: String,
 )
 
 /**
@@ -45,29 +79,29 @@ data class RawGogApiResponse(
     val languages: Map<String, String>?, // Language code -> Language name
     val description: Description?,
     val release_date: String?,
-    val downloads: Downloads?,
+    val downloads: Downloads?
 ) {
     data class Images(
         val background: String?,
         val logo2x: String?,
         val logo: String?,
-        val icon: String?,
+        val icon: String?
     )
 
     data class Developer(
-        val name: String?,
+        val name: String?
     )
 
     data class Genre(
-        val name: String?,
+        val name: String?
     )
 
     data class Description(
-        val lead: String?,
+        val lead: String?
     )
 
     data class Downloads(
-        val installers: List<Installer>?,
+        val installers: List<Installer>?
     )
 
     data class Installer(
@@ -75,7 +109,7 @@ data class RawGogApiResponse(
         val name: String?,
         val os: String?,
         val language: String?,
-        val total_size: Long?,
+        val total_size: Long?
     )
 }
 
@@ -118,6 +152,7 @@ object GOGApiClient {
                 return@withContext Result.failure(Exception("No valid credentials found"))
             }
 
+
             val url = "${GOGConstants.GOG_EMBED_URL}/user/data/games"
             val request = Request.Builder() // Returns an "owned" key with an array of ints.
                 .url(url)
@@ -133,7 +168,7 @@ object GOGApiClient {
                     val errorBody = response.body?.string() ?: "Unknown error"
                     Timber.e("Failed to fetch game IDs: HTTP ${response.code} - $errorBody")
                     return@withContext Result.failure(
-                        Exception("Failed to fetch game IDs: HTTP ${response.code}"),
+                        Exception("Failed to fetch game IDs: HTTP ${response.code}")
                     )
                 }
 
@@ -155,9 +190,124 @@ object GOGApiClient {
                 Timber.tag("GOG").d("First 10 game IDs: ${gameIds.take(10).joinToString()}")
                 return@withContext Result.success(gameIds)
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Exception fetching game IDs: ${e.message}")
             return@withContext Result.failure(e)
+        }
+    }
+
+    /**
+     * Fetch IDs of games the user has hidden in their GOG library.
+     *
+     * Queries `account/getFilteredProducts?hiddenFlag=1` (all pages), where every returned product
+     * is hidden, on the embed host. A primary failure is returned as-is so callers keep their
+     * existing flags. An empty primary *success* is confirmed on the www host before concluding the
+     * account has none, so a host quirk cannot silently clear stored hidden flags.
+     *
+     * @param context Application context for auth access
+     * @return Result containing the set of hidden game IDs or error
+     */
+    suspend fun getHiddenGameIds(context: Context): Result<Set<String>> = withContext(Dispatchers.IO) {
+        try {
+            Timber.tag("GOG").d("Fetching hidden GOG game IDs...")
+
+            // Get credentials from AuthManager
+            val credentialsResult = GOGAuthManager.getStoredCredentials(context)
+            if (credentialsResult.isFailure) {
+                val error = credentialsResult.exceptionOrNull()
+                Timber.tag("GOG").e(error, "Cannot list hidden games: not authenticated")
+                return@withContext Result.failure(Exception("Not authenticated. Please log in first."))
+            }
+
+            val credentials = credentialsResult.getOrNull()
+            if (credentials == null || credentials.accessToken.isEmpty()) {
+                Timber.tag("GOG").e("No valid access token found")
+                return@withContext Result.failure(Exception("No valid credentials found"))
+            }
+
+            val primaryResult = fetchHiddenGameIdsFrom(credentials, GOGConstants.GOG_EMBED_URL)
+            if (primaryResult.isFailure) {
+                return@withContext primaryResult
+            }
+            val primaryIds = primaryResult.getOrNull() ?: emptySet()
+            if (primaryIds.isNotEmpty()) {
+                Timber.tag("GOG").i("Successfully fetched ${primaryIds.size} hidden GOG game IDs")
+                return@withContext Result.success(primaryIds)
+            }
+
+            // An empty primary response may mean "no hidden games" or that the host omitted them.
+            // Confirm on www before clearing stored flags.
+            val fallbackResult = fetchHiddenGameIdsFrom(credentials, "https://www.gog.com")
+            if (fallbackResult.isFailure) {
+                return@withContext fallbackResult
+            }
+            val mergedIds = buildSet {
+                addAll(primaryIds)
+                fallbackResult.getOrNull()?.let { addAll(it) }
+            }
+            Timber.tag("GOG").i("Successfully fetched ${mergedIds.size} hidden GOG game IDs")
+            return@withContext Result.success(mergedIds)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Timber.tag("GOG").e(e, "Exception fetching hidden GOG game IDs: ${e.message}")
+            return@withContext Result.failure(e)
+        }
+    }
+
+    /**
+     * Paginates `account/getFilteredProducts?hiddenFlag=1` on [baseUrl] and returns every product
+     * ID (all products on those pages are hidden). Pagination is all-or-nothing: any page failure
+     * fails the whole attempt so callers can retain their previous cache.
+     */
+    private suspend fun fetchHiddenGameIdsFrom(
+        credentials: GOGCredentials,
+        baseUrl: String,
+    ): Result<Set<String>> {
+        return try {
+            var page = 1
+            var totalPages = 1
+            val hiddenIds = mutableSetOf<String>()
+            while (page <= totalPages) {
+                // hiddenFlag=1 makes the account library endpoint return only hidden products;
+                // without it the response excludes hidden games entirely.
+                val url = "$baseUrl/account/getFilteredProducts?hiddenFlag=1&mediaType=1&page=$page"
+                Timber.tag("GOG").d("Requesting hidden game IDs from: $url")
+                val request = Request.Builder()
+                    .url(url)
+                    .addHeader("Authorization", "Bearer ${credentials.accessToken}")
+                    .addHeader("User-Agent", "GameNative/1.0")
+                    // GOG's embed host expects an AJAX header to return JSON for this endpoint.
+                    .addHeader("X-Requested-With", "XMLHttpRequest")
+                    .get()
+                    .build()
+
+                httpClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        val errorBody = response.body?.string() ?: "Unknown error"
+                        Timber.tag("GOG").e("Failed to fetch hidden game IDs: HTTP ${response.code} - $errorBody")
+                        return Result.failure(
+                            Exception("Failed to fetch hidden game IDs: HTTP ${response.code}")
+                        )
+                    }
+
+                    val responseBody = response.body?.string()
+                        ?: return Result.failure(Exception("Empty response from GOG"))
+                    val parsed = GogFilteredProductsParser.parseHiddenPage(responseBody)
+                    hiddenIds.addAll(parsed.hiddenProductIds)
+                    totalPages = parsed.totalPages
+                }
+                page++
+            }
+
+            Timber.tag("GOG").d("Fetched ${hiddenIds.size} hidden GOG game IDs from $baseUrl")
+            Result.success(hiddenIds)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
@@ -176,7 +326,7 @@ object GOGApiClient {
     suspend fun getGameById(
         context: Context,
         gameId: String,
-        expanded: List<String> = listOf("downloads", "description", "screenshots"),
+        expanded: List<String> = listOf("downloads", "description", "screenshots")
     ): Result<ParsedGogGame> = withContext(Dispatchers.IO) {
         try {
             Timber.tag("GOG").d("Fetching game details for gameId: $gameId")
@@ -218,7 +368,7 @@ object GOGApiClient {
                     val errorBody = response.body?.string() ?: "Unknown error"
                     Timber.tag("GOG").e("Failed to fetch game details for $gameId: HTTP ${response.code} - $errorBody")
                     return@withContext Result.failure(
-                        Exception("Failed to fetch game details: HTTP ${response.code}"),
+                        Exception("Failed to fetch game details: HTTP ${response.code}")
                     )
                 }
 
@@ -236,6 +386,8 @@ object GOGApiClient {
 
                 return@withContext Result.success(transformedResponse)
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.tag("GOG").e(e, "Exception fetching game details for $gameId: ${e.message}")
             return@withContext Result.failure(e)
@@ -289,16 +441,73 @@ object GOGApiClient {
     }
 
     /**
+     * DLC products the store lists for [gameId] (owned or not), from `dlcs.products` and
+     * `expanded_dlcs` of the products endpoint.
+     */
+    suspend fun getDlcRefs(context: Context, gameId: String): Result<List<GogDlcRef>> =
+        getGameById(context, gameId, listOf("expanded_dlcs")).map { it.dlcs }
+
+    suspend fun getProductDownloads(context: Context, productId: String): Result<GogProductDownloads> =
+        getGameById(context, productId, listOf("downloads")).map { it.downloads }
+
+    /**
+     * Resolves a `downlink` URL from [GogDownloadFile] to its JSON (`downlink`, `checksum`),
+     * refreshing the token once when GOG answers 401.
+     */
+    suspend fun resolveDownlink(context: Context, downlinkUrl: String): Result<JSONObject> = withContext(Dispatchers.IO) {
+        if (!isTrustedGogUrl(downlinkUrl)) {
+            return@withContext Result.failure(Exception("Refusing downlink outside gog.com: $downlinkUrl"))
+        }
+        try {
+            repeat(2) { attempt ->
+                val credentials = GOGAuthManager.getStoredCredentials(context).getOrElse {
+                    return@withContext Result.failure(Exception("Not authenticated"))
+                }
+                val request = Request.Builder()
+                    .url(downlinkUrl)
+                    .addHeader("Authorization", "Bearer ${credentials.accessToken}")
+                    .addHeader("User-Agent", "GameNative/1.0")
+                    .get()
+                    .build()
+                val unauthorized = httpClient.newCall(request).execute().use { response ->
+                    if (response.code == 401 && attempt == 0) return@use true
+                    if (!response.isSuccessful) {
+                        return@withContext Result.failure(Exception("Failed to resolve downlink: HTTP ${response.code}"))
+                    }
+                    val json = JSONObject(response.body?.string().orEmpty())
+                    if (json.optString("downlink", "").isEmpty()) {
+                        return@withContext Result.failure(Exception("Downlink response has no downlink"))
+                    }
+                    return@withContext Result.success(json)
+                }
+                if (unauthorized) {
+                    GOGAuthManager.refreshStoredCredentials(context).onFailure {
+                        return@withContext Result.failure(Exception("Downlink unauthorized and token refresh failed"))
+                    }
+                }
+            }
+            Result.failure(Exception("Downlink unauthorized"))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Timber.tag("GOG").e(e, "Exception resolving downlink: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    /** HTTPS on gog.com or a subdomain: the only hosts the bearer token may be sent to. */
+    internal fun isTrustedGogUrl(url: String): Boolean {
+        val parsed = url.toHttpUrlOrNull() ?: return false
+        return parsed.isHttps && (parsed.host == "gog.com" || parsed.host.endsWith(".gog.com"))
+    }
+
+        /**
      * Fetch client secret from GOG build metadata API
      * @param gameId GOG game ID
      * @param installPath Game install path (for platform detection, defaults to "windows")
      * @return Pair of (clientId, clientSecret) from the build metadata, or null if not found
      */
-    suspend fun getClientCredentials(
-        context: Context,
-        gameId: String,
-        installPath: String?,
-    ): Pair<String, String>? = withContext(Dispatchers.IO) {
+    suspend fun getClientCredentials(context: Context, gameId: String, installPath: String?): Pair<String, String>? = withContext(Dispatchers.IO) {
         try {
             val platform = "windows" // For now, assume Windows (proton)
             val buildsUrl = "https://content-system.gog.com/products/$gameId/os/$platform/builds?generation=2"
@@ -367,16 +576,14 @@ object GOGApiClient {
 
                 // Check compression type by magic bytes
                 val isGzipped = manifestBytes.size >= 2 &&
-                    manifestBytes[0] == 0x1f.toByte() &&
-                    manifestBytes[1] == 0x8b.toByte()
+                                manifestBytes[0] == 0x1f.toByte() &&
+                                manifestBytes[1] == 0x8b.toByte()
 
                 val isZlib = manifestBytes.size >= 2 &&
-                    manifestBytes[0] == 0x78.toByte() &&
-                    (
-                        manifestBytes[1] == 0x9c.toByte() ||
-                            manifestBytes[1] == 0xda.toByte() ||
-                            manifestBytes[1] == 0x01.toByte()
-                        )
+                             manifestBytes[0] == 0x78.toByte() &&
+                             (manifestBytes[1] == 0x9c.toByte() ||
+                              manifestBytes[1] == 0xda.toByte() ||
+                              manifestBytes[1] == 0x01.toByte())
 
                 Timber.tag("GOG").d("[Cloud Saves] Manifest bytes: ${manifestBytes.size}, isGzipped: $isGzipped, isZlib: $isZlib")
 
@@ -429,6 +636,7 @@ object GOGApiClient {
                 Timber.tag("GOG").d("[Cloud Saves] Retrieved client credentials for game $gameId")
                 return@withContext clientId to clientSecret
             }
+
         } catch (e: Exception) {
             Timber.tag("GOG").e(e, "[Cloud Saves] Failed to get clientSecret for game $gameId")
             return@withContext null
@@ -540,6 +748,61 @@ object GOGApiClient {
             downloadSize = downloadSize,
             isSecret = isSecret,
             isDlc = isDlc,
+            dlcs = parseDlcRefs(rawResponse),
+            downloads = parseProductDownloads(rawResponse),
         )
+    }
+
+    internal fun parseProductDownloads(rawResponse: JSONObject): GogProductDownloads {
+        val downloads = rawResponse.optJSONObject("downloads") ?: return GogProductDownloads()
+        fun items(key: String): List<GogDownloadItem> {
+            val array = downloads.optJSONArray(key) ?: return emptyList()
+            return (0 until array.length()).mapNotNull { i ->
+                val item = array.optJSONObject(i) ?: return@mapNotNull null
+                val filesArray = item.optJSONArray("files") ?: JSONArray()
+                val files = (0 until filesArray.length()).mapNotNull { j ->
+                    val file = filesArray.optJSONObject(j) ?: return@mapNotNull null
+                    val downlink = file.optString("downlink", "")
+                    if (downlink.isEmpty()) {
+                        null
+                    } else {
+                        GogDownloadFile(
+                            id = file.opt("id")?.toString().orEmpty(),
+                            size = file.optLong("size", 0L),
+                            downlink = downlink,
+                        )
+                    }
+                }
+                GogDownloadItem(
+                    id = item.opt("id")?.toString().orEmpty(),
+                    name = item.optString("name", ""),
+                    type = item.optString("type", ""),
+                    os = item.optString("os", ""),
+                    language = item.optString("language", ""),
+                    totalSize = item.optLong("total_size", 0L),
+                    files = files,
+                )
+            }
+        }
+        return GogProductDownloads(installers = items("installers"), bonusContent = items("bonus_content"))
+    }
+
+    internal fun parseDlcRefs(rawResponse: JSONObject): List<GogDlcRef> {
+        val titles = linkedMapOf<String, String>()
+        rawResponse.optJSONObject("dlcs")?.optJSONArray("products")?.let { products ->
+            for (i in 0 until products.length()) {
+                val id = products.optJSONObject(i)?.opt("id")?.toString().orEmpty()
+                if (id.isNotEmpty()) titles.putIfAbsent(id, "")
+            }
+        }
+        rawResponse.optJSONArray("expanded_dlcs")?.let { expanded ->
+            for (i in 0 until expanded.length()) {
+                val dlc = expanded.optJSONObject(i) ?: continue
+                val id = dlc.opt("id")?.toString().orEmpty()
+                if (id.isEmpty()) continue
+                titles[id] = dlc.optString("title", "").ifEmpty { titles[id].orEmpty() }
+            }
+        }
+        return titles.map { (id, title) -> GogDlcRef(id = id, title = title) }
     }
 }

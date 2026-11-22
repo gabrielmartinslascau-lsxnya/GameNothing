@@ -6,7 +6,6 @@ import com.winlator.container.Container
 import com.winlator.core.WineRegistryEditor
 import com.winlator.xenvironment.ImageFs
 import io.mockk.mockk
-import java.io.File
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -15,6 +14,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 class RegistryKeyFixTest {

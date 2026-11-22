@@ -3,6 +3,7 @@ package app.gamenative.powercontrol.drivers
 import android.content.Context
 import app.gamenative.PrefManager
 import app.gamenative.powercontrol.PowerProfile
+import app.gamenative.powercontrol.autotuning.DeviceGate
 import app.gamenative.powercontrol.profiles.CpuGovernor
 import app.gamenative.powercontrol.profiles.PerformancePreset
 import com.samsung.sdk.sperf.CustomParams
@@ -261,7 +262,7 @@ class SamsungPerformanceDriver(private val context: Context) : PerformanceDriver
 
         return PowerProfile(
             enablePowerControl = PrefManager.powerControlDefaultEnabled,
-            enableAdaptiveFpsCap = true,
+            adaptiveFpsCapEnabled = DeviceGate.isDeviceSupported(),
             enableAutoTuning = false,
             enablePerClusterTuning = false,
             enableGamePinning = false,
@@ -270,9 +271,9 @@ class SamsungPerformanceDriver(private val context: Context) : PerformanceDriver
             minCpuFreq = 0, // CPU level 0
             maxCpuFreq = 4, // CPU level 4
             minGpuPowerLevel = 0, // GPU level 0
-            maxGpuPowerLevel = 4, // GPU level 4
+            maxGpuPowerLevel = 4,  // GPU level 4
             minBusLevel = 0,
-            maxBusLevel = 4,
+            maxBusLevel = 4
         )
     }
 }

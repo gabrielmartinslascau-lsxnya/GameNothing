@@ -5,10 +5,9 @@ import androidx.compose.runtime.MutableState
 import app.gamenative.utils.ContainerUtils
 import app.gamenative.utils.ManifestComponentHelper
 import app.gamenative.utils.ManifestEntry
-import app.gamenative.utils.PercentResolution
 import com.winlator.box86_64.Box86_64Preset
-import com.winlator.container.ContainerData
 import com.winlator.contents.ContentProfile
+import com.winlator.container.ContainerData
 import com.winlator.fexcore.FEXCorePreset
 
 /**
@@ -23,8 +22,6 @@ class ContainerConfigState(
     val wrapperVersions: MutableState<List<String>>,
     val dxvkVersionsAll: MutableState<List<String>>,
     val componentAvailability: MutableState<ManifestComponentHelper.ComponentAvailability?>,
-    val showCustomResolutionDialog: MutableState<Boolean>,
-    val customResolutionValidationError: MutableState<String?>,
     val vkMaxVersionIndex: MutableIntState,
     val imageCacheIndex: MutableIntState,
     val exposedExtIndices: MutableState<List<Int>>,
@@ -42,12 +39,10 @@ class ContainerConfigState(
     val sharpnessEffectIndex: MutableIntState,
     val sharpnessLevel: MutableIntState,
     val sharpnessDenoise: MutableIntState,
+    val vibrationIntensity: MutableIntState,
     val adrenotoolsTurnipChecked: MutableState<Boolean>,
     val emulator64Index: MutableIntState,
     val emulator32Index: MutableIntState,
-    val screenSizeIndex: MutableIntState,
-    val customScreenWidth: MutableState<String>,
-    val customScreenHeight: MutableState<String>,
     val graphicsDriverIndex: MutableIntState,
     val displayRendererIndex: MutableIntState,
     val dxWrapperIndex: MutableIntState,
@@ -65,8 +60,6 @@ class ContainerConfigState(
     val selectedDriveLetter: MutableState<String>,
     val pendingDriveLetter: MutableState<String>,
     val driveLetterMenuExpanded: MutableState<Boolean>,
-    val screenSizes: List<String>,
-    val percentResolutions: List<PercentResolution>,
     val baseGraphicsDrivers: List<String>,
     val dxWrappers: List<String>,
     val displayRenderers: List<String>,
@@ -139,7 +132,6 @@ class ContainerConfigState(
     val launchFolderPicker: () -> Unit,
     val getVersionsForDriver: () -> List<String>,
     val getVersionsForBox64: () -> ManifestComponentHelper.VersionOptionList,
-    val applyScreenSizeToConfig: () -> Unit,
     val vkd3dForcedVersion: () -> String,
     val currentDxvkContext: () -> ManifestComponentHelper.DxvkContext,
 )

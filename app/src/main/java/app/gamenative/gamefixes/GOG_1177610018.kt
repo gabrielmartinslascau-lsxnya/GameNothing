@@ -10,3 +10,4 @@ val GOG_Fix_1177610018: KeyedGameFix = KeyedLaunchArgFix(
     gameId = "1177610018",
     launchArgs = "-lang=eng",
 )
+

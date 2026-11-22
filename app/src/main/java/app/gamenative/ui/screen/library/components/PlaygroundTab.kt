@@ -11,9 +11,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,14 +38,27 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.gamenative.playground.PlaygroundWidgetHostManager
-import app.gamenative.ui.theme.LocalLooksState
-import app.gamenative.ui.theme.PluviaGlassPanel
+import app.gamenative.ui.theme.BrokenGlassPanel
 import app.gamenative.utils.HapticManager
 import app.gamenative.utils.toImageBitmap
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlin.math.roundToInt
 
+import androidx.compose.material.icons.filled.DesktopWindows
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Tune
+import timber.log.Timber
+import app.gamenative.PrefManager
+import app.gamenative.ui.util.SnackbarManager
+
 enum class GridMode { SNAP, FREE }
+enum class PlaygroundViewMode { DROIDDECK_HUB, ANDROID_DESKTOP }
 
 @Serializable
 data class PlaygroundSettings(
@@ -96,10 +109,24 @@ fun PlaygroundTab(
     onItemTapped: (PlaygroundItem) -> Unit,
     dockZoneTop: Dp,
     onAddApps: () -> Unit = {},
-    onAddWidget: (PlaygroundWidgetHostManager) -> Unit = {}
+    onAddWidget: (PlaygroundWidgetHostManager) -> Unit = {},
+    onLaunchDesktop: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val hostManager = remember { PlaygroundWidgetHostManager(context) }
+    val installState by app.gamenative.playground.LinuxRuntimeInstaller.state.collectAsState()
+    var isDesktopInstalled by remember { mutableStateOf(app.gamenative.playground.LinuxRuntime.isDesktopInstalled(context)) }
+    var isBaseInstalled by remember { mutableStateOf(app.gamenative.playground.LinuxRuntime.isInstalled(context)) }
+    var showDesktopManagerDialog by remember { mutableStateOf(false) }
+    var viewMode by remember { mutableStateOf(PlaygroundViewMode.DROIDDECK_HUB) }
+
+    LaunchedEffect(installState) {
+        if (installState is app.gamenative.playground.LinuxRuntimeInstaller.InstallState.Ready) {
+            isDesktopInstalled = app.gamenative.playground.LinuxRuntime.isDesktopInstalled(context)
+            isBaseInstalled = app.gamenative.playground.LinuxRuntime.isInstalled(context)
+        }
+    }
 
     DisposableEffect(Unit) {
         hostManager.startListening()
@@ -115,30 +142,497 @@ fun PlaygroundTab(
         val dockZoneHeight = 120.dp
         val activeDockZoneTop = screenHeight - dockZoneHeight
 
-        // Background dismissal for edit mode
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
+        if (viewMode == PlaygroundViewMode.DROIDDECK_HUB) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(top = 76.dp, start = 16.dp, end = 16.dp, bottom = 120.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Segmented View Switcher Pill
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    if (editingItemId != null) onEditItem(null)
+                    Surface(
+                        shape = RoundedCornerShape(24.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        tonalElevation = 2.dp
+                    ) {
+                        Row(modifier = Modifier.padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            FilterChip(
+                                selected = viewMode == PlaygroundViewMode.DROIDDECK_HUB,
+                                onClick = {
+                                    HapticManager.trigger(HapticManager.HapticType.CLICK)
+                                    viewMode = PlaygroundViewMode.DROIDDECK_HUB
+                                },
+                                label = { Text("DroidDeck Hub") },
+                                shape = RoundedCornerShape(20.dp)
+                            )
+                            FilterChip(
+                                selected = viewMode == PlaygroundViewMode.ANDROID_DESKTOP,
+                                onClick = {
+                                    HapticManager.trigger(HapticManager.HapticType.CLICK)
+                                    viewMode = PlaygroundViewMode.ANDROID_DESKTOP
+                                },
+                                label = { Text("Android Desktop") },
+                                shape = RoundedCornerShape(20.dp)
+                            )
+                        }
+                    }
                 }
-        )
 
-        PlaygroundGrid(
-            settings = settings,
-            items = gridItems,
-            hostManager = hostManager,
-            editingItemId = editingItemId,
-            onEditItem = onEditItem,
-            onItemMoved = onItemMoved,
-            onItemRemoved = onItemRemoved,
-            onToggleDockStatus = onToggleDockStatus,
-            onItemTapped = onItemTapped,
-            dockZoneTop = activeDockZoneTop
-        )
+                // DROIDDECK HERO MASTER CONTROL CARD
+                val isBusy = installState is app.gamenative.playground.LinuxRuntimeInstaller.InstallState.Downloading ||
+                    installState is app.gamenative.playground.LinuxRuntimeInstaller.InstallState.Extracting
+
+                BrokenGlassPanel(
+                    modifier = Modifier.fillMaxWidth(),
+                    cornerRadius = 24
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // DroidDeck Title & Status Info (Full width)
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "DROIDDECK 0.7.x",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            val subtitle = when (val st = installState) {
+                                is app.gamenative.playground.LinuxRuntimeInstaller.InstallState.Downloading -> {
+                                    val dlMb = st.downloadedBytes / (1024 * 1024)
+                                    val totMb = st.totalBytes / (1024 * 1024)
+                                    val pct = (st.progress * 100).toInt()
+                                    if (totMb > 0) "${st.label} ($dlMb / $totMb MB • $pct%)"
+                                    else "${st.label} ($dlMb MB • $pct%)"
+                                }
+                                is app.gamenative.playground.LinuxRuntimeInstaller.InstallState.Extracting ->
+                                    "${st.label} (Unpacking rootfs...)"
+                                is app.gamenative.playground.LinuxRuntimeInstaller.InstallState.Failed ->
+                                    "Error: ${st.error}"
+                                else -> when {
+                                    isDesktopInstalled -> "Ready • Arch/Ubuntu Linux Runtime & KDE Plasma Active"
+                                    isBaseInstalled -> "Base Ready • Tap Setup to install KDE Plasma (~928 MB)"
+                                    else -> "Tap Setup to download DroidDeck Ubuntu + KDE Plasma (~1.1 GB)"
+                                }
+                            }
+                            Text(
+                                text = subtitle,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        // Horizontally scrollable Action Buttons (Never squished)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Button(
+                                onClick = {
+                                    HapticManager.trigger(HapticManager.HapticType.CLICK)
+                                    try {
+                                        val intent = Intent(context, com.droiddeck.launcher.FrontEndActivity::class.java).apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Timber.e(e, "Failed to launch DroidDeck FrontEndActivity")
+                                        SnackbarManager.show("Error: ${e.message}")
+                                    }
+                                },
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                ),
+                                modifier = Modifier.defaultMinSize(minWidth = 150.dp).wrapContentWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.SportsEsports,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp).padding(end = 4.dp)
+                                )
+                                Text("Enter DroidDeck", maxLines = 1)
+                            }
+
+                            OutlinedButton(
+                                enabled = !isBusy,
+                                onClick = {
+                                    if (isDesktopInstalled) {
+                                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                            app.gamenative.playground.LinuxRuntime.stageSessionFiles(context)
+                                            app.gamenative.playground.BwrapSpawner.start(context)
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                onLaunchDesktop()
+                                            }
+                                        }
+                                    } else {
+                                        scope.launch {
+                                            SnackbarManager.show("Starting KDE Plasma Desktop download...")
+                                            val ok = app.gamenative.playground.LinuxRuntimeInstaller.installDesktopEnvironment(context)
+                                            isBaseInstalled = app.gamenative.playground.LinuxRuntime.isInstalled(context)
+                                            isDesktopInstalled = app.gamenative.playground.LinuxRuntime.isDesktopInstalled(context)
+                                            if (ok) {
+                                                SnackbarManager.show("KDE Plasma Desktop installed! Tap Launch to start.")
+                                            } else {
+                                                SnackbarManager.show("Download failed — check network connection.")
+                                            }
+                                        }
+                                    }
+                                },
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier.defaultMinSize(minWidth = 100.dp).wrapContentWidth()
+                            ) {
+                                Text(
+                                    text = if (isDesktopInstalled) "Launch Desktop" else if (isBusy) "Downloading..." else "Setup Linux (~1.1 GB)",
+                                    maxLines = 1
+                                )
+                            }
+                        }
+
+                        when (val st = installState) {
+                            is app.gamenative.playground.LinuxRuntimeInstaller.InstallState.Downloading -> {
+                                val dlMb = st.downloadedBytes / (1024 * 1024)
+                                val totMb = st.totalBytes / (1024 * 1024)
+                                val pct = (st.progress * 100).toInt()
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    LinearProgressIndicator(
+                                        progress = { st.progress.coerceIn(0f, 1f) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(8.dp)
+                                            .clip(RoundedCornerShape(4.dp))
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = if (totMb > 0) "$dlMb MB / $totMb MB" else "$dlMb MB",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Text(
+                                            text = "$pct%",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
+                            is app.gamenative.playground.LinuxRuntimeInstaller.InstallState.Extracting -> {
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    LinearProgressIndicator(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(8.dp)
+                                            .clip(RoundedCornerShape(4.dp))
+                                    )
+                                    Text(
+                                        text = st.label,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                            else -> {}
+                        }
+                    }
+                }
+
+                // DROIDDECK SUBSYSTEMS GRID
+                Text(
+                    text = "SUBSYSTEMS & CAPABILITIES",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+                )
+
+                // 1. KDE Plasma Desktop
+                DroidDeckSubsystemCard(
+                    title = "KDE Plasma Desktop",
+                    description = "Rootless mobile-optimized Linux desktop session with KWin and hardware acceleration",
+                    icon = Icons.Filled.DesktopWindows,
+                    badge = if (isDesktopInstalled) "Ready" else "Addon",
+                    onClick = {
+                        if (isDesktopInstalled) {
+                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                app.gamenative.playground.LinuxRuntime.stageSessionFiles(context)
+                                app.gamenative.playground.BwrapSpawner.start(context)
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    onLaunchDesktop()
+                                }
+                            }
+                        } else {
+                            scope.launch {
+                                SnackbarManager.show("Installing KDE Plasma Desktop...")
+                                app.gamenative.playground.LinuxRuntimeInstaller.installDesktopEnvironment(context)
+                            }
+                        }
+                    }
+                )
+
+                // 2. Linux Software Center (Flatpak & AppImage)
+                DroidDeckSubsystemCard(
+                    title = "Flatpak & AppImage Center",
+                    description = "Flathub desktop app catalog, package manager and rootless sandbox runner",
+                    icon = Icons.Filled.Download,
+                    badge = "Flathub",
+                    onClick = { showDesktopManagerDialog = true }
+                )
+
+                // 4. GPU Drivers & Vulkan Overrides
+                DroidDeckSubsystemCard(
+                    title = "GPU Driver & Turnip Manager",
+                    description = "Adreno Turnip KGSL, Mali Venus/Bridge, PowerVR, Xclipse and Zink overrides",
+                    icon = Icons.Filled.Memory,
+                    badge = "Vulkan",
+                    onClick = {
+                        try {
+                            val intent = Intent(context, com.droiddeck.launcher.FrontEndActivity::class.java).apply {
+                                putExtra("PAGE_KEY", "components")
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Timber.e(e, "Failed to open DroidDeck Components")
+                            SnackbarManager.show("Error: ${e.message}")
+                        }
+                    }
+                )
+
+                // 5. Rootless File Manager
+                DroidDeckSubsystemCard(
+                    title = "Rootless File Explorer",
+                    description = "Browse Linux guest rootfs, internal app storage, Wine prefixes and external drives",
+                    icon = Icons.Filled.Folder,
+                    badge = "Files",
+                    onClick = {
+                        try {
+                            val intent = Intent(context, com.droiddeck.launcher.files.FileManagerActivity::class.java).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Timber.e(e, "Failed to launch FileManagerActivity")
+                            SnackbarManager.show("Error: ${e.message}")
+                        }
+                    }
+                )
+
+                // 6. Syncthing Cloud Sync
+                DroidDeckSubsystemCard(
+                    title = "Syncthing Save Sync",
+                    description = "Continuous peer-to-peer game saves and directory synchronization",
+                    icon = Icons.Filled.Sync,
+                    badge = "P2P Sync",
+                    onClick = {
+                        try {
+                            val intent = Intent(context, com.droiddeck.launcher.sync.SyncthingWebActivity::class.java).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Timber.e(e, "Failed to launch SyncthingWebActivity")
+                            SnackbarManager.show("Error: ${e.message}")
+                        }
+                    }
+                )
+
+                // 7. Performance & Controller Mapping
+                DroidDeckSubsystemCard(
+                    title = "Performance & Controller Mapping",
+                    description = "CPU core isolation, phantom process limit bypass and gamepad chord mapping",
+                    icon = Icons.Filled.Tune,
+                    badge = "Settings",
+                    onClick = {
+                        try {
+                            val intent = Intent(context, com.droiddeck.launcher.FrontEndActivity::class.java).apply {
+                                putExtra("PAGE_KEY", "performance")
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Timber.e(e, "Failed to launch Performance page")
+                            SnackbarManager.show("Error: ${e.message}")
+                        }
+                    }
+                )
+            }
+        } else {
+            // Background dismissal for edit mode
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        if (editingItemId != null) onEditItem(null)
+                    }
+            )
+
+            PlaygroundGrid(
+                settings = settings,
+                items = gridItems,
+                hostManager = hostManager,
+                editingItemId = editingItemId,
+                onEditItem = onEditItem,
+                onItemMoved = onItemMoved,
+                onItemRemoved = onItemRemoved,
+                onToggleDockStatus = onToggleDockStatus,
+                onItemTapped = onItemTapped,
+                dockZoneTop = activeDockZoneTop
+            )
+
+            // Top Pill Switcher in Android Desktop mode
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 76.dp)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(24.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    tonalElevation = 2.dp
+                ) {
+                    Row(modifier = Modifier.padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        FilterChip(
+                            selected = viewMode == PlaygroundViewMode.DROIDDECK_HUB,
+                            onClick = {
+                                HapticManager.trigger(HapticManager.HapticType.CLICK)
+                                viewMode = PlaygroundViewMode.DROIDDECK_HUB
+                            },
+                            label = { Text("DroidDeck Hub") },
+                            shape = RoundedCornerShape(20.dp)
+                        )
+                        FilterChip(
+                            selected = viewMode == PlaygroundViewMode.ANDROID_DESKTOP,
+                            onClick = {
+                                HapticManager.trigger(HapticManager.HapticType.CLICK)
+                                viewMode = PlaygroundViewMode.ANDROID_DESKTOP
+                            },
+                            label = { Text("Android Desktop") },
+                            shape = RoundedCornerShape(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        if (showDesktopManagerDialog) {
+            AlertDialog(
+                onDismissRequest = { showDesktopManagerDialog = false },
+                title = { Text("Flatpak & AppImage Center") },
+                text = {
+                    Box(modifier = Modifier.height(440.dp)) {
+                        app.gamenative.playground.DesktopPage(
+                            onLaunchDesktop = {
+                                showDesktopManagerDialog = false
+                                onLaunchDesktop()
+                            }
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showDesktopManagerDialog = false }) {
+                        Text("Close")
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun DroidDeckSubsystemCard(
+    title: String,
+    description: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    badge: String? = null,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    BrokenGlassPanel(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable {
+                HapticManager.trigger(HapticManager.HapticType.CLICK)
+                onClick()
+            },
+        cornerRadius = 18
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (badge != null) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                        ) {
+                            Text(
+                                text = badge,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2
+                )
+            }
+        }
     }
 }
 
@@ -153,15 +647,13 @@ fun PlaygroundDock(
     dockZoneTop: Dp,
     modifier: Modifier = Modifier
 ) {
-    val looks = LocalLooksState.current
     val density = LocalDensity.current
 
-    PluviaGlassPanel(
+    BrokenGlassPanel(
         modifier = modifier
             .padding(bottom = 16.dp)
             .height(72.dp),
-        cornerRadius = 28,
-        distortionStrength = looks.liquidDistortion
+        cornerRadius = 28
     ) {
         Row(
             modifier = Modifier
@@ -182,7 +674,7 @@ fun PlaygroundDock(
                                     dragOffsetY += with(density) { dragAmount.y.toDp().value }
                                 },
                                 onDragEnd = {
-                                        if (dragOffsetY < -50f) {
+                                    if (dragOffsetY < -50f) {
                                         // Dragged OUT of dock (upward)
                                         val releaseY = dockZoneTop.value + dragOffsetY
                                         onToggleDockStatus(item.id, item.xDp, releaseY)
@@ -298,55 +790,31 @@ fun PlaygroundItemWrapper(
                         else onTap()
                     },
                     onLongClick = {
+                        HapticManager.trigger(HapticManager.HapticType.LONG)
                         onEdit()
-                        HapticManager.trigger(HapticManager.HapticType.CLICK)
                     }
                 )
             } else {
-                // For Widgets, we don't want to block normal clicks when NOT editing.
-                Modifier.pointerInput(item.id) {
-                    detectDragGesturesAfterLongPress(
-                        onDragStart = {
-                            if (!isEditing) {
-                                onEdit()
-                                HapticManager.trigger(HapticManager.HapticType.CLICK)
-                            }
-                        },
-                        onDrag = { _, _ -> },
-                        onDragEnd = { },
-                        onDragCancel = { }
-                    )
+                Modifier.clickable {
+                    if (isEditing) onEdit()
+                    else onTap()
                 }
             }
         ) {
             content()
-
-            if (item is PlaygroundItem.WidgetItem && isEditing) {
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .background(Color.Black.copy(alpha = 0.2f))
-                )
-            }
         }
 
         if (isEditing) {
             Box(
                 modifier = Modifier
-                    .offset(x = 16.dp, y = (-16).dp)
-                    .size(48.dp)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        onRemove()
-                    },
-                contentAlignment = Alignment.Center
+                    .offset(x = 6.dp, y = (-6).dp)
+                    .size(24.dp)
             ) {
                 Surface(
-                    modifier = Modifier.size(28.dp),
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.error,
+                    onClick = onRemove,
+                    modifier = Modifier.fillMaxSize(),
                     tonalElevation = 4.dp
                 ) {
                     Icon(
@@ -414,7 +882,8 @@ fun PlaygroundSettingsPanel(
     onSettingsChange: (PlaygroundSettings) -> Unit,
     onOpenAndroidSettings: () -> Unit,
     onAddApps: () -> Unit,
-    onAddWidget: () -> Unit
+    onAddWidget: () -> Unit,
+    onLaunchDesktop: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -449,10 +918,78 @@ fun PlaygroundSettingsPanel(
             modifier = Modifier.clickable { onAddWidget() }
         )
 
+        val context = LocalContext.current
+        var autoLaunch by remember { mutableStateOf(PrefManager.playgroundAutoLaunchDroidDeck) }
+
+        ListItem(
+            headlineContent = { Text("Launch DroidDeck Launcher") },
+            supportingContent = { Text("Open full DroidDeck interface with all features") },
+            leadingContent = { Icon(Icons.Filled.SportsEsports, contentDescription = null) },
+            modifier = Modifier.clickable {
+                try {
+                    val intent = Intent(context, com.droiddeck.launcher.FrontEndActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to launch DroidDeck FrontEndActivity")
+                }
+            }
+        )
+
+        ListItem(
+            headlineContent = { Text("Auto-Launch DroidDeck") },
+            supportingContent = { Text("Immediately open DroidDeck when selecting Playground tab") },
+            trailingContent = {
+                Switch(
+                    checked = autoLaunch,
+                    onCheckedChange = {
+                        autoLaunch = it
+                        PrefManager.playgroundAutoLaunchDroidDeck = it
+                    }
+                )
+            }
+        )
+
+        var showLinuxDesktopDialog by remember { mutableStateOf(false) }
+        ListItem(
+            headlineContent = { Text("Linux Desktop (Playground)") },
+            supportingContent = { Text("KDE Plasma, Flatpak & AppImage manager") },
+            leadingContent = { Icon(Icons.Filled.DesktopWindows, contentDescription = null) },
+            modifier = Modifier.clickable { showLinuxDesktopDialog = true }
+        )
+
+        if (showLinuxDesktopDialog) {
+            AlertDialog(
+                onDismissRequest = { showLinuxDesktopDialog = false },
+                title = { Text("Linux Playground") },
+                text = {
+                    Box(modifier = Modifier.height(400.dp)) {
+                        app.gamenative.playground.DesktopPage(
+                            onLaunchDesktop = {
+                                showLinuxDesktopDialog = false
+                                onLaunchDesktop()
+                            }
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showLinuxDesktopDialog = false }) {
+                        Text("Close")
+                    }
+                }
+            )
+        }
+
         HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
         Text("Layout", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(bottom = 8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             FilterChip(
                 selected = settings.gridMode == GridMode.SNAP,
                 onClick = { onSettingsChange(settings.copy(gridMode = GridMode.SNAP)) },
@@ -468,7 +1005,12 @@ fun PlaygroundSettingsPanel(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text("Grid size", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(bottom = 8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
             (4..8).forEach { size ->
                 FilterChip(
                     selected = settings.gridSize == size,

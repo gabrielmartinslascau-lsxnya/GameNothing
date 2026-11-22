@@ -1,15 +1,5 @@
 package app.gamenative.ui.component
 
-import android.Manifest
-import android.app.Activity
-import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.media.projection.MediaProjectionManager
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -31,17 +21,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import app.gamenative.PrefManager
 import app.gamenative.ui.theme.LocalLooksState
-import app.gamenative.ui.theme.PluviaGlassPanel
+import app.gamenative.ui.theme.BrokenGlassPanel
 import app.gamenative.ui.theme.glassContentColor
 import app.gamenative.utils.MusicManager
 import app.gamenative.utils.hapticClickable
@@ -87,7 +74,7 @@ fun BoxScope.MusicBubble() {
             .padding(bottom = 64.dp)
             .animateContentSize()
     ) {
-        PluviaGlassPanel(
+        BrokenGlassPanel(
             cornerRadius = if (isExpanded) 24 else 12
         ) {
             if (!isExpanded) {

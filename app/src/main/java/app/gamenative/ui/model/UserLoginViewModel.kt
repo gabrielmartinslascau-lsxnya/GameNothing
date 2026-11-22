@@ -4,13 +4,14 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.gamenative.PluviaApp
-import app.gamenative.PrefManager
 import app.gamenative.enums.LoginResult
 import app.gamenative.enums.LoginScreen
 import app.gamenative.events.AndroidEvent
 import app.gamenative.events.SteamEvent
 import app.gamenative.service.SteamService
 import app.gamenative.ui.data.UserLoginState
+import app.gamenative.PrefManager
+import com.posthog.PostHog
 import `in`.dragonbra.javasteam.steam.authentication.IAuthenticator
 import java.util.concurrent.CompletableFuture
 import kotlinx.coroutines.channels.Channel
@@ -105,7 +106,7 @@ class UserLoginViewModel : ViewModel() {
         // Only handle auto-login state, connection state is managed by MainViewModel
         if (it.isAutoLoggingIn) {
             _loginState.update { currentState ->
-                currentState.copy(isLoggingIn = true, isSteamConnected = true)
+                currentState.copy(isLoggingIn = true, isSteamConnected = true,)
             }
         }
     }
@@ -130,6 +131,7 @@ class UserLoginViewModel : ViewModel() {
 
     private val onLogonEnded: (SteamEvent.LogonEnded) -> Unit = {
         Timber.tag("UserLoginViewModel").i("Received login result: ${it.loginResult}")
+        val prevState = _loginState.value
         _loginState.update { currentState ->
             currentState.copy(
                 isLoggingIn = false,
@@ -137,9 +139,30 @@ class UserLoginViewModel : ViewModel() {
             )
         }
 
-        // PostHog logging removed
+        // PostHog logging
+        val method = when (prevState.loginScreen) {
+            LoginScreen.QR -> "qr"
+            LoginScreen.TWO_FACTOR -> prevState.lastTwoFactorMethod ?: "unknown_2fa"
+            LoginScreen.CREDENTIAL -> "password"
+        }
 
-        if (it.loginResult == LoginResult.Failed) {
+        if (it.loginResult == LoginResult.Success) {
+            if (PrefManager.usageAnalyticsEnabled) {
+                PostHog.capture(
+                    event = "login_success",
+                    properties = mapOf("method" to method),
+                )
+            }
+        } else if (it.loginResult == LoginResult.Failed) {
+            if (PrefManager.usageAnalyticsEnabled) {
+                PostHog.capture(
+                    event = "login_failed",
+                    properties = mapOf(
+                        "method" to method,
+                        "reason" to (it.message ?: "unknown"),
+                    ),
+                )
+            }
             it.message?.let(::showSnack)
         }
     }
@@ -328,7 +351,7 @@ class UserLoginViewModel : ViewModel() {
                 loginResult = LoginResult.Failed,
                 isSteamConnected = false,
                 isQrFailed = false,
-                qrCode = null,
+                qrCode = null
             )
         }
         // Restart the SteamService

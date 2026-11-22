@@ -7,7 +7,6 @@ import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -29,7 +28,6 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,13 +36,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.State
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -60,16 +58,16 @@ import app.gamenative.R
 import app.gamenative.data.LibraryItem
 import app.gamenative.ui.data.LibraryState
 import app.gamenative.ui.data.statsFor
+import app.gamenative.ui.data.communityCompatibilityFor
 import app.gamenative.ui.enums.PaneType
 import app.gamenative.ui.util.AdaptivePadding
 import app.gamenative.ui.util.shouldShowGamepadUI
 import kotlin.math.abs
-import kotlin.math.roundToInt
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val CAROUSEL_TILT_ANGLE = 30.061367f
@@ -81,6 +79,7 @@ private const val CAROUSEL_ITEM_OVERSCAN_RATIO = 0.4f
 private const val CAROUSEL_CARD_ASPECT_RATIO = 2f / 3f
 private const val CAROUSEL_MOUSE_WHEEL_SCROLL_MULTIPLIER = 72f
 private const val CAROUSEL_MOUSE_DRAG_SLOP_PX = 8f
+
 
 private fun Modifier.carouselMouseInput(listState: LazyListState): Modifier =
     pointerInput(listState) {
@@ -234,61 +233,57 @@ internal fun LibraryCarouselPane(
     focusTargetListIndex: Int? = null,
     onFocusedIndexChanged: (Int) -> Unit = {},
 ) {
-    androidx.compose.foundation.layout.BoxWithConstraints(modifier = modifier) {
-        val viewportWidthPx = constraints.maxWidth.toFloat()
-        val snackbarHostState = remember { SnackbarHostState() }
-        val pullToRefreshState = rememberPullToRefreshState()
-        val scope = rememberCoroutineScope()
-        val density = LocalDensity.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val pullToRefreshState = rememberPullToRefreshState()
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
 
-        val configuration = LocalConfiguration.current
-        val horizontalPadding = AdaptivePadding.horizontal()
-        val showGamepadHints = shouldShowGamepadUI()
-        val hideStatusBar = PrefManager.hideStatusBarWhenNotInGame
+    val configuration = LocalConfiguration.current
+    val horizontalPadding = AdaptivePadding.horizontal()
+    val showGamepadHints = shouldShowGamepadUI()
+    val hideStatusBar = PrefManager.hideStatusBarWhenNotInGame
 
-        // Fine-Tuned Values by JT, working on both landscape and portrait screens
-        val hintBarHeight = if (showGamepadHints) 56.dp else 0.dp
-        val extraBottomPadding = if (hideStatusBar) 0.dp else 24.dp
-        val carouselTopMargin = 80.dp
-        val carouselBottomMargin = 8.dp + hintBarHeight + extraBottomPadding
-        val cardTopPadding = 16.dp
-        val cardBottomPadding = 16.dp
+    // Fine-Tuned Values by JT, working on both landscape and portrait screens
+    val hintBarHeight = if (showGamepadHints) 56.dp else 0.dp
+    val extraTopPadding = if (showGamepadHints) 0.dp else 8.dp
+    val extraBottomPadding = if (hideStatusBar) 0.dp else 24.dp
+    val carouselTopMargin = (if (state.isSearching) 64.dp else 56.dp) + extraTopPadding
+    val carouselBottomMargin = 8.dp + hintBarHeight + extraBottomPadding
+    val cardTopPadding = 16.dp
+    val cardBottomPadding = 16.dp
 
-        // Correct calculation, no more messy calculations
-        val landscapeScale = if (configuration.screenWidthDp > configuration.screenHeightDp) 1.0f else 0.5f
-        val availableCarouselHeight = (configuration.screenHeightDp.dp - carouselTopMargin - carouselBottomMargin) * landscapeScale
-        val cardHeight = (availableCarouselHeight - cardTopPadding - cardBottomPadding)
-        val cardWidth = cardHeight * CAROUSEL_CARD_ASPECT_RATIO
-        val itemContainerHeight = cardHeight + cardTopPadding + cardBottomPadding
+    // Correct calculation, no more messy calculations
+    val landscapeScale = if (configuration.screenWidthDp > configuration.screenHeightDp) 1.0f else 0.5f
+    val availableCarouselHeight = (configuration.screenHeightDp.dp - carouselTopMargin - carouselBottomMargin) * landscapeScale
+    val cardHeight = (availableCarouselHeight - cardTopPadding - cardBottomPadding)
+    val cardWidth = cardHeight * CAROUSEL_CARD_ASPECT_RATIO
+    val itemContainerHeight = cardHeight + cardTopPadding + cardBottomPadding
 
-        val cardWidthPx = with(density) { cardWidth.toPx() }
-        // Keep lazy items composed slightly beyond the viewport because rotation/translation can leave
-        // transformed pixels visible after the raw item slot has technically moved offscreen.
-        val cardHorizontalOverscan = cardWidth * CAROUSEL_ITEM_OVERSCAN_RATIO
-        val carouselItemSlotWidth = cardWidth + (cardHorizontalOverscan * 2)
-        val centeredHorizontalPadding = ((configuration.screenWidthDp.dp - cardWidth) / 2).coerceAtLeast(horizontalPadding)
-        val centeredSlotHorizontalPadding =
-            ((configuration.screenWidthDp.dp - carouselItemSlotWidth) / 2)
-                .coerceAtLeast((horizontalPadding - cardHorizontalOverscan).coerceAtLeast(0.dp))
-        val overlapSpacing = cardWidth * CAROUSEL_SPACING_RATIO
-        val carouselItemSpacing = overlapSpacing - (cardHorizontalOverscan * 2)
-        val carouselItemSlotWidthPx = with(density) { carouselItemSlotWidth.toPx() }
-        val carouselItemSpacingPx = with(density) { carouselItemSpacing.toPx() }
-        val firstTileOffsetPx = cardWidthPx * 0.08f
-        val cameraDistancePx = with(density) { CAROUSEL_CAMERA_DISTANCE_DP.dp.toPx() }
+    val cardWidthPx = with(density) { cardWidth.toPx() }
+    // Keep lazy items composed slightly beyond the viewport because rotation/translation can leave
+    // transformed pixels visible after the raw item slot has technically moved offscreen.
+    val cardHorizontalOverscan = cardWidth * CAROUSEL_ITEM_OVERSCAN_RATIO
+    val carouselItemSlotWidth = cardWidth + (cardHorizontalOverscan * 2)
+    val centeredHorizontalPadding = ((configuration.screenWidthDp.dp - cardWidth) / 2).coerceAtLeast(horizontalPadding)
+    val centeredSlotHorizontalPadding =
+        ((configuration.screenWidthDp.dp - carouselItemSlotWidth) / 2)
+            .coerceAtLeast((horizontalPadding - cardHorizontalOverscan).coerceAtLeast(0.dp))
+    val overlapSpacing = cardWidth * CAROUSEL_SPACING_RATIO
+    val carouselItemSpacing = overlapSpacing - (cardHorizontalOverscan * 2)
+    val carouselItemSlotWidthPx = with(density) { carouselItemSlotWidth.toPx() }
+    val carouselItemSpacingPx = with(density) { carouselItemSpacing.toPx() }
+    val firstTileOffsetPx = cardWidthPx * 0.08f
+    val cameraDistancePx = with(density) { CAROUSEL_CAMERA_DISTANCE_DP.dp.toPx() }
 
-        val scrollOffset = ((viewportWidthPx - carouselItemSlotWidthPx) / 2).roundToInt()
-        val scrollOffsetDp = with(density) { scrollOffset.toDp() }.coerceAtLeast(0.dp)
-
-        val centeredIndexState = remember {
-            derivedStateOf {
-                val layoutInfo = listState.layoutInfo
-                val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2f
-                layoutInfo.visibleItemsInfo.minByOrNull { itemInfo ->
-                    abs(itemInfo.offset + itemInfo.size / 2f - viewportCenter)
-                }?.index ?: -1
-            }
+    val centeredIndexState = remember {
+        derivedStateOf {
+            val layoutInfo = listState.layoutInfo
+            val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2f
+            layoutInfo.visibleItemsInfo.minByOrNull { itemInfo ->
+                abs(itemInfo.offset + itemInfo.size / 2f - viewportCenter)
+            }?.index ?: -1
         }
+    }
     val centeredIndex by centeredIndexState
 
     fun currentTargetIndex(): Int {
@@ -311,8 +306,7 @@ internal fun LibraryCarouselPane(
                 firstCarouselItemFocusRequester?.requestFocus()
             } catch (_: IllegalStateException) {
             }
-            // Use 0 offset with large contentPadding for stable centering
-            listState.animateScrollToItem(targetIndex, 0)
+            listState.animateScrollToItem(targetIndex)
             kotlinx.coroutines.delay(16)
             try {
                 firstCarouselItemFocusRequester?.requestFocus()
@@ -359,8 +353,7 @@ internal fun LibraryCarouselPane(
 
     Scaffold(
         modifier = modifier,
-        containerColor = if (PrefManager.videoBackgroundPath.isNotEmpty()) Color.Transparent
-                        else MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->
         PullToRefreshBox(
@@ -370,7 +363,6 @@ internal fun LibraryCarouselPane(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .graphicsLayer { clip = true }
                 .onPreviewKeyEvent { keyEvent ->
                     if (keyEvent.nativeKeyEvent.action != KeyEvent.ACTION_DOWN) {
                         false
@@ -401,181 +393,168 @@ internal fun LibraryCarouselPane(
                 if (state.appInfoList.isNotEmpty()) {
                     val flingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
 
-                    Box(
+                    LazyRow(
+                        state = listState,
                         modifier = Modifier
                             .fillMaxSize()
-                            .graphicsLayer { clip = true }
+                            .carouselMouseInput(listState),
+                        flingBehavior = flingBehavior,
+                        horizontalArrangement = Arrangement.spacedBy(carouselItemSpacing),
+                        verticalAlignment = Alignment.CenterVertically,
+                        contentPadding = PaddingValues(
+                            start = centeredSlotHorizontalPadding,
+                            end = centeredSlotHorizontalPadding,
+                            top = carouselTopMargin,
+                            bottom = carouselBottomMargin,
+                        ),
                     ) {
-                        LazyRow(
-                            state = listState,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .carouselMouseInput(listState),
-                            flingBehavior = flingBehavior,
-                            horizontalArrangement = Arrangement.spacedBy(carouselItemSpacing),
-                            verticalAlignment = Alignment.CenterVertically,
-                            contentPadding = PaddingValues(
-                                start = scrollOffsetDp,
-                                end = scrollOffsetDp,
-                                top = carouselTopMargin,
-                                bottom = carouselBottomMargin,
-                            ),
-                        ) {
-                            items(
-                                count = state.appInfoList.size,
-                                key = { listIndex ->
-                                    val item = state.appInfoList[listIndex]
-                                    if (item.recSource == "hero") "HERO_SLOT" else item.appId
-                                },
-                                contentType = { "carousel_item" }
-                            ) { listIndex ->
+                        items(
+                            count = state.appInfoList.size,
+                            key = { listIndex ->
                                 val item = state.appInfoList[listIndex]
+                                if (item.recSource == "hero") "HERO_SLOT" else item.appId
+                            },
+                        ) { listIndex ->
+                            val item = state.appInfoList[listIndex]
 
-                                val tiltInputState = remember(listIndex) {
-                                    derivedStateOf {
-                                        val layoutInfo = listState.layoutInfo
-                                        val vc = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2f
-                                        val span = (layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset)
-                                            .toFloat().coerceAtLeast(1f)
-                                        val vi = layoutInfo.visibleItemsInfo.firstOrNull { it.index == listIndex }
-                                        val ic = if (vi != null) vi.offset + vi.size / 2f else vc
-                                        CarouselTiltInput(
-                                            distanceFromCenterPx = ic - vc,
-                                            viewportSpanPx = span,
-                                            isFirstItemAtStart = listIndex == 0 &&
-                                                layoutInfo.visibleItemsInfo.firstOrNull()?.index == 0,
-                                        )
-                                    }
-                                }
-
-                                val appItemModifier = Modifier
-                                    .fillMaxSize()
-                                    .then(
-                                        if (firstCarouselItemFocusRequester != null &&
-                                            focusTargetListIndex != null &&
-                                            listIndex == focusTargetListIndex
-                                        ) {
-                                            Modifier.focusRequester(firstCarouselItemFocusRequester)
-                                        } else {
-                                            Modifier
-                                        },
+                            val tiltInputState = remember(listIndex) {
+                                derivedStateOf {
+                                    val layoutInfo = listState.layoutInfo
+                                    val vc = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2f
+                                    val span = (layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset)
+                                        .toFloat().coerceAtLeast(1f)
+                                    val vi = layoutInfo.visibleItemsInfo.firstOrNull { it.index == listIndex }
+                                    val ic = if (vi != null) vi.offset + vi.size / 2f else vc
+                                    CarouselTiltInput(
+                                        distanceFromCenterPx = ic - vc,
+                                        viewportSpanPx = span,
+                                        isFirstItemAtStart = listIndex == 0 &&
+                                            layoutInfo.visibleItemsInfo.firstOrNull()?.index == 0,
                                     )
+                                }
+                            }
 
-                                CarouselItemSlot(
-                                    listIndex = listIndex,
-                                    centeredIndex = centeredIndexState,
+                            val appItemModifier = Modifier
+                                .fillMaxSize()
+                                .then(
+                                    if (firstCarouselItemFocusRequester != null &&
+                                        focusTargetListIndex != null &&
+                                        listIndex == focusTargetListIndex
+                                    ) {
+                                        Modifier.focusRequester(firstCarouselItemFocusRequester)
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+
+                            CarouselItemSlot(
+                                listIndex = listIndex,
+                                centeredIndex = centeredIndexState,
+                                modifier = Modifier
+                                    .width(carouselItemSlotWidth)
+                                    .height(itemContainerHeight),
+                            ) {
+                                Box(
                                     modifier = Modifier
+                                        .align(Alignment.TopCenter)
+                                        .wrapContentHeight(align = Alignment.Top, unbounded = true)
                                         .width(carouselItemSlotWidth)
-                                        .height(itemContainerHeight),
+                                        .height(itemContainerHeight)
+                                        .graphicsLayer {
+                                            val tiltInput = tiltInputState.value
+                                            val distanceFromCenter = tiltInput.distanceFromCenterPx
+                                            val span = tiltInput.viewportSpanPx
+                                            val normalizedDistance = (distanceFromCenter / span).coerceIn(-1f, 1f)
+                                            val itemStepDistancePx = (carouselItemSlotWidthPx + carouselItemSpacingPx).coerceAtLeast(1f)
+                                            val distanceInSteps = abs(distanceFromCenter) / itemStepDistancePx
+
+                                            val direction = when {
+                                                normalizedDistance < -0.03f -> 1f
+                                                normalizedDistance > 0.03f -> -1f
+                                                else -> 0f
+                                            }
+
+                                            val tiltMultiplier = when {
+                                                distanceInSteps <= 1f -> distanceInSteps
+                                                distanceInSteps <= 2f -> 1f + (distanceInSteps - 1f) * 0.2f
+                                                else -> 1.2f + (distanceInSteps - 2f) * 0.15f
+                                            }.coerceAtMost(79f)
+                                            val tiltAngle = (CAROUSEL_TILT_ANGLE * tiltMultiplier).coerceAtMost(79f)
+
+                                            val scale = interpolateByDistance(
+                                                distanceInSteps = distanceInSteps,
+                                                centerValue = 1.04f,
+                                                firstStepValue = 0.91f,
+                                                secondStepValue = 0.86f,
+                                                farValue = 0.8f,
+                                            )
+
+                                            val computedRotationY = direction * tiltAngle
+                                            val computedTranslationX = if (direction == 0f) {
+                                                0f
+                                            } else {
+                                                val tiltInfluence = if (CAROUSEL_TILT_ANGLE > 0.1f) tiltAngle / CAROUSEL_TILT_ANGLE else 1f
+                                                val baseOffsetRatio = CAROUSEL_SIDE_OFFSET_RATIO + (distanceInSteps * CAROUSEL_STEP_OFFSET_RATIO)
+                                                val baseShift = direction * cardWidthPx * baseOffsetRatio * tiltInfluence
+                                                val edgeOffset = if (tiltInput.isFirstItemAtStart) {
+                                                    firstTileOffsetPx
+                                                } else {
+                                                    0f
+                                                }
+                                                baseShift + edgeOffset
+                                            }
+
+                                            scaleX = scale
+                                            scaleY = scale
+                                            this.rotationY = computedRotationY
+                                            this.translationX = computedTranslationX
+                                            cameraDistance = cameraDistancePx
+                                            clip = false
+                                            // Matches GameNothing 1.2: a forced Offscreen layer per card cost an extra render target each.
+                                            // compositingStrategy = CompositingStrategy.Offscreen
+                                        },
                                 ) {
                                     Box(
                                         modifier = Modifier
                                             .align(Alignment.TopCenter)
-                                            .wrapContentHeight(align = Alignment.Top, unbounded = true)
-                                            .width(carouselItemSlotWidth)
-                                            .height(itemContainerHeight)
-                                            .graphicsLayer {
-                                                val tiltInput = tiltInputState.value
-                                                val distanceFromCenter = tiltInput.distanceFromCenterPx
-                                                val span = tiltInput.viewportSpanPx
-                                                val normalizedDistance = (distanceFromCenter / span).coerceIn(-1f, 1f)
-                                                val itemStepDistancePx = (carouselItemSlotWidthPx + carouselItemSpacingPx).coerceAtLeast(1f)
-                                                val distanceInSteps = abs(distanceFromCenter) / itemStepDistancePx
-
-                                                val direction = when {
-                                                    normalizedDistance < -0.03f -> 1f
-                                                    normalizedDistance > 0.03f -> -1f
-                                                    else -> 0f
-                                                }
-
-                                                val tiltMultiplier = when {
-                                                    distanceInSteps <= 1f -> distanceInSteps
-                                                    distanceInSteps <= 2f -> 1f + (distanceInSteps - 1f) * 0.2f
-                                                    else -> 1.2f + (distanceInSteps - 2f) * 0.15f
-                                                }.coerceAtMost(79f)
-                                                val tiltAngle = (CAROUSEL_TILT_ANGLE * tiltMultiplier).coerceAtMost(79f)
-
-                                                val scale = interpolateByDistance(
-                                                    distanceInSteps = distanceInSteps,
-                                                    centerValue = 1.04f,
-                                                    firstStepValue = 0.91f,
-                                                    secondStepValue = 0.86f,
-                                                    farValue = 0.8f,
-                                                )
-
-                                                val computedRotationY = direction * tiltAngle
-                                                val computedTranslationX = if (direction == 0f) {
-                                                    0f
-                                                } else {
-                                                    val tiltInfluence = if (CAROUSEL_TILT_ANGLE > 0.1f) tiltAngle / CAROUSEL_TILT_ANGLE else 1f
-                                                    val baseOffsetRatio =
-                                                        CAROUSEL_SIDE_OFFSET_RATIO + (distanceInSteps * CAROUSEL_STEP_OFFSET_RATIO)
-                                                    val baseShift = direction * cardWidthPx * baseOffsetRatio * tiltInfluence
-                                                    val edgeOffset = if (tiltInput.isFirstItemAtStart) {
-                                                        firstTileOffsetPx
-                                                    } else {
-                                                        0f
-                                                    }
-                                                    baseShift + edgeOffset
-                                                }
-
-                                                scaleX = scale
-                                                scaleY = scale
-                                                this.rotationY = computedRotationY
-                                                this.translationX = computedTranslationX
-                                                cameraDistance = cameraDistancePx
-                                                clip = false
-                                                // OPTIMIZATION: Remove forced Offscreen strategy which kills performance
-                                                // compositingStrategy = CompositingStrategy.Offscreen
-                                            },
+                                            .padding(top = cardTopPadding)
+                                            .width(cardWidth)
+                                            .height(cardHeight),
+                                        contentAlignment = Alignment.Center,
                                     ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .align(Alignment.TopCenter)
-                                                .padding(top = cardTopPadding)
-                                                .width(cardWidth)
-                                                .height(cardHeight),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                                AppItem(
-                                                    modifier = appItemModifier,
-                                                    appInfo = item,
-                                                    onClick = {
-                                                        onFocusedIndexChanged(listIndex)
-                                                        onNavigate(item.appId)
-                                                    },
-                                                    onFocus = {
-                                                        onFocusedIndexChanged(listIndex)
-                                                        // Smooth scroll to center when focused via controller
-                                                        if (!listState.isScrollInProgress) {
-                                                            scope.launch {
-                                                                listState.animateScrollToItem(listIndex, 0)
-                                                            }
-                                                        }
-                                                    },
-                                                    paneType = PaneType.GRID_CAPSULE,
-                                                    imageRefreshCounter = state.imageRefreshCounter,
-                                                    compatibilityStatus = state.compatibilityMap[item.name],
-                                                    gameStats = state.statsFor(item),
-                                                    showFocusGlow = true,
-                                                    enableFocusScale = true,
-                                                    animateStats = item.appId == settledBackdropItem?.appId,
-                                                )
-                                        }
+                                        AppItem(
+                                            modifier = appItemModifier,
+                                            appInfo = item,
+                                            onClick = {
+                                                onFocusedIndexChanged(listIndex)
+                                                onNavigate(item.appId)
+                                            },
+                                            onFocus = {
+                                                onFocusedIndexChanged(listIndex)
+                                            },
+                                            paneType = PaneType.GRID_CAPSULE,
+                                            imageRefreshCounter = state.imageRefreshCounter,
+                                            compatibilityStatus = state.compatibilityMap[item.name],
+                                            communityCompatibility = state.communityCompatibilityFor(item),
+                                            gameStats = state.statsFor(item),
+                                            showFocusGlow = false,
+                                            enableFocusScale = false,
+                                            animateStats = item.appId == settledBackdropItem?.appId,
+                                        )
                                     }
                                 }
                             }
+                        }
 
-                            if (state.appInfoList.size < state.totalAppsInFilter) {
-                                item {
-                                    Box(
-                                        modifier = Modifier
-                                            .width(carouselItemSlotWidth)
-                                            .padding(16.dp),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        CircularProgressIndicator()
-                                    }
+                        if (state.appInfoList.size < state.totalAppsInFilter) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .width(carouselItemSlotWidth)
+                                        .padding(16.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator()
                                 }
                             }
                         }
@@ -587,10 +566,10 @@ internal fun LibraryCarouselPane(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         contentPadding = PaddingValues(
-                            start = scrollOffsetDp.coerceAtLeast(0.dp),
-                            end = scrollOffsetDp.coerceAtLeast(0.dp),
-                            top = carouselTopMargin.coerceAtLeast(0.dp),
-                            bottom = carouselBottomMargin.coerceAtLeast(0.dp),
+                            start = centeredHorizontalPadding,
+                            end = centeredHorizontalPadding,
+                            top = carouselTopMargin,
+                            bottom = carouselBottomMargin,
                         ),
                     ) {
                         items(6) {
@@ -616,5 +595,4 @@ internal fun LibraryCarouselPane(
             }
         }
     }
-}
 }

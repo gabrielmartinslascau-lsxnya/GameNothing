@@ -4,7 +4,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import app.gamenative.utils.HapticManager
 import app.gamenative.utils.hapticClickable
 import com.alorma.compose.settings.ui.SettingsMenuLink

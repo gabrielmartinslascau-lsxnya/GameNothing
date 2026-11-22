@@ -4,11 +4,11 @@ import android.content.Context
 import app.gamenative.data.AmazonGame
 import app.gamenative.db.dao.AmazonGameDao
 import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /** Amazon library manager and DB bridge. */
 @Singleton
@@ -88,7 +88,6 @@ class AmazonManager @Inject constructor(
 
     /** Delete all non-installed Amazon games on logout. */
     suspend fun deleteAllNonInstalledGames() = withContext(Dispatchers.IO) {
-        if (app.gamenative.PrefManager.aggressiveCaching) return@withContext
         amazonGameDao.deleteAllNonInstalledGames()
         Timber.i("[Amazon] Deleted all non-installed games from DB")
     }

@@ -14,10 +14,12 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.platform.findViewTreeCompositionContext
 import app.gamenative.PluviaApp
+import app.gamenative.inputcontrols.ControlProfileService
 import app.gamenative.ui.component.dialog.RadialMenuSettingsContent
 import app.gamenative.ui.theme.PluviaTheme
 import com.winlator.container.Container
 import com.winlator.inputcontrols.Binding
+import com.winlator.inputcontrols.BindingCombo
 import com.winlator.inputcontrols.ControlsProfile
 import com.winlator.inputcontrols.ExternalController
 import com.winlator.inputcontrols.InputControlsManager
@@ -25,9 +27,9 @@ import com.winlator.inputcontrols.RadialMenu
 import com.winlator.widget.InputControlsView
 import com.winlator.widget.TouchpadView
 import com.winlator.xserver.XServer
+import timber.log.Timber
 import kotlin.math.atan2
 import kotlin.math.sqrt
-import timber.log.Timber
 
 class RadialMenuCoordinator(
     private val context: Context,
@@ -35,19 +37,19 @@ class RadialMenuCoordinator(
     private val anchor: View,
     private val container: Container,
     private val xServer: XServer,
-    private val gameNameProvider: () -> String,
     private val showKeyboard: (View, String) -> Unit,
     private val openQuickMenu: () -> Unit,
     private val onSettingsVisibilityChanged: (Boolean) -> Unit,
 ) : InputControlsView.RadialMenuListener {
     companion object {
+        private const val BINDING_PRESS_MS = 70L
+
         fun install(
             context: Context,
             host: ViewGroup,
             anchor: View,
             container: Container,
             xServer: XServer,
-            gameNameProvider: () -> String,
             showKeyboard: (View, String) -> Unit,
             openQuickMenu: () -> Unit,
             onSettingsVisibilityChanged: (Boolean) -> Unit,
@@ -59,7 +61,6 @@ class RadialMenuCoordinator(
                 anchor = anchor,
                 container = container,
                 xServer = xServer,
-                gameNameProvider = gameNameProvider,
                 showKeyboard = showKeyboard,
                 openQuickMenu = openQuickMenu,
                 onSettingsVisibilityChanged = onSettingsVisibilityChanged,
@@ -90,6 +91,8 @@ class RadialMenuCoordinator(
     private var inputControlSelectionActive = false
     private var activeTouchPointerId = MotionEvent.INVALID_POINTER_ID
     private val wheelCenter = PointF()
+    private val activeDispatchedBindings = mutableListOf<Binding>()
+    private var bindingDispatchGeneration = 0
 
     init {
         host.addView(
@@ -103,6 +106,7 @@ class RadialMenuCoordinator(
 
     fun detach() {
         close(commit = false)
+        cancelBindingDispatches()
         inputControlsView?.setRadialMenuListener(null)
         touchpadView?.setOpenRadialMenuCallback(null)
         settingsDialog?.dismiss()
@@ -113,6 +117,7 @@ class RadialMenuCoordinator(
     }
 
     fun bindInputControlsView(view: InputControlsView?) {
+        cancelBindingDispatches()
         inputControlsView?.setRadialMenuListener(null)
         inputControlsView = view
         view?.let { overlayView.setControlsStyle(it.primaryColor, it.secondaryColor) }
@@ -132,7 +137,9 @@ class RadialMenuCoordinator(
     }
 
     fun setProfile(profile: ControlsProfile?) {
+        cancelBindingDispatches()
         activeControlsProfile = profile
+        physicalControllerHandler?.setProfile(profile)
     }
 
     fun showSettingsDialog(): Boolean {
@@ -320,32 +327,18 @@ class RadialMenuCoordinator(
         val manager = PluviaApp.inputControlsManager ?: InputControlsManager(context).also {
             PluviaApp.inputControlsManager = it
         }
-        val profileId = container.getExtra("profileId", "0").toIntOrNull() ?: 0
-        var profile = if (profileId != 0) manager.getProfile(profileId) else null
-        if (profile == null) {
-            val allProfiles = manager.getProfiles(false)
-            val sourceProfile = manager.getProfile(0)
-                ?: allProfiles.firstOrNull { it.id == 2 }
-                ?: allProfiles.firstOrNull()
-            if (sourceProfile != null) {
-                profile = try {
-                    val duplicate = manager.duplicateProfile(sourceProfile)
-                    duplicate.setName("${gameNameProvider()} - Controls")
-                    duplicate.save()
-                    container.putExtra("profileId", duplicate.id.toString())
-                    container.saveData()
-                    duplicate
-                } catch (e: Exception) {
-                    Timber.e(e, "Failed to auto-create controls profile for ${container.name}")
-                    null
-                }
-            }
+        val profile = try {
+            ControlProfileService.ensureWorkingProfile(context, container, manager)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to create working controls profile for ${container.name}")
+            null
         }
         applyProfile(profile)
         return profile
     }
 
     private fun applyProfile(profile: ControlsProfile?) {
+        cancelBindingDispatches()
         activeControlsProfile = profile
         if (profile != null) {
             if (inputControlsView?.profile != null) {
@@ -403,14 +396,14 @@ class RadialMenuCoordinator(
         val slots = activeMenu()?.enabledSlots.orEmpty()
         val selectedIndex = overlayView.selectedIndex()
         val selectedBinding = if (commit && selectedIndex in slots.indices) {
-            slots[selectedIndex].binding
+            slots[selectedIndex].bindingCombo
         } else {
-            Binding.NONE
+            BindingCombo.none()
         }
         overlayView.hide()
         activeTouchPointerId = MotionEvent.INVALID_POINTER_ID
         inputControlSelectionActive = false
-        if (selectedBinding != Binding.NONE) dispatchBinding(selectedBinding)
+        if (!selectedBinding.isEmpty) dispatchBinding(selectedBinding)
     }
 
     private fun updateSelection(point: PointF) {
@@ -474,13 +467,58 @@ class RadialMenuCoordinator(
         return (((normalized + sweep / 2f) / sweep).toInt() % slots.size)
     }
 
-    private fun dispatchBinding(binding: Binding) {
-        if (binding == Binding.NONE || binding == Binding.OPEN_RADIAL_MENU) return
-        val offset = bindingOffset(binding)
-        applyBinding(binding, true, offset)
+    private fun dispatchBinding(bindingCombo: BindingCombo) {
+        if (bindingCombo.isEmpty || Binding.OPEN_RADIAL_MENU in bindingCombo.bindings) return
+        cancelBindingDispatches()
+
+        if (bindingCombo.isSequence) {
+            dispatchBindingSequence(bindingCombo)
+            return
+        }
+
+        val generation = bindingDispatchGeneration
+        for (binding in bindingCombo.bindings) {
+            pressDispatchedBinding(binding)
+        }
         host.postDelayed({
+            if (generation != bindingDispatchGeneration) return@postDelayed
+            bindingCombo.bindings.asReversed().forEach { binding ->
+                releaseDispatchedBinding(binding)
+            }
+        }, BINDING_PRESS_MS)
+    }
+
+    private fun dispatchBindingSequence(bindingCombo: BindingCombo) {
+        val generation = bindingDispatchGeneration
+        bindingCombo.bindings.forEachIndexed { index, binding ->
+            host.postDelayed({
+                if (generation != bindingDispatchGeneration) return@postDelayed
+                pressDispatchedBinding(binding)
+                host.postDelayed({
+                    if (generation != bindingDispatchGeneration) return@postDelayed
+                    releaseDispatchedBinding(binding)
+                }, BINDING_PRESS_MS)
+            }, index * bindingCombo.sequenceDelayMs.toLong())
+        }
+    }
+
+    private fun pressDispatchedBinding(binding: Binding) {
+        applyBinding(binding, true, bindingOffset(binding))
+        if (binding != Binding.OPEN_NAVIGATION_MENU && binding != Binding.SHOW_KEYBOARD) {
+            activeDispatchedBindings.add(binding)
+        }
+    }
+
+    private fun releaseDispatchedBinding(binding: Binding) {
+        if (activeDispatchedBindings.remove(binding)) applyBinding(binding, false, 0f)
+    }
+
+    private fun cancelBindingDispatches() {
+        bindingDispatchGeneration++
+        activeDispatchedBindings.asReversed().forEach { binding ->
             applyBinding(binding, false, 0f)
-        }, 70L)
+        }
+        activeDispatchedBindings.clear()
     }
 
     private fun bindingOffset(binding: Binding): Float {
@@ -513,6 +551,10 @@ class RadialMenuCoordinator(
         }
 
         val view = inputControlsView
+        if (binding == Binding.GYRO_MODIFIER) {
+            view?.handleInputEvent(binding, isActionDown, offset)
+            return
+        }
         if (view?.profile != null) {
             view.handleInputEvent(binding, isActionDown, offset)
             if (binding.isGamepad) {
@@ -548,17 +590,11 @@ class RadialMenuCoordinator(
             else -> {
                 val pointerButton = binding.pointerButton
                 if (isActionDown) {
-                    if (pointerButton != null) {
-                        xServer.injectPointerButtonPress(pointerButton)
-                    } else {
-                        binding.inject(xServer, true)
-                    }
+                    if (pointerButton != null) xServer.injectPointerButtonPress(pointerButton)
+                    else binding.inject(xServer, true)
                 } else {
-                    if (pointerButton != null) {
-                        xServer.injectPointerButtonRelease(pointerButton)
-                    } else {
-                        binding.inject(xServer, false)
-                    }
+                    if (pointerButton != null) xServer.injectPointerButtonRelease(pointerButton)
+                    else binding.inject(xServer, false)
                 }
             }
         }

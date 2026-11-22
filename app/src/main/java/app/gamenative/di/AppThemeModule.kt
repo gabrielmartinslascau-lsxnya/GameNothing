@@ -2,8 +2,10 @@ package app.gamenative.di
 
 import app.gamenative.PrefManager
 import app.gamenative.enums.AppTheme
+import app.gamenative.enums.DownloadBarStyle
 import app.gamenative.enums.FontType
 import app.gamenative.enums.GlassMode
+import app.gamenative.ui.theme.LiveGlassParameters
 import com.materialkolor.PaletteStyle
 import dagger.Module
 import dagger.Provides
@@ -20,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
  */
 
 interface IAppTheme {
+    val liveGlassParameters: LiveGlassParameters
     val themeFlow: StateFlow<AppTheme>
     var currentTheme: AppTheme
     val paletteFlow: StateFlow<PaletteStyle>
@@ -49,6 +52,18 @@ interface IAppTheme {
     val blurIntensivenessFlow: StateFlow<Float>
     var blurIntensiveness: Float
 
+    val brokenGlassRefractionFlow: StateFlow<Float>
+    var brokenGlassRefraction: Float
+
+    val brokenGlassDispersionFlow: StateFlow<Float>
+    var brokenGlassDispersion: Float
+
+    val brokenGlassThicknessFlow: StateFlow<Float>
+    var brokenGlassThickness: Float
+
+    val brokenGlassLuminanceFlow: StateFlow<Float>
+    var brokenGlassLuminance: Float
+
     val liquidDistortionFlow: StateFlow<Float>
     var liquidDistortion: Float
 
@@ -61,14 +76,17 @@ interface IAppTheme {
     val fontTypeFlow: StateFlow<FontType>
     var fontType: FontType
 
-    val downloadBarStyleFlow: StateFlow<app.gamenative.enums.DownloadBarStyle>
-    var downloadBarStyle: app.gamenative.enums.DownloadBarStyle
+    val downloadBarStyleFlow: StateFlow<DownloadBarStyle>
+    var downloadBarStyle: DownloadBarStyle
 
     val videoBackgroundPathFlow: StateFlow<String>
     var videoBackgroundPath: String
 
     val videoBackgroundDimAlphaFlow: StateFlow<Float>
     var videoBackgroundDimAlpha: Float
+
+    val autoExtractWallpaperColorFlow: StateFlow<Boolean>
+    var autoExtractWallpaperColor: Boolean
 
     val loadingScreenModeFlow: StateFlow<Int>
     var loadingScreenMode: Int
@@ -78,6 +96,17 @@ interface IAppTheme {
 }
 
 class AppThemeImpl : IAppTheme {
+
+    override val liveGlassParameters: LiveGlassParameters = LiveGlassParameters(
+        glassTransparency = PrefManager.glassTransparency,
+        blurIntensiveness = PrefManager.blurIntensiveness,
+        brokenGlassRefraction = PrefManager.brokenGlassRefraction,
+        brokenGlassDispersion = PrefManager.brokenGlassDispersion,
+        brokenGlassThickness = PrefManager.brokenGlassThickness,
+        brokenGlassLuminance = PrefManager.brokenGlassLuminance,
+        liquidDistortion = PrefManager.liquidDistortion,
+        videoBackgroundDimAlpha = PrefManager.videoBackgroundDimAlpha,
+    )
 
     override val themeFlow: MutableStateFlow<AppTheme> = MutableStateFlow(PrefManager.appTheme)
     override var currentTheme: AppTheme by AppThemeDelegate()
@@ -109,6 +138,18 @@ class AppThemeImpl : IAppTheme {
     override val blurIntensivenessFlow: MutableStateFlow<Float> = MutableStateFlow(PrefManager.blurIntensiveness)
     override var blurIntensiveness: Float by BlurIntensivenessDelegate()
 
+    override val brokenGlassRefractionFlow: MutableStateFlow<Float> = MutableStateFlow(PrefManager.brokenGlassRefraction)
+    override var brokenGlassRefraction: Float by BrokenGlassRefractionDelegate()
+
+    override val brokenGlassDispersionFlow: MutableStateFlow<Float> = MutableStateFlow(PrefManager.brokenGlassDispersion)
+    override var brokenGlassDispersion: Float by BrokenGlassDispersionDelegate()
+
+    override val brokenGlassThicknessFlow: MutableStateFlow<Float> = MutableStateFlow(PrefManager.brokenGlassThickness)
+    override var brokenGlassThickness: Float by BrokenGlassThicknessDelegate()
+
+    override val brokenGlassLuminanceFlow: MutableStateFlow<Float> = MutableStateFlow(PrefManager.brokenGlassLuminance)
+    override var brokenGlassLuminance: Float by BrokenGlassLuminanceDelegate()
+
     override val liquidDistortionFlow: MutableStateFlow<Float> = MutableStateFlow(PrefManager.liquidDistortion)
     override var liquidDistortion: Float by LiquidDistortionDelegate()
 
@@ -121,14 +162,17 @@ class AppThemeImpl : IAppTheme {
     override val fontTypeFlow: MutableStateFlow<FontType> = MutableStateFlow(PrefManager.fontType)
     override var fontType: FontType by FontTypeDelegate()
 
-    override val downloadBarStyleFlow: MutableStateFlow<app.gamenative.enums.DownloadBarStyle> = MutableStateFlow(PrefManager.downloadBarStyle)
-    override var downloadBarStyle: app.gamenative.enums.DownloadBarStyle by DownloadBarStyleDelegate()
+    override val downloadBarStyleFlow: MutableStateFlow<DownloadBarStyle> = MutableStateFlow(PrefManager.downloadBarStyle)
+    override var downloadBarStyle: DownloadBarStyle by DownloadBarStyleDelegate()
 
     override val videoBackgroundPathFlow: MutableStateFlow<String> = MutableStateFlow(PrefManager.videoBackgroundPath)
     override var videoBackgroundPath: String by VideoBackgroundPathDelegate()
 
     override val videoBackgroundDimAlphaFlow: MutableStateFlow<Float> = MutableStateFlow(PrefManager.videoBackgroundDimAlpha)
     override var videoBackgroundDimAlpha: Float by VideoBackgroundDimAlphaDelegate()
+
+    override val autoExtractWallpaperColorFlow: MutableStateFlow<Boolean> = MutableStateFlow(PrefManager.autoExtractWallpaperColor)
+    override var autoExtractWallpaperColor: Boolean by AutoExtractWallpaperColorDelegate()
 
     override val loadingScreenModeFlow: MutableStateFlow<Int> = MutableStateFlow(PrefManager.loadingScreenMode)
     override var loadingScreenMode: Int by LoadingScreenModeDelegate()
@@ -195,6 +239,7 @@ class AppThemeImpl : IAppTheme {
     inner class GlassTransparencyDelegate : ReadWriteProperty<Any, Float> {
         override fun getValue(thisRef: Any, property: KProperty<*>): Float = PrefManager.glassTransparency
         override fun setValue(thisRef: Any, property: KProperty<*>, value: Float) {
+            liveGlassParameters.glassTransparency = value
             glassTransparencyFlow.value = value
             PrefManager.glassTransparency = value
         }
@@ -211,14 +256,52 @@ class AppThemeImpl : IAppTheme {
     inner class BlurIntensivenessDelegate : ReadWriteProperty<Any, Float> {
         override fun getValue(thisRef: Any, property: KProperty<*>): Float = PrefManager.blurIntensiveness
         override fun setValue(thisRef: Any, property: KProperty<*>, value: Float) {
+            liveGlassParameters.blurIntensiveness = value
             blurIntensivenessFlow.value = value
             PrefManager.blurIntensiveness = value
+        }
+    }
+
+    inner class BrokenGlassRefractionDelegate : ReadWriteProperty<Any, Float> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): Float = PrefManager.brokenGlassRefraction
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: Float) {
+            liveGlassParameters.brokenGlassRefraction = value
+            brokenGlassRefractionFlow.value = value
+            PrefManager.brokenGlassRefraction = value
+        }
+    }
+
+    inner class BrokenGlassDispersionDelegate : ReadWriteProperty<Any, Float> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): Float = PrefManager.brokenGlassDispersion
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: Float) {
+            liveGlassParameters.brokenGlassDispersion = value
+            brokenGlassDispersionFlow.value = value
+            PrefManager.brokenGlassDispersion = value
+        }
+    }
+
+    inner class BrokenGlassThicknessDelegate : ReadWriteProperty<Any, Float> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): Float = PrefManager.brokenGlassThickness
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: Float) {
+            liveGlassParameters.brokenGlassThickness = value
+            brokenGlassThicknessFlow.value = value
+            PrefManager.brokenGlassThickness = value
+        }
+    }
+
+    inner class BrokenGlassLuminanceDelegate : ReadWriteProperty<Any, Float> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): Float = PrefManager.brokenGlassLuminance
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: Float) {
+            liveGlassParameters.brokenGlassLuminance = value
+            brokenGlassLuminanceFlow.value = value
+            PrefManager.brokenGlassLuminance = value
         }
     }
 
     inner class LiquidDistortionDelegate : ReadWriteProperty<Any, Float> {
         override fun getValue(thisRef: Any, property: KProperty<*>): Float = PrefManager.liquidDistortion
         override fun setValue(thisRef: Any, property: KProperty<*>, value: Float) {
+            liveGlassParameters.liquidDistortion = value
             liquidDistortionFlow.value = value
             PrefManager.liquidDistortion = value
         }
@@ -248,9 +331,9 @@ class AppThemeImpl : IAppTheme {
         }
     }
 
-    inner class DownloadBarStyleDelegate : ReadWriteProperty<Any, app.gamenative.enums.DownloadBarStyle> {
-        override fun getValue(thisRef: Any, property: KProperty<*>): app.gamenative.enums.DownloadBarStyle = PrefManager.downloadBarStyle
-        override fun setValue(thisRef: Any, property: KProperty<*>, value: app.gamenative.enums.DownloadBarStyle) {
+    inner class DownloadBarStyleDelegate : ReadWriteProperty<Any, DownloadBarStyle> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): DownloadBarStyle = PrefManager.downloadBarStyle
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: DownloadBarStyle) {
             downloadBarStyleFlow.value = value
             PrefManager.downloadBarStyle = value
         }
@@ -267,8 +350,17 @@ class AppThemeImpl : IAppTheme {
     inner class VideoBackgroundDimAlphaDelegate : ReadWriteProperty<Any, Float> {
         override fun getValue(thisRef: Any, property: KProperty<*>): Float = PrefManager.videoBackgroundDimAlpha
         override fun setValue(thisRef: Any, property: KProperty<*>, value: Float) {
+            liveGlassParameters.videoBackgroundDimAlpha = value
             videoBackgroundDimAlphaFlow.value = value
             PrefManager.videoBackgroundDimAlpha = value
+        }
+    }
+
+    inner class AutoExtractWallpaperColorDelegate : ReadWriteProperty<Any, Boolean> {
+        override fun getValue(thisRef: Any, property: KProperty<*>): Boolean = PrefManager.autoExtractWallpaperColor
+        override fun setValue(thisRef: Any, property: KProperty<*>, value: Boolean) {
+            autoExtractWallpaperColorFlow.value = value
+            PrefManager.autoExtractWallpaperColor = value
         }
     }
 

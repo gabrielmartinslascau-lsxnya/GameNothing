@@ -7,22 +7,26 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import app.gamenative.PluviaApp
 import app.gamenative.R
-import app.gamenative.ui.component.settings.SettingsListDropdown
+import app.gamenative.display.GamescopeSettings
+import app.gamenative.ui.component.settings.ContainerGlassDropdown
+import app.gamenative.ui.component.settings.ContainerGlassMultiDropdown
 import app.gamenative.ui.component.settings.SettingsListDropdownSearchable
-import app.gamenative.ui.component.settings.SettingsMultiListDropdown
 import app.gamenative.ui.theme.settingsTileColors
 import app.gamenative.ui.theme.settingsTileColorsAlt
 import app.gamenative.utils.LsfgVkManager
 import com.alorma.compose.settings.ui.SettingsGroup
 import com.alorma.compose.settings.ui.SettingsSwitch
-import com.winlator.container.Container
 import com.winlator.contents.ContentProfile
+import com.winlator.container.Container
 import com.winlator.core.KeyValueSet
 import com.winlator.core.StringUtils
 import com.winlator.core.envvars.EnvVars
@@ -31,351 +35,180 @@ import kotlin.math.roundToInt
 @Composable
 fun GraphicsTabContent(state: ContainerConfigState, default: Boolean = false) {
     val config = state.config.value
-    SettingsGroup {
-        if (config.containerVariant.equals(Container.BIONIC, ignoreCase = true)) {
-            // Bionic: Graphics Driver (Wrapper/Wrapper-v2)
-            SettingsListDropdown(
-                colors = settingsTileColors(),
-                title = { Text(text = stringResource(R.string.graphics_driver)) },
-                value = state.bionicDriverIndex.value,
-                items = state.bionicGraphicsDrivers,
-                onItemSelected = { idx ->
-                    state.bionicDriverIndex.value = idx
-                    state.config.value = config.copy(graphicsDriver = StringUtils.parseIdentifier(state.bionicGraphicsDrivers[idx]))
-                },
-            )
-            // Bionic: Graphics Driver Version (stored in graphicsDriverConfig.version; list from manifest + installed)
-            SettingsListDropdownSearchable(
-                colors = settingsTileColors(),
-                title = { Text(text = stringResource(R.string.graphics_driver_version)) },
-                value = state.wrapperVersionIndex.value.coerceIn(0, (state.wrapperOptions.labels.size - 1).coerceAtLeast(0)),
-                items = state.wrapperOptions.labels,
-                itemMuted = state.wrapperOptions.muted,
-                onItemSelected = { idx ->
-                    val selectedId = state.wrapperOptions.ids.getOrNull(idx).orEmpty()
-                    val isManifestNotInstalled = state.wrapperOptions.muted.getOrNull(idx) == true
-                    val manifestEntry = state.wrapperManifestById[selectedId]
-                    if (isManifestNotInstalled && manifestEntry != null) {
-                        state.launchManifestDriverInstall(manifestEntry) {
-                            val cfg = KeyValueSet(config.graphicsDriverConfig)
-                            cfg.put("version", state.wrapperOptions.labels[idx])
-                            state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
+    val isX11Display = Container.isX11Display(config.containerVariant, config.displayServer)
+    if (config.containerVariant.equals(Container.BIONIC, ignoreCase = true)) {
+        ContainerGlassCard {
+            SettingsGroup {
+                // Bionic: Graphics Driver (Wrapper/Wrapper-v2)
+                ContainerGlassDropdown(
+                    colors = settingsTileColors(),
+                    title = { Text(text = stringResource(R.string.graphics_driver)) },
+                    value = state.bionicDriverIndex.value,
+                    items = state.bionicGraphicsDrivers,
+                    onItemSelected = { idx ->
+                        state.bionicDriverIndex.value = idx
+                        state.config.value = config.copy(graphicsDriver = StringUtils.parseIdentifier(state.bionicGraphicsDrivers[idx]))
+                    },
+                )
+                ContainerCardDivider()
+                // Bionic: Graphics Driver Version (stored in graphicsDriverConfig.version; list from manifest + installed)
+                SettingsListDropdownSearchable(
+                    colors = settingsTileColors(),
+                    title = { Text(text = stringResource(R.string.graphics_driver_version)) },
+                    value = state.wrapperVersionIndex.value.coerceIn(0, (state.wrapperOptions.labels.size - 1).coerceAtLeast(0)),
+                    items = state.wrapperOptions.labels,
+                    itemMuted = state.wrapperOptions.muted,
+                    onItemSelected = { idx ->
+                        val selectedId = state.wrapperOptions.ids.getOrNull(idx).orEmpty()
+                        val isManifestNotInstalled = state.wrapperOptions.muted.getOrNull(idx) == true
+                        val manifestEntry = state.wrapperManifestById[selectedId]
+                        if (isManifestNotInstalled && manifestEntry != null) {
+                            state.launchManifestDriverInstall(manifestEntry) {
+                                val cfg = KeyValueSet(config.graphicsDriverConfig)
+                                cfg.put("version", state.wrapperOptions.labels[idx])
+                                state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
+                            }
+                            return@SettingsListDropdownSearchable
                         }
-                        return@SettingsListDropdownSearchable
-                    }
-                    state.wrapperVersionIndex.value = idx
-                    val cfg = KeyValueSet(config.graphicsDriverConfig)
-                    cfg.put("version", selectedId.ifEmpty { state.wrapperOptions.labels[idx] })
-                    state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
-                },
-            )
-            // Wrapper-gamenative only: BCn transcoder (CPU/GPU) and texture quality (low/high).
-            // Both are stored in graphicsDriverConfig and turned into WRAPPER_* env vars on boot.
-            if (config.graphicsDriver.equals("wrapper-gamenative", ignoreCase = true)) {
-                val transcoderValue = KeyValueSet(config.graphicsDriverConfig).get("transcoder", "cpu")
-                SettingsListDropdown(
-                    colors = settingsTileColors(),
-                    title = { Text(text = stringResource(R.string.transcoder)) },
-                    value = if (transcoderValue.equals("gpu", ignoreCase = true)) 1 else 0,
-                    items = listOf(
-                        stringResource(R.string.transcoder_cpu),
-                        stringResource(R.string.transcoder_gpu),
-                    ),
-                    onItemSelected = { idx ->
+                        state.wrapperVersionIndex.value = idx
                         val cfg = KeyValueSet(config.graphicsDriverConfig)
-                        cfg.put("transcoder", if (idx == 1) "gpu" else "cpu")
+                        cfg.put("version", selectedId.ifEmpty { state.wrapperOptions.labels[idx] })
                         state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
                     },
                 )
-                val qualityValue = KeyValueSet(config.graphicsDriverConfig).get("quality", "low")
-                SettingsListDropdown(
+                // Wrapper-gamenative only: BCn transcoder (CPU/GPU) and texture quality (low/high).
+                // Both are stored in graphicsDriverConfig and turned into WRAPPER_* env vars on boot.
+                if (config.graphicsDriver.equals("wrapper-gamenative", ignoreCase = true)) {
+                    ContainerCardDivider()
+                    val transcoderValue = KeyValueSet(config.graphicsDriverConfig).get("transcoder", "cpu")
+                    ContainerGlassDropdown(
+                        colors = settingsTileColors(),
+                        title = { Text(text = stringResource(R.string.transcoder)) },
+                        value = if (transcoderValue.equals("gpu", ignoreCase = true)) 1 else 0,
+                        items = listOf(
+                            stringResource(R.string.transcoder_cpu),
+                            stringResource(R.string.transcoder_gpu),
+                        ),
+                        onItemSelected = { idx ->
+                            val cfg = KeyValueSet(config.graphicsDriverConfig)
+                            cfg.put("transcoder", if (idx == 1) "gpu" else "cpu")
+                            state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
+                        },
+                    )
+                    ContainerCardDivider()
+                    val qualityValue = KeyValueSet(config.graphicsDriverConfig).get("quality", "low")
+                    ContainerGlassDropdown(
+                        colors = settingsTileColors(),
+                        title = { Text(text = stringResource(R.string.wrapper_quality)) },
+                        value = if (qualityValue.equals("high", ignoreCase = true)) 1 else 0,
+                        items = listOf(
+                            stringResource(R.string.wrapper_quality_low),
+                            stringResource(R.string.wrapper_quality_high),
+                        ),
+                        onItemSelected = { idx ->
+                            val cfg = KeyValueSet(config.graphicsDriverConfig)
+                            cfg.put("quality", if (idx == 1) "high" else "low")
+                            state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
+                        },
+                    )
+                }
+                ContainerCardDivider()
+                // Display Server: decides whether the X11 renderer below is used.
+                val displayServerIds = listOf(Container.DISPLAY_SERVER_X11, Container.DISPLAY_SERVER_GAMESCOPE)
+                val displayServerLabels = listOf(
+                    stringResource(R.string.display_server_x11),
+                    stringResource(R.string.display_server_gamescope),
+                )
+                ContainerGlassDropdown(
                     colors = settingsTileColors(),
-                    title = { Text(text = stringResource(R.string.wrapper_quality)) },
-                    value = if (qualityValue.equals("high", ignoreCase = true)) 1 else 0,
-                    items = listOf(
-                        stringResource(R.string.wrapper_quality_low),
-                        stringResource(R.string.wrapper_quality_high),
-                    ),
+                    title = { Text(text = stringResource(R.string.display_server)) },
+                    value = displayServerIds.indexOf(config.displayServer).coerceAtLeast(0),
+                    items = displayServerLabels,
                     onItemSelected = { idx ->
-                        val cfg = KeyValueSet(config.graphicsDriverConfig)
-                        cfg.put("quality", if (idx == 1) "high" else "low")
-                        state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
+                        if (idx >= 0 && idx < displayServerIds.size) {
+                            state.config.value = config.copy(displayServer = displayServerIds[idx])
+                        }
                     },
                 )
+                // Upscaling resolution: the session's scan-out size (-W/-H and the daemon's emulated mode); Disabled follows the container screen size.
+                if (!isX11Display) {
+                    ContainerCardDivider()
+                    val outputResolutionLabels = stringArrayResource(R.array.screen_size_entries).drop(1).reversed()
+                    val outputResolutionValues = listOf(
+                        GamescopeSettings.OUTPUT_RESOLUTION_OFF,
+                        GamescopeSettings.OUTPUT_RESOLUTION_DEVICE,
+                    ) + outputResolutionLabels.map { it.substringBefore(' ') }
+                    ContainerGlassDropdown(
+                        colors = settingsTileColors(),
+                        title = { Text(text = stringResource(R.string.gamescope_output_resolution)) },
+                        value = outputResolutionValues.indexOf(config.gamescopeOutputResolution).coerceAtLeast(0),
+                        items = listOf(
+                            stringResource(R.string.disabled),
+                            stringResource(R.string.gamescope_output_resolution_device),
+                        ) + outputResolutionLabels,
+                        onItemSelected = { idx ->
+                            state.config.value = config.copy(gamescopeOutputResolution = outputResolutionValues[idx])
+                        },
+                    )
+                }
+                // HDR is a launch-time Gamescope flag; hidden on the X11 display server, and
+                // on a panel with no HDR types — the switch would silently do nothing there.
+                val hdrCapable = remember { PluviaApp.getDisplayHdrCapabilities() != null }
+                if (!isX11Display && hdrCapable) {
+                    ContainerCardDivider()
+                    SettingsSwitch(
+                        colors = settingsTileColorsAlt(),
+                        title = { Text(text = stringResource(R.string.gamescope_hdr)) },
+                        subtitle = { Text(text = stringResource(R.string.gamescope_hdr_description)) },
+                        state = config.hdrEnabled,
+                        onCheckedChange = {
+                            state.config.value = config.copy(hdrEnabled = it)
+                        },
+                    )
+                }
             }
-            DxWrapperSection(state)
-            // Bionic: Exposed Vulkan Extensions (same UI as Vortek)
-            SettingsMultiListDropdown(
-                colors = settingsTileColors(),
-                title = { Text(text = stringResource(R.string.exposed_vulkan_extensions)) },
-                values = state.exposedExtIndices.value,
-                items = state.gpuExtensions,
-                fallbackDisplay = "all",
-                onItemSelected = { idx ->
-                    val current = state.exposedExtIndices.value
-                    state.exposedExtIndices.value =
-                        if (current.contains(idx)) current.filter { it != idx } else current + idx
-                    val cfg = KeyValueSet(config.graphicsDriverConfig)
-                    val allSelected = state.exposedExtIndices.value.size == state.gpuExtensions.size
-                    if (allSelected) {
-                        cfg.put("exposedDeviceExtensions", "all")
-                    } else {
-                        cfg.put(
+        }
+
+        ContainerGlassCard {
+            SettingsGroup {
+                DxWrapperSection(state)
+            }
+        }
+
+        ContainerGlassCard {
+            SettingsGroup {
+                // Bionic: Exposed Vulkan Extensions (same UI as Vortek)
+                ContainerGlassMultiDropdown(
+                    colors = settingsTileColors(),
+                    title = { Text(text = stringResource(R.string.exposed_vulkan_extensions)) },
+                    values = state.exposedExtIndices.value,
+                    items = state.gpuExtensions,
+                    fallbackDisplay = "all",
+                    onItemSelected = { idx ->
+                        val current = state.exposedExtIndices.value
+                        state.exposedExtIndices.value =
+                            if (current.contains(idx)) current.filter { it != idx } else current + idx
+                        val cfg = KeyValueSet(config.graphicsDriverConfig)
+                        val allSelected = state.exposedExtIndices.value.size == state.gpuExtensions.size
+                        if (allSelected) cfg.put("exposedDeviceExtensions", "all") else cfg.put(
                             "exposedDeviceExtensions",
                             state.exposedExtIndices.value.sorted().joinToString("|") { state.gpuExtensions[it] },
                         )
-                    }
-                    val blacklisted = if (allSelected) {
-                        ""
-                    } else {
-                        state.gpuExtensions.indices
-                            .filter { it !in state.exposedExtIndices.value }
-                            .sorted()
-                            .joinToString(",") { state.gpuExtensions[it] }
-                    }
-                    cfg.put("blacklistedExtensions", blacklisted)
-                    state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
-                },
-            )
-            // Bionic: Max Device Memory (same as Vortek)
-            run {
-                val memValues = listOf("0", "512", "1024", "2048", "4096")
-                val memLabels = listOf("0 MB", "512 MB", "1024 MB", "2048 MB", "4096 MB")
-                SettingsListDropdown(
-                    colors = settingsTileColors(),
-                    title = { Text(text = stringResource(R.string.max_device_memory)) },
-                    value = state.maxDeviceMemoryIndex.value.coerceIn(0, memValues.lastIndex),
-                    items = memLabels,
-                    onItemSelected = { idx ->
-                        state.maxDeviceMemoryIndex.value = idx
-                        val cfg = KeyValueSet(config.graphicsDriverConfig)
-                        cfg.put("maxDeviceMemory", memValues[idx])
+                        val blacklisted = if (allSelected) "" else
+                            state.gpuExtensions.indices
+                                .filter { it !in state.exposedExtIndices.value }
+                                .sorted()
+                                .joinToString(",") { state.gpuExtensions[it] }
+                        cfg.put("blacklistedExtensions", blacklisted)
                         state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
                     },
                 )
-            }
-            // Bionic: Use Adrenotools Turnip
-            SettingsSwitch(
-                colors = settingsTileColorsAlt(),
-                title = { Text(text = stringResource(R.string.use_adrenotools_turnip)) },
-                state = state.adrenotoolsTurnipChecked.value,
-                onCheckedChange = { checked ->
-                    state.adrenotoolsTurnipChecked.value = checked
-                    val cfg = KeyValueSet(config.graphicsDriverConfig)
-                    cfg.put("adrenotoolsTurnip", if (checked) "1" else "0")
-                    state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
-                },
-            )
-            SettingsListDropdown(
-                colors = settingsTileColors(),
-                title = { Text(text = stringResource(R.string.present_modes)) },
-                value = state.presentModeIndex.value.coerceIn(0, state.presentModes.lastIndex.coerceAtLeast(0)),
-                items = state.presentModes,
-                onItemSelected = { idx ->
-                    state.presentModeIndex.value = idx
-                    val cfg = KeyValueSet(config.graphicsDriverConfig)
-                    cfg.put("presentMode", state.presentModes[idx])
-                    state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
-                },
-            )
-            if (app.gamenative.BuildConfig.XR_BUILD) {
-                val xrRates = listOf(72, 90, 120)
-                SettingsListDropdown(
-                    colors = settingsTileColors(),
-                    title = { Text(text = stringResource(R.string.xr_refresh_rate)) },
-                    value = xrRates.indexOf(config.xrRefreshRate).coerceAtLeast(0),
-                    items = xrRates.map { "$it Hz" },
-                    onItemSelected = { idx ->
-                        state.config.value = config.copy(xrRefreshRate = xrRates[idx])
-                    },
-                )
-            }
-            SettingsListDropdown(
-                colors = settingsTileColors(),
-                title = { Text(text = stringResource(R.string.renderer_present_modes)) },
-                value = state.rendererPresentModeIndex.value.coerceIn(0, state.rendererPresentModes.lastIndex.coerceAtLeast(0)),
-                items = state.rendererPresentModes,
-                onItemSelected = { idx ->
-                    state.rendererPresentModeIndex.value = idx
-                    state.config.value = config.copy(rendererPresentMode = state.rendererPresentModes[idx])
-                },
-            )
-            SettingsListDropdown(
-                colors = settingsTileColors(),
-                title = { Text(text = stringResource(R.string.resource_type)) },
-                value = state.resourceTypeIndex.value.coerceIn(0, state.resourceTypes.lastIndex.coerceAtLeast(0)),
-                items = state.resourceTypes,
-                onItemSelected = { idx ->
-                    state.resourceTypeIndex.value = idx
-                    val cfg = KeyValueSet(config.graphicsDriverConfig)
-                    cfg.put("resourceType", state.resourceTypes[idx])
-                    state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
-                },
-            )
-            SettingsListDropdown(
-                colors = settingsTileColors(),
-                title = { Text(text = stringResource(R.string.bcn_emulation)) },
-                value = state.bcnEmulationIndex.value.coerceIn(0, state.bcnEmulationEntries.lastIndex.coerceAtLeast(0)),
-                items = state.bcnEmulationEntries,
-                onItemSelected = { idx ->
-                    state.bcnEmulationIndex.value = idx
-                    val cfg = KeyValueSet(config.graphicsDriverConfig)
-                    cfg.put("bcnEmulation", state.bcnEmulationEntries[idx])
-                    state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
-                },
-            )
-            SettingsListDropdown(
-                colors = settingsTileColors(),
-                title = { Text(text = stringResource(R.string.bcn_emulation_type)) },
-                value = state.bcnEmulationTypeIndex.value.coerceIn(0, state.bcnEmulationTypeEntries.lastIndex.coerceAtLeast(0)),
-                items = state.bcnEmulationTypeEntries,
-                onItemSelected = { i ->
-                    state.bcnEmulationTypeIndex.value = i
-                    val cfg = KeyValueSet(config.graphicsDriverConfig)
-                    cfg.put("bcnEmulationType", state.bcnEmulationTypeEntries[i])
-                    state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
-                },
-            )
-            // Sharpness (vkBasalt)
-            SettingsListDropdown(
-                colors = settingsTileColors(),
-                title = { Text(text = stringResource(R.string.sharpness_effect)) },
-                value = state.sharpnessEffectIndex.value.coerceIn(0, state.sharpnessEffects.lastIndex.coerceAtLeast(0)),
-                items = state.sharpnessDisplayItems,
-                onItemSelected = { idx ->
-                    state.sharpnessEffectIndex.value = idx
-                    state.config.value = config.copy(sharpnessEffect = state.sharpnessEffects[idx])
-                },
-            )
-            val selectedBoost = state.sharpnessEffects
-                .getOrNull(state.sharpnessEffectIndex.value)
-                ?.equals("None", ignoreCase = true)
-                ?.not() ?: false
-            if (selectedBoost) {
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Text(text = stringResource(R.string.sharpness_level))
-                    Slider(
-                        value = state.sharpnessLevel.value.toFloat(),
-                        onValueChange = { newValue ->
-                            val clamped = newValue.roundToInt().coerceIn(0, 100)
-                            state.sharpnessLevel.value = clamped
-                            state.config.value = config.copy(sharpnessLevel = clamped)
-                        },
-                        valueRange = 0f..100f,
-                    )
-                    Text(text = "${state.sharpnessLevel.value}%")
-                }
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Text(text = stringResource(R.string.sharpness_denoise))
-                    Slider(
-                        value = state.sharpnessDenoise.value.toFloat(),
-                        onValueChange = { newValue ->
-                            val clamped = newValue.roundToInt().coerceIn(0, 100)
-                            state.sharpnessDenoise.value = clamped
-                            state.config.value = config.copy(sharpnessDenoise = clamped)
-                        },
-                        valueRange = 0f..100f,
-                    )
-                    Text(text = "${state.sharpnessDenoise.value}%")
-                }
-            }
-        } else {
-            // Non-bionic: existing driver/version UI and Vortek-specific options
-            SettingsListDropdown(
-                colors = settingsTileColors(),
-                title = { Text(text = stringResource(R.string.graphics_driver)) },
-                value = state.graphicsDriverIndex.value,
-                items = state.graphicsDrivers.value,
-                onItemSelected = {
-                    state.graphicsDriverIndex.value = it
-                    state.graphicsDriverVersionIndex.value = 0
-                    state.config.value = config.copy(
-                        graphicsDriver = StringUtils.parseIdentifier(state.graphicsDrivers.value[it]),
-                        graphicsDriverVersion = "",
-                    )
-                },
-            )
-            SettingsListDropdown(
-                colors = settingsTileColors(),
-                title = { Text(text = stringResource(R.string.graphics_driver_version)) },
-                value = state.graphicsDriverVersionIndex.value,
-                items = state.getVersionsForDriver(),
-                onItemSelected = {
-                    state.graphicsDriverVersionIndex.value = it
-                    val selectedVersion = if (it == 0) "" else state.getVersionsForDriver()[it]
-                    state.config.value = config.copy(graphicsDriverVersion = selectedVersion)
-                },
-            )
-            DxWrapperSection(state)
-            // Vortek/Adreno specific settings
-            run {
-                val driverType = StringUtils.parseIdentifier(state.graphicsDrivers.value.getOrNull(state.graphicsDriverIndex.value).orEmpty())
-                val isVortekLike =
-                    config.containerVariant.equals(Container.GLIBC) &&
-                        (driverType == "vortek" || driverType == "adreno" || driverType == "sd-8-elite")
-                if (isVortekLike) {
-                    val vkVersions = listOf("1.0", "1.1", "1.2", "1.3")
-                    SettingsListDropdown(
-                        colors = settingsTileColors(),
-                        title = { Text(text = stringResource(R.string.vulkan_version)) },
-                        value = state.vkMaxVersionIndex.value.coerceIn(0, 3),
-                        items = vkVersions,
-                        onItemSelected = { idx ->
-                            state.vkMaxVersionIndex.value = idx
-                            val cfg = KeyValueSet(config.graphicsDriverConfig)
-                            cfg.put("vkMaxVersion", vkVersions[idx])
-                            state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
-                        },
-                    )
-                    SettingsMultiListDropdown(
-                        colors = settingsTileColors(),
-                        title = { Text(text = stringResource(R.string.exposed_vulkan_extensions)) },
-                        values = state.exposedExtIndices.value,
-                        items = state.gpuExtensions,
-                        fallbackDisplay = "all",
-                        onItemSelected = { idx ->
-                            val current = state.exposedExtIndices.value
-                            state.exposedExtIndices.value =
-                                if (current.contains(idx)) current.filter { it != idx } else current + idx
-                            val cfg = KeyValueSet(config.graphicsDriverConfig)
-                            val allSelected = state.exposedExtIndices.value.size == state.gpuExtensions.size
-                            if (allSelected) {
-                                cfg.put("exposedDeviceExtensions", "all")
-                            } else {
-                                cfg.put(
-                                    "exposedDeviceExtensions",
-                                    state.exposedExtIndices.value.sorted().joinToString("|") { state.gpuExtensions[it] },
-                                )
-                            }
-                            val blacklisted = if (allSelected) {
-                                ""
-                            } else {
-                                state.gpuExtensions.indices
-                                    .filter { it !in state.exposedExtIndices.value }
-                                    .sorted()
-                                    .joinToString(",") { state.gpuExtensions[it] }
-                            }
-                            cfg.put("blacklistedExtensions", blacklisted)
-                            state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
-                        },
-                    )
-                    val imageSizes = listOf("64", "128", "256", "512", "1024")
-                    val imageLabels = listOf("64", "128", "256", "512", "1024").map { "$it MB" }
-                    SettingsListDropdown(
-                        colors = settingsTileColors(),
-                        title = { Text(text = stringResource(R.string.image_cache_size)) },
-                        value = state.imageCacheIndex.value.coerceIn(0, imageSizes.lastIndex),
-                        items = imageLabels,
-                        onItemSelected = { idx ->
-                            state.imageCacheIndex.value = idx
-                            val cfg = KeyValueSet(config.graphicsDriverConfig)
-                            cfg.put("imageCacheSize", imageSizes[idx])
-                            state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
-                        },
-                    )
+                ContainerCardDivider()
+                // Bionic: Max Device Memory (same as Vortek)
+                run {
                     val memValues = listOf("0", "512", "1024", "2048", "4096")
                     val memLabels = listOf("0 MB", "512 MB", "1024 MB", "2048 MB", "4096 MB")
-                    SettingsListDropdown(
+                    ContainerGlassDropdown(
                         colors = settingsTileColors(),
                         title = { Text(text = stringResource(R.string.max_device_memory)) },
                         value = state.maxDeviceMemoryIndex.value.coerceIn(0, memValues.lastIndex),
@@ -388,52 +221,349 @@ fun GraphicsTabContent(state: ContainerConfigState, default: Boolean = false) {
                         },
                     )
                 }
+                ContainerCardDivider()
+                // Bionic: Use Adrenotools Turnip
+                SettingsSwitch(
+                    colors = settingsTileColorsAlt(),
+                    title = { Text(text = stringResource(R.string.use_adrenotools_turnip)) },
+                    state = state.adrenotoolsTurnipChecked.value,
+                    onCheckedChange = { checked ->
+                        state.adrenotoolsTurnipChecked.value = checked
+                        val cfg = KeyValueSet(config.graphicsDriverConfig)
+                        cfg.put("adrenotoolsTurnip", if (checked) "1" else "0")
+                        state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
+                    },
+                )
+                ContainerCardDivider()
+                ContainerGlassDropdown(
+                    colors = settingsTileColors(),
+                    title = { Text(text = stringResource(R.string.present_modes)) },
+                    value = state.presentModeIndex.value.coerceIn(0, state.presentModes.lastIndex.coerceAtLeast(0)),
+                    items = state.presentModes,
+                    onItemSelected = { idx ->
+                        state.presentModeIndex.value = idx
+                        val cfg = KeyValueSet(config.graphicsDriverConfig)
+                        cfg.put("presentMode", state.presentModes[idx])
+                        state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
+                    },
+                )
+                if (app.gamenative.BuildConfig.XR_BUILD && !default) {
+                    ContainerCardDivider()
+                    val xrRates = listOf(72, 90, 120)
+                    ContainerGlassDropdown(
+                        colors = settingsTileColors(),
+                        title = { Text(text = stringResource(R.string.xr_refresh_rate)) },
+                        value = xrRates.indexOf(config.xrRefreshRate).coerceAtLeast(0),
+                        items = xrRates.map { "$it Hz" },
+                        onItemSelected = { idx ->
+                            state.config.value = config.copy(xrRefreshRate = xrRates[idx])
+                        },
+                    )
+                    ContainerCardDivider()
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                        Text(text = stringResource(R.string.xr_render_scale))
+                        Slider(
+                            value = config.xrRenderScale.toFloat(),
+                            onValueChange = { newValue ->
+                                val stepped = ((newValue.roundToInt() + 2) / 5 * 5).coerceIn(25, 100)
+                                state.config.value = config.copy(xrRenderScale = stepped)
+                            },
+                            valueRange = 25f..100f,
+                        )
+                        Text(text = "${config.xrRenderScale}%")
+                    }
+                    if (config.windowsVrEnabled) {
+                        ContainerCardDivider()
+                        SettingsSwitch(
+                            colors = settingsTileColorsAlt(),
+                            title = { Text(text = stringResource(R.string.xr_open_composite_toggle)) },
+                            subtitle = { Text(text = stringResource(R.string.xr_open_composite_toggle_desc)) },
+                            state = config.openCompositeEnabled,
+                            onCheckedChange = { checked ->
+                                state.config.value = config.copy(openCompositeEnabled = checked)
+                            },
+                        )
+                    }
+                }
+
+                if (isX11Display) {
+                    ContainerCardDivider()
+                    ContainerGlassDropdown(
+                        colors = settingsTileColors(),
+                        title = { Text(text = stringResource(R.string.renderer_present_modes)) },
+                        value = state.rendererPresentModeIndex.value.coerceIn(0, state.rendererPresentModes.lastIndex.coerceAtLeast(0)),
+                        items = state.rendererPresentModes,
+                        onItemSelected = { idx ->
+                            state.rendererPresentModeIndex.value = idx
+                            state.config.value = config.copy(rendererPresentMode = state.rendererPresentModes[idx])
+                        },
+                    )
+                }
+
+                ContainerCardDivider()
+                ContainerGlassDropdown(
+                    colors = settingsTileColors(),
+                    title = { Text(text = stringResource(R.string.resource_type)) },
+                    value = state.resourceTypeIndex.value.coerceIn(0, state.resourceTypes.lastIndex.coerceAtLeast(0)),
+                    items = state.resourceTypes,
+                    onItemSelected = { idx ->
+                        state.resourceTypeIndex.value = idx
+                        val cfg = KeyValueSet(config.graphicsDriverConfig)
+                        cfg.put("resourceType", state.resourceTypes[idx])
+                        state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
+                    },
+                )
+                ContainerCardDivider()
+                ContainerGlassDropdown(
+                    colors = settingsTileColors(),
+                    title = { Text(text = stringResource(R.string.bcn_emulation)) },
+                    value = state.bcnEmulationIndex.value.coerceIn(0, state.bcnEmulationEntries.lastIndex.coerceAtLeast(0)),
+                    items = state.bcnEmulationEntries,
+                    onItemSelected = { idx ->
+                        state.bcnEmulationIndex.value = idx
+                        val cfg = KeyValueSet(config.graphicsDriverConfig)
+                        cfg.put("bcnEmulation", state.bcnEmulationEntries[idx])
+                        state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
+                    },
+                )
+                ContainerCardDivider()
+                ContainerGlassDropdown(
+                    colors = settingsTileColors(),
+                    title = { Text(text = stringResource(R.string.bcn_emulation_type)) },
+                    value = state.bcnEmulationTypeIndex.value.coerceIn(0, state.bcnEmulationTypeEntries.lastIndex.coerceAtLeast(0)),
+                    items = state.bcnEmulationTypeEntries,
+                    onItemSelected = { i ->
+                        state.bcnEmulationTypeIndex.value = i
+                        val cfg = KeyValueSet(config.graphicsDriverConfig)
+                        cfg.put("bcnEmulationType", state.bcnEmulationTypeEntries[i])
+                        state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
+                    },
+                )
+                ContainerCardDivider()
+                // Sharpness (vkBasalt)
+                ContainerGlassDropdown(
+                    colors = settingsTileColors(),
+                    title = { Text(text = stringResource(R.string.sharpness_effect)) },
+                    value = state.sharpnessEffectIndex.value.coerceIn(0, state.sharpnessEffects.lastIndex.coerceAtLeast(0)),
+                    items = state.sharpnessDisplayItems,
+                    onItemSelected = { idx ->
+                        state.sharpnessEffectIndex.value = idx
+                        state.config.value = config.copy(sharpnessEffect = state.sharpnessEffects[idx])
+                    },
+                )
+                val selectedBoost = state.sharpnessEffects
+                    .getOrNull(state.sharpnessEffectIndex.value)
+                    ?.equals("None", ignoreCase = true)
+                    ?.not() ?: false
+                if (selectedBoost) {
+                    ContainerCardDivider()
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                        Text(text = stringResource(R.string.sharpness_level))
+                        Slider(
+                            value = state.sharpnessLevel.value.toFloat(),
+                            onValueChange = { newValue ->
+                                val clamped = newValue.roundToInt().coerceIn(0, 100)
+                                state.sharpnessLevel.value = clamped
+                                state.config.value = config.copy(sharpnessLevel = clamped)
+                            },
+                            valueRange = 0f..100f,
+                        )
+                        Text(text = "${state.sharpnessLevel.value}%")
+                    }
+                    ContainerCardDivider()
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                        Text(text = stringResource(R.string.sharpness_denoise))
+                        Slider(
+                            value = state.sharpnessDenoise.value.toFloat(),
+                            onValueChange = { newValue ->
+                                val clamped = newValue.roundToInt().coerceIn(0, 100)
+                                state.sharpnessDenoise.value = clamped
+                                state.config.value = config.copy(sharpnessDenoise = clamped)
+                            },
+                            valueRange = 0f..100f,
+                        )
+                        Text(text = "${state.sharpnessDenoise.value}%")
+                    }
+                }
+                ContainerCardDivider()
+                SettingsSwitch(
+                    colors = settingsTileColorsAlt(),
+                    title = { Text(text = stringResource(R.string.use_dri3)) },
+                    subtitle = { Text(text = stringResource(R.string.use_dri3_description)) },
+                    state = config.useDRI3,
+                    onCheckedChange = {
+                        state.config.value = config.copy(useDRI3 = it)
+                    },
+                )
+            }
+        }
+    } else {
+        ContainerGlassCard {
+            SettingsGroup {
+                // Non-bionic: existing driver/version UI and Vortek-specific options
+                ContainerGlassDropdown(
+                    colors = settingsTileColors(),
+                    title = { Text(text = stringResource(R.string.graphics_driver)) },
+                    value = state.graphicsDriverIndex.value,
+                    items = state.graphicsDrivers.value,
+                    onItemSelected = {
+                        state.graphicsDriverIndex.value = it
+                        state.graphicsDriverVersionIndex.value = 0
+                        state.config.value = config.copy(
+                            graphicsDriver = StringUtils.parseIdentifier(state.graphicsDrivers.value[it]),
+                            graphicsDriverVersion = "",
+                        )
+                    },
+                )
+                ContainerCardDivider()
+                SettingsListDropdownSearchable(
+                    colors = settingsTileColors(),
+                    title = { Text(text = stringResource(R.string.graphics_driver_version)) },
+                    value = state.graphicsDriverVersionIndex.value,
+                    items = state.getVersionsForDriver(),
+                    onItemSelected = {
+                        state.graphicsDriverVersionIndex.value = it
+                        val selectedVersion = if (it == 0) "" else state.getVersionsForDriver()[it]
+                        state.config.value = config.copy(graphicsDriverVersion = selectedVersion)
+                    },
+                )
             }
         }
 
-        // Frame Generation (LSFG) — hooks the Vulkan swapchain for
-        // transparent frame generation. Only effective on Bionic containers
-        // with a Vortek/Adreno graphics driver.
-        if (!default) LsfgSection(state)
+        ContainerGlassCard {
+            SettingsGroup {
+                DxWrapperSection(state)
+            }
+        }
 
-        SettingsSwitch(
-            colors = settingsTileColorsAlt(),
-            title = { Text(text = stringResource(R.string.use_dri3)) },
-            subtitle = { Text(text = stringResource(R.string.use_dri3_description)) },
-            state = config.useDRI3,
-            onCheckedChange = {
-                state.config.value = config.copy(useDRI3 = it)
-            },
-        )
+        // Vortek/Adreno specific settings & DRI3
+        ContainerGlassCard {
+            SettingsGroup {
+                run {
+                    val driverType = StringUtils.parseIdentifier(state.graphicsDrivers.value.getOrNull(state.graphicsDriverIndex.value).orEmpty())
+                    val isVortekLike = config.containerVariant.equals(Container.GLIBC) && (driverType == "vortek" || driverType == "adreno" || driverType == "sd-8-elite")
+                    if (isVortekLike) {
+                        val vkVersions = listOf("1.0", "1.1", "1.2", "1.3")
+                        ContainerGlassDropdown(
+                            colors = settingsTileColors(),
+                            title = { Text(text = stringResource(R.string.vulkan_version)) },
+                            value = state.vkMaxVersionIndex.value.coerceIn(0, 3),
+                            items = vkVersions,
+                            onItemSelected = { idx ->
+                                state.vkMaxVersionIndex.value = idx
+                                val cfg = KeyValueSet(config.graphicsDriverConfig)
+                                cfg.put("vkMaxVersion", vkVersions[idx])
+                                state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
+                            },
+                        )
+                        ContainerCardDivider()
+                        ContainerGlassMultiDropdown(
+                            colors = settingsTileColors(),
+                            title = { Text(text = stringResource(R.string.exposed_vulkan_extensions)) },
+                            values = state.exposedExtIndices.value,
+                            items = state.gpuExtensions,
+                            fallbackDisplay = "all",
+                            onItemSelected = { idx ->
+                                val current = state.exposedExtIndices.value
+                                state.exposedExtIndices.value =
+                                    if (current.contains(idx)) current.filter { it != idx } else current + idx
+                                val cfg = KeyValueSet(config.graphicsDriverConfig)
+                                val allSelected = state.exposedExtIndices.value.size == state.gpuExtensions.size
+                                if (allSelected) cfg.put("exposedDeviceExtensions", "all") else cfg.put(
+                                    "exposedDeviceExtensions",
+                                    state.exposedExtIndices.value.sorted().joinToString("|") { state.gpuExtensions[it] },
+                                )
+                                val blacklisted = if (allSelected) "" else
+                                    state.gpuExtensions.indices
+                                        .filter { it !in state.exposedExtIndices.value }
+                                        .sorted()
+                                        .joinToString(",") { state.gpuExtensions[it] }
+                                cfg.put("blacklistedExtensions", blacklisted)
+                                state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
+                            },
+                        )
+                        ContainerCardDivider()
+                        val imageSizes = listOf("64", "128", "256", "512", "1024")
+                        val imageLabels = listOf("64", "128", "256", "512", "1024").map { "$it MB" }
+                        ContainerGlassDropdown(
+                            colors = settingsTileColors(),
+                            title = { Text(text = stringResource(R.string.image_cache_size)) },
+                            value = state.imageCacheIndex.value.coerceIn(0, imageSizes.lastIndex),
+                            items = imageLabels,
+                            onItemSelected = { idx ->
+                                state.imageCacheIndex.value = idx
+                                val cfg = KeyValueSet(config.graphicsDriverConfig)
+                                cfg.put("imageCacheSize", imageSizes[idx])
+                                state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
+                            },
+                        )
+                        ContainerCardDivider()
+                        val memValues = listOf("0", "512", "1024", "2048", "4096")
+                        val memLabels = listOf("0 MB", "512 MB", "1024 MB", "2048 MB", "4096 MB")
+                        ContainerGlassDropdown(
+                            colors = settingsTileColors(),
+                            title = { Text(text = stringResource(R.string.max_device_memory)) },
+                            value = state.maxDeviceMemoryIndex.value.coerceIn(0, memValues.lastIndex),
+                            items = memLabels,
+                            onItemSelected = { idx ->
+                                state.maxDeviceMemoryIndex.value = idx
+                                val cfg = KeyValueSet(config.graphicsDriverConfig)
+                                cfg.put("maxDeviceMemory", memValues[idx])
+                                state.config.value = config.copy(graphicsDriverConfig = cfg.toString())
+                            },
+                        )
+                        ContainerCardDivider()
+                    }
+                }
+                SettingsSwitch(
+                    colors = settingsTileColorsAlt(),
+                    title = { Text(text = stringResource(R.string.use_dri3)) },
+                    subtitle = { Text(text = stringResource(R.string.use_dri3_description)) },
+                    state = config.useDRI3,
+                    onCheckedChange = {
+                        state.config.value = config.copy(useDRI3 = it)
+                    },
+                )
+            }
+        }
     }
-}
 
+    // Frame Generation (LSFG) — hooks the Vulkan swapchain for
+    // transparent frame generation. Only effective on Bionic containers
+    // with a Vortek/Adreno graphics driver.
+    if (!default) LsfgSection(state)
+}
 @Composable
 private fun DxWrapperSection(state: ContainerConfigState) {
     val config = state.config.value
-    SettingsListDropdown(
-        colors = settingsTileColorsAlt(),
-        title = { Text(text = stringResource(R.string.display_renderer)) },
-        value = state.displayRendererIndex.value,
-        items = state.displayRenderers,
-        onItemSelected = {
-            state.displayRendererIndex.value = it
-            state.config.value = config.copy(displayRenderer = StringUtils.parseIdentifier(state.displayRenderers[it]))
-        },
-    )
-    // Show color correction toggle only for ASurfaceRenderer (SurfaceFlinger)
-    if (StringUtils.parseIdentifier(state.displayRenderers.getOrNull(state.displayRendererIndex.value).orEmpty()) == "surfaceflinger") {
-        SettingsSwitch(
+    val isX11Display = Container.isX11Display(config.containerVariant, config.displayServer)
+    if (isX11Display) {
+        ContainerGlassDropdown(
             colors = settingsTileColorsAlt(),
-            title = { Text(text = stringResource(R.string.sf_compat_mode)) },
-            subtitle = { Text(text = stringResource(R.string.sf_compat_mode_description)) },
-            state = config.sfCompatMode,
-            onCheckedChange = {
-                state.config.value = config.copy(sfCompatMode = it)
+            title = { Text(text = stringResource(R.string.display_renderer)) },
+            value = state.displayRendererIndex.value,
+            items = state.displayRenderers,
+            onItemSelected = {
+                state.displayRendererIndex.value = it
+                state.config.value = config.copy(displayRenderer = StringUtils.parseIdentifier(state.displayRenderers[it]))
             },
         )
+        // Show color correction toggle only for ASurfaceRenderer (SurfaceFlinger)
+        if (StringUtils.parseIdentifier(state.displayRenderers.getOrNull(state.displayRendererIndex.value).orEmpty()) == "surfaceflinger") {
+            ContainerCardDivider()
+            SettingsSwitch(
+                colors = settingsTileColorsAlt(),
+                title = { Text(text = stringResource(R.string.sf_compat_mode)) },
+                subtitle = { Text(text = stringResource(R.string.sf_compat_mode_description)) },
+                state = config.sfCompatMode,
+                onCheckedChange = {
+                    state.config.value = config.copy(sfCompatMode = it)
+                },
+            )
+        }
+        ContainerCardDivider()
     }
-    SettingsListDropdown(
+    ContainerGlassDropdown(
         colors = settingsTileColors(),
         title = { Text(text = stringResource(R.string.dx_wrapper)) },
         value = state.dxWrapperIndex.value,
@@ -443,13 +573,14 @@ private fun DxWrapperSection(state: ContainerConfigState) {
             state.config.value = config.copy(dxwrapper = StringUtils.parseIdentifier(state.dxWrappers[it]))
         },
     )
+    ContainerCardDivider()
     // DXVK Version Dropdown (always visible - allows configuration even when VKD3D is selected)
     run {
         val context = state.currentDxvkContext()
         val items = context.labels
         val itemIds = context.ids
         val itemMuted = context.muted
-        SettingsListDropdown(
+        ContainerGlassDropdown(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.dxvk_version)) },
             value = state.dxvkVersionIndex.value.coerceIn(0, (items.size - 1).coerceAtLeast(0)),
@@ -467,34 +598,22 @@ private fun DxWrapperSection(state: ContainerConfigState) {
                     ) {
                         val currentConfig = KeyValueSet(config.dxwrapperConfig)
                         currentConfig.put("version", selectedId)
-                        if (selectedId.contains("async", ignoreCase = true)) {
-                            currentConfig.put("async", "1")
-                        } else {
-                            currentConfig.put("async", "0")
-                        }
-                        if (selectedId.contains("gplasync", ignoreCase = true)) {
-                            currentConfig.put("asyncCache", "1")
-                        } else {
-                            currentConfig.put("asyncCache", "0")
-                        }
+                        if (selectedId.contains("async", ignoreCase = true)) currentConfig.put("async", "1")
+                        else currentConfig.put("async", "0")
+                        if (selectedId.contains("gplasync", ignoreCase = true)) currentConfig.put("asyncCache", "1")
+                        else currentConfig.put("asyncCache", "0")
                         state.config.value = config.copy(dxwrapperConfig = currentConfig.toString())
                     }
-                    return@SettingsListDropdown
+                    return@ContainerGlassDropdown
                 }
                 val version = selectedId.ifEmpty { StringUtils.parseIdentifier(items.getOrNull(it).orEmpty()) }
                 val currentConfig = KeyValueSet(config.dxwrapperConfig)
                 currentConfig.put("version", version)
                 val envVarsSet = EnvVars(config.envVars)
-                if (version.contains("async", ignoreCase = true)) {
-                    currentConfig.put("async", "1")
-                } else {
-                    currentConfig.put("async", "0")
-                }
-                if (version.contains("gplasync", ignoreCase = true)) {
-                    currentConfig.put("asyncCache", "1")
-                } else {
-                    currentConfig.put("asyncCache", "0")
-                }
+                if (version.contains("async", ignoreCase = true)) currentConfig.put("async", "1")
+                else currentConfig.put("async", "0")
+                if (version.contains("gplasync", ignoreCase = true)) currentConfig.put("asyncCache", "1")
+                else currentConfig.put("asyncCache", "0")
                 state.config.value =
                     config.copy(dxwrapperConfig = currentConfig.toString(), envVars = envVarsSet.toString())
             },
@@ -504,6 +623,7 @@ private fun DxWrapperSection(state: ContainerConfigState) {
     run {
         val isVKD3D = StringUtils.parseIdentifier(state.dxWrappers.getOrNull(state.dxWrapperIndex.value).orEmpty()) == "vkd3d"
         if (isVKD3D) {
+            ContainerCardDivider()
             val label = "VKD3D Version"
             val availableVersions = if (state.isBionicVariant) state.vkd3dOptions.labels else state.vkd3dVersionsBase
             val availableIds = if (state.isBionicVariant) state.vkd3dOptions.ids else state.vkd3dVersionsBase
@@ -512,7 +632,7 @@ private fun DxWrapperSection(state: ContainerConfigState) {
                 KeyValueSet(config.dxwrapperConfig).get("vkd3dVersion").ifEmpty { state.vkd3dForcedVersion() }
             val selectedIndex = availableIds.indexOf(selectedVersion).coerceAtLeast(0)
 
-            SettingsListDropdown(
+            ContainerGlassDropdown(
                 colors = settingsTileColors(),
                 title = { Text(text = label) },
                 value = selectedIndex,
@@ -531,7 +651,7 @@ private fun DxWrapperSection(state: ContainerConfigState) {
                             currentConfig.put("vkd3dVersion", selectedId)
                             state.config.value = config.copy(dxwrapperConfig = currentConfig.toString())
                         }
-                        return@SettingsListDropdown
+                        return@ContainerGlassDropdown
                     }
                     val currentConfig = KeyValueSet(config.dxwrapperConfig)
                     currentConfig.put("vkd3dVersion", selectedId.ifEmpty { availableVersions.getOrNull(idx).orEmpty() })
@@ -539,11 +659,12 @@ private fun DxWrapperSection(state: ContainerConfigState) {
                 },
             )
 
+            ContainerCardDivider()
             val featureLevels = listOf("12_2", "12_1", "12_0", "11_1", "11_0")
             val cfg = KeyValueSet(config.dxwrapperConfig)
             val currentLevel = cfg.get("vkd3dFeatureLevel", "12_1")
             val currentLevelIndex = featureLevels.indexOf(currentLevel).coerceAtLeast(0)
-            SettingsListDropdown(
+            ContainerGlassDropdown(
                 colors = settingsTileColors(),
                 title = { Text(text = stringResource(R.string.vkd3d_feature_level)) },
                 value = currentLevelIndex,
@@ -568,53 +689,55 @@ private fun LsfgSection(state: ContainerConfigState) {
     var dllAvailable by rememberSaveable { mutableStateOf(LsfgVkManager.isDllAvailable()) }
     val ownsApp = LsfgVkManager.ownsLosslessScaling()
 
-    SettingsGroup {
-        when {
-            dllAvailable -> {
-                // State 1: DLL found — toggle works normally
-                SettingsSwitch(
-                    colors = settingsTileColorsAlt(),
-                    title = { Text(text = stringResource(R.string.lsfg_enable)) },
-                    subtitle = { Text(text = stringResource(R.string.lsfg_description)) },
-                    state = config.lsfgEnabled,
-                    onCheckedChange = {
-                        state.config.value = if (it) {
-                            config.copy(lsfgEnabled = true)
-                        } else {
-                            config.copy(lsfgEnabled = false)
-                        }
-                    },
-                )
-            }
-            ownsApp -> {
-                // State 2: User owns Lossless Scaling but hasn't installed it yet
-                SettingsSwitch(
-                    colors = settingsTileColorsAlt(),
-                    title = { Text(text = stringResource(R.string.lsfg_enable)) },
-                    subtitle = { Text(text = stringResource(R.string.lsfg_install_prompt)) },
-                    state = false,
-                    onCheckedChange = {
-                        state.launchSteamAppDownload(
-                            LsfgVkManager.LOSSLESS_SCALING_APP_ID,
-                            "Lossless Scaling",
-                        ) {
-                            dllAvailable = LsfgVkManager.isDllAvailable()
-                            if (dllAvailable) {
-                                state.config.value = state.config.value.copy(lsfgEnabled = true)
+    ContainerGlassCard {
+        SettingsGroup {
+            when {
+                dllAvailable -> {
+                    // State 1: DLL found — toggle works normally
+                    SettingsSwitch(
+                        colors = settingsTileColorsAlt(),
+                        title = { Text(text = stringResource(R.string.lsfg_enable)) },
+                        subtitle = { Text(text = stringResource(R.string.lsfg_description)) },
+                        state = config.lsfgEnabled,
+                        onCheckedChange = {
+                            state.config.value = if (it) {
+                                config.copy(lsfgEnabled = true)
+                            } else {
+                                config.copy(lsfgEnabled = false)
                             }
-                        }
-                    },
-                )
-            }
-            else -> {
-                // State 3: User doesn't own Lossless Scaling
-                SettingsSwitch(
-                    colors = settingsTileColorsAlt(),
-                    title = { Text(text = stringResource(R.string.lsfg_enable)) },
-                    subtitle = { Text(text = stringResource(R.string.lsfg_not_in_library)) },
-                    state = false,
-                    onCheckedChange = {},
-                )
+                        },
+                    )
+                }
+                ownsApp -> {
+                    // State 2: User owns Lossless Scaling but hasn't installed it yet
+                    SettingsSwitch(
+                        colors = settingsTileColorsAlt(),
+                        title = { Text(text = stringResource(R.string.lsfg_enable)) },
+                        subtitle = { Text(text = stringResource(R.string.lsfg_install_prompt)) },
+                        state = false,
+                        onCheckedChange = {
+                            state.launchSteamAppDownload(
+                                LsfgVkManager.LOSSLESS_SCALING_APP_ID,
+                                "Lossless Scaling",
+                            ) {
+                                dllAvailable = LsfgVkManager.isDllAvailable()
+                                if (dllAvailable) {
+                                    state.config.value = state.config.value.copy(lsfgEnabled = true)
+                                }
+                            }
+                        },
+                    )
+                }
+                else -> {
+                    // State 3: User doesn't own Lossless Scaling
+                    SettingsSwitch(
+                        colors = settingsTileColorsAlt(),
+                        title = { Text(text = stringResource(R.string.lsfg_enable)) },
+                        subtitle = { Text(text = stringResource(R.string.lsfg_not_in_library)) },
+                        state = false,
+                        onCheckedChange = {},
+                    )
+                }
             }
         }
     }

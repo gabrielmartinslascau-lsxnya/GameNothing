@@ -18,7 +18,7 @@ data class CpuDisplayInfo(
     val currentMinValue: Long,
     val currentMaxValue: Long,
     val selectedMinFreqIndex: Int,
-    val selectedMaxFreqIndex: Int,
+    val selectedMaxFreqIndex: Int
 )
 
 data class GpuDisplayInfo(
@@ -26,11 +26,11 @@ data class GpuDisplayInfo(
     val currentFreqIndex: Int,
     val minPowerLevel: Int,
     val maxPowerLevel: Int,
-    val maxAvailablePowerLevel: Int,
+    val maxAvailablePowerLevel: Int
 )
 
 data class RamDisplayInfo(
     val minBusLevel: Int,
     val maxBusLevel: Int,
-    val maxAvailableBusLevel: Int,
+    val maxAvailableBusLevel: Int
 )

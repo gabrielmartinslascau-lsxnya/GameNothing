@@ -2,6 +2,7 @@ package app.gamenative.ui.screen.library.components
 
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.Surface
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -21,6 +22,7 @@ import app.gamenative.ui.enums.AppFilter
 import app.gamenative.ui.screen.library.AppScreen
 import app.gamenative.ui.screen.library.RecommendedGameScreen
 import app.gamenative.ui.theme.PluviaTheme
+import com.posthog.PostHog
 import java.util.EnumSet
 
 @Composable
@@ -29,9 +31,10 @@ internal fun LibraryDetailPane(
     onClickPlay: (Boolean) -> Unit,
     onTestGraphics: () -> Unit,
     onPlayWithDiagnostics: () -> Unit,
+    onAiDebugRun: () -> Unit,
     onBack: () -> Unit,
 ) {
-    Surface {
+    Surface(color = Color.Transparent) {
         if (libraryItem == null) {
             val listState = rememberLazyGridState()
             val emptyState = remember {
@@ -56,10 +59,38 @@ internal fun LibraryDetailPane(
             }
             LaunchedEffect(libraryItem.recommendedGameId) {
                 game = if (libraryItem.isFeatured) {
-                    RecommendationRepository.getFeaturedGame(context)
+                    RecommendationRepository.getFeaturedGame(context, libraryItem.recommendedGameId)
                 } else {
                     GogRecommendationsRepository.getRecommendedGame(libraryItem.recommendedGameId)
                         ?: RecommendationRepository.getCurrentRecommendation(context)
+                }
+                if (game != null && PrefManager.usageAnalyticsEnabled) {
+                    if (libraryItem.isFeatured) {
+                        PostHog.capture(
+                            event = "featured_opened",
+                            properties = mapOf(
+                                "campaign_id" to (game?.id ?: ""),
+                                "game_name" to (game?.name ?: ""),
+                                "source" to libraryItem.recSource,
+                                "rank" to libraryItem.index,
+                                "status" to (game?.featuredStatus ?: ""),
+                                "cta_count" to (game?.featuredCtas?.size ?: 0),
+                                "cta_types" to (game?.featuredCtas?.map { it.type } ?: emptyList<String>()),
+                            ),
+                        )
+                    } else {
+                        PostHog.capture(
+                            event = "recommendation_opened",
+                            properties = mapOf(
+                                "game_name" to (game?.name ?: ""),
+                                "game_id" to (game?.id ?: ""),
+                                "rank" to libraryItem.index,
+                                "source" to libraryItem.recSource,
+                                "seed_count" to libraryItem.recSeedCount,
+                                "because_played" to (game?.becausePlayed ?: ""),
+                            ),
+                        )
+                    }
                 }
             }
             game?.let { rec ->
@@ -76,6 +107,7 @@ internal fun LibraryDetailPane(
                 onClickPlay = onClickPlay,
                 onTestGraphics = onTestGraphics,
                 onPlayWithDiagnostics = onPlayWithDiagnostics,
+                onAiDebugRun = onAiDebugRun,
                 onBack = onBack,
             )
         }
@@ -102,6 +134,7 @@ private fun Preview_LibraryDetailPane() {
             onClickPlay = { },
             onTestGraphics = { },
             onPlayWithDiagnostics = { },
+            onAiDebugRun = { },
             onBack = { },
         )
     }

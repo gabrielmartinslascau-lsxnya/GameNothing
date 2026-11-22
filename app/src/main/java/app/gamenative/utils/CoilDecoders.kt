@@ -1,6 +1,7 @@
 package app.gamenative.utils
 
 import android.graphics.BitmapFactory
+import android.graphics.ColorSpace
 import androidx.core.graphics.drawable.toDrawable
 import coil.ImageLoader
 import coil.decode.DecodeResult
@@ -31,7 +32,11 @@ class IconDecoder(
         return try {
             val bufferedSource: BufferedSource = source.source.source() // nice
             val bytes = bufferedSource.readByteArray()
-            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+            // Same sRGB normalisation as the shared ImageLoader so icons look identical on every phone.
+            val decodeOptions = BitmapFactory.Options().apply {
+                inPreferredColorSpace = ColorSpace.get(ColorSpace.Named.SRGB)
+            }
+            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOptions) ?: return null
             DecodeResult(
                 drawable = bitmap.toDrawable(options.context.resources),
                 isSampled = false,

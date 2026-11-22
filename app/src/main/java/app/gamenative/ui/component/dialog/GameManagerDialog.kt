@@ -45,6 +45,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import app.gamenative.BuildConfig
 import app.gamenative.R
 import app.gamenative.data.DepotInfo
 import app.gamenative.data.ManifestInfo
@@ -63,6 +64,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.collections.orEmpty
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class InstallSizeInfo(
     val downloadSize: String,
@@ -79,7 +83,7 @@ fun GameManagerDialog(
     onGetDisplayInfo: @Composable (Context) -> GameDisplayInfo,
     branch: String? = null,
     onInstall: (List<Int>) -> Unit,
-    onDismissRequest: () -> Unit,
+    onDismissRequest: () -> Unit
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
@@ -109,13 +113,16 @@ fun GameManagerDialog(
     }
 
     LaunchedEffect(visible) {
-        scrollState.animateScrollTo(0)
+        // Keep the scroll off the critical path: on D-pad devices (Android TV) the focus
+        // system scrolls the dialog as it opens, cancelling this animation and killing the
+        // depot load below, which left the dialog at 0 B with Install disabled.
+        launch { scrollState.scrollTo(0) }
 
         downloadableDepots.clear()
         allDownloadableApps.clear()
 
         // Get Downloadable Depots
-        val allPossibleDownloadableDepots = SteamService.getDownloadableDepots(gameId)
+        val allPossibleDownloadableDepots = withContext(Dispatchers.IO) { SteamService.getDownloadableDepots(gameId) }
         downloadableDepots.putAll(allPossibleDownloadableDepots)
 
         // Get Optional DLC IDs
@@ -129,18 +136,16 @@ fun GameManagerDialog(
             .filter { (_, depot) ->
                 return@filter depot.dlcAppId != INVALID_APP_ID // Skip Main App
             }.values
-            .groupBy { it.dlcAppId }
-            .mapValues { it.value.first() }
-            .toMap()
+                .groupBy { it.dlcAppId }
+                .mapValues { it.value.first() }
+                .toMap()
             .forEach { (_, depotInfo) ->
                 allDownloadableApps.add(Pair(depotInfo.dlcAppId, depotInfo))
                 val installed = SteamService.isAppInstalled(depotInfo.dlcAppId)
                 selectedAppIds[depotInfo.dlcAppId] =
-                    installed ||
-                    // For installed Base Game and Indirect DLC App
-                    installedDlcIds.contains(depotInfo.dlcAppId) ||
-                    // For installed DLC from Main Depot
-                    (!indirectDlcAppIds.contains(depotInfo.dlcAppId) && !optionalDlcIds.contains(depotInfo.dlcAppId)) // Not in indirect DLC and not in optional DLC ids
+                        installed || // For installed Base Game and Indirect DLC App
+                        installedDlcIds.contains(depotInfo.dlcAppId) || // For installed DLC from Main Depot
+                        ( !indirectDlcAppIds.contains(depotInfo.dlcAppId) && !optionalDlcIds.contains(depotInfo.dlcAppId) ) // Not in indirect DLC and not in optional DLC ids
 
                 enabledAppIds[depotInfo.dlcAppId] = !installedDlcIds.contains(depotInfo.dlcAppId) && !installed
             }
@@ -189,7 +194,7 @@ fun GameManagerDialog(
 
             return Pair(
                 StorageUtils.formatBinarySize(downloadBytes),
-                StorageUtils.formatBinarySize(installBytes),
+                StorageUtils.formatBinarySize(installBytes)
             )
         }
 
@@ -206,7 +211,7 @@ fun GameManagerDialog(
 
         return Pair(
             StorageUtils.formatBinarySize(downloadBytes),
-            StorageUtils.formatBinarySize(installBytes),
+            StorageUtils.formatBinarySize(installBytes)
         )
     }
 
@@ -252,7 +257,7 @@ fun GameManagerDialog(
             installSize = StorageUtils.formatBinarySize(baseGameInstallBytes + selectedInstallBytes),
             availableSpace = StorageUtils.formatBinarySize(availableBytes),
             installBytes = baseGameInstallBytes + selectedInstallBytes,
-            availableBytes = availableBytes,
+            availableBytes = availableBytes
         )
     }
 
@@ -272,16 +277,16 @@ fun GameManagerDialog(
         derivedStateOf { getInstallSizeInfo() }
     }
 
-    fun installSizeDisplay(): String {
+    fun installSizeDisplay() : String {
         return context.getString(
             R.string.steam_install_space,
             installSizeInfo.downloadSize,
             installSizeInfo.installSize,
-            installSizeInfo.availableSpace,
+            installSizeInfo.availableSpace
         )
     }
 
-    fun installButtonEnabled(): Boolean {
+    fun installButtonEnabled() : Boolean {
         if (installSizeInfo.availableBytes < installSizeInfo.installBytes) {
             return false
         }
@@ -315,7 +320,7 @@ fun GameManagerDialog(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(250.dp),
+                                .height(250.dp)
                         ) {
                             // Hero background image
                             if (displayInfo.heroImageUrl != null) {
@@ -332,7 +337,7 @@ fun GameManagerDialog(
                                             // Gradient background as fallback
                                             Surface(
                                                 modifier = Modifier.fillMaxSize(),
-                                                color = MaterialTheme.colorScheme.primary,
+                                                color = MaterialTheme.colorScheme.primary
                                             ) { }
                                         }
                                     },
@@ -342,7 +347,7 @@ fun GameManagerDialog(
                                 // Fallback gradient background when no hero image
                                 Surface(
                                     modifier = Modifier.fillMaxSize(),
-                                    color = MaterialTheme.colorScheme.primary,
+                                    color = MaterialTheme.colorScheme.primary
                                 ) { }
                             }
 
@@ -354,10 +359,10 @@ fun GameManagerDialog(
                                         brush = Brush.verticalGradient(
                                             colors = listOf(
                                                 Color.Transparent,
-                                                Color.Black.copy(alpha = 0.8f),
-                                            ),
-                                        ),
-                                    ),
+                                                Color.Black.copy(alpha = 0.8f)
+                                            )
+                                        )
+                                    )
                             )
 
                             // Back button (top left)
@@ -366,8 +371,8 @@ fun GameManagerDialog(
                                     .padding(20.dp)
                                     .background(
                                         color = Color.Black.copy(alpha = 0.5f),
-                                        shape = RoundedCornerShape(12.dp),
-                                    ),
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
                             ) {
                                 BackButton(onClick = onDismissRequest)
                             }
@@ -376,7 +381,7 @@ fun GameManagerDialog(
                             Column(
                                 modifier = Modifier
                                     .align(Alignment.BottomStart)
-                                    .padding(20.dp),
+                                    .padding(20.dp)
                             ) {
                                 Text(
                                     text = displayInfo.name,
@@ -385,10 +390,10 @@ fun GameManagerDialog(
                                         shadow = Shadow(
                                             color = Color.Black.copy(alpha = 0.5f),
                                             offset = Offset(0f, 2f),
-                                            blurRadius = 10f,
-                                        ),
+                                            blurRadius = 10f
+                                        )
                                     ),
-                                    color = Color.White,
+                                    color = Color.White
                                 )
 
                                 Text(
@@ -402,13 +407,13 @@ fun GameManagerDialog(
                                         }
                                     }",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = Color.White.copy(alpha = 0.9f),
+                                    color = Color.White.copy(alpha = 0.9f)
                                 )
                             }
                         }
 
                         Column(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             if (branch != null && branch != "public") {
                                 Text(
@@ -425,7 +430,7 @@ fun GameManagerDialog(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = 16.dp, vertical = 8.dp),
-                                    horizontalArrangement = Arrangement.End,
+                                    horizontalArrangement = Arrangement.End
                                 ) {
                                     Button(
                                         onClick = {
@@ -433,10 +438,10 @@ fun GameManagerDialog(
                                             selectableAppIds.forEach { appId ->
                                                 selectedAppIds[appId] = newState
                                             }
-                                        },
+                                        }
                                     ) {
                                         Text(
-                                            text = if (allSelectableSelected) "Deselect all" else "Select all",
+                                            text = if (allSelectableSelected) "Deselect all" else "Select all"
                                         )
                                     }
                                 }
@@ -450,14 +455,14 @@ fun GameManagerDialog(
                                     headlineContent = {
                                         Column {
                                             Text(
-                                                text = getDepotAppName(depotInfo),
+                                                text = getDepotAppName(depotInfo)
                                             )
                                             // Add size display
                                             val (downloadSize, installSize) = getSizeInfo(dlcAppId)
                                             Text(
                                                 text = "$downloadSize download • $installSize install",
                                                 style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                                             )
                                         }
                                     },
@@ -468,49 +473,45 @@ fun GameManagerDialog(
                                             onCheckedChange = { isChecked ->
                                                 // Update the local (unsaved) state only
                                                 selectedAppIds[dlcAppId] = isChecked
-                                            },
+                                            }
                                         )
                                     },
                                     modifier = Modifier.clickable(enabled = enabled) {
                                         // Toggle checkbox when ListItem is clicked
                                         selectedAppIds[dlcAppId] = !checked
-                                    },
+                                    }
                                 )
 
                                 HorizontalDivider(
                                     modifier = Modifier.padding(horizontal = 16.dp),
                                     thickness = 0.5.dp,
-                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                                 )
                             }
                         }
 
                         Column(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(top = 8.dp, start = 8.dp, bottom = 8.dp, end = 8.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
                                     modifier = Modifier.weight(0.5f),
-                                    text = installSizeDisplay(),
+                                    text = installSizeDisplay()
                                 )
 
                                 Button(
                                     enabled = installButtonEnabled(),
                                     onClick = {
-                                        onInstall(
-                                            selectedAppIds
-                                                .filter { selectedId ->
-                                                    selectedId.key in enabledAppIds.filter { enabledId -> enabledId.value }
-                                                }
-                                                .filter { selectedId -> selectedId.value }.keys.toList(),
-                                        )
-                                    },
+                                        onInstall(selectedAppIds
+                                            .filter { selectedId -> selectedId.key in enabledAppIds.filter { enabledId -> enabledId.value } }
+                                            .filter { selectedId -> selectedId.value }.keys.toList())
+                                    }
                                 ) {
                                     Text(stringResource(R.string.install))
                                 }
@@ -549,7 +550,7 @@ fun Preview_GameManagerDialog() {
                 return@GameManagerDialog displayInfo
             },
             onInstall = {},
-            onDismissRequest = {},
+            onDismissRequest = {}
         )
     }
 }

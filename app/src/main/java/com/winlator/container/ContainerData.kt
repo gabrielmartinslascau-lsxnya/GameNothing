@@ -2,6 +2,7 @@ package com.winlator.container
 
 import androidx.compose.runtime.saveable.mapSaver
 import app.gamenative.PluviaApp
+import app.gamenative.display.GamescopeSettings
 import com.winlator.box86_64.Box86_64Preset
 import com.winlator.core.DefaultVersion
 import com.winlator.core.WineInfo
@@ -18,12 +19,15 @@ data class ContainerData(
     val graphicsDriverConfig: String = "",
     val rendererPresentMode: String = "fifo",
     val displayRenderer: String = Container.DEFAULT_DISPLAY_RENDERER,
+    val displayServer: String = DefaultVersion.DISPLAY_SERVER,
     val xrRefreshRate: Int = 72,
+    val xrRenderScale: Int = 100,
     val sfCompatMode: Boolean = true,
     var dxwrapper: String = Container.DEFAULT_DXWRAPPER,
     val dxwrapperConfig: String = "",
     val audioDriver: String = Container.DEFAULT_AUDIO_DRIVER,
     val pulseaudioLowLatency: Boolean = false,
+    val micEnabled: Boolean = false,
     val wincomponents: String = Container.DEFAULT_WINCOMPONENTS,
     val drives: String = Container.DEFAULT_DRIVES,
     val execArgs: String = "",
@@ -33,7 +37,7 @@ data class ContainerData(
     val launchRealSteam: Boolean = false,
     val launchBionicSteam: Boolean = false,
     val allowSteamUpdates: Boolean = false,
-    val steamType: String = "normal",
+    val steamType: String = Container.STEAM_TYPE_HEADLESS,
     val cpuList: String = Container.getFallbackCPUList(),
     val cpuListWoW64: String = Container.getFallbackCPUListWoW64(),
     val wow64Mode: Boolean = true,
@@ -64,11 +68,16 @@ data class ContainerData(
     val offScreenRenderingMode: String = "fbo",
     val strictShaderMath: Boolean = true,
     val useDRI3: Boolean = true,
+    val hdrEnabled: Boolean = false,
+    /** Gamescope output (`-W`/`-H`) resolution; [GamescopeSettings.OUTPUT_RESOLUTION_OFF] follows the container's General-tab screen size. */
+    val gamescopeOutputResolution: String = GamescopeSettings.OUTPUT_RESOLUTION_DEFAULT,
     val videoMemorySize: String = "2048",
     val mouseWarpOverride: String = "disable",
     val shaderBackend: String = "glsl",
     val useGLSL: String = "enabled",
     val sdlControllerAPI: Boolean = true,
+    val fasterExternalLoading: Boolean = false,
+    val disableLibredirect: Boolean = false,
     /** Enable Steam Input **/
     val useSteamInput: Boolean = false,
     /** Enable XInput API **/
@@ -96,18 +105,39 @@ data class ContainerData(
     val forceDlc: Boolean = false,
     val localSavesOnly: Boolean = false,
     val steamOfflineMode: Boolean = false,
+    val loadMods: Boolean = false,
     val epicOfflineMode: Boolean = false,
+    val disableEpicOverlay: Boolean = false,
     val useLegacyDRM: Boolean = false,
     val unpackFiles: Boolean = false,
     val suspendPolicy: String = Container.SUSPEND_POLICY_MANUAL,
     val portraitMode: Boolean = false,
+    val portraitBelowCutout: Boolean = false,
     val sharpnessEffect: String = "None",
     val sharpnessLevel: Int = 100,
     val sharpnessDenoise: Int = 100,
+    val vibrationIntensity: Int = 100,
     // LSFG Vulkan frame generation
     /** Whether LSFG frame generation is enabled for this container */
     val lsfgEnabled: Boolean = false,
+    val windowsVrEnabled: Boolean = false,
+    val openCompositeEnabled: Boolean = false,
+    /** Per-container FPS limiter (60 Hz cap by default when unset) */
+    val fpsLimiterEnabled: Boolean = true,
+    /** Universal rootless game thread pinning onto big/prime cores */
+    val rootlessGamePinningEnabled: Boolean = false,
+    /** GameNothing 2.0-patch4 Per-Container Tuning Mode ("OFF", "PERFORMANCE", "ECO") */
+    val tuningMode: String = "OFF",
+    /** Disk-persisted JSON snapshot of managed fields prior to entering PERFORMANCE or ECO mode */
+    val tuningModeSnapshot: String = "",
+    /** Disk-persisted JSON snapshot of container fields and .ini/.cfg backups prior to last AI patch */
+    val lastAiPatchSnapshot: String = "",
 ) {
+    val isPerformanceMode: Boolean
+        get() = tuningMode.equals("PERFORMANCE", ignoreCase = true)
+
+    val isEcoMode: Boolean
+        get() = tuningMode.equals("ECO", ignoreCase = true)
     companion object {
         val Saver = mapSaver(
             save = { state ->
@@ -120,12 +150,15 @@ data class ContainerData(
                     "graphicsDriverConfig" to state.graphicsDriverConfig,
                     "rendererPresentMode" to state.rendererPresentMode,
                     "displayRenderer" to state.displayRenderer,
+                    "displayServer" to state.displayServer,
                     "xrRefreshRate" to state.xrRefreshRate,
+                    "xrRenderScale" to state.xrRenderScale,
                     "sfCompatMode" to state.sfCompatMode,
                     "dxwrapper" to state.dxwrapper,
                     "dxwrapperConfig" to state.dxwrapperConfig,
                     "audioDriver" to state.audioDriver,
                     "pulseaudioLowLatency" to state.pulseaudioLowLatency,
+                    "micEnabled" to state.micEnabled,
                     "wincomponents" to state.wincomponents,
                     "drives" to state.drives,
                     "execArgs" to state.execArgs,
@@ -154,6 +187,8 @@ data class ContainerData(
                     "fexcoreMultiBlock" to state.fexcoreMultiBlock,
                     "fexcorePreset" to state.fexcorePreset,
                     "sdlControllerAPI" to state.sdlControllerAPI,
+                    "fasterExternalLoading" to state.fasterExternalLoading,
+                    "disableLibredirect" to state.disableLibredirect,
                     "useSteamInput" to state.useSteamInput,
                     "enableXInput" to state.enableXInput,
                     "enableDInput" to state.enableDInput,
@@ -166,19 +201,31 @@ data class ContainerData(
                     "externalDisplayMode" to state.externalDisplayMode,
                     "externalDisplaySwap" to state.externalDisplaySwap,
                     "useDRI3" to state.useDRI3,
+                    "hdrEnabled" to state.hdrEnabled,
+                    "gamescopeOutputResolution" to state.gamescopeOutputResolution,
                     "language" to state.language,
                     "forceDlc" to state.forceDlc,
                     "localSavesOnly" to state.localSavesOnly,
                     "steamOfflineMode" to state.steamOfflineMode,
+                    "loadMods" to state.loadMods,
                     "epicOfflineMode" to state.epicOfflineMode,
                     "useLegacyDRM" to state.useLegacyDRM,
                     "unpackFiles" to state.unpackFiles,
                     "suspendPolicy" to state.suspendPolicy,
                     "portraitMode" to state.portraitMode,
+                    "portraitBelowCutout" to state.portraitBelowCutout,
                     "sharpnessEffect" to state.sharpnessEffect,
                     "sharpnessLevel" to state.sharpnessLevel,
                     "sharpnessDenoise" to state.sharpnessDenoise,
+                    "vibrationIntensity" to state.vibrationIntensity,
                     "lsfgEnabled" to state.lsfgEnabled,
+                    "windowsVrEnabled" to state.windowsVrEnabled,
+                    "openCompositeEnabled" to state.openCompositeEnabled,
+                    "fpsLimiterEnabled" to state.fpsLimiterEnabled,
+                    "rootlessGamePinningEnabled" to state.rootlessGamePinningEnabled,
+                    "tuningMode" to state.tuningMode,
+                    "tuningModeSnapshot" to state.tuningModeSnapshot,
+                    "lastAiPatchSnapshot" to state.lastAiPatchSnapshot,
                 )
             },
             restore = { savedMap ->
@@ -191,12 +238,15 @@ data class ContainerData(
                     graphicsDriverConfig = (savedMap["graphicsDriverConfig"] as? String) ?: "",
                     rendererPresentMode = (savedMap["rendererPresentMode"] as? String) ?: "fifo",
                     displayRenderer = (savedMap["displayRenderer"] as? String) ?: "vulkan",
+                    displayServer = (savedMap["displayServer"] as? String) ?: DefaultVersion.DISPLAY_SERVER,
                     xrRefreshRate = (savedMap["xrRefreshRate"] as? Int) ?: 72,
+                    xrRenderScale = (savedMap["xrRenderScale"] as? Int) ?: 100,
                     sfCompatMode = (savedMap["sfCompatMode"] as? Boolean) ?: true,
                     dxwrapper = savedMap["dxwrapper"] as String,
                     dxwrapperConfig = savedMap["dxwrapperConfig"] as String,
                     audioDriver = savedMap["audioDriver"] as String,
                     pulseaudioLowLatency = (savedMap["pulseaudioLowLatency"] as? Boolean) ?: false,
+                    micEnabled = (savedMap["micEnabled"] as? Boolean) ?: false,
                     wincomponents = savedMap["wincomponents"] as String,
                     drives = savedMap["drives"] as String,
                     execArgs = savedMap["execArgs"] as String,
@@ -206,7 +256,7 @@ data class ContainerData(
                     launchRealSteam = savedMap["launchRealSteam"] as Boolean,
                     launchBionicSteam = (savedMap["launchBionicSteam"] as? Boolean) ?: false,
                     allowSteamUpdates = savedMap["allowSteamUpdates"] as Boolean,
-                    steamType = (savedMap["steamType"] as? String) ?: "normal",
+                    steamType = (savedMap["steamType"] as? String) ?: Container.STEAM_TYPE_HEADLESS,
                     cpuList = savedMap["cpuList"] as String,
                     cpuListWoW64 = savedMap["cpuListWoW64"] as String,
                     wow64Mode = savedMap["wow64Mode"] as Boolean,
@@ -225,6 +275,8 @@ data class ContainerData(
                     fexcoreMultiBlock = (savedMap["fexcoreMultiBlock"] as? String) ?: "Disabled",
                     fexcorePreset = (savedMap["fexcorePreset"] as? String) ?: FEXCorePreset.INTERMEDIATE,
                     sdlControllerAPI = savedMap["sdlControllerAPI"] as Boolean,
+                    fasterExternalLoading = (savedMap["fasterExternalLoading"] as? Boolean) ?: false,
+                    disableLibredirect = (savedMap["disableLibredirect"] as? Boolean) ?: false,
                     useSteamInput = (savedMap["useSteamInput"] as? Boolean) ?: false,
                     enableXInput = savedMap["enableXInput"] as Boolean,
                     enableDInput = savedMap["enableDInput"] as Boolean,
@@ -237,19 +289,35 @@ data class ContainerData(
                     externalDisplayMode = (savedMap["externalDisplayMode"] as? String) ?: Container.DEFAULT_EXTERNAL_DISPLAY_MODE,
                     externalDisplaySwap = (savedMap["externalDisplaySwap"] as? Boolean) ?: false,
                     useDRI3 = (savedMap["useDRI3"] as? Boolean) ?: true,
+                    hdrEnabled = (savedMap["hdrEnabled"] as? Boolean) ?: false,
+                    gamescopeOutputResolution = (savedMap["gamescopeOutputResolution"] as? String)
+                        ?: GamescopeSettings.OUTPUT_RESOLUTION_DEFAULT,
                     language = (savedMap["language"] as? String) ?: "english",
                     forceDlc = (savedMap["forceDlc"] as? Boolean) ?: false,
                     localSavesOnly = (savedMap["localSavesOnly"] as? Boolean) ?: false,
                     steamOfflineMode = (savedMap["steamOfflineMode"] as? Boolean) ?: false,
+                    loadMods = (savedMap["loadMods"] as? Boolean) ?: false,
                     epicOfflineMode = (savedMap["epicOfflineMode"] as? Boolean) ?: false,
                     useLegacyDRM = (savedMap["useLegacyDRM"] as? Boolean) ?: false,
                     unpackFiles = (savedMap["unpackFiles"] as? Boolean) ?: false,
                     suspendPolicy = (savedMap["suspendPolicy"] as? String) ?: Container.SUSPEND_POLICY_MANUAL,
                     portraitMode = (savedMap["portraitMode"] as? Boolean) ?: false,
+                    portraitBelowCutout = (savedMap["portraitBelowCutout"] as? Boolean) ?: false,
                     sharpnessEffect = (savedMap["sharpnessEffect"] as? String) ?: "None",
                     sharpnessLevel = (savedMap["sharpnessLevel"] as? Int) ?: 100,
                     sharpnessDenoise = (savedMap["sharpnessDenoise"] as? Int) ?: 100,
+                    vibrationIntensity = (savedMap["vibrationIntensity"] as? Int) ?: 100,
                     lsfgEnabled = (savedMap["lsfgEnabled"] as? Boolean) ?: false,
+                    windowsVrEnabled = (savedMap["windowsVrEnabled"] as? Boolean) ?: false,
+                    openCompositeEnabled = (savedMap["openCompositeEnabled"] as? Boolean) ?: false,
+                    fpsLimiterEnabled = (savedMap["fpsLimiterEnabled"] as? Boolean) ?: true,
+                    rootlessGamePinningEnabled = (savedMap["rootlessGamePinningEnabled"] as? Boolean) ?: false,
+                    tuningMode = (savedMap["tuningMode"] as? String)
+                        ?: if ((savedMap["performanceMode"] as? Boolean) == true) "PERFORMANCE" else "OFF",
+                    tuningModeSnapshot = (savedMap["tuningModeSnapshot"] as? String)
+                        ?: (savedMap["performanceModeSnapshot"] as? String)
+                        ?: "",
+                    lastAiPatchSnapshot = (savedMap["lastAiPatchSnapshot"] as? String) ?: "",
                 )
             },
         )

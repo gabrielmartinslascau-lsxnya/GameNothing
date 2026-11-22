@@ -72,8 +72,15 @@ _Static_assert(sizeof(struct gamepad_io) <= SHM_DATA_SIZE, "gamepad_io exceeds S
 
 static struct gamepad_io *shm [MAX_GAMEPADS];
 static int vjoy_ids[MAX_GAMEPADS];
-static SDL_Joystick *vjoy_handles[MAX_GAMEPADS];
+static _Atomic(SDL_Joystick *) vjoy_handles[MAX_GAMEPADS];
 static SDL_JoystickID vjoy_instances[MAX_GAMEPADS];
+static _Atomic uint32_t last_rumble[MAX_GAMEPADS];
+// Set while the keepalive re-arms SDL; OnRumble then fails so a stale re-arm changes neither shm nor SDL state.
+static __thread int t_keepalive_active = 0;
+static pthread_once_t rumble_ka_once = PTHREAD_ONCE_INIT;
+static pthread_mutex_t rumble_ka_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t rumble_ka_cond;
+static pthread_mutex_t vjoy_close_mutex = PTHREAD_MUTEX_INITIALIZER;
 static size_t g_shm_map_size = 0;
 static int g_is_wine = 0;
 
@@ -83,7 +90,7 @@ static void build_gamepad_dir(char *out, size_t size)
 
     // fallback
     if (!base || !*base) {
-        base = "/data/data/app.gamenothing/files";
+        base = "/data/data/app.gamenative/files";
     }
 
     snprintf(out, size, "%s/gamepad_shm", base);
@@ -183,6 +190,7 @@ static int          (*p_SDL_JoystickSetVirtualAxis)  (SDL_Joystick *, int, int16
 static int          (*p_SDL_JoystickSetVirtualButton)(SDL_Joystick *, int, uint8_t);
 static int          (*p_SDL_JoystickSetVirtualHat)   (SDL_Joystick *, int, uint8_t);
 static void         (*p_SDL_GetVersion)              (SDL_version *);
+static int          (*p_SDL_JoystickRumble)          (SDL_Joystick *, uint16_t, uint16_t, uint32_t);
 static SDL_JoystickID (*p_SDL_JoystickInstanceID)    (SDL_Joystick *);
 static int          (*p_SDL_NumJoysticks)            (void);
 static SDL_JoystickID (*p_SDL_JoystickGetDeviceInstanceID)(int);
@@ -193,13 +201,63 @@ static SDL_JoystickID (*p_SDL_JoystickGetDeviceInstanceID)(int);
             LOGE("evshim: failed to load SDL symbol: %s\n", #name); \
     } while (0)
 
+static void *rumble_keepalive(void *arg)
+{
+    (void)arg;
+    for (;;) {
+        pthread_mutex_lock(&vjoy_close_mutex);
+        for (int i = 0; i < MAX_GAMEPADS; i++) {
+            SDL_Joystick *js = atomic_load_explicit(&vjoy_handles[i], memory_order_acquire);
+            uint32_t r = atomic_load_explicit(&last_rumble[i], memory_order_acquire);
+            if (!js || !r) continue;
+            t_keepalive_active = 1;
+            p_SDL_JoystickRumble(js, (uint16_t)r, (uint16_t)(r >> 16), 2000);
+            t_keepalive_active = 0;
+        }
+        pthread_mutex_unlock(&vjoy_close_mutex);
+
+        pthread_mutex_lock(&rumble_ka_mutex);
+        int any = 0;
+        for (int i = 0; i < MAX_GAMEPADS; i++) {
+            if (atomic_load_explicit(&last_rumble[i], memory_order_acquire)) { any = 1; break; }
+        }
+        if (any) {
+            struct timespec ts;
+            clock_gettime(CLOCK_MONOTONIC, &ts);
+            ts.tv_nsec += 500000000L;
+            ts.tv_sec  += ts.tv_nsec / 1000000000L;
+            ts.tv_nsec %= 1000000000L;
+            pthread_cond_timedwait(&rumble_ka_cond, &rumble_ka_mutex, &ts);
+        } else {
+            pthread_cond_wait(&rumble_ka_cond, &rumble_ka_mutex);
+        }
+        pthread_mutex_unlock(&rumble_ka_mutex);
+    }
+    return NULL;
+}
+
+static void rumble_keepalive_init(void)
+{
+    pthread_condattr_t attr;
+    pthread_condattr_init(&attr);
+    pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
+    pthread_cond_init(&rumble_ka_cond, &attr);
+    pthread_condattr_destroy(&attr);
+
+    pthread_t tid;
+    if (pthread_create(&tid, NULL, rumble_keepalive, NULL) == 0)
+        pthread_detach(tid);
+}
+
 static int OnRumble(void *userdata, uint16_t low, uint16_t high)
 {
     int idx = (int)(intptr_t)userdata;
     if (idx < 0 || idx >= MAX_GAMEPADS || !shm[idx]) return -1;
+    if (t_keepalive_active) return -1;
 
     shm[idx]->state.low_freq_rumble  = low;
     shm[idx]->state.high_freq_rumble = high;
+    uint32_t prev = atomic_exchange_explicit(&last_rumble[idx], ((uint32_t)high << 16) | low, memory_order_acq_rel);
 
     // Wake up the Java thread waiting for rumble updates
     atomic_thread_fence(memory_order_seq_cst);
@@ -207,6 +265,13 @@ static int OnRumble(void *userdata, uint16_t low, uint16_t high)
     syscall(SYS_futex, &shm[idx]->rumble_seq, FUTEX_WAKE, 1, NULL, NULL, 0);
 
     LOGD("evshim: rumble P%d low=%u high=%u\n", idx, low, high);
+
+    if (!prev && (low || high) && p_SDL_JoystickRumble) {
+        pthread_once(&rumble_ka_once, rumble_keepalive_init);
+        pthread_mutex_lock(&rumble_ka_mutex);
+        pthread_cond_signal(&rumble_ka_cond);
+        pthread_mutex_unlock(&rumble_ka_mutex);
+    }
     return 0;
 }
 
@@ -267,10 +332,13 @@ static int attach_vjoy(int idx)
 
 static void detach_vjoy(int idx)
 {
-    if (vjoy_handles[idx]) {
-        p_SDL_JoystickClose(vjoy_handles[idx]);
-        vjoy_handles[idx] = NULL;
+    atomic_store_explicit(&last_rumble[idx], 0, memory_order_release);
+    pthread_mutex_lock(&vjoy_close_mutex);
+    SDL_Joystick *js = atomic_exchange_explicit(&vjoy_handles[idx], NULL, memory_order_acq_rel);
+    if (js) {
+        p_SDL_JoystickClose(js);
     }
+    pthread_mutex_unlock(&vjoy_close_mutex);
     if (vjoy_instances[idx] >= 0) {
         // Device indexes shift when other joysticks are removed, so the index we
         // stored at attach time may now point at a different pad. Re-resolve the
@@ -325,11 +393,6 @@ static void *vjoy_updater(void *arg)
     int idx = (int)(intptr_t)arg;
     struct gamepad_io *s = shm[idx];
 
-    if (!s) {
-        LOGE("evshim: vjoy_updater P%d started with NULL shm\n", idx);
-        return NULL;
-    }
-
     LOGI("evshim: vjoy_updater P%d running (PID %d)\n", idx, getpid());
 
     uint32_t last_seq = atomic_load_explicit(&s->seq, memory_order_acquire);
@@ -351,18 +414,8 @@ static void *vjoy_updater(void *arg)
     for (;;) {
         struct gamepad_io snap;
 
-        // Guard against vanishing shared memory or invalid state
-        if (!s) break;
-
         if (try_read_state(s, &last_seq, &snap)) {
-            uint32_t conn_val = atomic_load_explicit(&s->connected, memory_order_acquire);
-            if (conn_val == 0xDEADBEEF) {
-                LOGI("evshim: P%d shutdown signal received, exiting\n", idx);
-                set_vjoy_connected(idx, 0);
-                break;
-            }
-
-            int connected = conn_val != 0;
+            int connected = atomic_load_explicit(&s->connected, memory_order_acquire) != 0;
             if (connected != last_connected) {
                 set_vjoy_connected(idx, connected);
                 last_connected = connected;
@@ -376,12 +429,7 @@ static void *vjoy_updater(void *arg)
             continue;
         }
 
-        if (syscall(SYS_futex, &s->seq, FUTEX_WAIT, last_seq, tsp, NULL, 0) < 0) {
-            if (errno == ENOSYS || errno == EFAULT) {
-                LOGE("evshim: P%d futex wait failed (errno=%d), memory might have vanished\n", idx, errno);
-                break;
-            }
-        }
+        syscall(SYS_futex, &s->seq, FUTEX_WAIT, last_seq, tsp, NULL, 0);
     }
 
     return NULL;
@@ -398,6 +446,7 @@ static void initialize_wine(int players)
     GETFUNCPTR(SDL_JoystickSetVirtualAxis);  GETFUNCPTR(SDL_JoystickSetVirtualButton);
     GETFUNCPTR(SDL_JoystickSetVirtualHat);
     GETFUNCPTR(SDL_GetVersion);
+    GETFUNCPTR(SDL_JoystickRumble);
     GETFUNCPTR(SDL_JoystickInstanceID);  GETFUNCPTR(SDL_NumJoysticks);
     GETFUNCPTR(SDL_JoystickGetDeviceInstanceID);
     if (!p_SDL_Init || !p_SDL_GetError || !p_SDL_JoystickOpen ||
@@ -478,12 +527,7 @@ Java_com_winlator_winhandler_WinHandler_waitForRumble(JNIEnv *env, jclass cls, j
     }
 
     // sleep until Wine triggers OnRumble or teardown signaled
-    if (syscall(SYS_futex, &shm[idx]->rumble_seq, FUTEX_WAIT, current_seq, NULL, NULL, 0) < 0) {
-        if (errno == EFAULT) {
-            ALOGE("evshim: waitForRumble P%d memory fault, vanishing shm\n", idx);
-            return last_seq;
-        }
-    }
+    syscall(SYS_futex, &shm[idx]->rumble_seq, FUTEX_WAIT, current_seq, NULL, NULL, 0);
 
     return atomic_load_explicit(&shm[idx]->rumble_seq, memory_order_acquire);
 }
@@ -492,13 +536,6 @@ JNIEXPORT void JNICALL
 Java_com_winlator_winhandler_WinHandler_rumbleTeardown(JNIEnv *env, jclass cls, jint idx)
 {
     if (idx < 0 || idx >= MAX_GAMEPADS || !shm[idx]) return;
-
-    // Signal shutdown to Wine process via 'connected' field
-    atomic_store_explicit(&shm[idx]->connected, 0xDEADBEEF, memory_order_release);
-    atomic_fetch_add_explicit(&shm[idx]->seq, 1u, memory_order_release);
-    syscall(SYS_futex, &shm[idx]->seq, FUTEX_WAKE, INT_MAX, NULL, NULL, 0);
-
-    // Wake up Java poller thread
     atomic_fetch_add_explicit(&shm[idx]->rumble_seq, 1u, memory_order_release);
     syscall(SYS_futex, &shm[idx]->rumble_seq, FUTEX_WAKE, INT_MAX, NULL, NULL, 0);
 }

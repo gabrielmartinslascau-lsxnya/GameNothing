@@ -1,6 +1,5 @@
 package app.gamenative.ui.enums
 
-import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AvTimer
 import androidx.compose.material.icons.filled.Build
@@ -8,16 +7,18 @@ import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Diversity3
 import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.InstallMobile
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.VideogameAsset
-import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.SportsEsports
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Stars
 import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.ui.graphics.vector.ImageVector
-import app.gamenative.R
+import androidx.annotation.StringRes
 import app.gamenative.enums.AppType
+import app.gamenative.R
+import app.gamenative.ui.icons.VrHeadset
 import java.util.EnumSet
 
 enum class AppFilter(
@@ -49,6 +50,11 @@ enum class AppFilter(
         code = 0x10,
         displayTextRes = R.string.app_filter_demo,
         icon = Icons.Default.AvTimer,
+    ),
+    PLAYTEST(
+        code = 0x1000,
+        displayTextRes = R.string.app_filter_playtest,
+        icon = Icons.Default.Science,
     ),
     SHARED(
         code = 0x20,
@@ -85,10 +91,11 @@ enum class AppFilter(
         displayTextRes = R.string.filter_proven_gpu,
         icon = Icons.Rounded.SportsEsports,
     ),
-    FOUR_BY_THREE(
-        code = 0x1000,
-        displayTextRes = R.string.app_filter_four_by_three,
-        icon = Icons.Default.AspectRatio,
+
+    VR(
+        code = 0x2000,
+        displayTextRes = R.string.app_filter_vr,
+        icon = Icons.Filled.VrHeadset,
     ),
     // ALPHABETIC(
     //     code = 0x20,
@@ -111,6 +118,9 @@ enum class AppFilter(
             }
             if (appFilter.contains(DEMO)) {
                 output.add(AppType.demo)
+            }
+            if (appFilter.contains(PLAYTEST)) {
+                output.add(AppType.beta)
             }
             return output
         }

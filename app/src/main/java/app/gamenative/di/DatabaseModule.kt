@@ -5,14 +5,20 @@ import androidx.room.Room
 import app.gamenative.db.DATABASE_NAME
 import app.gamenative.db.PluviaDatabase
 import app.gamenative.db.dao.AppInfoDao
+import app.gamenative.db.dao.AmazonGameDao
+import app.gamenative.db.dao.XboxGameDao
 import app.gamenative.db.dao.CachedLicenseDao
 import app.gamenative.db.dao.DownloadingAppInfoDao
 import app.gamenative.db.dao.EncryptedAppTicketDao
 import app.gamenative.db.dao.LibraryPlayHistoryDao
 import app.gamenative.db.dao.ModDao
 import app.gamenative.db.dao.SteamUnlockedBranchDao
+import app.gamenative.db.migration.ROOM_MIGRATION_V16_to_V17
 import app.gamenative.db.migration.ROOM_MIGRATION_V23_to_V24
 import app.gamenative.db.migration.ROOM_MIGRATION_V24_to_V25
+import app.gamenative.db.migration.ROOM_MIGRATION_V26_to_V27
+import app.gamenative.db.migration.ROOM_MIGRATION_V28_to_V29
+import app.gamenative.db.migration.ROOM_MIGRATION_V30_to_V31
 import app.gamenative.db.migration.ROOM_MIGRATION_V7_to_V8
 import dagger.Module
 import dagger.Provides
@@ -28,15 +34,16 @@ class DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): PluviaDatabase {
-        // The db will be considered unstable during development.
-        // Once stable we should add a (room) db migration
         return Room.databaseBuilder(context, PluviaDatabase::class.java, DATABASE_NAME)
             .addMigrations(
                 ROOM_MIGRATION_V7_to_V8,
+                ROOM_MIGRATION_V16_to_V17,
                 ROOM_MIGRATION_V23_to_V24,
                 ROOM_MIGRATION_V24_to_V25,
+                ROOM_MIGRATION_V26_to_V27,
+                ROOM_MIGRATION_V28_to_V29,
+                ROOM_MIGRATION_V30_to_V31,
             )
-            .fallbackToDestructiveMigration(true)
             .build()
     }
 
@@ -87,6 +94,10 @@ class DatabaseModule {
     @Provides
     @Singleton
     fun provideAmazonGameDao(db: PluviaDatabase) = db.amazonGameDao()
+
+    @Provides
+    @Singleton
+    fun provideXboxGameDao(db: PluviaDatabase): XboxGameDao = db.xboxGameDao()
 
     @Provides
     @Singleton

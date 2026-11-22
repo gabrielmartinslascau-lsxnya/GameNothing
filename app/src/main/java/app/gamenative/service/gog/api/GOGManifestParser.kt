@@ -1,6 +1,7 @@
 package app.gamenative.service.gog.api
 
 import app.gamenative.service.gog.GOGConstants
+import timber.log.Timber
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPInputStream
@@ -8,7 +9,6 @@ import java.util.zip.Inflater
 import javax.inject.Inject
 import javax.inject.Singleton
 import org.json.JSONObject
-import timber.log.Timber
 
 /**
  * Handles parsing of GOG manifest data
@@ -32,7 +32,7 @@ class GOGManifestParser @Inject constructor() {
     fun selectBuild(
         builds: List<GOGBuild>,
         preferredGeneration: Int = 2,
-        platform: String = "windows",
+        platform: String = "windows"
     ): GOGBuild? {
         if (builds.isEmpty()) {
             Timber.tag(TAG).w("No builds available")
@@ -97,19 +97,42 @@ class GOGManifestParser @Inject constructor() {
     }
 
     /**
-     * Filter depots based on ownership
-     *
-     * @param depots List of depots to filter
-     * @param ownedProductIds Set of product IDs the user owns
-     * @return Filtered list of depots for owned products only
+     * Depots to install: the depots of each of [baseProductIds] and each selected DLC per
+     * [dlcDepotsWithFallback], so a base whose language depots are missing because the language
+     * matched only a DLC falls back to English too, restricted to products the user owns so an
+     * unowned id is never requested.
      */
-    fun filterDepotsByOwnership(depots: List<Depot>, ownedProductIds: Set<String>): List<Depot> {
-        val filtered = depots.filter { depot ->
-            depot.productId in ownedProductIds
+    fun filterDepotsForInstall(
+        languageDepots: List<Depot>,
+        allDepots: List<Depot>,
+        baseProductIds: Set<String>,
+        dlcIds: Set<String>,
+        ownedProductIds: Set<String>,
+    ): List<Depot> {
+        val selected = buildSet {
+            baseProductIds.filter { it in ownedProductIds }
+                .forEach { addAll(dlcDepotsWithFallback(languageDepots, allDepots, it)) }
+            dlcIds.filter { it !in baseProductIds && it in ownedProductIds }
+                .forEach { addAll(dlcDepotsWithFallback(languageDepots, allDepots, it)) }
         }
-
-        Timber.tag(TAG).d("Filtered ${filtered.size}/${depots.size} depots for owned products")
+        val filtered = (languageDepots + allDepots).distinct().filter { it in selected }
+        Timber.tag(TAG).d("Selected ${filtered.size}/${allDepots.size} depots (base ${baseProductIds.joinToString()}, DLCs ${dlcIds.joinToString()})")
         return filtered
+    }
+
+    /**
+     * Depots of product [dlcId] (a DLC or the base game): those in [languageDepots] when one of them is not a language-neutral
+     * (`*`) depot, so matched the install language; otherwise its `*` depots plus its English
+     * depots; else all of its depots.
+     */
+    fun dlcDepotsWithFallback(languageDepots: List<Depot>, allDepots: List<Depot>, dlcId: String): List<Depot> {
+        val inLanguage = languageDepots.filter { it.productId == dlcId }
+        if (inLanguage.any { depot -> depot.languages.any { it != "*" } && !depot.matchesLanguage("*") }) return inLanguage
+        val own = allDepots.filter { it.productId == dlcId }
+        val englishCodes = GOGConstants.CONTAINER_LANGUAGE_TO_GOG_CODES.getValue(GOGConstants.GOG_FALLBACK_DOWNLOAD_LANGUAGE)
+        val english = own.filter { depot -> englishCodes.any { depot.matchesLanguage(it) } }
+        if (english.isEmpty()) return own
+        return (own.filter { it.matchesLanguage("*") } + english).distinct()
     }
 
     /**
@@ -240,7 +263,7 @@ class GOGManifestParser @Inject constructor() {
     fun buildChunkUrlCandidatesWithProducts(
         chunks: List<String>,
         chunkToProductMap: Map<String, String>,
-        productUrlMap: Map<String, List<String>>,
+        productUrlMap: Map<String, List<String>>
     ): Map<String, List<String>> {
         val chunkUrlCandidates = mutableMapOf<String, List<String>>()
 
@@ -270,7 +293,7 @@ class GOGManifestParser @Inject constructor() {
     fun buildChunkUrlMapWithProducts(
         chunks: List<String>,
         chunkToProductMap: Map<String, String>,
-        productUrlMap: Map<String, List<String>>,
+        productUrlMap: Map<String, List<String>>
     ): Map<String, String> {
         return buildChunkUrlCandidatesWithProducts(chunks, chunkToProductMap, productUrlMap)
             .mapNotNull { (chunk, urls) -> urls.firstOrNull()?.let { chunk to it } }
@@ -401,8 +424,8 @@ class GOGManifestParser @Inject constructor() {
                         manifest = d.optString("manifest", ""),
                         compressedSize = d.optLong("size", 0),
                         size = d.optLong("size", 0),
-                        osBitness = null,
-                    ),
+                        osBitness = null
+                    )
                 )
             }
         }
@@ -419,7 +442,43 @@ class GOGManifestParser @Inject constructor() {
             }
         }
 
-        Timber.tag(TAG).d("Parsed Gen 1 manifest: installDirectory=$installDirectory, depots=${depots.size}, timestamp=$timestamp")
+        val supportCommands = mutableListOf<SupportCommand>()
+        val supportArray = product.optJSONArray("support_commands")
+        if (supportArray != null) {
+            for (i in 0 until supportArray.length()) {
+                val c = supportArray.getJSONObject(i)
+                val executable = c.optString("executable", "")
+                if (executable.isEmpty()) continue
+                val systemsArr = c.optJSONArray("systems")
+                if (systemsArr != null && systemsArr.length() > 0) {
+                    var forWindows = false
+                    for (j in 0 until systemsArr.length()) {
+                        if (systemsArr.getString(j).equals("Windows", ignoreCase = true)) {
+                            forWindows = true
+                            break
+                        }
+                    }
+                    if (!forWindows) continue
+                }
+                val cmdLangs = mutableListOf<String>()
+                val cmdLangArr = c.optJSONArray("languages")
+                if (cmdLangArr != null) {
+                    for (j in 0 until cmdLangArr.length()) cmdLangs.add(cmdLangArr.getString(j))
+                }
+                supportCommands.add(
+                    SupportCommand(
+                        executable = executable,
+                        gameId = c.optString("gameID", ""),
+                        argument = c.optString("argument", ""),
+                        languages = cmdLangs,
+                    ),
+                )
+            }
+        }
+
+        Timber.tag(TAG).d(
+            "Parsed Gen 1 manifest: installDirectory=$installDirectory, depots=${depots.size}, timestamp=$timestamp, supportCommands=${supportCommands.size}",
+        )
         return GOGManifestMeta(
             baseProductId = baseProductId,
             installDirectory = installDirectory,
@@ -427,6 +486,7 @@ class GOGManifestParser @Inject constructor() {
             dependencies = dependencies,
             products = products,
             productTimestamp = timestamp,
+            supportCommands = supportCommands
         )
     }
 
@@ -454,8 +514,8 @@ class GOGManifestParser @Inject constructor() {
                     hash = hash,
                     url = url,
                     offset = offset,
-                    isSupport = isSupport,
-                ),
+                    isSupport = isSupport
+                )
             )
         }
         return list

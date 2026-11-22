@@ -4,9 +4,9 @@ import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,7 +15,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import app.gamenative.ui.theme.BrokenGlassDialogSurface
+import app.gamenative.ui.theme.LocalLooksState
 import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.ui.theme.glassContentColor
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -32,20 +35,27 @@ fun LoadingDialog(
 ) {
     when {
         visible -> {
+            val looks = LocalLooksState.current
             Dialog(
                 onDismissRequest = onDismissRequest,
             ) {
-                Card {
+                BrokenGlassDialogSurface(
+                    cornerRadius = 24,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
                     Column(
                         modifier = Modifier
-                            .padding(16.dp),
+                            .fillMaxWidth()
+                            .padding(20.dp),
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text(message)
+                        val textColor = if (looks.isGlassEnabled) glassContentColor() else androidx.compose.ui.graphics.Color.Unspecified
+                        Text(message, color = textColor)
                         Spacer(modifier = Modifier.height(16.dp))
                         if (progress >= 0) {
-                            Text(min(100, (progress * 100.0).roundToInt()).toString() + "%")
+                            Text(min(100, (progress * 100.0).roundToInt()).toString() + "%", color = textColor)
+                            Spacer(modifier = Modifier.height(6.dp))
                             LinearProgressIndicator(
                                 progress = { progress },
                             )

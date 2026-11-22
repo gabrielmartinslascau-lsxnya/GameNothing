@@ -7,6 +7,7 @@ import app.gamenative.PrefManager
 import app.gamenative.data.GameSource
 import com.winlator.container.Container
 import com.winlator.container.ContainerData
+import com.winlator.container.ContainerManager
 import com.winlator.core.DXVKHelper
 import org.json.JSONObject
 import timber.log.Timber
@@ -20,53 +21,89 @@ object IntentLaunchManager {
 
     private const val EXTRA_GAME_SOURCE = "game_source"
     private const val EXTRA_CONTAINER_CONFIG = "container_config"
+    private const val EXTRA_EXEC_ARGS = "exec_args"
+    private const val EXTRA_EXE = "exe"
     private const val ACTION_LAUNCH_GAME = "app.gamenative.LAUNCH_GAME"
+    private const val ACTION_VIEW = "android.intent.action.VIEW"
+    private const val URI_SCHEME = "gamenative"
+    private const val URI_HOST = "run"
     private const val MAX_CONFIG_JSON_SIZE = 50000 // 50KB limit to prevent memory exhaustion
 
     data class LaunchRequest(
         val appId: String,
         val containerConfig: ContainerData? = null,
+        val execArgs: String? = null,
     )
 
-    fun parseLaunchIntent(intent: Intent): LaunchRequest? {
+    fun parseLaunchIntent(intent: Intent, context: Context): LaunchRequest? {
         Timber.d("[IntentLaunchManager]: Parsing intent: action=${intent.action}")
 
-        if (intent.action != ACTION_LAUNCH_GAME) {
-            Timber.d("[IntentLaunchManager]: Intent action '${intent.action}' doesn't match expected action '$ACTION_LAUNCH_GAME'")
+        if (intent.action != ACTION_LAUNCH_GAME && intent.action != ACTION_VIEW) {
+            Timber.d("[IntentLaunchManager]: Intent action '${intent.action}' doesn't match expected action '$ACTION_LAUNCH_GAME' or '$ACTION_VIEW'")
             return null
         }
+        val gameId: Int
+        val gameSource: String?
+        val containerConfig: ContainerData?
+        val exe: String?
+        val execArgs: String?
 
-        val gameId = intent.getIntExtra(EXTRA_APP_ID, -1)
-        Timber.d("[IntentLaunchManager]: Extracted app_id: $gameId from intent extras")
+        if (intent.action == ACTION_VIEW) {
+            val data = intent.data
+            if (data?.scheme != URI_SCHEME || data.host != URI_HOST) {
+                Timber.d("[IntentLaunchManager]: URI '${intent.dataString}' doesn't match expected URI '$URI_SCHEME://$URI_HOST'")
+                return null
+            }
+            gameId = data.getQueryParameter("appid")?.toIntOrNull() ?: -1
+            gameSource = data.getQueryParameter("gamesource")?.uppercase(java.util.Locale.ROOT)
+            exe = data.getQueryParameter("exe")
+            execArgs = data.getQueryParameter("exec_args")
+            containerConfig = null
+        } else {
+            exe = intent.getStringExtra(EXTRA_EXE)
+            Timber.d("[IntentLaunchManager]: Extracted exe: $exe from intent extras")
+            execArgs = intent.getStringExtra(EXTRA_EXEC_ARGS)?.replace("\\\"", "\"")
+            Timber.d("[IntentLaunchManager]: Extracted exec_args: $execArgs from intent extras")
+            gameId = intent.getIntExtra(EXTRA_APP_ID, -1)
+            Timber.d("[IntentLaunchManager]: Extracted app_id: $gameId from intent extras")
+            gameSource = intent.getStringExtra(EXTRA_GAME_SOURCE)?.uppercase(java.util.Locale.ROOT)
+                ?.takeIf { source -> GameSource.entries.any { it.name == source } }
+                ?: GameSource.STEAM.name
+            containerConfig = intent.getStringExtra(EXTRA_CONTAINER_CONFIG)?.let { json ->
+                try {
+                    parseContainerConfig(json)
+                } catch (e: Exception) {
+                    Timber.e(e, "[IntentLaunchManager]: Failed to parse container configuration JSON")
+                    null
+                }
+            }
+        }
+
+        if (!exe.isNullOrEmpty()) {
+            val container = ContainerManager(context).containers.find {
+                it.executablePath.equals(exe, ignoreCase = true)
+            }
+            if (container != null) {
+                Timber.d("[IntentLaunchManager]: Found container for exe: ${container.id}")
+                return LaunchRequest(container.id, containerConfig, execArgs)
+            }
+        }
 
         if (gameId <= 0) {
             Timber.w("[IntentLaunchManager]: Invalid or missing app_id in launch intent: $gameId")
             return null
         }
 
-        // Get Game Source for launch intent
-        var gameSource = intent.getStringExtra(EXTRA_GAME_SOURCE)?.uppercase(java.util.Locale.ROOT)
         val isValidGameSource = GameSource.entries.any { it.name == gameSource }
         if (!isValidGameSource) {
-            gameSource = GameSource.STEAM.name
+            Timber.w("[IntentLaunchManager]: Invalid or missing game source in launch intent: $gameSource")
+            return null
         }
 
         val appId = "${gameSource}_$gameId"
         Timber.d("[IntentLaunchManager]: Converted to appId: $appId")
 
-        val containerConfigJson = intent.getStringExtra(EXTRA_CONTAINER_CONFIG)
-        val containerConfig = if (containerConfigJson != null) {
-            try {
-                parseContainerConfig(containerConfigJson)
-            } catch (e: Exception) {
-                Timber.e(e, "[IntentLaunchManager]: Failed to parse container configuration JSON")
-                null
-            }
-        } else {
-            null
-        }
-
-        return LaunchRequest(appId, containerConfig)
+        return LaunchRequest(appId, containerConfig, execArgs)
     }
 
     fun applyTemporaryConfigOverride(context: Context, appId: String, configOverride: ContainerData) {
@@ -110,7 +147,10 @@ object IntentLaunchManager {
 
             when {
                 override != null && baseConfig != null -> mergeConfigurations(baseConfig, override)
-                override != null -> override
+                override != null -> override.copy(
+                    wincomponents = RedistComponents.withoutExternalRedistOff(override.wincomponents)
+                        .ifBlank { Container.DEFAULT_WINCOMPONENTS },
+                )
                 else -> baseConfig
             }
         } catch (e: Exception) {
@@ -254,7 +294,7 @@ object IntentLaunchManager {
         return config
     }
 
-    private fun mergeConfigurations(base: ContainerData, override: ContainerData): ContainerData {
+    internal fun mergeConfigurations(base: ContainerData, override: ContainerData): ContainerData {
         // Quick return if no actual overrides
         if (override == base) return base
 
@@ -265,6 +305,8 @@ object IntentLaunchManager {
             } else {
                 base.screenSize
             },
+            // Not part of the intent override schema: always the container's own setting.
+            gamescopeOutputResolution = base.gamescopeOutputResolution,
             envVars = if (override.envVars != Container.DEFAULT_ENV_VARS) override.envVars else base.envVars,
             graphicsDriver = if (override.graphicsDriver != Container.DEFAULT_GRAPHICS_DRIVER) {
                 override.graphicsDriver
@@ -279,8 +321,9 @@ object IntentLaunchManager {
                 else -> DXVKHelper.DEFAULT_CONFIG
             },
             audioDriver = if (override.audioDriver != Container.DEFAULT_AUDIO_DRIVER) override.audioDriver else base.audioDriver,
+            // Given or not is decided on the intent's own string, before its redist "=0" entries go
             wincomponents = if (override.wincomponents != Container.DEFAULT_WINCOMPONENTS) {
-                override.wincomponents
+                RedistComponents.withoutExternalRedistOff(override.wincomponents).ifBlank { base.wincomponents }
             } else {
                 base.wincomponents
             },

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import app.gamenative.service.epic.manifest.ManifestUtils
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -36,7 +37,7 @@ class ManifestParseValidationTest {
         val testManifests = listOf(
             "test-manifest.json" to "test-manifest.expected.json",
             "test-v3-manifest.json" to "test-v3-manifest.expected.json",
-            "binary-control-file.manifest" to "binary-control-file.expected.json",
+            "binary-control-file.manifest" to "binary-control-file.expected.json"
         )
 
         testManifests.forEach { (manifestAsset, expectedAsset) ->
@@ -219,7 +220,7 @@ class ManifestParseValidationTest {
         expectedObj: JSONObject,
         field: String,
         differences: MutableList<String>,
-        context: String = "",
+        context: String = ""
     ) {
         try {
             if (!actualObj.has(field)) {

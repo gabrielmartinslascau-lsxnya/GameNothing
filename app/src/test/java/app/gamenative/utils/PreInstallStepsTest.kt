@@ -5,15 +5,16 @@ import app.gamenative.enums.Marker
 import com.winlator.container.Container
 import io.mockk.every
 import io.mockk.mockk
-import java.io.File
-import kotlin.io.path.createTempDirectory
-import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
+import kotlin.io.path.createTempDirectory
 
 @RunWith(RobolectricTestRunner::class)
 class PreInstallStepsTest {
@@ -124,14 +125,14 @@ class PreInstallStepsTest {
         PreInstallSteps.markAllDone(container)
 
         val expectedMarkers = listOf(
-            Marker.VCREDIST_INSTALLED,
-            Marker.PHYSX_INSTALLED,
-            Marker.OPENAL_INSTALLED,
-            Marker.XNA_INSTALLED,
             Marker.GOG_SCRIPT_INSTALLED,
             Marker.UBISOFT_CONNECT_INSTALLED,
         )
         assertTrue(expectedMarkers.all { marker -> File(gameDir, marker.fileName).exists() })
+        assertFalse(File(gameDir, Marker.VCREDIST_INSTALLED.fileName).exists())
+        assertFalse(File(gameDir, Marker.OPENAL_INSTALLED.fileName).exists())
+        assertFalse(File(gameDir, Marker.PHYSX_INSTALLED.fileName).exists())
+        assertFalse(File(gameDir, Marker.XNA_INSTALLED.fileName).exists())
     }
 
     @Test
@@ -159,4 +160,5 @@ class PreInstallStepsTest {
             result.first().executable,
         )
     }
+
 }

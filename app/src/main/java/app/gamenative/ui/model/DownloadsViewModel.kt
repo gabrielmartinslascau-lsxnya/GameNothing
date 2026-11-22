@@ -9,6 +9,7 @@ import app.gamenative.data.DownloadInfo
 import app.gamenative.data.GameSource
 import app.gamenative.data.LibraryItem
 import app.gamenative.db.dao.AmazonGameDao
+import app.gamenative.db.dao.XboxGameDao
 import app.gamenative.db.dao.EpicGameDao
 import app.gamenative.db.dao.GOGGameDao
 import app.gamenative.db.dao.SteamAppDao
@@ -16,6 +17,9 @@ import app.gamenative.events.AndroidEvent
 import app.gamenative.service.SteamService
 import app.gamenative.service.amazon.AmazonConstants
 import app.gamenative.service.amazon.AmazonService
+import app.gamenative.service.xbox.XboxConstants
+import app.gamenative.service.xbox.XboxService
+import app.gamenative.service.download.GameDownloadService
 import app.gamenative.service.epic.EpicConstants
 import app.gamenative.service.epic.EpicService
 import app.gamenative.service.gog.GOGConstants
@@ -26,6 +30,7 @@ import app.gamenative.ui.data.DownloadItemStatus
 import app.gamenative.ui.data.DownloadsState
 import app.gamenative.utils.ContainerUtils
 import app.gamenative.utils.CustomGameScanner
+import app.gamenative.utils.LocaleHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.LinkedHashMap
@@ -49,6 +54,7 @@ class DownloadsViewModel @Inject constructor(
     private val epicGameDao: EpicGameDao,
     private val gogGameDao: GOGGameDao,
     private val amazonGameDao: AmazonGameDao,
+    private val xboxGameDao: XboxGameDao,
 ) : ViewModel() {
 
     private data class ActiveDownloadBinding(
@@ -58,6 +64,12 @@ class DownloadsViewModel @Inject constructor(
         val iconUrl: String,
         val info: DownloadInfo,
     )
+
+    // The application context follows the OS locale; wrap it so status labels resolve in the
+    // app's configured language (PrefManager is initialized before any ViewModel exists).
+    private val localizedContext: Context by lazy {
+        LocaleHelper.applyLanguage(appContext, app.gamenative.PrefManager.appLanguage)
+    }
 
     private data class ObservedDownload(
         val info: DownloadInfo,
@@ -142,7 +154,7 @@ class DownloadsViewModel @Inject constructor(
     }
 
     private fun failureMessage(message: String?): String {
-        return normalizeStatusMessage(message) ?: appContext.getString(R.string.downloads_status_failed)
+        return normalizeStatusMessage(message) ?: localizedContext.getString(R.string.downloads_status_failed)
     }
 
     private suspend fun getSteamMetadata(appId: Int): Pair<String, String> {
@@ -198,6 +210,19 @@ class DownloadsViewModel @Inject constructor(
 
         val game = amazonGameDao.getByProductId(productId)
         val name = cachedName ?: (game?.title ?: "Amazon Game").also { gameNameCache[key] = it }
+        val icon = cachedIcon ?: (game?.artUrl ?: "").also { gameIconCache[key] = it }
+
+        return Pair(name, icon)
+    }
+
+    private suspend fun getXboxMetadata(productId: String): Pair<String, String> {
+        val key = downloadKey(GameSource.XBOX, productId)
+        val cachedName = gameNameCache[key]
+        val cachedIcon = gameIconCache[key]
+        if (cachedName != null && cachedIcon != null) return Pair(cachedName, cachedIcon)
+
+        val game = xboxGameDao.getByProductId(productId)
+        val name = cachedName ?: (game?.title ?: "Xbox Game").also { gameNameCache[key] = it }
         val icon = cachedIcon ?: (game?.artUrl ?: "").also { gameIconCache[key] = it }
 
         return Pair(name, icon)
@@ -268,10 +293,27 @@ class DownloadsViewModel @Inject constructor(
                 }
             }
 
+            GameSource.XBOX -> {
+                val game = xboxGameDao.getByProductId(appId)
+                    ?: appId.toIntOrNull()?.let { xboxGameDao.getByAppId(it) }
+                game?.let {
+                    LibraryItem(
+                        appId = "${GameSource.XBOX.name}_${it.appId}",
+                        name = it.title,
+                        iconHash = it.artUrl,
+                        capsuleImageUrl = it.artUrl,
+                        headerImageUrl = it.heroUrl.ifEmpty { it.artUrl },
+                        heroImageUrl = it.heroUrl.ifEmpty { it.artUrl },
+                        gameSource = GameSource.XBOX,
+                    )
+                }
+            }
+
             GameSource.CUSTOM_GAME -> {
                 CustomGameScanner.scanAsLibraryItems(query = "")
                     .firstOrNull { it.appId == libraryAppId }
             }
+
             GameSource.ANDROID_APP -> null
         }
     }
@@ -288,6 +330,7 @@ class DownloadsViewModel @Inject constructor(
         val statusMessage = normalizeStatusMessage(info.getCurrentStatusMessage())
         val isRunning = info.isActive() || info.isPostInstallSyncing()
         val status = when {
+            GameDownloadService.isPaused(gameSource, appId) -> DownloadItemStatus.PAUSED
             rawProgress < 0f || statusMessage?.startsWith("Failed", ignoreCase = true) == true -> DownloadItemStatus.FAILED
             isRunning -> DownloadItemStatus.DOWNLOADING
             else -> DownloadItemStatus.PAUSED
@@ -329,9 +372,9 @@ class DownloadsViewModel @Inject constructor(
             else -> DownloadItemStatus.RESUMABLE
         }
         val statusMessage = when (status) {
-            DownloadItemStatus.PAUSED -> appContext.getString(R.string.downloads_status_paused)
-            DownloadItemStatus.FAILED -> recentFailureMessages[key] ?: appContext.getString(R.string.downloads_status_failed)
-            DownloadItemStatus.RESUMABLE -> appContext.getString(R.string.downloads_resume_available)
+            DownloadItemStatus.PAUSED -> localizedContext.getString(R.string.downloads_status_paused)
+            DownloadItemStatus.FAILED -> recentFailureMessages[key] ?: localizedContext.getString(R.string.downloads_status_failed)
+            DownloadItemStatus.RESUMABLE -> localizedContext.getString(R.string.downloads_resume_available)
             else -> null
         }
 
@@ -357,8 +400,8 @@ class DownloadsViewModel @Inject constructor(
             GameSource.EPIC -> appId.toIntOrNull()?.let { epicGameDao.getById(it)?.isInstalled == true } ?: false
             GameSource.GOG -> gogGameDao.getById(appId)?.isInstalled == true
             GameSource.AMAZON -> amazonGameDao.getByProductId(appId)?.isInstalled == true
-            GameSource.CUSTOM_GAME -> false
-            GameSource.ANDROID_APP -> true
+            GameSource.XBOX -> xboxGameDao.getByProductId(appId)?.isInstalled == true
+            GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> false
         }
     }
 
@@ -367,7 +410,7 @@ class DownloadsViewModel @Inject constructor(
             compareBy<DownloadItemState> { item ->
                 when {
                     item.status == DownloadItemStatus.DOWNLOADING -> 0
-                    item.isPartial -> 1
+                    item.isPartial || item.status == DownloadItemStatus.PAUSED -> 1
                     item.status == DownloadItemStatus.COMPLETED -> 2
                     item.status == DownloadItemStatus.CANCELLED -> 3
                     else -> 4
@@ -520,6 +563,20 @@ class DownloadsViewModel @Inject constructor(
                 liveDownloads[key] = buildPartialDownloadItem(productId, GameSource.AMAZON, name, icon)
             }
 
+            for ((productId, info) in XboxService.getActiveDownloads()) {
+                val (name, icon) = getXboxMetadata(productId)
+                val item = buildActiveDownloadItem(productId, GameSource.XBOX, name, icon, info)
+                liveDownloads[item.uniqueId] = item
+                activeBindings[item.uniqueId] = ActiveDownloadBinding(productId, GameSource.XBOX, name, icon, info)
+            }
+
+            for (productId in XboxService.getPartialDownloads(appContext)) {
+                val key = downloadKey(GameSource.XBOX, productId)
+                if (liveDownloads.containsKey(key)) continue
+                val (name, icon) = getXboxMetadata(productId)
+                liveDownloads[key] = buildPartialDownloadItem(productId, GameSource.XBOX, name, icon)
+            }
+
             val disappearedKeys = lastTrackedDownloads.keys - liveDownloads.keys
             for (key in disappearedKeys) {
                 val previousItem = lastTrackedDownloads[key] ?: continue
@@ -530,9 +587,9 @@ class DownloadsViewModel @Inject constructor(
                 }
 
                 val finishedMessage = when (finishedStatus) {
-                    DownloadItemStatus.COMPLETED -> appContext.getString(R.string.downloads_status_complete)
-                    DownloadItemStatus.CANCELLED -> appContext.getString(R.string.downloads_status_cancelled)
-                    DownloadItemStatus.FAILED -> recentFailureMessages[key] ?: appContext.getString(R.string.downloads_status_failed)
+                    DownloadItemStatus.COMPLETED -> localizedContext.getString(R.string.downloads_status_complete)
+                    DownloadItemStatus.CANCELLED -> localizedContext.getString(R.string.downloads_status_cancelled)
+                    DownloadItemStatus.FAILED -> recentFailureMessages[key] ?: localizedContext.getString(R.string.downloads_status_failed)
                     else -> previousItem.statusMessage
                 }
 
@@ -579,21 +636,30 @@ class DownloadsViewModel @Inject constructor(
         recentFailureMessages.remove(key)
 
         viewModelScope.launch(Dispatchers.IO) {
-            when (item.gameSource) {
-                GameSource.STEAM -> {
-                    val id = item.appId.toIntOrNull() ?: return@launch
-                    SteamService.getAppDownloadInfo(id)?.cancel()
-                }
+            pauseOnStore(item)
+        }
+    }
 
-                GameSource.EPIC -> {
-                    val id = item.appId.toIntOrNull() ?: return@launch
-                    EpicService.cancelDownload(id)
-                }
-
-                GameSource.GOG -> GOGService.cancelDownload(item.appId)
-                GameSource.AMAZON -> AmazonService.cancelDownload(item.appId)
-                GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> Unit
+    /**
+     * Store-level pause / dequeue. Non-destructive (no file deletion): a queued
+     * (auto-paused) entry becomes plainly paused, an active one is cancelled.
+     */
+    private fun pauseOnStore(item: DownloadItemState) {
+        when (item.gameSource) {
+            GameSource.STEAM -> {
+                val id = item.appId.toIntOrNull() ?: return
+                SteamService.getAppDownloadInfo(id)?.cancel()
             }
+
+            GameSource.EPIC -> {
+                val id = item.appId.toIntOrNull() ?: return
+                EpicService.cancelDownload(id)
+            }
+
+            GameSource.GOG -> GOGService.cancelDownload(item.appId)
+            GameSource.AMAZON -> AmazonService.cancelDownload(item.appId)
+            GameSource.XBOX -> XboxService.cancelDownload(item.appId)
+            GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> Unit
         }
     }
 
@@ -607,46 +673,60 @@ class DownloadsViewModel @Inject constructor(
         finishedDownloads.remove(key)
 
         viewModelScope.launch(Dispatchers.IO) {
-            when (item.gameSource) {
-                GameSource.STEAM -> {
-                    val id = item.appId.toIntOrNull() ?: return@launch
-                    SteamService.downloadApp(id)
-                }
+            resumeOnStore(item)
+            scheduleRefreshDownloads()
+        }
+    }
 
-                GameSource.GOG -> {
-                    val game = gogGameDao.getById(item.appId) ?: return@launch
-                    val installPath = game.installPath.ifBlank { GOGConstants.getGameInstallPath(game.title) }
-                    val container = ContainerUtils.getOrCreateContainer(appContext, "${GameSource.GOG.name}_${item.appId}")
-                    val language = ContainerUtils.toContainerData(container).language
-                    val result = GOGService.downloadGame(appContext, item.appId, installPath, language)
-                    result.exceptionOrNull()?.message?.let { recentFailureMessages[key] = it }
-                }
-
-                GameSource.EPIC -> {
-                    val id = item.appId.toIntOrNull() ?: return@launch
-                    val game = epicGameDao.getById(id) ?: return@launch
-                    val installPath = game.installPath.ifBlank {
-                        EpicConstants.getGameInstallPath(appContext, game.appName)
-                    }
-                    val container = ContainerUtils.getOrCreateContainer(appContext, "${GameSource.EPIC.name}_${item.appId}")
-                    val language = ContainerUtils.toContainerData(container).language
-                    val result = EpicService.downloadGame(appContext, id, emptyList(), installPath, language)
-                    result.exceptionOrNull()?.message?.let { recentFailureMessages[key] = it }
-                }
-
-                GameSource.AMAZON -> {
-                    val game = amazonGameDao.getByProductId(item.appId) ?: return@launch
-                    val installPath = game.installPath.ifBlank {
-                        AmazonConstants.getGameInstallPath(appContext, game.title)
-                    }
-                    val result = AmazonService.downloadGame(appContext, item.appId, installPath)
-                    result.exceptionOrNull()?.message?.let { recentFailureMessages[key] = it }
-                }
-
-                GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> Unit
+    private suspend fun resumeOnStore(item: DownloadItemState) {
+        val key = item.uniqueId
+        when (item.gameSource) {
+            GameSource.STEAM -> {
+                val id = item.appId.toIntOrNull() ?: return
+                // Resuming from the downloads list: keep the mode the record was started with.
+                SteamService.downloadApp(id, SteamService.resumeModeFor(id))
             }
 
-            scheduleRefreshDownloads()
+            GameSource.GOG -> {
+                val game = gogGameDao.getById(item.appId) ?: return
+                val installPath = game.installPath.ifBlank { GOGConstants.getGameInstallPath(game.title) }
+                val container = ContainerUtils.getOrCreateContainer(appContext, "${GameSource.GOG.name}_${item.appId}")
+                val language = ContainerUtils.toContainerData(container).language
+                val result = GOGService.downloadGame(localizedContext, item.appId, installPath, language)
+                result.exceptionOrNull()?.message?.let { recentFailureMessages[key] = it }
+            }
+
+            GameSource.EPIC -> {
+                val id = item.appId.toIntOrNull() ?: return
+                val game = epicGameDao.getById(id) ?: return
+                val installPath = game.installPath.ifBlank {
+                    EpicConstants.getGameInstallPath(appContext, game.appName)
+                }
+                val container = ContainerUtils.getOrCreateContainer(appContext, "${GameSource.EPIC.name}_${item.appId}")
+                val language = ContainerUtils.toContainerData(container).language
+                val result = EpicService.downloadGame(localizedContext, id, emptyList(), installPath, language)
+                result.exceptionOrNull()?.message?.let { recentFailureMessages[key] = it }
+            }
+
+            GameSource.AMAZON -> {
+                val game = amazonGameDao.getByProductId(item.appId) ?: return
+                val installPath = game.installPath.ifBlank {
+                    AmazonConstants.getGameInstallPath(appContext, game.title)
+                }
+                val result = AmazonService.downloadGame(localizedContext, item.appId, installPath)
+                result.exceptionOrNull()?.message?.let { recentFailureMessages[key] = it }
+            }
+
+            GameSource.XBOX -> {
+                val game = xboxGameDao.getByProductId(item.appId) ?: return
+                val installPath = game.installPath.ifBlank {
+                    XboxConstants.getGameInstallPath(appContext, game.title)
+                }
+                val result = XboxService.downloadGame(localizedContext, item.appId, installPath)
+                result.exceptionOrNull()?.message?.let { recentFailureMessages[key] = it }
+            }
+
+            GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> Unit
         }
     }
 
@@ -656,16 +736,90 @@ class DownloadsViewModel @Inject constructor(
             .forEach(::onPauseDownload)
     }
 
+    /**
+     * Enqueue one item with GameDownloadService (placeholder entry, store restart
+     * params resolved the same way as [resumeOnStore]). Starts nothing.
+     */
+    private suspend fun enqueueOnStore(item: DownloadItemState) {
+        when (item.gameSource) {
+            GameSource.STEAM -> {
+                val id = item.appId.toIntOrNull() ?: return
+                GameDownloadService.enqueueDownload(GameSource.STEAM, id.toString())
+            }
+
+            GameSource.GOG -> {
+                val game = gogGameDao.getById(item.appId) ?: return
+                val installPath = game.installPath.ifBlank { GOGConstants.getGameInstallPath(game.title) }
+                val container = ContainerUtils.getOrCreateContainer(appContext, "${GameSource.GOG.name}_${item.appId}")
+                val language = ContainerUtils.toContainerData(container).language
+                GameDownloadService.enqueueDownload(GameSource.GOG, item.appId, installPath = installPath, containerLanguage = language)
+            }
+
+            GameSource.EPIC -> {
+                val id = item.appId.toIntOrNull() ?: return
+                val game = epicGameDao.getById(id) ?: return
+                val installPath = game.installPath.ifBlank {
+                    EpicConstants.getGameInstallPath(appContext, game.appName)
+                }
+                val container = ContainerUtils.getOrCreateContainer(appContext, "${GameSource.EPIC.name}_${item.appId}")
+                val language = ContainerUtils.toContainerData(container).language
+                GameDownloadService.enqueueDownload(GameSource.EPIC, item.appId, dlcGameIds = emptyList(), installPath = installPath, containerLanguage = language)
+            }
+
+            GameSource.AMAZON -> {
+                val game = amazonGameDao.getByProductId(item.appId) ?: return
+                val installPath = game.installPath.ifBlank {
+                    AmazonConstants.getGameInstallPath(appContext, game.title)
+                }
+                GameDownloadService.enqueueDownload(GameSource.AMAZON, item.appId, installPath = installPath)
+            }
+
+            GameSource.XBOX -> {
+                val game = xboxGameDao.getByProductId(item.appId) ?: return
+                val installPath = game.installPath.ifBlank {
+                    XboxConstants.getGameInstallPath(appContext, game.title)
+                }
+                GameDownloadService.enqueueDownload(GameSource.XBOX, item.appId, installPath = installPath)
+            }
+
+            GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> Unit
+        }
+    }
+
     fun onResumeAll() {
-        state.value.downloads.values
-            .filter { it.canResume }
-            .forEach(::onResumeDownload)
+        val resumable = state.value.downloads.values.filter { it.canResume }
+        if (resumable.isEmpty()) return
+
+        viewModelScope.launch(Dispatchers.IO) {
+            // Queue every resumable download first (placeholders only — nothing is
+            // cancelled and the current download keeps running), then launch just the
+            // first one: its registerDownload replaces the placeholder with the real
+            // DownloadInfo and the queue drains the rest as each download finishes.
+            resumable.forEach { enqueueOnStore(it) }
+            resumeOnStore(resumable.first())
+            scheduleRefreshDownloads()
+        }
     }
 
     fun onCancelAll() {
-        state.value.downloads.values
-            .filter { it.canCancel }
-            .forEach { item -> cancelDownloadNow(item.appId, item.gameSource, item.gameName) }
+        val items = state.value.downloads.values.filter { it.canCancel }
+        if (items.isEmpty()) return
+        val active = items.filter { it.status == DownloadItemStatus.DOWNLOADING }
+        val others = items - active.toSet()
+
+        items.forEach {
+            pendingCancelledDownloads.add(it.uniqueId)
+            pausedDownloads.remove(it.uniqueId)
+            recentFailureMessages.remove(it.uniqueId)
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            // Cancelling the active download advances the queue, so clear queued
+            // and paused entries FIRST — otherwise each cancel restarts the next
+            // queued download just to cancel it again (chain of queue
+            // transitions + snapshot writes = ANR).
+            others.forEach { cancelOnStore(it.appId, it.gameSource, it.gameName) }
+            active.forEach { cancelOnStore(it.appId, it.gameSource, it.gameName) }
+        }
     }
 
     fun onClearFinished() {
@@ -704,46 +858,60 @@ class DownloadsViewModel @Inject constructor(
         recentFailureMessages.remove(key)
 
         viewModelScope.launch(Dispatchers.IO) {
-            when (gameSource) {
-                GameSource.STEAM -> {
-                    val id = appId.toIntOrNull() ?: return@launch
-                    SteamService.getAppDownloadInfo(id)?.cancel()
-                    SteamService.deleteApp(id)
-                    PluviaApp.events.emit(AndroidEvent.LibraryInstallStatusChanged(id, GameSource.STEAM))
-                    scheduleRefreshDownloads()
-                }
+            cancelOnStore(appId, gameSource, gameName)
+        }
+    }
 
-                GameSource.EPIC -> {
-                    val id = appId.toIntOrNull() ?: return@launch
-                    EpicService.cancelDownload(id)
-                    EpicService.deleteGame(appContext, id)
-                    scheduleRefreshDownloads()
-                }
-
-                GameSource.GOG -> {
-                    GOGService.cancelDownload(appId)
-                    val game = gogGameDao.getById(appId)
-                    if (game != null) {
-                        GOGService.deleteGame(
-                            appContext,
-                            LibraryItem(
-                                appId = appId,
-                                name = game.title.ifBlank { gameName },
-                                gameSource = GameSource.GOG,
-                            ),
-                        )
-                    }
-                    scheduleRefreshDownloads()
-                }
-
-                GameSource.AMAZON -> {
-                    AmazonService.cancelDownload(appId)
-                    AmazonService.deleteGame(appContext, appId)
-                    scheduleRefreshDownloads()
-                }
-
-                GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> Unit
+    /** Store-level cancel + delete. Destructive: removes the partial download. */
+    private suspend fun cancelOnStore(appId: String, gameSource: GameSource, gameName: String) {
+        when (gameSource) {
+            GameSource.STEAM -> {
+                val id = appId.toIntOrNull() ?: return
+                SteamService.getAppDownloadInfo(id)?.cancel()
+                // A queued (auto-paused) entry has no live job left to remove it —
+                // drop it explicitly (no-op when the job's completion already did).
+                SteamService.removeDownloadJob(id)
+                SteamService.deleteApp(id)
+                PluviaApp.events.emit(AndroidEvent.LibraryInstallStatusChanged(id, GameSource.STEAM))
+                scheduleRefreshDownloads()
             }
+
+            GameSource.EPIC -> {
+                val id = appId.toIntOrNull() ?: return
+                EpicService.cancelDownload(id)
+                EpicService.deleteGame(appContext, id)
+                scheduleRefreshDownloads()
+            }
+
+            GameSource.GOG -> {
+                GOGService.cancelDownload(appId)
+                val game = gogGameDao.getById(appId)
+                if (game != null) {
+                    GOGService.deleteGame(
+                        appContext,
+                        LibraryItem(
+                            appId = appId,
+                            name = game.title.ifBlank { gameName },
+                            gameSource = GameSource.GOG,
+                        ),
+                    )
+                }
+                scheduleRefreshDownloads()
+            }
+
+            GameSource.AMAZON -> {
+                AmazonService.cancelDownload(appId)
+                AmazonService.deleteGame(appContext, appId)
+                scheduleRefreshDownloads()
+            }
+
+            GameSource.XBOX -> {
+                XboxService.cancelDownload(appId)
+                XboxService.deleteGame(appContext, appId)
+                scheduleRefreshDownloads()
+            }
+
+            GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> Unit
         }
     }
 }

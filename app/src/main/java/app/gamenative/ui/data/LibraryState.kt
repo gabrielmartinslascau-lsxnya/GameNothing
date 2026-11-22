@@ -1,8 +1,7 @@
 package app.gamenative.ui.data
 
 import app.gamenative.PrefManager
-import app.gamenative.ui.screen.library.components.PlaygroundSettings
-import app.gamenative.ui.screen.library.components.PlaygroundItem
+import app.gamenative.data.CommunityCompatibilitySummary
 import app.gamenative.data.GameCompatibilityStatus
 import app.gamenative.data.GameSource
 import app.gamenative.data.LibraryItem
@@ -10,6 +9,8 @@ import app.gamenative.data.SteamCollection
 import app.gamenative.ui.enums.AppFilter
 import app.gamenative.ui.enums.LibraryTab
 import app.gamenative.ui.enums.SortOption
+import app.gamenative.ui.screen.library.components.PlaygroundItem
+import app.gamenative.ui.screen.library.components.PlaygroundSettings
 import app.gamenative.utils.DeviceGameStatsService.DeviceGameStats
 import java.util.EnumSet
 
@@ -42,12 +43,17 @@ data class LibraryState(
     val showGOGInLibrary: Boolean = PrefManager.showGOGInLibrary,
     val showEpicInLibrary: Boolean = PrefManager.showEpicInLibrary,
     val showAmazonInLibrary: Boolean = PrefManager.showAmazonInLibrary,
+    val showXboxInLibrary: Boolean = PrefManager.showXboxInLibrary,
 
     // Steam collections filter
     val selectedSteamCollectionIds: Set<String> = PrefManager.librarySteamCollections,
     val steamCollections: List<SteamCollection>? = null, // null = not loaded
     val skippedDynamicCollections: Boolean = false,
     val steamCollectionCounts: Map<String, Int> = emptyMap(),
+
+    val curatedLists: List<SteamCollection>? = null,
+    val selectedCuratedListIds: Set<String> = PrefManager.libraryCuratedLists,
+    val curatedListCounts: Map<String, Int> = emptyMap(),
 
     // Loading state for skeleton loaders
     val isLoading: Boolean = false,
@@ -58,6 +64,7 @@ data class LibraryState(
 
     // Compatibility status map: game name -> compatibility status
     val compatibilityMap: Map<String, GameCompatibilityStatus> = emptyMap(),
+    val communityCompatibilityMap: Map<String, CommunityCompatibilitySummary> = emptyMap(),
 
     // Device-specific play stats, grouped by platform then game name
     val deviceGameStats: Map<GameSource, Map<String, DeviceGameStats>> = emptyMap(),
@@ -73,6 +80,7 @@ data class LibraryState(
 
     // Current library tab for quick filter access
     val currentTab: LibraryTab = LibraryTab.ALL,
+    val visibleLibraryTabs: List<LibraryTab> = PrefManager.libraryTabs.filter { it in LibraryTab.visibleEntries },
 
     // Per-source game counts for tab badges
     val allCount: Int = 0,
@@ -80,6 +88,7 @@ data class LibraryState(
     val gogCount: Int = 0,
     val epicCount: Int = 0,
     val amazonCount: Int = 0,
+    val xboxCount: Int = 0,
     val localCount: Int = 0,
     val cloudCount: Int = 0,
     val favoritesCount: Int = 0,
@@ -122,3 +131,6 @@ fun LibraryState.statsFor(source: GameSource, name: String): GameCardStats? {
         sessionSec = device?.medianSessionSec,
     )
 }
+
+fun LibraryState.communityCompatibilityFor(item: LibraryItem): CommunityCompatibilitySummary? =
+    communityCompatibilityMap[item.name]

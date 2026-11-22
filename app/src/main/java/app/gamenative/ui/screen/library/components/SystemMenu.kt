@@ -38,7 +38,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.AirplaneTicket
 import androidx.compose.material.icons.automirrored.filled.Help
-import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.StarHalf
@@ -48,10 +47,13 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -68,6 +70,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -81,21 +84,23 @@ import app.gamenative.PluviaApp
 import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.data.SteamFriend
+import app.gamenative.events.AndroidEvent
 import app.gamenative.events.SteamEvent
 import app.gamenative.service.SteamService
-import app.gamenative.ui.component.dialog.LinuxSetupDialog
 import app.gamenative.ui.component.dialog.SupportersDialog
 import app.gamenative.ui.screen.PluviaScreen
+import app.gamenative.ui.screen.support.SupportReplyWatcher
+import app.gamenative.ui.theme.LocalLooksState
+import app.gamenative.ui.theme.BrokenGlassMenuSurface
+import app.gamenative.ui.theme.BrokenGlassPanel
 import app.gamenative.ui.theme.PluviaTheme
-import app.gamenative.ui.theme.PluviaGlassPanel
 import app.gamenative.ui.theme.glassContentColor
-import app.gamenative.utils.HapticManager
-import app.gamenative.utils.hapticClickable
-import app.gamenative.utils.hapticSelectable
+import app.gamenative.ui.util.JoystickScrollHandler
 import app.gamenative.ui.util.SteamIconImage
 import app.gamenative.ui.util.adaptivePanelWidth
 import app.gamenative.ui.util.shouldShowGamepadUI
-import app.gamenative.utils.ContainerUtils
+import app.gamenative.utils.HapticManager
+import app.gamenative.utils.LauncherOrientation
 import app.gamenative.utils.getAvatarURL
 import `in`.dragonbra.javasteam.enums.EPersonaState
 import kotlinx.coroutines.launch
@@ -112,6 +117,7 @@ private fun SystemMenuItem(
     modifier: Modifier = Modifier,
     focusRequester: FocusRequester = remember { FocusRequester() },
     isDestructive: Boolean = false,
+    badge: Boolean = false,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -130,11 +136,12 @@ private fun SystemMenuItem(
         else -> Color.Transparent
     }
 
+    val baseContentColor = glassContentColor()
     val contentColor = when {
         isDestructive && isFocused -> MaterialTheme.colorScheme.error
         isDestructive -> MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
         isFocused -> MaterialTheme.colorScheme.onPrimaryContainer
-        else -> MaterialTheme.colorScheme.onSurface
+        else -> baseContentColor
     }
 
     Box(
@@ -143,10 +150,14 @@ private fun SystemMenuItem(
             .clip(RoundedCornerShape(16.dp))
             .background(backgroundColor)
             .focusRequester(focusRequester)
-            .hapticClickable(
+            .selectable(
+                selected = isFocused,
                 interactionSource = interactionSource,
-                type = HapticManager.HapticType.CLICK,
-                onClick = onClick,
+                indication = null,
+                onClick = {
+                    HapticManager.trigger(HapticManager.HapticType.CLICK)
+                    onClick()
+                },
             )
             .padding(horizontal = 20.dp, vertical = 16.dp),
     ) {
@@ -166,6 +177,13 @@ private fun SystemMenuItem(
                 color = contentColor,
                 fontWeight = if (isFocused) FontWeight.SemiBold else FontWeight.Normal,
             )
+            if (badge) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .background(MaterialTheme.colorScheme.primary, CircleShape),
+                )
+            }
         }
     }
 }
@@ -199,16 +217,21 @@ private fun StatusOption(
         else -> Color.Transparent
     }
 
+    val baseContentColor = glassContentColor()
     Row(
         modifier = modifier
             .fillMaxWidth()
             .scale(scale)
             .clip(RoundedCornerShape(12.dp))
             .background(backgroundColor)
-            .hapticClickable(
+            .selectable(
+                selected = isFocused,
                 interactionSource = interactionSource,
-                type = HapticManager.HapticType.CLICK,
-                onClick = onClick,
+                indication = null,
+                onClick = {
+                    HapticManager.trigger(HapticManager.HapticType.CLICK)
+                    onClick()
+                },
             )
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -225,7 +248,7 @@ private fun StatusOption(
             color = if (isFocused) {
                 MaterialTheme.colorScheme.onPrimaryContainer
             } else {
-                MaterialTheme.colorScheme.onSurface
+                baseContentColor
             },
             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
             modifier = Modifier.weight(1f),
@@ -257,19 +280,25 @@ fun SystemMenu(
     gogLoggedIn: Boolean,
     epicLoggedIn: Boolean,
     amazonLoggedIn: Boolean,
+    xboxLoggedIn: Boolean = false,
     onGogLoginClick: () -> Unit,
     onGogLogoutClick: () -> Unit,
     onEpicLoginClick: () -> Unit,
     onEpicLogoutClick: () -> Unit,
     onAmazonLoginClick: () -> Unit,
     onAmazonLogoutClick: () -> Unit,
+    onXboxLoginClick: () -> Unit = {},
+    onXboxLogoutClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
     val firstItemFocusRequester = remember { FocusRequester() }
+    val rotateFocusRequester = remember { FocusRequester() }
     val profileFocusRequester = remember { FocusRequester() }
+
+    val scrollState = rememberScrollState()
+    JoystickScrollHandler(scrollState = scrollState)
 
     var persona by remember { mutableStateOf<SteamFriend?>(null) }
     var selectedStatus by remember(persona) { mutableStateOf(persona?.state ?: EPersonaState.Online) }
@@ -313,20 +342,6 @@ fun SystemMenu(
 
     SupportersDialog(visible = showSupporters, onDismiss = { showSupporters = false })
 
-    var showLinuxSetupDialog by remember { mutableStateOf(false) }
-    if (showLinuxSetupDialog) {
-        LinuxSetupDialog(
-            visible = showLinuxSetupDialog,
-            onDismissRequest = { showLinuxSetupDialog = false },
-            onSwitchToLinux = {
-                showLinuxSetupDialog = false
-                onDismiss()
-                ContainerUtils.getOrCreateContainer(context, "CUSTOM_GAME_99999")
-                onNavigateRoute(PluviaScreen.XServer.route)
-            }
-        )
-    }
-
     val colorOnline = PluviaTheme.colors.statusInstalled
     val colorAway = PluviaTheme.colors.statusAway
     val colorOffline = PluviaTheme.colors.statusOffline
@@ -342,13 +357,7 @@ fun SystemMenu(
 
     Box(modifier = modifier.fillMaxSize()) {
         // Backdrop
-        LaunchedEffect(isOpen) {
-        if (isOpen) {
-            HapticManager.trigger(HapticManager.HapticType.MENU)
-        }
-    }
-
-    AnimatedVisibility(
+        AnimatedVisibility(
             visible = isOpen,
             enter = fadeIn(animationSpec = tween(200)),
             exit = fadeOut(animationSpec = tween(150)),
@@ -366,37 +375,38 @@ fun SystemMenu(
         }
 
         // Menu panel - slides from right
-        LaunchedEffect(isOpen) {
-        if (isOpen) {
-            HapticManager.trigger(HapticManager.HapticType.MENU)
-        }
-    }
-
-    AnimatedVisibility(
+        val looks = LocalLooksState.current
+        AnimatedVisibility(
             visible = isOpen,
             enter = slideInHorizontally(
                 initialOffsetX = { fullWidth -> fullWidth },
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioLowBouncy,
-                    stiffness = Spring.StiffnessMediumLow,
-                ),
+                animationSpec = if (looks.jigglyAnimations) {
+                    spring(
+                        dampingRatio = Spring.DampingRatioLowBouncy,
+                        stiffness = Spring.StiffnessMediumLow,
+                    )
+                } else {
+                    tween(250)
+                },
             ),
             exit = slideOutHorizontally(
                 targetOffsetX = { fullWidth -> fullWidth },
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioNoBouncy,
-                    stiffness = Spring.StiffnessMedium,
-                ),
+                animationSpec = if (looks.jigglyAnimations) {
+                    spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMedium,
+                    )
+                } else {
+                    tween(200)
+                },
             ),
             modifier = Modifier.align(Alignment.CenterEnd),
         ) {
-            val contentColor = glassContentColor()
-
-            PluviaGlassPanel(
+            BrokenGlassPanel(
                 modifier = Modifier
                     .width(adaptivePanelWidth(380.dp))
                     .fillMaxHeight(),
-                shape = RoundedCornerShape(topStart = 32.dp, bottomStart = 32.dp)
+                shape = RoundedCornerShape(topStart = 32.dp, bottomStart = 32.dp),
             ) {
                 Column(
                     modifier = Modifier
@@ -404,6 +414,7 @@ fun SystemMenu(
                         .statusBarsPadding()
                         .padding(24.dp),
                 ) {
+                    val contentColor = glassContentColor()
                     // Header with close button
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -415,21 +426,43 @@ fun SystemMenu(
                             style = MaterialTheme.typography.headlineSmall.copy(
                                 fontWeight = FontWeight.Bold,
                             ),
-                            color = Color.White,
+                            color = contentColor,
                         )
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .hapticClickable(type = HapticManager.HapticType.CLICK) { onDismiss() },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = stringResource(R.string.options_panel_close),
-                                tint = Color.White,
-                                modifier = Modifier.size(24.dp)
+                        // Orientation button + close button
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val isAutoOrientation = !LauncherOrientation.isConcrete(
+                                LauncherOrientation.stored(),
                             )
+                            IconButton(
+                                onClick = {
+                                    PluviaApp.events.emit(AndroidEvent.RotateLauncherOrientation)
+                                },
+                                modifier = Modifier
+                                    .focusRequester(rotateFocusRequester)
+                                    .focusProperties { down = firstItemFocusRequester },
+                                colors = if (isAutoOrientation) {
+                                    IconButtonDefaults.iconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    )
+                                } else {
+                                    IconButtonDefaults.iconButtonColors(
+                                        contentColor = contentColor.copy(alpha = 0.7f),
+                                    )
+                                },
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ScreenRotation,
+                                    contentDescription = stringResource(R.string.toggle_orientation),
+                                )
+                            }
+                            IconButton(onClick = onDismiss) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.options_panel_close),
+                                    tint = contentColor.copy(alpha = 0.7f),
+                                )
+                            }
                         }
                     }
 
@@ -457,7 +490,7 @@ fun SystemMenu(
                                     if (isProfileFocused) {
                                         MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
                                     } else {
-                                        MaterialTheme.colorScheme.surfaceContainerHigh
+                                        contentColor.copy(alpha = 0.08f)
                                     },
                                 )
                                 .then(
@@ -472,7 +505,7 @@ fun SystemMenu(
                                     },
                                 )
                                 .focusRequester(profileFocusRequester)
-                                .hapticSelectable(
+                                .selectable(
                                     selected = isProfileFocused,
                                     interactionSource = profileInteractionSource,
                                     indication = null,
@@ -487,7 +520,7 @@ fun SystemMenu(
                                 modifier = Modifier
                                     .size(48.dp)
                                     .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                    .background(contentColor.copy(alpha = 0.1f)),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 if (persona?.avatarHash?.isNotEmpty() == true) {
@@ -500,7 +533,7 @@ fun SystemMenu(
                                         imageVector = Icons.Default.Person,
                                         contentDescription = null,
                                         modifier = Modifier.size(24.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        tint = contentColor.copy(alpha = 0.6f),
                                     )
                                 }
                             }
@@ -511,7 +544,7 @@ fun SystemMenu(
                                     text = persona?.name ?: stringResource(R.string.default_user_name),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    color = contentColor,
                                     maxLines = 1,
                                 )
                                 Row(
@@ -531,7 +564,7 @@ fun SystemMenu(
                                             else -> selectedStatus.name
                                         },
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        color = contentColor.copy(alpha = 0.7f),
                                     )
                                 }
                             }
@@ -546,7 +579,7 @@ fun SystemMenu(
                                     },
                                     contentDescription = null,
                                     modifier = Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    tint = contentColor.copy(alpha = 0.6f),
                                 )
                             }
                         }
@@ -555,38 +588,41 @@ fun SystemMenu(
                         androidx.compose.material3.DropdownMenu(
                             expanded = showStatusPicker,
                             onDismissRequest = { showStatusPicker = false },
-                            modifier = Modifier
-                                .width(280.dp)
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                            containerColor = if (looks.isGlassEnabled) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerHigh,
+                            tonalElevation = if (looks.isGlassEnabled) 0.dp else 3.dp,
+                            shadowElevation = if (looks.isGlassEnabled) 0.dp else 3.dp,
+                            modifier = Modifier.width(280.dp),
                         ) {
-                            Column(
-                                modifier = Modifier
-                                    .padding(8.dp)
-                                    .focusGroup(),
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.status),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                )
-                                listOf(
-                                    Triple(EPersonaState.Online, stringResource(R.string.status_online), PluviaTheme.colors.statusInstalled),
-                                    Triple(EPersonaState.Away, stringResource(R.string.status_away), PluviaTheme.colors.statusAway),
-                                    Triple(EPersonaState.Invisible, stringResource(R.string.status_invisible), PluviaTheme.colors.statusOffline),
-                                ).forEach { (state, label, color) ->
-                                    StatusOption(
-                                        text = label,
-                                        statusColor = color,
-                                        isSelected = selectedStatus == state,
-                                        onClick = {
-                                            selectedStatus = state
-                                            showStatusPicker = false
-                                            scope.launch {
-                                                SteamService.setPersonaState(state)
-                                            }
-                                        },
+                            BrokenGlassMenuSurface(modifier = Modifier.width(280.dp)) {
+                                Column(
+                                    modifier = Modifier
+                                        .padding(8.dp)
+                                        .focusGroup(),
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.status),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                                     )
+                                    listOf(
+                                        Triple(EPersonaState.Online, stringResource(R.string.status_online), PluviaTheme.colors.statusInstalled),
+                                        Triple(EPersonaState.Away, stringResource(R.string.status_away), PluviaTheme.colors.statusAway),
+                                        Triple(EPersonaState.Invisible, stringResource(R.string.status_invisible), PluviaTheme.colors.statusOffline),
+                                    ).forEach { (state, label, color) ->
+                                        StatusOption(
+                                            text = label,
+                                            statusColor = color,
+                                            isSelected = selectedStatus == state,
+                                            onClick = {
+                                                selectedStatus = state
+                                                showStatusPicker = false
+                                                scope.launch {
+                                                    SteamService.setPersonaState(state)
+                                                }
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -595,7 +631,7 @@ fun SystemMenu(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                        color = contentColor.copy(alpha = 0.15f),
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -604,7 +640,7 @@ fun SystemMenu(
                     Column(
                         modifier = Modifier
                             .weight(1f)
-                            .verticalScroll(rememberScrollState())
+                            .verticalScroll(scrollState)
                             .focusGroup(),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
@@ -615,7 +651,18 @@ fun SystemMenu(
                                 onNavigateRoute(PluviaScreen.Settings.route)
                                 onDismiss()
                             },
+                            modifier = Modifier.focusProperties { up = rotateFocusRequester },
                             focusRequester = firstItemFocusRequester,
+                        )
+
+                        SystemMenuItem(
+                            text = stringResource(R.string.support_title),
+                            icon = Icons.Default.SupportAgent,
+                            onClick = {
+                                onNavigateRoute(PluviaScreen.Support.route)
+                                onDismiss()
+                            },
+                            badge = SupportReplyWatcher.unread.value.isNotEmpty(),
                         )
 
                         SystemMenuItem(
@@ -624,15 +671,6 @@ fun SystemMenu(
                             onClick = {
                                 onDownloadsClick()
                                 onDismiss()
-                            },
-                            focusRequester = firstItemFocusRequester,
-                        )
-
-                        SystemMenuItem(
-                            text = "Linux Environment",
-                            icon = Icons.Default.Settings,
-                            onClick = {
-                                showLinuxSetupDialog = true
                             },
                         )
 
@@ -645,24 +683,24 @@ fun SystemMenu(
                         )
 
                         SystemMenuItem(
-                            text = stringResource(R.string.hall_of_fame),
-                            icon = Icons.AutoMirrored.Filled.StarHalf,
-                            onClick = { showSupporters = true },
-                        )
-
-                        SystemMenuItem(
-                            text = stringResource(R.string.tutorial_title),
-                            icon = Icons.AutoMirrored.Filled.MenuBook,
+                            text = "Repeat Tutorial",
+                            icon = Icons.AutoMirrored.Filled.Help,
                             onClick = {
                                 onNavigateRoute(PluviaScreen.Onboarding.route)
                                 onDismiss()
                             },
                         )
 
+                        SystemMenuItem(
+                            text = stringResource(R.string.hall_of_fame),
+                            icon = Icons.AutoMirrored.Filled.StarHalf,
+                            onClick = { showSupporters = true },
+                        )
+
                         Spacer(modifier = Modifier.height(16.dp))
 
                         HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                            color = contentColor.copy(alpha = 0.15f),
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -686,7 +724,7 @@ fun SystemMenu(
                                 text = stringResource(R.string.steam_go_offline),
                                 icon = Icons.AutoMirrored.Filled.AirplaneTicket,
                                 onClick = {
-                                    onNavigateRoute(PluviaScreen.Home.route + "?offline=true") // TODO: test this
+                                    onNavigateRoute(PluviaScreen.Home.route + "?offline=true")
                                     onDismiss()
                                 },
                             )
@@ -705,7 +743,7 @@ fun SystemMenu(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                            color = contentColor.copy(alpha = 0.15f),
                         )
 
                         Spacer(modifier = Modifier.height(12.dp))
@@ -713,11 +751,8 @@ fun SystemMenu(
                         // GOG
                         SystemMenuItem(
                             text = stringResource(
-                                if (gogLoggedIn) {
-                                    R.string.gog_settings_logout_title
-                                } else {
-                                    R.string.gog_settings_login_title
-                                },
+                                if (gogLoggedIn) R.string.gog_settings_logout_title
+                                else R.string.gog_settings_login_title,
                             ),
                             icon = if (gogLoggedIn) {
                                 Icons.AutoMirrored.Filled.Logout
@@ -734,11 +769,8 @@ fun SystemMenu(
                         // Epic
                         SystemMenuItem(
                             text = stringResource(
-                                if (epicLoggedIn) {
-                                    R.string.epic_settings_logout_title
-                                } else {
-                                    R.string.epic_settings_login_title
-                                },
+                                if (epicLoggedIn) R.string.epic_settings_logout_title
+                                else R.string.epic_settings_login_title,
                             ),
                             icon = if (epicLoggedIn) {
                                 Icons.AutoMirrored.Filled.Logout
@@ -755,11 +787,8 @@ fun SystemMenu(
                         // Amazon
                         SystemMenuItem(
                             text = stringResource(
-                                if (amazonLoggedIn) {
-                                    R.string.amazon_settings_logout_title
-                                } else {
-                                    R.string.amazon_settings_login_title
-                                },
+                                if (amazonLoggedIn) R.string.amazon_settings_logout_title
+                                else R.string.amazon_settings_login_title,
                             ),
                             icon = if (amazonLoggedIn) {
                                 Icons.AutoMirrored.Filled.Logout
@@ -771,6 +800,24 @@ fun SystemMenu(
                                 onDismiss()
                             },
                             isDestructive = amazonLoggedIn,
+                        )
+
+                        // Xbox
+                        SystemMenuItem(
+                            text = stringResource(
+                                if (xboxLoggedIn) R.string.xbox_settings_logout_title
+                                else R.string.xbox_settings_login_title,
+                            ),
+                            icon = if (xboxLoggedIn) {
+                                Icons.AutoMirrored.Filled.Logout
+                            } else {
+                                Icons.AutoMirrored.Filled.Login
+                            },
+                            onClick = {
+                                if (xboxLoggedIn) onXboxLogoutClick() else onXboxLoginClick()
+                                onDismiss()
+                            },
+                            isDestructive = xboxLoggedIn,
                         )
                     }
 
@@ -785,7 +832,7 @@ fun SystemMenu(
                             Text(
                                 text = stringResource(R.string.press_b_to_close),
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                color = contentColor.copy(alpha = 0.6f),
                             )
                         }
                     }
@@ -800,7 +847,6 @@ fun SystemMenu(
             try {
                 firstItemFocusRequester.requestFocus()
             } catch (_: Exception) {
-                // TODO: Focus request may fail if composition is not ready
             }
         }
     }
@@ -818,7 +864,6 @@ private fun Preview_SystemMenu() {
     PluviaTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // Fake background content
                 Column(
                     modifier = Modifier
                         .fillMaxSize()

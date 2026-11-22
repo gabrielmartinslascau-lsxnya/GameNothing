@@ -74,6 +74,12 @@ data class GOGGame(
 
     @ColumnInfo(name = "exclude", defaultValue = "0")
     val exclude: Boolean = false,
+
+    @ColumnInfo(name = "hidden", defaultValue = "0")
+    val hidden: Boolean = false,
+
+    @ColumnInfo(name = "installed_dlc_ids", defaultValue = "[]")
+    val installedDlcIds: List<String> = emptyList(),
 ) {
     companion object {
         const val GOG_IMAGE_BASE_URL = "https://images.gog.com/images"

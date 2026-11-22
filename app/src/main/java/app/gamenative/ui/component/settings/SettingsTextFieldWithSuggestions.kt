@@ -11,6 +11,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import app.gamenative.ui.component.NoExtractOutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,7 +23,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.Dp
-import app.gamenative.ui.component.NoExtractOutlinedTextField
 import com.alorma.compose.settings.ui.base.internal.LocalSettingsGroupEnabled
 import com.alorma.compose.settings.ui.base.internal.SettingsTileColors
 import com.alorma.compose.settings.ui.base.internal.SettingsTileDefaults
@@ -40,6 +40,7 @@ fun SettingsTextFieldWithSuggestions(
     title: @Composable (() -> Unit),
     modifier: Modifier = Modifier,
     enabled: Boolean = LocalSettingsGroupEnabled.current,
+    useFullScreenGlassPicker: Boolean = false,
     icon: @Composable (() -> Unit)? = null,
     action: @Composable (() -> Unit)? = null,
     colors: SettingsTileColors = SettingsTileDefaults.colors(),
@@ -78,33 +79,52 @@ fun SettingsTextFieldWithSuggestions(
                         imageVector = Icons.AutoMirrored.Outlined.ViewList,
                         contentDescription = "Presets",
                     )
-                    DropdownMenu(
-                        expanded = suggestionsExpanded,
-                        onDismissRequest = { suggestionsExpanded = false },
-                    ) {
-                        suggestions.forEach { suggestion ->
-                            // suggestion box headers
-                            if (suggestion.startsWith("---")) {
-                                // Category header — greyed out, not clickable
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            text = suggestion.removePrefix("---"),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                        )
-                                    },
-                                    onClick = {},
-                                    enabled = false,
-                                )
-                            } else {
-                                DropdownMenuItem(
-                                    text = { Text(suggestion) },
-                                    onClick = {
-                                        onValueChange(suggestion)
-                                        suggestionsExpanded = false
-                                    },
-                                )
+                    if (useFullScreenGlassPicker) {
+                        val cleanedItems = suggestions.map {
+                            if (it.startsWith("---")) it.removePrefix("---").trim() else it
+                        }
+                        val disabledItems = suggestions.map { it.startsWith("---") }
+                        FullScreenGlassSelectorDialog(
+                            visible = suggestionsExpanded,
+                            title = title,
+                            items = cleanedItems,
+                            selectedIndex = suggestions.indexOf(value),
+                            itemDisabled = disabledItems,
+                            searchable = suggestions.size > 5,
+                            onItemSelected = { idx ->
+                                onValueChange(suggestions[idx])
+                            },
+                            onDismiss = { suggestionsExpanded = false },
+                        )
+                    } else {
+                        DropdownMenu(
+                            expanded = suggestionsExpanded,
+                            onDismissRequest = { suggestionsExpanded = false },
+                        ) {
+                            suggestions.forEach { suggestion ->
+                                // suggestion box headers
+                                if (suggestion.startsWith("---")) {
+                                    // Category header — greyed out, not clickable
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = suggestion.removePrefix("---"),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            )
+                                        },
+                                        onClick = {},
+                                        enabled = false,
+                                    )
+                                } else {
+                                    DropdownMenuItem(
+                                        text = { Text(suggestion) },
+                                        onClick = {
+                                            onValueChange(suggestion)
+                                            suggestionsExpanded = false
+                                        },
+                                    )
+                                }
                             }
                         }
                     }

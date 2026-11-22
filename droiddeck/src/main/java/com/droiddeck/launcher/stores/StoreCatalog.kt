@@ -1,0 +1,157 @@
+package com.droiddeck.launcher.stores
+
+data class CatalogItem(
+    val store: Store,
+    val id: String,
+    val title: String,
+    val imageUrl: String?,
+    val tallImageUrl: String? = null,
+    val tags: String = "",
+    val isFree: Boolean = false,
+    val hasPrice: Boolean = false,
+    val finalPrice: String = "",
+    val originalPrice: String = "",
+    val discountPercent: Int = 0,
+    val storeUrl: String = "",
+    val developer: String = "",
+    val publisher: String = "",
+    val releaseDate: String = "",
+    val description: String = "",
+    val owned: Boolean = false,
+    val sizeBytes: Long = 0L,
+    val extra: Map<String, String> = emptyMap(),
+    val mature: Boolean = false,
+    val subscription: Boolean = false,
+    val includedWith: String = "",
+    val logoUrl: String? = null,
+) {
+    val accessible: Boolean get() = owned || subscription
+    val installable: Boolean get() = accessible || includedWith.isNotBlank()
+    val isDiscounted: Boolean get() = discountPercent > 0 && originalPrice.isNotBlank()
+    val key: String get() = "${store.id}:$id"
+}
+
+class StoreShelves(
+    val whatsNew: List<CatalogItem> = emptyList(),
+    val deals: List<CatalogItem> = emptyList(),
+    val free: List<CatalogItem> = emptyList(),
+    val trending: List<CatalogItem> = emptyList(),
+    val art: List<String> = emptyList(),
+) {
+    val isEmpty: Boolean get() = whatsNew.isEmpty() && deals.isEmpty() && free.isEmpty() && trending.isEmpty()
+    val all: List<CatalogItem> get() = (whatsNew + deals + free + trending).distinctBy { it.id }
+}
+
+private val MATURE_TAGS = setOf("mature", "nsfw", "adult", "adult only", "adults only", "nudity", "sexual content", "sexual-content")
+
+fun matureByTags(tags: Collection<String>): Boolean = tags.any { it.trim().lowercase() in MATURE_TAGS }
+
+fun matureByAge(ages: Collection<Int>): Boolean = ages.any { it >= 17 }
+
+fun installedCards(store: Store, installed: List<InstalledStoreGame>, library: List<CatalogItem>): List<CatalogItem> {
+    val byId = library.associateBy { it.id }
+    val byTitle = library.associateBy { it.title.lowercase() }
+    return installed.filter { it.sidecar.store == store }.map { game ->
+        val s = game.sidecar
+        byId[s.id] ?: byTitle[s.title.lowercase()]
+            ?: CatalogItem(store, s.id, s.title, imageUrl = s.hero ?: s.cover, tallImageUrl = s.cover ?: s.hero,
+                owned = s.store != Store.XBOX || s.extra["access"] == "owned",
+                subscription = s.store == Store.XBOX && s.extra["access"] == "gamepass")
+    }.distinctBy { it.id }.sortedBy { it.title.lowercase() }
+}
+
+private fun releaseDateValue(raw: String): Long =
+    raw.take(10).takeIf { it.length == 10 }?.let { day ->
+        runCatching { java.time.LocalDate.parse(day).toEpochDay() }.getOrDefault(0L)
+    } ?: 0L
+
+internal fun entryTime(first: Long?, fallback: Long?): Long = first?.takeIf { it > 0 } ?: fallback?.takeIf { it > 0 } ?: 0L
+
+fun <T> sortGames(
+    items: List<T>,
+    sort: String,
+    title: (T) -> String,
+    releaseDate: (T) -> String,
+    lastPlayed: (T) -> Long = { 0L },
+    installedAt: (T) -> Long = { 0L },
+    size: (T) -> Long = { 0L },
+): List<T> {
+    val byTitle = compareBy<T> { title(it).lowercase() }
+    return when (sort) {
+        "lastPlayed" -> items.sortedWith(compareByDescending(lastPlayed).then(byTitle))
+        "recentlyInstalled" -> items.sortedWith(compareByDescending(installedAt).then(byTitle))
+        "titleAsc" -> items.sortedWith(byTitle)
+        "titleDesc" -> items.sortedWith(byTitle.reversed())
+        "sizeDesc" -> items.sortedWith(compareByDescending(size).then(byTitle))
+        "sizeAsc" -> items.sortedWith(compareBy<T> { size(it).takeIf { b -> b > 0 } ?: Long.MAX_VALUE }.then(byTitle))
+        "releaseDateDesc" -> items.sortedWith(compareByDescending<T> { releaseDateValue(releaseDate(it)) }.then(byTitle))
+        else -> items
+    }
+}
+
+internal fun <T> retainOrder(items: List<T>, previous: List<T>, key: (T) -> String): List<T> {
+    if (items.size != previous.size) return items
+    val byKey = items.associateBy(key)
+    if (previous.any { key(it) !in byKey }) return items
+    return previous.map { byKey.getValue(key(it)) }
+}
+
+fun detailCatalogItem(
+    store: Store,
+    id: String,
+    library: List<CatalogItem>,
+    found: List<CatalogItem>,
+    shelves: StoreShelves?,
+): CatalogItem? =
+    library.firstOrNull { it.store == store && it.id == id }
+        ?: found.firstOrNull { it.store == store && it.id == id }
+        ?: shelves?.all?.firstOrNull { it.store == store && it.id == id }
+
+fun mergeItems(old: List<CatalogItem>?, new: List<CatalogItem>): List<CatalogItem> {
+    if (old.isNullOrEmpty()) return new
+    val before = old.associateBy { it.key }
+    val merged = new.map { n -> before[n.key]?.takeIf { it == n } ?: n }
+    return if (merged.size == old.size && merged.indices.all { merged[it] === old[it] }) old else merged
+}
+
+fun patchItems(old: List<CatalogItem>?, patched: List<CatalogItem>): List<CatalogItem> {
+    if (old.isNullOrEmpty()) return patched
+    val byKey = patched.associateBy { it.key }
+    val kept = old.map { byKey[it.key] ?: it }
+    val added = patched.filter { n -> old.none { it.key == n.key } }
+    return if (added.isEmpty()) kept else (kept + added).sortedBy { it.title.lowercase() }
+}
+
+class InstalledStoreGame(val sidecar: StoreGameSidecar, val folder: java.io.File) {
+    val key: String get() = "${sidecar.store.id}:${sidecar.id}"
+}
+
+private val TEMPLATE_KEY = Regex("product_(description|feature)_\\d+")
+private val HTML_TAG = Regex("<[^>]+>")
+private val ENTITY = Regex("&(#\\d+|#x[0-9a-fA-F]+|[a-zA-Z]+);")
+private val NAMED_ENTITIES = mapOf("amp" to "&", "lt" to "<", "gt" to ">", "quot" to "\"", "apos" to "'", "nbsp" to " ", "ndash" to "–", "mdash" to "—", "hellip" to "…", "trade" to "™", "reg" to "®", "copy" to "©")
+
+fun cleanStoreText(raw: String?): String {
+    if (raw.isNullOrBlank()) return ""
+    var s = raw.replace(TEMPLATE_KEY, " ")
+    s = s.replace(Regex("(?i)<br\\s*/?>|</p>|</li>|</div>"), "\n").replace(HTML_TAG, " ")
+    s = ENTITY.replace(s) { m ->
+        val e = m.groupValues[1]
+        when {
+            e.startsWith("#x") -> e.substring(2).toIntOrNull(16)?.toChar()?.toString() ?: " "
+            e.startsWith("#") -> e.substring(1).toIntOrNull()?.toChar()?.toString() ?: " "
+            else -> NAMED_ENTITIES[e.lowercase()] ?: " "
+        }
+    }
+    return s.lines().map { it.replace(Regex("[ \\t\\u00A0]+"), " ").trim() }.filter { it.isNotEmpty() }.joinToString("\n")
+}
+
+fun formatBytes(bytes: Long): String = when {
+    bytes >= 1_073_741_824L -> "%.1f GB".format(bytes / 1_073_741_824.0)
+    bytes >= 1_048_576L -> "%.1f MB".format(bytes / 1_048_576.0)
+    bytes >= 1024L -> "%.0f KB".format(bytes / 1024.0)
+    bytes >= 0L -> "$bytes B"
+    else -> ""
+}
+
+fun formatSpeed(bytesPerSec: Long): String = if (bytesPerSec <= 0L) "" else "${formatBytes(bytesPerSec)}/s"

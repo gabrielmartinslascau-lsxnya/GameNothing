@@ -7,12 +7,12 @@ import app.gamenative.service.SteamService
 import com.winlator.contents.AdrenotoolsManager
 import com.winlator.contents.ContentProfile
 import com.winlator.contents.ContentsManager
-import java.io.File
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import java.io.File
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 data class ManifestInstallResult(
     val success: Boolean,
@@ -159,7 +159,7 @@ object ManifestInstaller {
         }
     }
 
-    private suspend fun extractContent(
+    internal suspend fun extractContent(
         mgr: ContentsManager,
         uri: Uri,
     ): Triple<ContentProfile?, ContentsManager.InstallFailedReason?, Exception?> = withContext(Dispatchers.IO) {
@@ -168,21 +168,18 @@ object ManifestInstaller {
         var err: Exception? = null
         val latch = CountDownLatch(1)
         try {
-            mgr.extraContentFile(
-                uri,
-                object : ContentsManager.OnInstallFinishedCallback {
-                    override fun onFailed(reason: ContentsManager.InstallFailedReason, e: Exception?) {
-                        failReason = reason
-                        err = e
-                        latch.countDown()
-                    }
+            mgr.extraContentFile(uri, object : ContentsManager.OnInstallFinishedCallback {
+                override fun onFailed(reason: ContentsManager.InstallFailedReason, e: Exception?) {
+                    failReason = reason
+                    err = e
+                    latch.countDown()
+                }
 
-                    override fun onSucceed(profileArg: ContentProfile) {
-                        profile = profileArg
-                        latch.countDown()
-                    }
-                },
-            )
+                override fun onSucceed(profileArg: ContentProfile) {
+                    profile = profileArg
+                    latch.countDown()
+                }
+            })
         } catch (e: Exception) {
             err = e
             latch.countDown()
@@ -193,26 +190,23 @@ object ManifestInstaller {
         Triple(profile, failReason, err)
     }
 
-    private suspend fun finishInstall(
+    internal suspend fun finishInstall(
         mgr: ContentsManager,
         profile: ContentProfile,
     ): Boolean = withContext(Dispatchers.IO) {
         var success = false
         val latch = CountDownLatch(1)
         try {
-            mgr.finishInstallContent(
-                profile,
-                object : ContentsManager.OnInstallFinishedCallback {
-                    override fun onFailed(reason: ContentsManager.InstallFailedReason, e: Exception?) {
-                        latch.countDown()
-                    }
+            mgr.finishInstallContent(profile, object : ContentsManager.OnInstallFinishedCallback {
+                override fun onFailed(reason: ContentsManager.InstallFailedReason, e: Exception?) {
+                    latch.countDown()
+                }
 
-                    override fun onSucceed(profileArg: ContentProfile) {
-                        success = true
-                        latch.countDown()
-                    }
-                },
-            )
+                override fun onSucceed(profileArg: ContentProfile) {
+                    success = true
+                    latch.countDown()
+                }
+            })
         } catch (_: Exception) {
             latch.countDown()
         }

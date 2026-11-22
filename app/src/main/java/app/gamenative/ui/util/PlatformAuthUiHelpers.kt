@@ -152,4 +152,41 @@ object PlatformAuthUiHelpers {
             }
         }
     }
+
+    fun logoutXbox(
+        context: Context,
+        scope: CoroutineScope,
+        callbacks: PlatformLogoutCallbacks = PlatformLogoutCallbacks(),
+    ) {
+        callbacks.onLoadingChange(true)
+        scope.launch {
+            try {
+                Timber.d("[PlatformAuthUiHelpers][Xbox] Starting logout...")
+                val result = app.gamenative.service.xbox.XboxService.logout(context)
+                withContext(Dispatchers.Main) {
+                    callbacks.onLoadingChange(false)
+                    if (result.isSuccess) {
+                        Timber.i("[PlatformAuthUiHelpers][Xbox] Logout successful")
+                        callbacks.onSuccess()
+                        SnackbarManager.show("Signed out of Xbox")
+                    } else {
+                        val error = result.exceptionOrNull()
+                        Timber.e(error, "[PlatformAuthUiHelpers][Xbox] Logout failed")
+                        val message = "Failed to sign out of Xbox: ${error?.message ?: "Unknown"}"
+                        callbacks.onError(message)
+                        SnackbarManager.show(message)
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "[PlatformAuthUiHelpers][Xbox] Exception during logout")
+                withContext(Dispatchers.Main) {
+                    callbacks.onLoadingChange(false)
+                    val message = "Failed to sign out of Xbox: ${e.message ?: "Unknown"}"
+                    callbacks.onError(message)
+                    SnackbarManager.show(message)
+                }
+            }
+        }
+    }
 }
+

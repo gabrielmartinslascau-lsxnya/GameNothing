@@ -14,8 +14,6 @@ import app.gamenative.service.SteamService
 import app.gamenative.utils.ContainerUtils
 import com.winlator.container.Container
 import com.winlator.container.ContainerData
-import java.io.File
-import java.util.EnumSet
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -26,6 +24,9 @@ import org.junit.runner.RunWith
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
+import java.io.File
+import java.lang.reflect.Field
+import java.util.EnumSet
 
 @RunWith(RobolectricTestRunner::class)
 class ContainerConfigDialogContainerUpdateTest {
@@ -401,7 +402,7 @@ class ContainerConfigDialogContainerUpdateTest {
             execArgs = "--fullscreen --no-splash",
             executablePath = "Games\\Test\\game.exe",
             envVars = "TEST_VAR=value",
-            audioDriver = "alsa",
+            audioDriver = "alsa"
         )
 
         ContainerUtils.applyToContainer(context, container, containerData, saveToDisk = false)
@@ -425,7 +426,7 @@ class ContainerConfigDialogContainerUpdateTest {
         val containerData = ContainerData(
             graphicsDriver = "wrapper-v2",
             graphicsDriverVersion = "25.3.0",
-            graphicsDriverConfig = graphicsConfig,
+            graphicsDriverConfig = graphicsConfig
         )
 
         ContainerUtils.applyToContainer(context, container, containerData, saveToDisk = false)
@@ -447,7 +448,7 @@ class ContainerConfigDialogContainerUpdateTest {
 
         val containerData = ContainerData(
             dxwrapper = "vkd3d",
-            dxwrapperConfig = dxWrapperConfig,
+            dxwrapperConfig = dxWrapperConfig
         )
 
         ContainerUtils.applyToContainer(context, container, containerData, saveToDisk = false)
@@ -470,7 +471,7 @@ class ContainerConfigDialogContainerUpdateTest {
             disableMouseInput = true,
             touchscreenMode = true,
             shooterMode = true,
-            wow64Mode = true,
+            wow64Mode = true
         )
 
         ContainerUtils.applyToContainer(context, container, containerData, saveToDisk = false)
@@ -496,7 +497,7 @@ class ContainerConfigDialogContainerUpdateTest {
         val containerData = ContainerData(
             showFPS = false,
             launchRealSteam = false,
-            forceDlc = false,
+            forceDlc = false
         )
 
         ContainerUtils.applyToContainer(context, container, containerData, saveToDisk = false)
@@ -512,7 +513,7 @@ class ContainerConfigDialogContainerUpdateTest {
             containerVariant = Container.BIONIC,
             wineVersion = "proton-9.0-arm64ec",
             emulator = "box64",
-            fexcoreVersion = "2511",
+            fexcoreVersion = "2511"
         )
 
         ContainerUtils.applyToContainer(context, container, containerData, saveToDisk = false)
@@ -530,7 +531,7 @@ class ContainerConfigDialogContainerUpdateTest {
         val containerData = ContainerData(
             containerVariant = Container.GLIBC,
             wineVersion = "wine-9.2-x86_64",
-            graphicsDriverVersion = "2-842.6",
+            graphicsDriverVersion = "2-842.6"
         )
 
         ContainerUtils.applyToContainer(context, container, containerData, saveToDisk = false)
@@ -567,7 +568,7 @@ class ContainerConfigDialogContainerUpdateTest {
 
         val containerData = ContainerData(
             graphicsDriverConfig = graphicsConfig,
-            dxwrapperConfig = dxWrapperConfig,
+            dxwrapperConfig = dxWrapperConfig
         )
 
         ContainerUtils.applyToContainer(context, container, containerData, saveToDisk = false)
@@ -581,7 +582,7 @@ class ContainerConfigDialogContainerUpdateTest {
         val winComponents = "direct3d=0,directsound=0,directinput8=0,directinput=0,directmusic=1,directshow=1,directplay=1,vcrun2010=0,wmdecoder=0,opengl=1"
 
         val containerData = ContainerData(
-            wincomponents = winComponents,
+            wincomponents = winComponents
         )
 
         ContainerUtils.applyToContainer(context, container, containerData, saveToDisk = false)
@@ -594,7 +595,7 @@ class ContainerConfigDialogContainerUpdateTest {
         val containerData = ContainerData(
             cpuList = "0,2,4,6",
             cpuListWoW64 = "1,3,5,7",
-            wow64Mode = true,
+            wow64Mode = true
         )
 
         ContainerUtils.applyToContainer(context, container, containerData, saveToDisk = false)
@@ -608,7 +609,7 @@ class ContainerConfigDialogContainerUpdateTest {
     fun box64Properties_areAppliedCorrectly() {
         val containerData = ContainerData(
             box64Version = "0.3.8",
-            box64Preset = com.winlator.box86_64.Box86_64Preset.PERFORMANCE,
+            box64Preset = com.winlator.box86_64.Box86_64Preset.PERFORMANCE
         )
 
         ContainerUtils.applyToContainer(context, container, containerData, saveToDisk = false)
@@ -622,7 +623,7 @@ class ContainerConfigDialogContainerUpdateTest {
         val containerData = ContainerData(
             sharpnessEffect = "CAS",
             sharpnessLevel = 64,
-            sharpnessDenoise = 12,
+            sharpnessDenoise = 12
         )
 
         ContainerUtils.applyToContainer(context, container, containerData, saveToDisk = false)
@@ -635,7 +636,7 @@ class ContainerConfigDialogContainerUpdateTest {
     @Test
     fun language_isAppliedCorrectly() {
         val containerData = ContainerData(
-            language = "german",
+            language = "german"
         )
 
         ContainerUtils.applyToContainer(context, container, containerData, saveToDisk = false)
@@ -652,7 +653,7 @@ class ContainerConfigDialogContainerUpdateTest {
     @Test
     fun steamType_isAppliedCorrectly() {
         val containerData = ContainerData(
-            steamType = Container.STEAM_TYPE_LIGHT,
+            steamType = Container.STEAM_TYPE_LIGHT
         )
 
         ContainerUtils.applyToContainer(context, container, containerData, saveToDisk = false)
@@ -663,11 +664,23 @@ class ContainerConfigDialogContainerUpdateTest {
     @Test
     fun startupSelection_isAppliedCorrectly() {
         val containerData = ContainerData(
-            startupSelection = Container.STARTUP_SELECTION_AGGRESSIVE,
+            startupSelection = Container.STARTUP_SELECTION_AGGRESSIVE
         )
 
         ContainerUtils.applyToContainer(context, container, containerData, saveToDisk = false)
 
         assertEquals(Container.STARTUP_SELECTION_AGGRESSIVE, container.startupSelection)
     }
+
+    @Test
+    fun portraitMode_isAppliedCorrectly() {
+        val containerData = ContainerData(
+            portraitMode = true,
+        )
+
+        ContainerUtils.applyToContainer(context, container, containerData, saveToDisk = false)
+
+        assertTrue(container.isPortraitMode)
+    }
 }
+

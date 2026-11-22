@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -57,12 +58,11 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.widget.doAfterTextChanged
 import app.gamenative.PrefManager
 import app.gamenative.R
+import app.gamenative.ui.data.LibraryState
+import app.gamenative.ui.theme.LocalLooksState
+import app.gamenative.ui.theme.BrokenGlassPanel
 import app.gamenative.ui.theme.PluviaTheme
-import app.gamenative.ui.theme.PluviaGlassPanel
 import app.gamenative.ui.theme.glassContentColor
-import app.gamenative.ui.theme.pluviaGlass
-import app.gamenative.utils.HapticManager
-import app.gamenative.utils.hapticClickable
 import kotlinx.coroutines.launch
 
 @Composable
@@ -74,18 +74,20 @@ fun LibrarySearchBar(
     onSearchQuery: (String) -> Unit,
     onDismiss: () -> Unit,
     isScrolling: Boolean = false,
-    distortionStrength: Float? = null,
     modifier: Modifier = Modifier,
 ) {
-    val isGlass = PrefManager.glassPanels
-
+    val looks = LocalLooksState.current
     AnimatedVisibility(
         visible = isVisible,
         enter = expandVertically(
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessMedium,
-            ),
+            animationSpec = if (looks.jigglyAnimations) {
+                spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium,
+                )
+            } else {
+                androidx.compose.animation.core.tween(200)
+            },
             expandFrom = Alignment.Top,
         ) + fadeIn(),
         exit = shrinkVertically(
@@ -97,81 +99,35 @@ fun LibrarySearchBar(
         ) + fadeOut(),
         modifier = modifier,
     ) {
-        // Gradient background container
-        if (isGlass) {
-            PluviaGlassPanel(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                cornerRadius = 16,
-                isScrolling = isScrolling,
-                distortionStrength = distortionStrength,
-                shape = RoundedCornerShape(16.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.Transparent)
+                .padding(top = 8.dp, bottom = 20.dp, start = 12.dp, end = 12.dp),
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Column(
-                    modifier = Modifier.padding(top = 8.dp, bottom = 20.dp, start = 12.dp, end = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    SearchBarInput(
-                        searchQuery = searchQuery,
-                        onScrollToTop = onScrollToTop,
-                        onSearchQuery = onSearchQuery,
-                        onDismiss = onDismiss,
-                    )
+                SearchBarInput(
+                    searchQuery = searchQuery,
+                    onScrollToTop = onScrollToTop,
+                    onSearchQuery = onSearchQuery,
+                    onDismiss = onDismiss,
+                    isScrolling = isScrolling,
+                )
 
-                    // Results count
-                    if (searchQuery.isNotEmpty()) {
-                        Text(
-                            text = if (resultCount == 1) {
-                                stringResource(R.string.search_results_one, resultCount)
-                            } else {
-                                stringResource(R.string.search_results_many, resultCount)
-                            },
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(start = 8.dp),
-                        )
-                    }
-                }
-            }
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                                Color.Transparent,
-                            ),
-                        ),
+                // Results count
+                if (searchQuery.isNotEmpty()) {
+                    Text(
+                        text = if (resultCount == 1) {
+                            stringResource(R.string.search_results_one, resultCount)
+                        } else {
+                            stringResource(R.string.search_results_many, resultCount)
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 8.dp),
                     )
-                    .padding(top = 8.dp, bottom = 20.dp, start = 12.dp, end = 12.dp),
-            ) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    SearchBarInput(
-                        searchQuery = searchQuery,
-                        onScrollToTop = onScrollToTop,
-                        onSearchQuery = onSearchQuery,
-                        onDismiss = onDismiss,
-                    )
-
-                    // Results count
-                    if (searchQuery.isNotEmpty()) {
-                        Text(
-                            text = if (resultCount == 1) {
-                                stringResource(R.string.search_results_one, resultCount)
-                            } else {
-                                stringResource(R.string.search_results_many, resultCount)
-                            },
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(start = 8.dp),
-                        )
-                    }
                 }
             }
         }
@@ -184,6 +140,7 @@ private fun SearchBarInput(
     onScrollToTop: suspend () -> Unit,
     onSearchQuery: (String) -> Unit,
     onDismiss: () -> Unit,
+    isScrolling: Boolean = false,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -205,19 +162,10 @@ private fun SearchBarInput(
         }
     }
 
-    Row(
+    val contentColor = glassContentColor()
+    BrokenGlassPanel(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .background(
-                brush = Brush.horizontalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    ),
-                ),
-            )
             .then(
                 if (isFocused) {
                     Modifier.border(
@@ -228,52 +176,56 @@ private fun SearchBarInput(
                 } else {
                     Modifier
                 },
-            )
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ),
+        cornerRadius = 24,
+        isScrolling = isScrolling,
+        backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
     ) {
-        // Back/Close button
-        Box(
+        Row(
             modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                .hapticClickable(
-                    onClick = onDismiss,
-                    type = HapticManager.HapticType.CLICK
-                ),
-            contentAlignment = Alignment.Center,
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // Back/Close button
+            BrokenGlassPanel(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clickable { onDismiss() },
+                cornerRadius = 18,
+                isScrolling = isScrolling,
+                backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            ) {
+                Box(modifier = Modifier.fillMaxWidth().height(36.dp), contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        contentDescription = stringResource(R.string.library_search_close),
+                        tint = contentColor,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+
+            // Search icon
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                contentDescription = stringResource(R.string.library_search_close),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp),
+                imageVector = Icons.Default.Search,
+                contentDescription = null,
+                tint = if (isFocused) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    contentColor.copy(alpha = 0.7f)
+                },
+                modifier = Modifier.size(22.dp),
             )
-        }
 
-        // Search icon
-        Icon(
-            imageVector = Icons.Default.Search,
-            contentDescription = null,
-            tint = if (isFocused) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
-            modifier = Modifier.size(22.dp),
-        )
+            // Text input using AndroidView with EditText
+            val textColor = contentColor
+            val hintColor = contentColor.copy(alpha = 0.6f)
+            val cursorColor = MaterialTheme.colorScheme.primary
+            val placeholderText = stringResource(R.string.library_search_placeholder)
 
-        // Text input using AndroidView with EditText
-        // This allows setting IME_FLAG_NO_EXTRACT_UI to prevent fullscreen keyboard in landscape
-        // TODO: there must be a better way of doing this
-        val textColor = MaterialTheme.colorScheme.onSurface
-        val hintColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-        val cursorColor = MaterialTheme.colorScheme.primary
-        val placeholderText = stringResource(R.string.library_search_placeholder)
-
-        AndroidView(
+            AndroidView(
             factory = { context ->
                 EditText(context).apply {
                     // Prevent fullscreen keyboard (extract mode) in landscape
@@ -353,10 +305,7 @@ private fun SearchBarInput(
                     .size(32.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                    .hapticClickable(
-                        onClick = { onSearchText("") },
-                        type = HapticManager.HapticType.CLICK
-                    ),
+                    .clickable { onSearchText("") },
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -367,6 +316,7 @@ private fun SearchBarInput(
                 )
             }
         }
+    }
     }
 }
 

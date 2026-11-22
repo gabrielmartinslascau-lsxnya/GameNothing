@@ -17,6 +17,7 @@ fun SettingsEnvVars(
     colors: SettingsTileColors = SettingsTileDefaults.colors(),
     onEnvVarsChange: (EnvVars) -> Unit,
     knownEnvVars: Map<String, EnvVarInfo>,
+    useFullScreenGlassPicker: Boolean = false,
     envVarAction: (@Composable (String) -> Unit)? = null,
 ) {
     for (identifier in envVars) {
@@ -43,29 +44,55 @@ fun SettingsEnvVars(
                 val values = value.split(",")
                     .map { envVarInfo!!.possibleValues.indexOf(it) }
                     .filter { it >= 0 && it < envVarInfo!!.possibleValues.size }
-                SettingsMultiListDropdown(
-                    colors = colors,
-                    enabled = enabled,
-                    title = { Text(identifier) },
-                    values = values,
-                    items = envVarInfo!!.possibleValues,
-                    fallbackDisplay = value,
-                    onItemSelected = { index ->
-                        val newValues = if (values.contains(index)) {
-                            values.filter { it != index }
-                        } else {
-                            values + index
-                        }
-                        envVars.put(
-                            identifier,
-                            newValues.joinToString(",") { envVarInfo.possibleValues[it] },
-                        )
-                        onEnvVarsChange(envVars)
-                    },
-                    action = envVarAction?.let {
-                        { envVarAction(identifier) }
-                    },
-                )
+                if (useFullScreenGlassPicker) {
+                    ContainerGlassMultiDropdown(
+                        colors = colors,
+                        enabled = enabled,
+                        title = { Text(identifier) },
+                        values = values,
+                        items = envVarInfo!!.possibleValues,
+                        fallbackDisplay = value,
+                        onItemSelected = { index ->
+                            val newValues = if (values.contains(index)) {
+                                values.filter { it != index }
+                            } else {
+                                values + index
+                            }
+                            envVars.put(
+                                identifier,
+                                newValues.joinToString(",") { envVarInfo.possibleValues[it] },
+                            )
+                            onEnvVarsChange(envVars)
+                        },
+                        action = envVarAction?.let {
+                            { envVarAction(identifier) }
+                        },
+                    )
+                } else {
+                    SettingsMultiListDropdown(
+                        colors = colors,
+                        enabled = enabled,
+                        title = { Text(identifier) },
+                        values = values,
+                        items = envVarInfo!!.possibleValues,
+                        fallbackDisplay = value,
+                        onItemSelected = { index ->
+                            val newValues = if (values.contains(index)) {
+                                values.filter { it != index }
+                            } else {
+                                values + index
+                            }
+                            envVars.put(
+                                identifier,
+                                newValues.joinToString(",") { envVarInfo.possibleValues[it] },
+                            )
+                            onEnvVarsChange(envVars)
+                        },
+                        action = envVarAction?.let {
+                            { envVarAction(identifier) }
+                        },
+                    )
+                }
             }
             EnvVarSelectionType.SUGGESTIONS -> {
                 SettingsTextFieldWithSuggestions(
@@ -74,6 +101,7 @@ fun SettingsEnvVars(
                     title = { Text(identifier) },
                     value = value,
                     suggestions = envVarInfo?.possibleValues ?: emptyList(),
+                    useFullScreenGlassPicker = useFullScreenGlassPicker,
                     onValueChange = {
                         envVars.put(identifier, it)
                         onEnvVarsChange(envVars)
@@ -85,21 +113,39 @@ fun SettingsEnvVars(
             }
             EnvVarSelectionType.NONE -> {
                 if (envVarInfo?.possibleValues?.isNotEmpty() == true) {
-                    SettingsListDropdown(
-                        colors = colors,
-                        enabled = enabled,
-                        title = { Text(identifier) },
-                        value = envVarInfo.possibleValues.indexOf(value),
-                        items = envVarInfo.possibleValues,
-                        fallbackDisplay = value,
-                        onItemSelected = {
-                            envVars.put(identifier, envVarInfo.possibleValues[it])
-                            onEnvVarsChange(envVars)
-                        },
-                        action = envVarAction?.let {
-                            { envVarAction(identifier) }
-                        },
-                    )
+                    if (useFullScreenGlassPicker) {
+                        ContainerGlassDropdown(
+                            colors = colors,
+                            enabled = enabled,
+                            title = { Text(identifier) },
+                            value = envVarInfo.possibleValues.indexOf(value),
+                            items = envVarInfo.possibleValues,
+                            fallbackDisplay = value,
+                            onItemSelected = {
+                                envVars.put(identifier, envVarInfo.possibleValues[it])
+                                onEnvVarsChange(envVars)
+                            },
+                            action = envVarAction?.let {
+                                { envVarAction(identifier) }
+                            },
+                        )
+                    } else {
+                        SettingsListDropdown(
+                            colors = colors,
+                            enabled = enabled,
+                            title = { Text(identifier) },
+                            value = envVarInfo.possibleValues.indexOf(value),
+                            items = envVarInfo.possibleValues,
+                            fallbackDisplay = value,
+                            onItemSelected = {
+                                envVars.put(identifier, envVarInfo.possibleValues[it])
+                                onEnvVarsChange(envVars)
+                            },
+                            action = envVarAction?.let {
+                                { envVarAction(identifier) }
+                            },
+                        )
+                    }
                 } else {
                     SettingsTextField(
                         colors = colors,

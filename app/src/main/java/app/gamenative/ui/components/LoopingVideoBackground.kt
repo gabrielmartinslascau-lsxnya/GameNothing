@@ -6,7 +6,6 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.annotation.OptIn
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -14,6 +13,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
@@ -41,6 +41,8 @@ fun LoopingVideoBackground(
     videoPath: String,
     modifier: Modifier = Modifier,
     dimAlpha: Float = 0.4f,
+    dimAlphaProvider: () -> Float = { dimAlpha },
+    autoExtractColor: Boolean = PrefManager.autoExtractWallpaperColor,
     onColorExtracted: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
@@ -51,18 +53,23 @@ fun LoopingVideoBackground(
             repeatMode = Player.REPEAT_MODE_ONE
             volume = 0f
             videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT
-
-            val file = File(videoPath)
-            if (file.exists()) {
-                setMediaItem(MediaItem.fromUri(Uri.fromFile(file)))
-                prepare()
-                playWhenReady = true
-            }
         }
     }
 
-    LaunchedEffect(videoPath) {
-        if (videoPath.isNotEmpty() && PrefManager.autoExtractWallpaperColor) {
+    LaunchedEffect(exoPlayer, videoPath) {
+        val file = File(videoPath)
+        if (videoPath.isNotEmpty() && file.exists()) {
+            exoPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(file)))
+            exoPlayer.prepare()
+            exoPlayer.playWhenReady = true
+        } else {
+            exoPlayer.stop()
+            exoPlayer.clearMediaItems()
+        }
+    }
+
+    LaunchedEffect(videoPath, autoExtractColor) {
+        if (videoPath.isNotEmpty() && autoExtractColor) {
             withContext(Dispatchers.IO) {
                 try {
                     val retriever = MediaMetadataRetriever()
@@ -78,7 +85,7 @@ fun LoopingVideoBackground(
                             onColorExtracted?.invoke(hex)
                         }
                     }
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     // Ignore extraction failures
                 }
             }
@@ -113,7 +120,7 @@ fun LoopingVideoBackground(
         AndroidView(
             factory = { ctx ->
                 // BRIDGE: Inflate from XML to force surface_type="texture_view"
-                // This allows the Liquid Glass panels to sample moving video frames.
+                // This allows the Broken Glass panels to sample moving video frames.
                 val view = LayoutInflater.from(ctx).inflate(R.layout.pluvia_video_player, null) as PlayerView
                 view.apply {
                     player = exoPlayer
@@ -131,11 +138,16 @@ fun LoopingVideoBackground(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Cheap dimming overlay
+        // Dimming overlay (draw-phase only so slider drags never recompose PlayerView)
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = dimAlpha))
+                .drawBehind {
+                    val alpha = dimAlphaProvider().coerceIn(0f, 0.9f)
+                    if (alpha > 0f) {
+                        drawRect(Color.Black.copy(alpha = alpha))
+                    }
+                }
         )
     }
 }

@@ -1,62 +1,103 @@
 package app.gamenative.ui.screen.settings
 
+import android.app.Activity
 import android.content.Context
-import android.content.res.Configuration
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.Button
+import app.gamenative.ui.component.NoExtractOutlinedTextField
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.*
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.zIndex
+import androidx.compose.runtime.LaunchedEffect
 import app.gamenative.R
-import app.gamenative.service.SteamService
-import app.gamenative.ui.component.NoExtractOutlinedTextField
-import app.gamenative.ui.component.dialog.LoadingDialog
-import app.gamenative.ui.theme.PluviaTheme
-import app.gamenative.ui.util.SnackbarManager
-import app.gamenative.utils.Net
+import app.gamenative.ui.theme.BrokenGlassDialogSurface
+import app.gamenative.ui.theme.LocalLooksState
+import app.gamenative.ui.theme.glassContentColor
+import app.gamenative.ui.theme.settingsTileColors
+import com.alorma.compose.settings.ui.SettingsGroup
+import com.alorma.compose.settings.ui.SettingsMenuLink
 import com.winlator.contents.AdrenotoolsManager
 import java.io.File
-import java.io.IOException
-import java.net.SocketTimeoutException
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Search
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.material3.Surface
+import app.gamenative.ui.theme.PluviaTheme
+import android.content.res.Configuration
+import app.gamenative.ui.util.SnackbarManager
+import app.gamenative.service.SteamService
+import app.gamenative.ui.component.dialog.LoadingDialog
+import app.gamenative.utils.Net
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import okhttp3.Request
+import java.io.IOException
+import java.io.InputStream
+import java.net.URL
 import timber.log.Timber
+import java.net.SocketTimeoutException
+import java.nio.ByteBuffer
+import java.util.concurrent.TimeUnit
+import okhttp3.Response
+import java.io.FileOutputStream
+import kotlinx.coroutines.delay
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,7 +128,6 @@ fun DriverManagerDialog(open: Boolean, onDismiss: () -> Unit) {
     var driverToDelete by remember { mutableStateOf<String?>(null) }
 
     val refreshDriverList: () -> Unit = {
-        app.gamenative.utils.HapticManager.trigger(app.gamenative.utils.HapticManager.HapticType.CLICK)
         installedDrivers.clear()
         driverMeta.clear()
         try {
@@ -181,7 +221,7 @@ fun DriverManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                 SteamService.fetchFileWithFallback(
                     fileName = "drivers/$driverFileName",
                     dest = destFile,
-                    context = ctx,
+                    context = ctx
                 ) { progress ->
                     val now = System.currentTimeMillis()
                     if (now - lastUpdate > 300) {
@@ -194,11 +234,7 @@ fun DriverManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                 val downloadDurationMs = System.currentTimeMillis() - overallStart
                 val downloadedSize = destFile.length()
                 Timber.d("DriverManagerDialog: Download complete in ${downloadDurationMs}ms (${formatBytes(downloadedSize)})")
-                withContext(Dispatchers.Main) {
-                    isDownloading = false
-                    downloadProgress = 1f
-                    downloadBytes = downloadedSize
-                }
+                withContext(Dispatchers.Main) { isDownloading = false; downloadProgress = 1f; downloadBytes = downloadedSize }
 
                 // Install the driver from the temporary file
                 withContext(Dispatchers.Main) { isInstalling = true }
@@ -256,28 +292,28 @@ fun DriverManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 450.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .verticalScroll(rememberScrollState())
             ) {
                 Text(
                     text = "Import a custom graphics driver package",
                     style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(vertical = 8.dp),
+                    modifier = Modifier.padding(vertical = 8.dp)
                 )
 
                 // Online driver selection
                 if (isLoadingManifest) {
                     Row(
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                        modifier = Modifier.padding(vertical = 8.dp),
+                        modifier = Modifier.padding(vertical = 8.dp)
                     ) {
                         Text(
                             text = "Loading available drivers...",
                             style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f)
                         )
                         CircularProgressIndicator(
                             modifier = Modifier.height(20.dp),
-                            strokeWidth = 2.dp,
+                            strokeWidth = 2.dp
                         )
                     }
                 } else if (manifestError != null) {
@@ -285,43 +321,170 @@ fun DriverManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                         text = manifestError ?: "Unknown error",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(vertical = 8.dp),
+                        modifier = Modifier.padding(vertical = 8.dp)
                     )
                 } else if (driverManifest.isNotEmpty()) {
                     Text(
                         text = "Available online drivers:",
                         style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
                     )
 
-                    ExposedDropdownMenuBox(
-                        expanded = isExpanded,
-                        onExpandedChange = { isExpanded = !isExpanded },
-                        modifier = Modifier.fillMaxWidth(),
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isExpanded = true },
                     ) {
                         NoExtractOutlinedTextField(
                             value = selectedDriverKey,
                             onValueChange = {},
                             readOnly = true,
+                            enabled = false,
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isExpanded) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(),
+                            modifier = Modifier.fillMaxWidth(),
                             placeholder = { Text(stringResource(R.string.select_a_driver)) },
                         )
+                    }
 
-                        ExposedDropdownMenu(
-                            expanded = isExpanded,
+                    if (isExpanded) {
+                        var driverSearch by remember { mutableStateOf("") }
+                        val filteredDriverKeys = remember(driverSearch, driverManifest) {
+                            driverManifest.keys.filter { it.contains(driverSearch, ignoreCase = true) }
+                        }
+                        val isGlass = LocalLooksState.current.isGlassEnabled
+                        val contentColor = if (isGlass) glassContentColor() else MaterialTheme.colorScheme.onSurface
+                        Dialog(
                             onDismissRequest = { isExpanded = false },
+                            properties = DialogProperties(usePlatformDefaultWidth = false),
                         ) {
-                            driverManifest.keys.forEach { driverKey ->
-                                DropdownMenuItem(
-                                    text = { Text(driverKey) },
-                                    onClick = {
-                                        selectedDriverKey = driverKey
-                                        isExpanded = false
-                                    },
-                                )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .zIndex(1000f)
+                                    .background(Color.Black.copy(alpha = 0.56f))
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = { isExpanded = false },
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                BrokenGlassDialogSurface(
+                                    cornerRadius = 24,
+                                    modifier = Modifier
+                                        .zIndex(1000f)
+                                        .fillMaxWidth(0.92f)
+                                        .widthIn(max = 520.dp)
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null,
+                                            onClick = {},
+                                        ),
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(
+                                                MaterialTheme.colorScheme.surfaceContainerHigh.copy(
+                                                    alpha = if (isGlass) 0.78f else 1f,
+                                                ),
+                                            )
+                                            .padding(20.dp),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                        ) {
+                                            Text(
+                                                text = stringResource(R.string.select_a_driver),
+                                                style = MaterialTheme.typography.titleLarge,
+                                                color = contentColor,
+                                            )
+                                            IconButton(onClick = { isExpanded = false }) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Close,
+                                                    contentDescription = stringResource(R.string.close),
+                                                    tint = contentColor,
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        OutlinedTextField(
+                                            value = driverSearch,
+                                            onValueChange = { driverSearch = it },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            placeholder = {
+                                                Text(stringResource(R.string.settings_interface_settingslistdropdownsearchable_searchlabel))
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Search,
+                                                    contentDescription = null,
+                                                    tint = contentColor.copy(alpha = 0.75f),
+                                                )
+                                            },
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(12.dp),
+                                        )
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                        HorizontalDivider(color = contentColor.copy(alpha = 0.14f))
+                                        LazyColumn(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .heightIn(min = 120.dp, max = 340.dp),
+                                        ) {
+                                            items(filteredDriverKeys, key = { it }) { driverKey ->
+                                                val isSelected = driverKey == selectedDriverKey
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clip(RoundedCornerShape(12.dp))
+                                                        .background(
+                                                            if (isSelected) {
+                                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                                                            } else {
+                                                                Color.Transparent
+                                                            },
+                                                        )
+                                                        .clickable {
+                                                            selectedDriverKey = driverKey
+                                                            isExpanded = false
+                                                        }
+                                                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                ) {
+                                                    Text(
+                                                        text = driverKey,
+                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else contentColor,
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                        maxLines = 2,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        modifier = Modifier.weight(1f),
+                                                    )
+                                                    if (isSelected) {
+                                                        Spacer(modifier = Modifier.width(8.dp))
+                                                        Icon(
+                                                            imageVector = Icons.Filled.Check,
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.primary,
+                                                            modifier = Modifier.size(18.dp),
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.End,
+                                        ) {
+                                            TextButton(onClick = { isExpanded = false }) {
+                                                Text(stringResource(R.string.close))
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -330,11 +493,11 @@ fun DriverManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                         Row(
                             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.padding(top = 16.dp),
+                            modifier = Modifier.padding(top = 16.dp)
                         ) {
                             Button(
                                 onClick = { downloadAndInstallDriver(driverManifest[selectedDriverKey]!!) },
-                                enabled = !isDownloading && !isImporting,
+                                enabled = !isDownloading && !isImporting
                             ) {
                                 Text(stringResource(R.string.download))
                             }
@@ -347,10 +510,10 @@ fun DriverManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                                             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .padding(top = 4.dp),
+                                                .padding(top = 4.dp)
                                         ) {
                                             Text(
-                                                text = "${formatBytes(downloadBytes)} / ${formatBytes(totalBytes)}",
+                                                text = "${formatBytes(downloadBytes)} / ${formatBytes(totalBytes)}"
                                             )
                                         }
                                     }
@@ -361,7 +524,7 @@ fun DriverManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                                             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .padding(top = 4.dp),
+                                                .padding(top = 4.dp)
                                         ) {
                                             Text(text = stringResource(R.string.downloading))
                                         }
@@ -371,11 +534,11 @@ fun DriverManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                             if (isInstalling) {
                                 Row(
                                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.height(24.dp),
-                                        strokeWidth = 2.dp,
+                                        strokeWidth = 2.dp
                                     )
                                     Text(text = stringResource(R.string.installing))
                                 }
@@ -390,7 +553,7 @@ fun DriverManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                 Text(
                     text = "Import from local storage:",
                     style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(bottom = 8.dp),
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
 
                 Button(
@@ -399,7 +562,7 @@ fun DriverManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                         launcher.launch(arrayOf("application/zip", "application/x-zip-compressed"))
                     },
                     enabled = !isImporting && !isDownloading,
-                    modifier = Modifier.padding(bottom = 8.dp),
+                    modifier = Modifier.padding(bottom = 8.dp)
                 ) {
                     Text(stringResource(R.string.import_zip_from_device))
                 }
@@ -407,16 +570,16 @@ fun DriverManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                 if (isImporting) {
                     Row(
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                        modifier = Modifier.padding(bottom = 8.dp),
+                        modifier = Modifier.padding(bottom = 8.dp)
                     ) {
                         Text(
                             text = "Importing driver...",
                             style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f)
                         )
                         CircularProgressIndicator(
                             modifier = Modifier.height(20.dp),
-                            strokeWidth = 2.dp,
+                            strokeWidth = 2.dp
                         )
                     }
                 }
@@ -426,19 +589,19 @@ fun DriverManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                     Text(
                         text = "Installed custom drivers",
                         style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(bottom = 8.dp),
+                        modifier = Modifier.padding(bottom = 8.dp)
                     )
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 8.dp),
+                            .padding(bottom = 8.dp)
                     ) {
                         for (id in installedDrivers) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 4.dp),
-                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                             ) {
                                 val meta = driverMeta[id]
                                 val display = buildString {
@@ -447,16 +610,16 @@ fun DriverManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                                 Text(
                                     text = display,
                                     modifier = Modifier.weight(1f),
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = MaterialTheme.typography.bodyMedium
                                 )
                                 IconButton(
                                     onClick = { driverToDelete = id },
-                                    modifier = Modifier.padding(start = 8.dp),
+                                    modifier = Modifier.padding(start = 8.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.Delete,
                                         contentDescription = "Delete",
-                                        tint = MaterialTheme.colorScheme.error,
+                                        tint = MaterialTheme.colorScheme.error
                                     )
                                 }
                             }
@@ -483,7 +646,7 @@ fun DriverManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                                 }) {
                                     Text(
                                         text = "Delete",
-                                        color = MaterialTheme.colorScheme.error,
+                                        color = MaterialTheme.colorScheme.error
                                     )
                                 }
                             },
@@ -502,7 +665,7 @@ fun DriverManagerDialog(open: Boolean, onDismiss: () -> Unit) {
             TextButton(onClick = onDismiss) {
                 Text(
                     text = "Close",
-                    color = MaterialTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         },
@@ -523,7 +686,7 @@ private fun handlePickedUri(context: Context, uri: Uri): String {
 }
 
 private fun formatBytes(bytes: Long): String {
-    if (bytes < 1024) return "$bytes B"
+    if (bytes < 1024) return "${bytes} B"
     val kb = bytes / 1024.0
     if (kb < 1024) return String.format("%.1f KB", kb)
     val mb = kb / 1024.0

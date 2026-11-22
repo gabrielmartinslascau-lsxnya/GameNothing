@@ -1,14 +1,19 @@
 package app.gamenative.service.epic
 
 import app.gamenative.service.epic.EpicConstants
-import app.gamenative.utils.Net
 import java.time.Instant
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import timber.log.Timber
+import app.gamenative.utils.Net
+
 
 data class EpicAuthResponse(
     val accessToken: String,
@@ -188,7 +193,7 @@ object EpicAuthClient {
         accessToken: String,
         accountId: String,
         namespace: String,
-        catalogItemId: String,
+        catalogItemId: String
     ): Result<ByteArray> = withContext(Dispatchers.IO) {
         try {
             val url = "https://${EpicConstants.ECOMMERCE_HOST}/ecommerceintegration/api/public/" +
@@ -226,6 +231,8 @@ object EpicAuthClient {
             Result.failure(e)
         }
     }
+
+
 
     private fun parseExpiresAt(json: JSONObject): Long {
         return try {

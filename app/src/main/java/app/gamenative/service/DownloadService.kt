@@ -4,14 +4,13 @@ import android.content.Context
 import android.os.Environment
 import app.gamenative.PrefManager
 import app.gamenative.utils.StorageUtils
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import java.io.File
 
 object DownloadService {
     @Volatile private var lastUpdateTime: Long = 0
-
     @Volatile private var downloadDirectoryApps: MutableList<String>? = null
     var baseDataDirPath: String = ""
         private set(value) {
@@ -21,14 +20,13 @@ object DownloadService {
         private set(value) {
             field = value
         }
-
     // Base path to the app-specific external storage directory (Android/data/<package>)
     var baseExternalAppDirPath: String = ""
         private set(value) {
             field = value
         }
 
-    // all mounted non-primary external volumes (SD cards, USB), discovered at init
+    // All mounted install target volumes (SD cards, USB, and adopted primary storage), discovered at init
     var externalVolumePaths: List<String> = emptyList()
         private set
 
@@ -42,7 +40,7 @@ object DownloadService {
         val sm = context.getSystemService(android.os.storage.StorageManager::class.java)
         val appFilesDirs = StorageUtils.getAllExternalFilesDirs(context)
             .filter { Environment.getExternalStorageState(it) == Environment.MEDIA_MOUNTED }
-            .filter { sm?.getStorageVolume(it)?.isPrimary != true }
+            .filter { StorageUtils.isExternalInstallTarget(sm, it) }
         // both layouts per volume: legacy Android/data (existing installs) + public root (new installs)
         externalVolumePaths = appFilesDirs
             .flatMap { dir -> listOfNotNull(dir.absolutePath, StorageUtils.publicInstallRoot(dir)?.absolutePath) }
@@ -69,7 +67,7 @@ object DownloadService {
     }
 
     @Synchronized
-    fun getDownloadDirectoryApps(): MutableList<String> {
+    fun getDownloadDirectoryApps (): MutableList<String> {
         // What apps have folders in the download area?
         // Isn't checking for "complete" marker - incomplete is accepted
 
@@ -90,34 +88,28 @@ object DownloadService {
         return downloadDirectoryApps ?: mutableListOf()
     }
 
-    private fun getSubdirectories(path: String): MutableList<String> {
+    private fun getSubdirectories (path: String): MutableList<String> {
         // Names of immediate subdirectories
-        return runCatching {
-            val root = File(path)
-            if (!root.exists() || !root.isDirectory) return@runCatching emptyList<String>().toMutableList()
-            val subDir = root.list { dir, name ->
-                runCatching { File(dir, name).isDirectory }.getOrDefault(false)
-            }
-            subDir?.toMutableList() ?: mutableListOf()
-        }.getOrElse { e ->
-            Timber.tag("DownloadService").w(e, "Failed to list subdirectories of $path")
-            mutableListOf()
+        val subDir = File(path).list() { dir, name -> File(dir, name).isDirectory}
+        if (subDir == null) {
+            return emptyList<String>().toMutableList()
         }
+        return subDir.toMutableList()
     }
 
-    fun getSizeFromStoreDisplay(appId: Int, branch: String = "public"): String {
+    fun getSizeFromStoreDisplay (appId: Int, branch: String = "public"): String {
         val depots = SteamService.getDownloadableDepots(appId)
         val installBytes = depots.values.sumOf { (it.manifests[branch] ?: it.manifests["public"])?.size ?: 0L }
         return StorageUtils.formatBinarySize(installBytes)
     }
 
-    suspend fun getSizeOnDiskDisplay(appId: Int, setResult: (String) -> Unit) {
+    suspend fun getSizeOnDiskDisplay (appId: Int, setResult: (String) -> Unit) {
         // Outputs "3.76GiB" etc to the result lambda without locking up the main thread
         withContext(Dispatchers.IO) {
             // Do it async
             if (SteamService.isAppInstalled(appId)) {
                 val appSizeText = StorageUtils.formatBinarySize(
-                    StorageUtils.getFolderSize(SteamService.getAppDirPath(appId)),
+                    StorageUtils.getFolderSize(SteamService.getAppDirPath(appId))
                 )
 
                 Timber.d("Finding $appId size on disk $appSizeText")

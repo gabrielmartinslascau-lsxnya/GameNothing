@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +21,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -36,7 +36,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import app.gamenative.utils.hapticSelectable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
@@ -139,17 +138,16 @@ fun OptionListItem(
             .then(
                 if (isFocused) {
                     Modifier.border(style.borderWidth, style.borderColor, RoundedCornerShape(12.dp))
-                } else {
-                    Modifier
-                },
+                } else Modifier
             )
             .focusRequester(focusRequester)
-            .hapticSelectable(
+            .selectable(
                 selected = selected,
                 interactionSource = interactionSource,
-                onClick = onClick,
+                indication = null,
+                onClick = onClick
             )
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -160,7 +158,7 @@ fun OptionListItem(
                     imageVector = icon,
                     contentDescription = null,
                     tint = style.contentColor,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(22.dp)
                 )
                 Spacer(modifier = Modifier.width(14.dp))
             }
@@ -169,7 +167,7 @@ fun OptionListItem(
                 text = text,
                 style = MaterialTheme.typography.bodyLarge,
                 color = style.contentColor,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f)
             )
 
             if (trailingText != null) {
@@ -186,7 +184,7 @@ fun OptionListItem(
                     imageVector = Icons.Default.Check,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
@@ -213,7 +211,7 @@ fun OptionRadioItem(
     val radioIndicatorColor by animateColorAsState(
         targetValue = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
         animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "radioIndicatorColor",
+        label = "radioIndicatorColor"
     )
 
     Box(
@@ -224,17 +222,16 @@ fun OptionRadioItem(
             .then(
                 if (isFocused) {
                     Modifier.border(style.borderWidth, style.borderColor, RoundedCornerShape(12.dp))
-                } else {
-                    Modifier
-                },
+                } else Modifier
             )
             .focusRequester(focusRequester)
-            .hapticSelectable(
+            .selectable(
                 selected = selected,
                 interactionSource = interactionSource,
-                onClick = onClick,
+                indication = null,
+                onClick = onClick
             )
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -244,13 +241,13 @@ fun OptionRadioItem(
                 modifier = Modifier
                     .size(20.dp)
                     .border(2.dp, radioIndicatorColor, CircleShape),
-                contentAlignment = Alignment.Center,
+                contentAlignment = Alignment.Center
             ) {
                 if (selected) {
                     Box(
                         modifier = Modifier
                             .size(10.dp)
-                            .background(MaterialTheme.colorScheme.primary, CircleShape),
+                            .background(MaterialTheme.colorScheme.primary, CircleShape)
                     )
                 }
             }
@@ -262,7 +259,7 @@ fun OptionRadioItem(
                     imageVector = icon,
                     contentDescription = null,
                     tint = style.contentColor,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
             }
@@ -286,7 +283,7 @@ fun OptionSectionHeader(
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
         letterSpacing = MaterialTheme.typography.labelMedium.letterSpacing * 1.5f,
-        modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp)
     )
 }
 
@@ -297,20 +294,20 @@ private fun Preview_OptionListItem() {
         Surface(color = MaterialTheme.colorScheme.surface) {
             Column(
                 modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 OptionSectionHeader(text = "Sort By")
                 OptionRadioItem(
                     text = "Installed First",
                     selected = true,
                     onClick = {},
-                    icon = Icons.Default.Download,
+                    icon = Icons.Default.Download
                 )
                 OptionRadioItem(
                     text = "Name (A-Z)",
                     selected = false,
                     onClick = {},
-                    icon = Icons.Default.SortByAlpha,
+                    icon = Icons.Default.SortByAlpha
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))

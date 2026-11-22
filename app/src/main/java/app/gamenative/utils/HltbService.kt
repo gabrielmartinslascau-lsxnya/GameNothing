@@ -24,8 +24,8 @@ private fun normalizedKey(input: String) =
  * Fetches HowLongToBeat completion time stats for a game.
  *
  * Flow (ported from https://github.com/morwy/hltb-for-deck):
- *  1. GET /api/bleed/init → auth tokens (token, hpKey, hpVal)
- *  2. POST /api/bleed with auth headers + body → search results contain all comp times
+ *  1. GET /api/search/site/init → auth tokens (token, hpKey, hpVal)
+ *  2. POST /api/search/site with auth headers + body → search results contain all comp times
  *
  * HLTB's CDN rejects HTTP/2 for this endpoint, so requests use the shared app client forced to HTTP/1.1.
  * Stats are cached for 12 hours.
@@ -33,7 +33,7 @@ private fun normalizedKey(input: String) =
 object HltbService {
 
     private const val DEFAULT_API_BASE_URL = "https://howlongtobeat.com"
-    private const val SEARCH_PATH = "/api/bleed"
+    private const val SEARCH_PATH = "/api/search/site"
     private const val INIT_PATH = "$SEARCH_PATH/init"
     private const val UA =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"
@@ -58,7 +58,6 @@ object HltbService {
     }
 
     @Volatile private var auth: Auth? = null
-
     @Volatile private var apiBaseUrl = DEFAULT_API_BASE_URL
 
     private val httpClient = Net.http.newBuilder()
@@ -74,10 +73,7 @@ object HltbService {
                 if (!response.isSuccessful) return@withContext null
                 parseAuth(response.body?.string() ?: return@withContext null)?.also { auth = it }
             }
-        } catch (e: Exception) {
-            Timber.tag("HLTB").e(e, "fetchAuth")
-            null
-        }
+        } catch (e: Exception) { Timber.tag("HLTB").e(e, "fetchAuth"); null }
     }
 
     /** POST the HLTB search API, returning the best-matching game's stats. */
@@ -147,49 +143,34 @@ object HltbService {
             put("searchTerms", JSONArray(searchTerms))
             put("searchPage", 1)
             put("size", 20)
-            put(
-                "searchOptions",
-                JSONObject().apply {
-                    put(
-                        "games",
-                        JSONObject().apply {
-                            put("userId", 0)
-                            put("platform", "")
-                            put("sortCategory", "name")
-                            put("rangeCategory", "main")
-                            put("modifier", "hide_dlc")
-                            put(
-                                "rangeTime",
-                                JSONObject().apply {
-                                    put("min", 0)
-                                    put("max", 0)
-                                },
-                            )
-                            put(
-                                "rangeYear",
-                                JSONObject().apply {
-                                    put("min", "")
-                                    put("max", "")
-                                },
-                            )
-                            put(
-                                "gameplay",
-                                JSONObject().apply {
-                                    put("perspective", "")
-                                    put("flow", "")
-                                    put("genre", "")
-                                    put("difficulty", "")
-                                },
-                            )
-                        },
-                    )
-                    put("users", JSONObject())
-                    put("lists", JSONObject())
-                    put("filter", "")
-                    put("sort", 0)
-                    put("randomizer", 0)
-                },
-            )
+            put("searchOptions", JSONObject().apply {
+                put("games", JSONObject().apply {
+                    put("userId", 0)
+                    put("platform", "")
+                    put("sortCategory", "name")
+                    put("rangeCategory", "main")
+                    put("modifier", "hide_dlc")
+                    put("rangeTime", JSONObject().apply {
+                        put("min", 0)
+                        put("max", 0)
+                    })
+                    put("rangeYear", JSONObject().apply {
+                        put("min", "")
+                        put("max", "")
+                    })
+                    put("gameplay", JSONObject().apply {
+                        put("perspective", "")
+                        put("flow", "")
+                        put("genre", "")
+                        put("difficulty", "")
+                    })
+                })
+                put("users", JSONObject())
+                put("lists", JSONObject())
+                put("filter", "")
+                put("sort", 0)
+                put("randomizer", 0)
+            })
             put(auth.hpKey, auth.hpVal)
         }.toString()
 
@@ -270,16 +251,13 @@ object HltbService {
         val dp = Array(left.length + 1) { IntArray(right.length + 1) }
         for (leftIndex in 0..left.length) dp[leftIndex][0] = leftIndex
         for (rightIndex in 0..right.length) dp[0][rightIndex] = rightIndex
-        for (leftIndex in 1..left.length) {
-            for (rightIndex in 1..right.length) {
-                dp[leftIndex][rightIndex] = minOf(
-                    dp[leftIndex - 1][rightIndex] + 1,
-                    dp[leftIndex][rightIndex - 1] + 1,
-                    dp[leftIndex - 1][rightIndex - 1] +
-                        (if (left[leftIndex - 1] == right[rightIndex - 1]) 0 else 1),
-                )
-            }
-        }
+        for (leftIndex in 1..left.length) for (rightIndex in 1..right.length)
+            dp[leftIndex][rightIndex] = minOf(
+                dp[leftIndex - 1][rightIndex] + 1,
+                dp[leftIndex][rightIndex - 1] + 1,
+                dp[leftIndex - 1][rightIndex - 1] +
+                    (if (left[leftIndex - 1] == right[rightIndex - 1]) 0 else 1),
+            )
         return dp[left.length][right.length]
     }
 
@@ -341,11 +319,7 @@ object HltbCache {
         load()
         val k = key(name)
         val ts = stamps[k] ?: return null
-        if (System.currentTimeMillis() - ts >= TTL) {
-            mem.remove(k)
-            stamps.remove(k)
-            return null
-        }
+        if (System.currentTimeMillis() - ts >= TTL) { mem.remove(k); stamps.remove(k); return null }
         return mem[k]
     }
 
@@ -355,10 +329,7 @@ object HltbCache {
         val k = key(name)
         if (mem.size >= MAX_ENTRIES && !mem.containsKey(k)) {
             // Evict the oldest entry to stay within memory budget
-            stamps.minByOrNull { it.value }?.key?.let { oldest ->
-                mem.remove(oldest)
-                stamps.remove(oldest)
-            }
+            stamps.minByOrNull { it.value }?.key?.let { oldest -> mem.remove(oldest); stamps.remove(oldest) }
         }
         mem[k] = stats
         stamps[k] = System.currentTimeMillis()
@@ -369,9 +340,5 @@ object HltbCache {
 
     /** Reset state — for testing only. */
     @Synchronized
-    internal fun reset() {
-        mem.clear()
-        stamps.clear()
-        loaded = false
-    }
+    internal fun reset() { mem.clear(); stamps.clear(); loaded = false }
 }

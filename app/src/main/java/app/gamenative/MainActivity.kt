@@ -1,8 +1,5 @@
 package app.gamenative
 
-import android.appwidget.AppWidgetManager
-import android.appwidget.AppWidgetProviderInfo
-import android.system.Os
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.ComponentCallbacks2
@@ -10,14 +7,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.graphics.ColorSpace
 import android.graphics.Color.TRANSPARENT
 import android.hardware.input.InputManager
 import android.os.Build
 import android.os.Bundle
-import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.OrientationEventListener
+import android.appwidget.AppWidgetManager
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -32,50 +30,59 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.lifecycleScope
+import coil.ImageLoader
+import coil.disk.DiskCache
+import coil.memory.MemoryCache
+import coil.intercept.Interceptor
+import coil.request.CachePolicy
 import app.gamenative.BuildConfig
 import app.gamenative.PrefManager
 import app.gamenative.events.AndroidEvent
+import app.gamenative.mods.NexusAuthManager
 import app.gamenative.mods.NexusDownloadLinkInbox
 import app.gamenative.mods.NexusIntegrationStatus
+import app.gamenative.mods.NexusNxmSubmission
 import app.gamenative.mods.NexusPendingDownloadStore
-import app.gamenative.powercontrol.PowerManager
-import app.gamenative.service.SteamService
-import app.gamenative.service.epic.EpicService
-import app.gamenative.service.gog.GOGService
-import app.gamenative.ui.PluviaMain
-import app.gamenative.utils.MusicManager
-import app.gamenative.ui.enums.Orientation
-import app.gamenative.ui.enums.PaneType
 import app.gamenative.ui.screen.library.appscreen.BaseAppScreen
+import app.gamenative.service.SteamService
+import app.gamenative.service.gog.GOGService
+import app.gamenative.service.epic.EpicService
+import app.gamenative.ui.PluviaMain
+import app.gamenative.ui.trackAiDebug
+import app.gamenative.ui.enums.Orientation
+import app.gamenative.ui.screen.support.SupportSession
 import app.gamenative.ui.util.LocalSnackbarHostController
 import app.gamenative.ui.util.SnackbarHostController
-import app.gamenative.ui.util.SnackbarManager
-import app.gamenative.utils.AndroidAppIconFetcher
 import app.gamenative.utils.AnimatedPngDecoder
+import app.gamenative.data.GameSource
+import app.gamenative.powercontrol.PowerManager
 import app.gamenative.utils.ContainerUtils
 import app.gamenative.utils.IconDecoder
 import app.gamenative.utils.IntentLaunchManager
+import app.gamenative.utils.LauncherOrientation
 import app.gamenative.utils.LocaleHelper
-import coil.ImageLoader
-import coil.disk.DiskCache
-import coil.intercept.Interceptor
-import coil.memory.MemoryCache
-import coil.request.CachePolicy
+import app.gamenative.ui.util.SnackbarManager
+import com.posthog.PostHog
 import com.skydoves.landscapist.coil.LocalCoilImageLoader
 import com.winlator.core.AppUtils
 import com.winlator.inputcontrols.ControllerManager
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.util.EnumSet
 import kotlin.math.abs
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import okio.Path.Companion.toOkioPath
 import timber.log.Timber
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-
     companion object {
+        private val nxmIntentMutex = Mutex()
+
         private var totalIndex = 0
 
         private var currentOrientationChangeValue: Int = 0
@@ -91,6 +98,22 @@ class MainActivity : ComponentActivity() {
             Build.MANUFACTURER.equals("Oculus", true) ||
                 Build.MANUFACTURER.equals("Meta", true) ||
                 Build.BRAND.equals("oculus", true)
+
+        const val ACTION_OPEN_SUPPORT = "app.gamenative.OPEN_SUPPORT_CONVERSATION"
+        const val EXTRA_SUPPORT_CONVERSATION = "support_conversation_id"
+
+        // The Coil loader that actually serves cover art (see setContent below). Exposed so the
+        // debug "clear image cache" action clears the right caches instead of Coil's unused default one.
+        @Volatile
+        private var sharedImageLoader: ImageLoader? = null
+
+        @OptIn(coil.annotation.ExperimentalCoilApi::class)
+        fun clearImageCaches() {
+            sharedImageLoader?.let {
+                it.diskCache?.clear()
+                it.memoryCache?.clear()
+            }
+        }
 
         // Store pending launch request to be processed after UI is ready
         @Volatile
@@ -128,8 +151,19 @@ class MainActivity : ComponentActivity() {
         var wasLaunchedViaExternalIntent: Boolean = false
     }
 
+    private val onSetSystemUi: (AndroidEvent.SetSystemUIVisibility) -> Unit = {
+        desiredSystemUiVisible = it.visible
+        applyImmersiveMode()
+    }
+
+    private val onSetAllowedOrientation: (AndroidEvent.SetAllowedOrientation) -> Unit = {
+        // Log.d("MainActivity", "Requested allowed orientations of $it")
+        availableOrientations = it.orientations
+        setOrientationTo(currentOrientationChangeValue, availableOrientations)
+    }
+
     private val bindWidgetLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
+        ActivityResultContracts.StartActivityForResult(),
     ) { result ->
         if (result.resultCode == RESULT_OK) {
             val appWidgetId = result.data?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1) ?: -1
@@ -148,21 +182,38 @@ class MainActivity : ComponentActivity() {
         bindWidgetLauncher.launch(bindIntent)
     }
 
-    private val onSetSystemUi: (AndroidEvent.SetSystemUIVisibility) -> Unit = {
-        desiredSystemUiVisible = it.visible
-        applyImmersiveMode()
-    }
-
-    private val onSetAllowedOrientation: (AndroidEvent.SetAllowedOrientation) -> Unit = {
-        // Log.d("MainActivity", "Requested allowed orientations of $it")
-        availableOrientations = it.orientations
-        setOrientationTo(currentOrientationChangeValue, availableOrientations)
-    }
-
     private val onStartOrientator: (AndroidEvent.StartOrientator) -> Unit = {
         // TODO: When rotating the device on login screen:
         //  StrictMode policy violation: android.os.strictmode.LeakedClosableViolation: A resource was acquired at attached stack trace but never released. See java.io.Closeable for information on avoiding resource leaks.
         startOrientator()
+    }
+
+    /**
+     * Rotate button in the System menu: memory of the launcher orientation lives here so
+     * the sensor orientator, game requests and the button all share one code path.
+     * The ring starts one quarter turn after the device's natural orientation and ends on
+     * auto, so the first press always turns the picture and every press changes the state.
+     */
+    private val onRotateLauncherOrientation: (AndroidEvent.RotateLauncherOrientation) -> Unit = {
+        if (isHeadset(this)) {
+            Timber.d("RotateLauncherOrientation ignored: headset keeps a fixed landscape projection")
+        } else {
+            val next = LauncherOrientation.nextState(
+                LauncherOrientation.stored(),
+                LauncherOrientation.naturalPortrait(this),
+                LauncherOrientation.currentlyPortrait(this),
+            )
+            LauncherOrientation.store(next)
+
+            // Apply the choice immediately rather than relying on setOrientationTo alone: it
+            // also carries the in-game allowed-orientation math, which would ignore the press
+            // whenever the last orientation request was not the launcher's auto set.
+            val target = LauncherOrientation.launcherTarget()
+            if (requestedOrientation != target) {
+                requestedOrientation = target
+            }
+            setOrientationTo(currentOrientationChangeValue, availableOrientations)
+        }
     }
 
     private val onEndProcess: (AndroidEvent.EndProcess) -> Unit = {
@@ -172,70 +223,15 @@ class MainActivity : ComponentActivity() {
     private var controllerInputManager: InputManager? = null
     private val controllerDeviceListener = object : InputManager.InputDeviceListener {
         override fun onInputDeviceAdded(deviceId: Int) {
-            val device = InputDevice.getDevice(deviceId)
-            if (isGamepad(device)) {
-                handleControllerConnected()
-            }
-            updateOrientationForController()
             ControllerManager.getInstance().onDeviceConnected(deviceId)
         }
 
         override fun onInputDeviceRemoved(deviceId: Int) {
-            updateOrientationForController()
             ControllerManager.getInstance().onDeviceDisconnected(deviceId)
         }
 
         override fun onInputDeviceChanged(deviceId: Int) {
-            updateOrientationForController()
             ControllerManager.getInstance().onDeviceConnected(deviceId)
-        }
-    }
-
-    private fun isGamepad(device: android.view.InputDevice?): Boolean =
-        device != null && (device.sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
-                device.sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK)
-
-    private var isControllerTransitioning = false
-
-    private fun handleControllerConnected() {
-        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-        val isCarousel = PrefManager.libraryLayout == app.gamenative.ui.enums.PaneType.CAROUSEL
-
-        if (isLandscape && isCarousel) return
-        if (isControllerTransitioning) return
-
-        isControllerTransitioning = true
-        Timber.i("[Controller] Gamepad detected. Locking landscape and triggering transition.")
-
-        // 1. Force 360 mode for premium first impression
-        PrefManager.libraryLayout = PaneType.MODE_360
-
-        // 2. Force landscape orientation
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-
-        // 3. Trigger 2s premium transition in ViewModel (survives activity recreation)
-        PluviaApp.events.emit(AndroidEvent.TriggerControllerTransition)
-
-        lifecycleScope.launch {
-            delay(1000)
-            isControllerTransitioning = false
-        }
-    }
-
-    private fun isGamepadConnected(): Boolean {
-        val deviceIds = InputDevice.getDeviceIds() ?: return false
-        for (id in deviceIds) {
-            val device = InputDevice.getDevice(id)
-            if (device != null && isGamepad(device)) return true
-        }
-        return false
-    }
-
-    private fun updateOrientationForController() {
-        if (isGamepadConnected()) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        } else {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         }
     }
 
@@ -250,10 +246,6 @@ class MainActivity : ComponentActivity() {
     private var appImageLoader: ImageLoader? = null
 
     private fun releaseImageCaches() {
-        if (PrefManager.aggressiveCaching) {
-            Timber.i("[Aggressive Caching] Skipping cover-art cache release to maintain UI responsiveness.")
-            return
-        }
         appImageLoader?.memoryCache?.clear()
     }
 
@@ -268,19 +260,16 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Fix for controller bridge: ensure the native library looks in the correct package directory
-        try {
-            Os.setenv("EVSHIM_BASE_PATH", applicationContext.filesDir.absolutePath, true)
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to set EVSHIM_BASE_PATH")
-        }
-
         // Full immersive mode - transparent system bars for console-like experience
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(TRANSPARENT),
         )
         super.onCreate(savedInstanceState)
+
+        // Pin the window to the standard (sRGB) colour mode so every phone composes the UI with the
+        // same gamut instead of an OEM-specific wide-gamut default.
+        window.colorMode = ActivityInfo.COLOR_MODE_DEFAULT
 
         app.gamenative.launch.installLaunchReadiness(applicationContext, lifecycleScope)
 
@@ -291,11 +280,13 @@ class MainActivity : ComponentActivity() {
                 val axes = d.motionRanges.joinToString(",") { mr -> "axis=${mr.axis}(min=${mr.min},max=${mr.max})" }
                 Timber.tag("HeadsetInput").i(
                     "id=$id name='${d.name}' sources=0x%08x vendor=0x%04x product=0x%04x isGamepad=%b axes=[$axes]",
-                    d.sources, d.vendorId, d.productId,
-                    d.sources and android.view.InputDevice.SOURCE_GAMEPAD == android.view.InputDevice.SOURCE_GAMEPAD,
+                    d.sources, d.vendorId, d.productId, d.sources and android.view.InputDevice.SOURCE_GAMEPAD == android.view.InputDevice.SOURCE_GAMEPAD
                 )
             }
         }
+
+        // Restore the orientation picked with the System menu rotate button.
+        LauncherOrientation.applyStored(this)
 
         // stale keepAlive from a prior crash/swipe — no container is actually running
         if (SteamService.keepAlive && PluviaApp.xEnvironment == null) {
@@ -310,10 +301,8 @@ class MainActivity : ComponentActivity() {
         ControllerManager.getInstance().init(applicationContext)
         controllerInputManager = getSystemService(Context.INPUT_SERVICE) as InputManager
         controllerInputManager?.registerInputDeviceListener(controllerDeviceListener, null)
-        updateOrientationForController()
 
         ContainerUtils.setContainerDefaults(applicationContext)
-        MusicManager.init(applicationContext)
 
         handleLaunchIntent(intent)
 
@@ -323,6 +312,7 @@ class MainActivity : ComponentActivity() {
         // startOrientator() // causes memory leak since activity restarted every orientation change
         PluviaApp.events.on<AndroidEvent.SetSystemUIVisibility, Unit>(onSetSystemUi)
         PluviaApp.events.on<AndroidEvent.StartOrientator, Unit>(onStartOrientator)
+        PluviaApp.events.on<AndroidEvent.RotateLauncherOrientation, Unit>(onRotateLauncherOrientation)
         PluviaApp.events.on<AndroidEvent.SetAllowedOrientation, Unit>(onSetAllowedOrientation)
         PluviaApp.events.on<AndroidEvent.EndProcess, Unit>(onEndProcess)
         PluviaApp.events.on<AndroidEvent.AddWidget, Unit>(onAddWidget)
@@ -362,28 +352,28 @@ class MainActivity : ComponentActivity() {
                     .diskCache(diskCache)
                     .components {
                         // serve cached images when device has no internet
-                        add(
-                            Interceptor { chain ->
-                                val request = if (!NetworkMonitor.hasInternet.value) {
-                                    chain.request.newBuilder()
-                                        .networkCachePolicy(CachePolicy.DISABLED)
-                                        .build()
-                                } else {
-                                    chain.request
-                                }
-                                chain.proceed(request)
-                            },
-                        )
+                        add(Interceptor { chain ->
+                            val builder = chain.request.newBuilder()
+                                // Decode every image into sRGB so embedded ICC/gAMA/P3 profiles are
+                                // converted the same way on all phones (otherwise OEM colour pipelines
+                                // render the same art with different gamma).
+                                .colorSpace(ColorSpace.get(ColorSpace.Named.SRGB))
+                            if (!NetworkMonitor.hasInternet.value) {
+                                builder.networkCachePolicy(CachePolicy.DISABLED)
+                            }
+                            chain.proceed(builder.build())
+                        })
                         add(IconDecoder.Factory())
                         add(AnimatedPngDecoder.Factory())
-                        add(AndroidAppIconFetcher.Factory(context))
                     }
                     .build()
-                    .also { appImageLoader = it }
+                    .also {
+                        appImageLoader = it
+                        sharedImageLoader = it
+                    }
             }
 
             val snackbarController = remember { SnackbarHostController() }
-
             CompositionLocalProvider(
                 LocalCoilImageLoader provides imageLoader,
                 LocalSnackbarHostController provides snackbarController,
@@ -404,41 +394,48 @@ class MainActivity : ComponentActivity() {
             Timber.d("[IntentLaunch]: Ignoring intent re-delivered from recents")
             return
         }
+        if (intent.action == Intent.ACTION_VIEW &&
+            intent.data?.scheme.equals("gamenative", ignoreCase = true) &&
+            intent.data?.host.equals("discord-linked", ignoreCase = true)
+        ) {
+            val token = intent.data?.getQueryParameter("token").orEmpty()
+            val state = intent.data?.getQueryParameter("state").orEmpty()
+            // Do not retain the token-bearing link as the Activity's launch intent.
+            setIntent(Intent(this, MainActivity::class.java).setAction(Intent.ACTION_MAIN))
+            val expectedNonce = PrefManager.discordOauthNonce
+            if (token.isNotEmpty() && expectedNonce.isNotEmpty() && state == expectedNonce) {
+                PrefManager.discordOauthNonce = ""
+                PrefManager.discordRelayToken = token
+                PrefManager.discordLinkedName = intent.data?.getQueryParameter("name").orEmpty()
+                PrefManager.discordMergePending = true
+                trackAiDebug("ai_debug_discord_linked")
+                SnackbarManager.show(getString(R.string.debug_report_discord_linked))
+            } else if (token.isNotEmpty()) {
+                Timber.w("[IntentLaunch]: Rejecting discord-linked token with mismatched state")
+            }
+            return
+        }
+        if (intent.action == ACTION_OPEN_SUPPORT) {
+            val conversationId = intent.getStringExtra(EXTRA_SUPPORT_CONVERSATION)
+            setIntent(Intent(this, MainActivity::class.java).setAction(Intent.ACTION_MAIN))
+            if (!conversationId.isNullOrEmpty()) SupportSession.pendingConversationId.value = conversationId
+            return
+        }
         if (intent.action == Intent.ACTION_VIEW && intent.data?.scheme.equals("nxm", ignoreCase = true)) {
+            val rawNxmUrl = intent.dataString.orEmpty()
             // Do not retain a signed NXM grant as the Activity's launch intent. Android can
             // otherwise replay it after a configuration change or process recreation.
             setIntent(Intent(this, MainActivity::class.java).setAction(Intent.ACTION_MAIN))
-            if (!NexusIntegrationStatus.ONLINE_ACCESS_AVAILABLE) {
-                Timber.i("[NexusDownload]: Ignoring NXM callback while online Nexus access is disabled")
-                SnackbarManager.show(getString(R.string.nexus_integration_temporarily_unavailable))
-                return
-            }
-            val restoredDownloads = NexusPendingDownloadStore.restore(this)
-            restoredDownloads.forEach { NexusDownloadLinkInbox.expect(it) }
-            val reference = intent.dataString?.let(NexusDownloadLinkInbox::submit)
-            if (reference != null) {
-                restoredDownloads.firstOrNull { pending ->
-                    pending.reference.gameDomain.equals(reference.gameDomain, ignoreCase = true) &&
-                        pending.reference.modId == reference.modId &&
-                        pending.file.fileId == reference.fileId
-                }?.let { pending -> BaseAppScreen.requestManageMods(pending.appId) }
-                NexusPendingDownloadStore.removeMatching(this, reference)
-                Timber.i(
-                    "[NexusDownload]: Received authorized NXM callback for %s/%d/%s",
-                    reference.gameDomain,
-                    reference.modId,
-                    reference.fileId,
-                )
-                SnackbarManager.show(getString(R.string.nexus_nxm_callback_received))
-            } else {
-                Timber.w("[NexusDownload]: Ignoring malformed or unsigned NXM callback")
-                SnackbarManager.show(getString(R.string.nexus_invalid_nxm_callback))
+            lifecycleScope.launch {
+                withContext(NonCancellable) {
+                    nxmIntentMutex.withLock { handleNxmIntent(rawNxmUrl) }
+                }
             }
             return
         }
         Timber.d("[IntentLaunch]: handleLaunchIntent called with action=${intent.action}, isNewIntent=$isNewIntent")
         try {
-            val launchRequest = IntentLaunchManager.parseLaunchIntent(intent)
+            val launchRequest = IntentLaunchManager.parseLaunchIntent(intent, applicationContext)
             if (launchRequest != null) {
                 Timber.d("[IntentLaunch]: Received external launch intent for app ${launchRequest.appId}")
 
@@ -451,7 +448,7 @@ class MainActivity : ComponentActivity() {
                         IntentLaunchManager.applyTemporaryConfigOverride(this, launchRequest.appId, config)
                     }
                     lifecycleScope.launch {
-                        PluviaApp.events.emit(AndroidEvent.ExternalGameLaunch(launchRequest.appId))
+                        PluviaApp.events.emit(AndroidEvent.ExternalGameLaunch(launchRequest.appId, launchRequest.execArgs))
                     }
                 } else {
                     // cold start — store as pending, PluviaMain consumes when UI is ready
@@ -466,6 +463,70 @@ class MainActivity : ComponentActivity() {
             }
         } catch (e: Exception) {
             Timber.e(e, "[IntentLaunch]: Failed to handle launch intent")
+        }
+    }
+
+    private suspend fun handleNxmIntent(rawNxmUrl: String) {
+        if (!NexusIntegrationStatus.ONLINE_ACCESS_AVAILABLE) {
+            Timber.i("[NexusDownload]: Ignoring NXM callback while online Nexus access is disabled")
+            SnackbarManager.show(getString(R.string.nexus_integration_temporarily_unavailable))
+            return
+        }
+        if (!NexusAuthManager.hasStoredSession()) {
+            // A signed NXM grant is short lived and account-bound. Do not restore or consume
+            // it while disconnected: the user must reconnect and request a fresh grant.
+            Timber.i("[NexusDownload]: Ignoring NXM callback while the Nexus account is disconnected")
+            SnackbarManager.show(getString(R.string.nexus_oauth_sign_in_required))
+            return
+        }
+        val restoredDownloads = withContext(Dispatchers.IO) {
+            NexusPendingDownloadStore.restore(this@MainActivity)
+        }
+        restoredDownloads.forEach { NexusDownloadLinkInbox.expect(it) }
+        when (val submission = NexusDownloadLinkInbox.submitIntent(rawNxmUrl)) {
+            is NexusNxmSubmission.Expected -> {
+                BaseAppScreen.requestManageMods(submission.appId)
+                withContext(Dispatchers.IO) {
+                    NexusPendingDownloadStore.removeMatching(this@MainActivity, submission.reference)
+                }
+                Timber.i(
+                    "[NexusDownload]: Received expected NXM callback for %s/%d/%s",
+                    submission.reference.gameDomain,
+                    submission.reference.modId,
+                    submission.reference.fileId,
+                )
+                SnackbarManager.show(getString(R.string.nexus_nxm_callback_received))
+            }
+            is NexusNxmSubmission.BrowserFirst -> {
+                Timber.i(
+                    "[NexusDownload]: Routed browser-first NXM callback for %s/%d/%s",
+                    submission.reference.gameDomain,
+                    submission.reference.modId,
+                    submission.reference.fileId,
+                )
+            }
+            NexusNxmSubmission.Expired -> {
+                Timber.i("[NexusDownload]: Ignoring expired NXM callback")
+                SnackbarManager.show(getString(R.string.nexus_authorization_expired))
+            }
+            NexusNxmSubmission.NoActiveTarget -> {
+                Timber.i("[NexusDownload]: Browser-first NXM callback has no active target")
+                SnackbarManager.show(getString(R.string.nexus_nxm_no_active_target))
+            }
+            NexusNxmSubmission.AmbiguousTarget -> {
+                Timber.w("[NexusDownload]: Browser-first NXM callback has multiple active targets")
+                SnackbarManager.show(getString(R.string.nexus_nxm_ambiguous_target))
+            }
+            NexusNxmSubmission.DeliveryFailed -> {
+                Timber.w("[NexusDownload]: Could not deliver NXM callback to the active target")
+                SnackbarManager.show(getString(R.string.download_failed_try_again))
+            }
+            NexusNxmSubmission.Replayed,
+            NexusNxmSubmission.Malformed,
+            -> {
+                Timber.w("[NexusDownload]: Ignoring malformed, unsigned, or replayed NXM callback")
+                SnackbarManager.show(getString(R.string.nexus_invalid_nxm_callback))
+            }
         }
     }
 
@@ -490,6 +551,7 @@ class MainActivity : ComponentActivity() {
 
         PluviaApp.events.off<AndroidEvent.SetSystemUIVisibility, Unit>(onSetSystemUi)
         PluviaApp.events.off<AndroidEvent.StartOrientator, Unit>(onStartOrientator)
+        PluviaApp.events.off<AndroidEvent.RotateLauncherOrientation, Unit>(onRotateLauncherOrientation)
         PluviaApp.events.off<AndroidEvent.SetAllowedOrientation, Unit>(onSetAllowedOrientation)
         PluviaApp.events.off<AndroidEvent.EndProcess, Unit>(onEndProcess)
         PluviaApp.events.off<AndroidEvent.AddWidget, Unit>(onAddWidget)
@@ -553,7 +615,13 @@ class MainActivity : ComponentActivity() {
                     Timber.d("Game resume skipped due to suspend policy=never")
                 }
                 PluviaApp.isOverlayPaused -> {
-                    if (PluviaApp.isManualSuspendMode()) {
+                    if (PluviaApp.isBootingSplashShowing) {
+                        // The Resume overlay sits under the booting splash, so the user could
+                        // never press it; nothing is being played yet, so just carry on booting.
+                        PluviaApp.xEnvironment?.onResume()
+                        PluviaApp.isOverlayPaused = false
+                        Timber.d("Game resumed automatically: still booting behind the splash")
+                    } else if (PluviaApp.isManualSuspendMode()) {
                         Timber.d("Game remains suspended until user presses Resume")
                     }
                 }
@@ -572,14 +640,22 @@ class MainActivity : ComponentActivity() {
 
         // Restart EpicService if it went down and user is authenticated
         if (EpicService.hasStoredCredentials(this) &&
-            !EpicService.isRunning
-        ) {
+            !EpicService.isRunning) {
             Timber.i("EpicService was down on resume - restarting")
             EpicService.start(this)
+        }
+
+        if (PrefManager.usageAnalyticsEnabled) {
+            PostHog.capture(event = "app_foregrounded")
         }
     }
 
     override fun onPause() {
+        if (PluviaApp.isImmersiveActivityResumed) {
+            Timber.d("Launcher paused behind the immersive activity; game stays in the foreground")
+            super.onPause()
+            return
+        }
         PowerManager.pause()
         PluviaApp.isActivityInForeground = false
         if (hasReadyGameLifecycleState("pause")) {
@@ -597,6 +673,9 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+        if (PrefManager.usageAnalyticsEnabled) {
+            PostHog.capture(event = "app_backgrounded")
         }
         super.onPause()
     }
@@ -649,7 +728,7 @@ class MainActivity : ComponentActivity() {
 
         // Stop GOGService if running and no downloads in progress
         if (GOGService.isRunning && !isChangingConfigurations) {
-            if (!GOGService.hasActiveOperations()) {
+            if(!GOGService.hasActiveOperations()) {
                 Timber.i("Stopping GOG Service - no active operations")
                 GOGService.stop()
             }
@@ -796,13 +875,25 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setOrientationTo(orientation: Int, conformTo: EnumSet<Orientation>) {
-        if (isHeadset(this) || isGamepadConnected()) {
-            if (requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE) {
-                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        if (isHeadset(this)) {
+            if (requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) {
+                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
             }
             return
         }
         // Log.d("MainActivity$index", "Setting orientation to conform")
+
+        // The launcher owns the screen only while the last orientation request was its own
+        // auto set. Games request a concrete set, including portrait-mode containers and the
+        // request MainViewModel sends at launch time, before the container exists - so gating on
+        // "no container running" would swallow those during setup.
+        if (LauncherOrientation.isAuto(conformTo)) {
+            val target = LauncherOrientation.launcherTarget()
+            if (requestedOrientation != target) {
+                requestedOrientation = target
+            }
+            return
+        }
 
         // reverse direction of orientation
         val adjustedOrientation = 360 - orientation

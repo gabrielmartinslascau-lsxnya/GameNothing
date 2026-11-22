@@ -9,7 +9,9 @@ enum class GameSource {
     GOG,
     EPIC,
     AMAZON,
+    XBOX,
     ANDROID_APP,
+    // Add other platforms here..
 }
 
 enum class GameCompatibilityStatus {
@@ -52,7 +54,7 @@ data class LibraryItem(
     val clientIconUrl: String
         get() = when (gameSource) {
             GameSource.STEAM -> if (iconHash.isNotEmpty()) {
-                Constants.Library.ICON_URL + "$gameId/$iconHash.ico"
+                Constants.Library.ICON_URL + "${gameId}/$iconHash.ico"
             } else {
                 ""
             }
@@ -81,9 +83,12 @@ data class LibraryItem(
             GameSource.AMAZON -> {
                 iconHash
             }
+            GameSource.XBOX -> {
+                iconHash
+            }
             GameSource.ANDROID_APP -> {
                 // iconHash stores the package name
-                "android-app://${iconHash}"
+                "android-app://$iconHash"
             }
         }
 

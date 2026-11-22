@@ -1,0 +1,542 @@
+package com.droiddeck.launcher.frontend
+
+import android.content.Context
+import android.net.ConnectivityManager
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.os.PowerManager
+import android.util.AtomicFile
+import android.util.Log
+import androidx.annotation.VisibleForTesting
+import com.droiddeck.launcher.session.SessionState
+import com.droiddeck.launcher.session.WinComponents
+import com.droiddeck.launcher.stores.StoreGameSidecar
+import kotlinx.coroutines.flow.MutableStateFlow
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.util.concurrent.PriorityBlockingQueue
+
+object AutoComponents {
+    private const val TAG = "AutoComponents"
+
+    fun appKey(game: Library.SteamGame): String? =
+        when {
+            game.source == com.droiddeck.launcher.stores.Store.BATTLENET.id -> game.profileKey
+            game.library == Library.ADDED -> Integer.toUnsignedString(game.appId)
+            else -> game.appId.takeIf { it > 0 }?.toString()
+        }
+
+    fun autoPicks(findings: List<WinCompSources.Finding>, catalog: Map<String, WinComponents.Component>): Map<String, WinComponents.AutoReason> {
+        val out = LinkedHashMap<String, WinComponents.AutoReason>()
+        for (f in findings) {
+            if (!f.auto || f.component == null) continue
+            val id = WinComponents.installable(f.component, catalog)
+            val c = catalog[id] ?: continue
+            if (WinComponents.support(c, catalog) != WinComponents.Support.READY) continue
+            if (id !in out) out[id] = WinComponents.AutoReason(f.origin.name, listOf(f.original) + f.args)
+        }
+        return out
+    }
+
+    @VisibleForTesting internal var catalogOf: (Context, Boolean) -> List<WinComponents.Component>? =
+        { c, network -> if (network) WinComponents.fetch(c) else WinComponents.cached(c) }
+    @VisibleForTesting internal var installedOf: (Context) -> Set<String> = { WinComponents.installedIds(it).toSet() }
+    @VisibleForTesting internal var installer: (Context, WinComponents.Component, Map<String, WinComponents.Component>, (WinComponents.Progress) -> Unit) -> String? =
+        { c, comp, all, progress -> WinComponents.install(c, comp, all, progress) }
+    @VisibleForTesting internal var sessionRunning: () -> Boolean = { SessionState.running }
+    @VisibleForTesting internal var unfavourable: (Context) -> Boolean = { c -> constrained(c) }
+    @VisibleForTesting internal var online: (Context) -> Boolean = { c -> isOnline(c) }
+    @VisibleForTesting @Volatile internal var runNow = false
+
+    val changes = MutableStateFlow(0)
+
+    val downloading = MutableStateFlow<Map<String, WinComponents.Progress>>(emptyMap())
+
+    val repairFailures = MutableStateFlow<Map<String, String>>(emptyMap())
+
+    val pendingGames = MutableStateFlow<Set<String>>(emptySet())
+
+    val pendingComponents = MutableStateFlow<Set<String>>(emptySet())
+
+    private fun mark(job: Job, on: Boolean) {
+        if (job.pics != null) return
+        val flow = if (job.component != null) pendingComponents else pendingGames
+        val id = job.component ?: job.game?.let { appKey(it) } ?: return
+        flow.value = if (on || job.component != null && job.key in queuedKeys) flow.value + id else flow.value - id
+    }
+
+    internal class Job(
+        val game: Library.SteamGame?, val component: String?, val asked: Boolean, val seq: Long, val pics: List<Int>? = null,
+        val inSession: Boolean = false, val revision: Int? = null,
+    ) {
+        val key get() = when {
+            pics != null -> "pics"
+            component != null -> "c:$component"
+            else -> "g:" + (game?.let { appKey(it) } ?: "")
+        }
+        val online get() = component != null || pics != null
+    }
+
+    private val seq = java.util.concurrent.atomic.AtomicLong()
+    private val jobs = PriorityBlockingQueue<Job>(16, compareByDescending<Job> { it.asked }.thenBy { it.seq })
+    @Volatile private var draining = false
+    private val queuedKeys = java.util.Collections.synchronizedSet(HashSet<String>())
+    private val waiting = HashMap<String, MutableList<Library.SteamGame>>()
+    @Volatile private var worker: Thread? = null
+    private const val PAUSE_MS = 15_000L
+
+    private fun waitFor(game: Library.SteamGame, id: String) {
+        val key = appKey(game) ?: return
+        synchronized(waiting) { waiting.getOrPut(id) { ArrayList() }.let { if (it.none { g -> appKey(g) == key }) it.add(game) } }
+    }
+
+    fun queueGame(context: Context, game: Library.SteamGame, asked: Boolean) {
+        if (appKey(game) == null) return
+        enqueue(context, Job(game, null, asked, seq.incrementAndGet()))
+    }
+
+    fun queueRepair(context: Context, id: String, gameKey: String?, revision: Int) {
+        if (!WinComponents.validId(id)) return
+        gameKey?.let { Pending.add(context, it, listOf(id), mapOf(id to revision)) }
+        queueDownload(context, id, asked = true, inSession = gameKey != null,
+            revision = maxOf(revision, Pending.revision(context, id) ?: 0))
+    }
+
+    private fun queueDownload(context: Context, id: String, asked: Boolean, inSession: Boolean = false, revision: Int? = null) =
+        enqueue(context, Job(null, id, asked, seq.incrementAndGet(), inSession = inSession, revision = revision))
+
+    private fun enqueue(context: Context, job: Job) {
+        val added = synchronized(jobs) {
+            if (!queuedKeys.add(job.key)) {
+                val old = jobs.firstOrNull { it.key == job.key }
+                val revision = listOfNotNull(old?.revision, job.revision).maxOrNull()
+                val pics = listOfNotNull(old?.pics, job.pics).flatten().distinct().takeIf { old?.pics != null || job.pics != null }
+                if (old != null && ((job.asked && !old.asked) || (job.inSession && !old.inSession) || revision != old.revision || pics != old.pics) && jobs.remove(old)) {
+                    jobs.add(Job(old.game ?: job.game, old.component, old.asked || job.asked,
+                        if (job.asked && !old.asked) job.seq else old.seq, pics,
+                        old.inSession || job.inSession, revision))
+                }
+                false
+            } else {
+                jobs.add(job)
+                mark(job, true)
+                true
+            }.also { (jobs as java.lang.Object).notifyAll() }
+        }
+        if (added && job.component != null) Log.i(TAG, "wincomp: queued ${job.component}")
+        if (runNow) { if (!draining) drain(context) } else ensureWorker(context.applicationContext)
+    }
+
+    internal fun mustWait(context: Context, job: Job): Boolean =
+        if (job.inSession && sessionRunning()) gameRunning() || (job.online && !online(context))
+        else sessionRunning() || (job.online && !online(context)) || (!job.asked && unfavourable(context))
+
+    @VisibleForTesting internal var gameRunning: () -> Boolean = { gameProcessRunning() }
+
+    private fun gameProcessRunning(): Boolean = com.droiddeck.launcher.session.SteamGameProcess.running()
+
+    private fun queuePending(context: Context, key: String) {
+        Pending.ids(context, key).forEach { id ->
+            queueDownload(context, id, asked = true, inSession = true, revision = Pending.revision(context, id))
+        }
+    }
+
+    fun queueInSession(context: Context, game: Library.SteamGame) {
+        val key = appKey(game) ?: return
+        queuePending(context, key)
+        enqueue(context, Job(game, null, true, seq.incrementAndGet(), inSession = true))
+    }
+
+    @VisibleForTesting
+    internal fun drain(context: Context) {
+        draining = true
+        try {
+            while (true) {
+                val job = next(context) ?: return
+                run(context, job)
+            }
+        } finally {
+            draining = false
+        }
+    }
+
+    private fun next(context: Context): Job? = synchronized(jobs) {
+        val job = jobs.sortedWith(order).firstOrNull { !mustWait(context, it) } ?: return null
+        jobs.remove(job)
+        queuedKeys.remove(job.key)
+        job
+    }
+
+    private val order = compareByDescending<Job> { it.asked }.thenBy { it.seq }
+
+    @VisibleForTesting internal fun queued(): List<String> = jobs.sortedWith(compareByDescending<Job> { it.asked }.thenBy { it.seq }).map { it.key }
+
+    @Synchronized
+    private fun ensureWorker(app: Context) {
+        if (worker?.isAlive == true) return
+        worker = Thread({
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+            while (true) {
+                val job = try {
+                    synchronized(jobs) {
+                        next(app) ?: run {
+                            (jobs as java.lang.Object).wait(PAUSE_MS)
+                            next(app)
+                        }
+                    }
+                } catch (e: InterruptedException) {
+                    return@Thread
+                }
+                if (job == null) continue
+                WinComponents.background { run(app, job) }
+            }
+        }, "auto-components").apply { isDaemon = true; start() }
+    }
+
+    private fun run(context: Context, job: Job) {
+        try {
+            when {
+                job.pics != null -> SteamAppInfo.lookup(context, job.pics)
+                job.component != null -> download(context, job.component, job.asked, job.inSession, job.revision)
+                else -> job.game?.let { apply(context, it, job.asked, job.inSession) }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "wincomp: ${job.key}: ${e.javaClass.simpleName}: ${e.message}")
+            job.component?.let {
+                repairFailures.value = repairFailures.value + (it to (e.message ?: "Install failed"))
+                Pending.drop(context, it, job.revision)
+            }
+        } finally {
+            mark(job, false)
+            changes.value = changes.value + 1
+        }
+    }
+
+    private fun apply(context: Context, game: Library.SteamGame, asked: Boolean, inSession: Boolean = false,
+        knownCatalog: Map<String, WinComponents.Component>? = null) {
+        val key = appKey(game) ?: return
+        val folder = game.gameFiles
+        if (game.library == Library.ADDED && game.source == Library.ADDED && folder != null && SteamMatch.get(context, folder.path) == null) {
+            AddedGames.single(context, folder.path)?.let { SteamMatch.resolve(context, folder.path, it.exe, it.name) }
+        }
+        val store = com.droiddeck.launcher.stores.Store.byId(game.source)
+        if (folder != null && (store == com.droiddeck.launcher.stores.Store.GOG || store == com.droiddeck.launcher.stores.Store.EPIC)) StoreListBackfill.fill(context, folder)
+        if (knownCatalog == null && asked && online(context)) steamAppOf(context, game)?.let { SteamAppInfo.lookup(context, listOf(it)) }
+        val findings = findings(context, game)
+        val refreshed = if (knownCatalog == null && asked && online(context)) catalogOf(context, true) else null
+        val catalog = knownCatalog ?: (refreshed ?: catalogOf(context, false) ?: catalogOf(context, true))?.associateBy { it.name } ?: return
+        val wanted = autoPicks(findings, catalog)
+        val user = WinComponents.selection(context, key).user
+        val before = WinComponents.selection(context, key).auto
+        val installed = installedOf(context)
+        val kept = LinkedHashMap<String, WinComponents.AutoReason>()
+        val missing = ArrayList<String>()
+        for ((id, reason) in wanted) {
+            if (user[id] == false) { kept[id] = reason; continue }
+            if (id in installed) { kept[id] = reason; continue }
+            if (id in before) kept[id] = reason
+            waitFor(game, id)
+            missing.add(id)
+        }
+        if (before.keys != kept.keys) {
+            WinComponents.setAuto(context, key, kept)
+            Log.i(TAG, "${game.name}: on by itself ${kept.keys.joinToString().ifEmpty { "(none)" }}")
+        }
+        Pending.update(context, key, catalog.mapValues { it.value.revision }) { ids ->
+            ids.filter { id -> user[id] != false && (id !in installed && id !in wanted || (Pending.revision(context, id) ?: 0) > (catalog[id]?.revision ?: 0)) } + missing
+        }
+        missing.forEach { id -> queueDownload(context, id, asked, inSession, catalog[id]?.revision) }
+        changes.value = changes.value + 1
+    }
+
+    private fun download(context: Context, id: String, asked: Boolean, inSession: Boolean = false, requestedRevision: Int? = null) {
+        val catalog = catalogOf(context, true)?.associateBy { it.name } ?: run {
+            repairFailures.value = repairFailures.value + (id to "Could not load the component catalog")
+            return
+        }
+        val catalogComponent = catalog[id]
+        val requiredRevision = maxOf(requestedRevision ?: 0, Pending.revision(context, id) ?: 0)
+        if (catalogComponent != null && catalogComponent.revision < requiredRevision) {
+            repairFailures.value = repairFailures.value + (id to "The component catalog is older than the requested revision")
+            return
+        }
+        if (id !in installedOf(context)) {
+            val c = catalogComponent ?: run {
+                repairFailures.value = repairFailures.value + (id to "Component is no longer available")
+                Pending.drop(context, id, requestedRevision)
+                return
+            }
+            val started = System.currentTimeMillis()
+            downloading.value = downloading.value + (id to WinComponents.Progress(id, "", WinComponents.Phase.DOWNLOAD, -1))
+            val problem = try {
+                installer(context, c, catalog) { p -> downloading.value = downloading.value + (id to p) }
+            } finally {
+                downloading.value = downloading.value - id
+            }
+            if (problem != null) {
+                repairFailures.value = repairFailures.value + (id to problem)
+                Log.w(TAG, "wincomp: $id did not install: $problem")
+                Pending.drop(context, id, maxOf(requestedRevision ?: 0, c.revision))
+                return
+            }
+            Log.i(TAG, "wincomp: $id installed in ${System.currentTimeMillis() - started}ms")
+        }
+        val games = synchronized(waiting) { waiting.remove(id).orEmpty() }
+        var applied = true
+        games.forEach { game ->
+            try {
+                apply(context, game, asked, inSession, knownCatalog = catalog)
+            } catch (e: Exception) {
+                applied = false
+                appKey(game)?.let { key -> Pending.add(context, key, listOf(id), mapOf(id to (catalog[id]?.revision ?: requestedRevision ?: 0))) }
+                waitFor(game, id)
+                Log.w(TAG, "wincomp: $id installed, but ${game.name} was not updated: ${e.javaClass.simpleName}: ${e.message}")
+            }
+        }
+        if (applied) Pending.drop(context, id, maxOf(requestedRevision ?: 0, catalog[id]?.revision ?: 0))
+        repairFailures.value = repairFailures.value - id
+    }
+
+    internal object Pending {
+        private fun file(context: Context) = File(com.droiddeck.launcher.runtime.LinuxRuntime.rootDir(context), "root/.config/droiddeck/wincomponents-pending.json")
+
+        @Synchronized fun read(context: Context): JSONObject =
+            runCatching { JSONObject(file(context).readText()) }.getOrDefault(JSONObject()).let { it.optJSONObject("games") ?: JSONObject() }
+
+        @Synchronized fun set(context: Context, key: String, ids: List<String>, revisions: Map<String, Int> = emptyMap()) {
+            val games = read(context)
+            if (ids.isEmpty()) games.remove(key) else games.put(key, JSONArray(ids))
+            write(context, games, revisions)
+        }
+
+        @Synchronized fun ids(context: Context, key: String): List<String> =
+            read(context).optJSONArray(key)?.let { a -> (0 until a.length()).map { a.optString(it) } }.orEmpty()
+
+        @Synchronized fun update(context: Context, key: String, revisions: Map<String, Int>, transform: (List<String>) -> List<String>): Boolean {
+            val games = read(context)
+            val current = games.optJSONArray(key)?.let { a -> (0 until a.length()).map { a.optString(it) } }.orEmpty()
+            val ids = transform(current).distinct()
+            if (ids.isEmpty()) games.remove(key) else games.put(key, JSONArray(ids))
+            return write(context, games, revisions)
+        }
+
+        @Synchronized fun revision(context: Context, id: String): Int? =
+            runCatching { JSONObject(file(context).readText()).optJSONObject("revisions")?.optInt(id) }.getOrNull()
+
+        @Synchronized fun add(context: Context, key: String, ids: List<String>, revisions: Map<String, Int> = emptyMap()) {
+            val games = read(context)
+            val have = games.optJSONArray(key)?.let { a -> (0 until a.length()).map { a.optString(it) } }.orEmpty()
+            games.put(key, JSONArray((have + ids).distinct()))
+            write(context, games, revisions)
+        }
+
+        @Synchronized fun drop(context: Context, id: String, throughRevision: Int? = null) {
+            val games = read(context)
+            val required = runCatching { JSONObject(file(context).readText()).optJSONObject("revisions")?.optInt(id, 0) ?: 0 }.getOrDefault(0)
+            if (throughRevision != null && required > throughRevision) return
+            for (k in games.keys().asSequence().toList()) {
+                val left = games.optJSONArray(k)?.let { a -> (0 until a.length()).map { a.optString(it) } }.orEmpty() - id
+                if (left.isEmpty()) games.remove(k) else games.put(k, JSONArray(left))
+            }
+            write(context, games)
+        }
+
+        private fun write(context: Context, games: JSONObject, required: Map<String, Int> = emptyMap()): Boolean {
+            val f = file(context)
+            return runCatching {
+                f.parentFile?.mkdirs()
+                val tmp = File(f.path + ".tmp")
+                val before = runCatching { JSONObject(f.readText()).optJSONObject("revisions") }.getOrNull()
+                val revisions = JSONObject()
+                for (key in games.keys()) {
+                    val ids = games.getJSONArray(key)
+                    for (i in 0 until ids.length()) {
+                        val id = ids.getString(i)
+                        revisions.put(id, maxOf(before?.optInt(id, 0) ?: 0, required[id] ?: 0))
+                    }
+                }
+                tmp.writeText(JSONObject().put("games", games).put("revisions", revisions).toString())
+                if (!tmp.renameTo(f)) {
+                    f.delete()
+                    if (!tmp.renameTo(f)) throw java.io.IOException("Could not replace pending repair file")
+                }
+                true
+            }.getOrElse {
+                Log.w(TAG, "wincomp: could not save pending repairs: ${it.javaClass.simpleName}: ${it.message}")
+                false
+            }
+        }
+    }
+
+
+    private const val FINDINGS = "wincomp-findings.json"
+    private const val DETECTORS = "d3"
+
+    internal fun signature(context: Context, game: Library.SteamGame): String {
+        val folder = game.gameFiles
+        val parts = listOfNotNull(
+            DETECTORS,
+            folder?.lastModified(),
+            folder?.let { SteamRedists.manifest(it, game.appId)?.lastModified() },
+            folder?.let { StoreGameSidecar.file(it).lastModified() },
+            folder?.let { File(it, "fuel.json").lastModified() },
+            folder?.listFiles { f -> f.name.lowercase().let { it.startsWith("installscript") && it.endsWith(".vdf") } }
+                ?.maxOfOrNull { it.lastModified() },
+            SteamAppInfo.appinfoFile(context).lastModified(),
+            folder?.let { SteamMatch.get(context, it.path) }?.let { "${it.appId}/${it.certainty}" },
+            steamAppOf(context, game)?.let { SteamAppInfo.state(context, it) },
+        )
+        return parts.joinToString("|")
+    }
+
+    internal fun findings(context: Context, game: Library.SteamGame): List<WinCompSources.Finding> {
+        val key = appKey(game) ?: return emptyList()
+        val sig = signature(context, game)
+        val all = readFindings(context)
+        all.optJSONObject(key)?.takeIf { it.optString("sig") == sig }?.let { return decode(it.optJSONArray("findings")) }
+        val fresh = WinCompSources.forGame(context, game)
+        writeFindings(context, all.put(key, JSONObject().put("sig", sig).put("findings", encode(fresh))))
+        return fresh
+    }
+
+    fun cachedFindings(context: Context, appKey: String): List<WinCompSources.Finding>? =
+        readFindings(context).optJSONObject(appKey)?.let { decode(it.optJSONArray("findings")) }
+
+    @Synchronized
+    private fun readFindings(context: Context): JSONObject =
+        runCatching { JSONObject(AtomicFile(File(context.filesDir, FINDINGS)).readFully().toString(Charsets.UTF_8)) }.getOrDefault(JSONObject())
+
+    @Synchronized
+    private fun writeFindings(context: Context, json: JSONObject) {
+        val atomic = AtomicFile(File(context.filesDir, FINDINGS))
+        val out = atomic.startWrite()
+        try { out.write(json.toString().toByteArray()); atomic.finishWrite(out) } catch (e: Exception) { atomic.failWrite(out) }
+    }
+
+    private fun encode(list: List<WinCompSources.Finding>) = JSONArray().apply {
+        list.forEach { f ->
+            put(JSONObject().put("original", f.original).put("origin", f.origin.name).put("auto", f.auto).put("args", JSONArray(f.args))
+                .apply { f.component?.let { put("component", it) } })
+        }
+    }
+
+    private fun decode(arr: JSONArray?): List<WinCompSources.Finding> = if (arr == null) emptyList() else (0 until arr.length()).mapNotNull { i ->
+        val o = arr.optJSONObject(i) ?: return@mapNotNull null
+        val origin = runCatching { WinCompSources.Origin.valueOf(o.optString("origin")) }.getOrNull() ?: return@mapNotNull null
+        val args = o.optJSONArray("args")?.let { a -> (0 until a.length()).map { a.optString(it) } }.orEmpty()
+        WinCompSources.Finding(o.optString("component").takeIf { it.isNotEmpty() }, o.optString("original"), origin, o.optBoolean("auto"), args)
+    }
+
+
+    internal fun prepareLaunch(context: Context, game: Library.SteamGame): Boolean {
+        val key = appKey(game) ?: return false
+        val findings = findings(context, game)
+        val cached = catalogOf(context, false)
+        val current = if (online(context)) catalogOf(context, true) else null
+        val catalog = (current ?: cached)?.associateBy { it.name } ?: run {
+            val missing = WinComponents.selection(context, key).effective
+                .filter { WinComponents.validId(it) && it !in installedOf(context) }
+            val pendingSaved = missing.isEmpty() || Pending.update(context, key, emptyMap()) { ids -> (ids + missing).distinct() }
+            val pending = Pending.ids(context, key)
+            pending.forEach { waitFor(game, it) }
+            queuePending(context, key)
+            if (!pendingSaved) {
+                missing.forEach { id ->
+                    waitFor(game, id)
+                    queueDownload(context, id, asked = true, inSession = true, revision = Pending.revision(context, id))
+                    repairFailures.value = repairFailures.value + (id to "Could not save pending repairs")
+                }
+            }
+            return pendingSaved && pending.isEmpty()
+        }
+        val wanted = autoPicks(findings, catalog)
+        val selection = WinComponents.selection(context, key)
+        val user = selection.user
+        val installed = installedOf(context)
+        val roots = selection.effective + wanted.keys.filter { user[it] != false }
+        val required = withParts(roots.filter { WinComponents.validId(it) }, catalog)
+        val missing = required.filter { user[it] != false && it !in installed }
+        val pendingSaved = Pending.update(context, key, catalog.mapValues { it.value.revision }) { ids ->
+            ids.filter { id -> user[id] != false && (id !in installed && id !in wanted || (Pending.revision(context, id) ?: 0) > (catalog[id]?.revision ?: 0)) } + missing
+        }
+        missing.forEach { id ->
+            waitFor(game, id)
+            queueDownload(context, id, asked = true, inSession = true,
+                revision = maxOf(catalog[id]?.revision ?: 0, Pending.revision(context, id) ?: 0))
+        }
+        Pending.ids(context, key).forEach { waitFor(game, it) }
+        queuePending(context, key)
+        if (!pendingSaved && missing.isNotEmpty()) {
+            missing.forEach { id -> repairFailures.value = repairFailures.value + (id to "Could not save pending repairs") }
+            return false
+        }
+        return true
+    }
+
+    fun beforeLaunch(context: Context, game: Library.SteamGame, onBlocked: () -> Unit = {}, onReady: () -> Unit) {
+        val app = context.applicationContext
+        Thread({
+            val ready = runCatching { prepareLaunch(app, game) }.getOrElse {
+                Log.w(TAG, "${game.name}: launch repair discovery failed: ${it.javaClass.simpleName}: ${it.message}")
+                false
+            }
+            Handler(Looper.getMainLooper()).post(if (ready) onReady else onBlocked)
+            queueGame(app, game, asked = false)
+        }, "auto-components-launch").apply { isDaemon = true; start() }
+    }
+
+    fun restoreMissing(context: Context): List<String> {
+        val selections = WinComponents.selections(context)
+        val catalog = (catalogOf(context, false) ?: catalogOf(context, true))?.associateBy { it.name }
+        val installed = installedOf(context)
+        val lostFor = if (catalog == null) emptyMap() else selections.mapValues { (_, selection) ->
+            withParts(selection.effective.filter { WinComponents.validId(it) }, catalog).filter { it !in installed && it in catalog }
+        }.filterValues { it.isNotEmpty() }
+        val lost = lostFor.values.flatten().distinct()
+        if (lost.isNotEmpty()) {
+            Log.i(TAG, "wincomp: reinstalling ${lost.joinToString()}, picked for games but missing from the runtime")
+            lostFor.forEach { (key, ids) -> Pending.add(context, key, ids, catalog!!.mapValues { it.value.revision }) }
+        }
+        Pending.read(context).keys().asSequence().toList().forEach { queuePending(context, it) }
+        return lost
+    }
+
+    private fun withParts(ids: List<String>, catalog: Map<String, WinComponents.Component>): List<String> {
+        val out = LinkedHashSet<String>()
+        fun visit(id: String, depth: Int) {
+            if (depth > 8 || !out.add(id)) return
+            catalog[id]?.dependencies?.forEach { visit(it, depth + 1) }
+        }
+        ids.forEach { visit(it, 0) }
+        return out.toList()
+    }
+
+    fun refreshLater(context: Context, game: Library.SteamGame) = queueGame(context, game, asked = true)
+
+    fun sweep(context: Context, games: List<Library.SteamGame>) {
+        if (online(context) && !unfavourable(context)) catalogOf(context, true)
+        val apps = games.mapNotNull { steamAppOf(context, it) }.distinct()
+        if (apps.isNotEmpty() && SteamAppInfo.needLookup(context, apps).isNotEmpty()) enqueue(context, Job(null, null, false, seq.incrementAndGet(), pics = apps))
+        games.forEach { queueGame(context, it, asked = false) }
+    }
+
+    private fun steamAppOf(context: Context, game: Library.SteamGame): Int? =
+        if (game.library != Library.ADDED) game.appId.takeIf { it > 0 }
+        else game.gameFiles?.let { SteamMatch.get(context, it.path) }?.appId
+
+    fun isOnline(context: Context): Boolean {
+        val cm = context.getSystemService(ConnectivityManager::class.java) ?: return false
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork ?: return false) ?: return false
+        return caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
+    fun constrained(context: Context): Boolean {
+        val power = context.getSystemService(PowerManager::class.java)
+        if (power?.isPowerSaveMode == true) return true
+        if (Build.VERSION.SDK_INT >= 29 && (power?.currentThermalStatus ?: 0) >= PowerManager.THERMAL_STATUS_MODERATE) return true
+        return context.getSystemService(ConnectivityManager::class.java)?.isActiveNetworkMetered == true
+    }
+}

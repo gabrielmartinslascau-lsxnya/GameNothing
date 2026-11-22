@@ -30,16 +30,17 @@ public class KeyValueSet implements Iterable<String[]> {
 
     private int[] indexOfKey(String key) {
         int start = 0;
-        int end = data.indexOf(",");
-        if (end == -1) end = data.length();
-
-        while (start < end) {
-            int index = data.indexOf("=", start);
-            String currKey = data.substring(start, index);
-            if (currKey.equals(key)) return new int[]{start, end};
-            start = end+1;
-            end = data.indexOf(",", start);
+        while (start < data.length()) {
+            int end = data.indexOf(",", start);
             if (end == -1) end = data.length();
+            if (start < end) {
+                int index = data.indexOf("=", start);
+                if (index > start && index < end) {
+                    String currKey = data.substring(start, index);
+                    if (currKey.equals(key)) return new int[]{start, end};
+                }
+            }
+            start = end + 1;
         }
 
         return null;
@@ -128,31 +129,40 @@ public class KeyValueSet implements Iterable<String[]> {
 
     @Override // java.lang.Iterable
     public Iterator<String[]> iterator() {
-        int index = this.data.indexOf(",");
-        final int[] start = {0};
-        final int[] end = new int[1];
-        end[0] = index != -1 ? index : this.data.length();
-        final String[] item = new String[2];
         return new Iterator<String[]>() { // from class: com.winlator.core.KeyValueSet.1
+            private int pos = 0;
+            private String[] nextItem = advance();
+
+            private String[] advance() {
+                while (pos < KeyValueSet.this.data.length()) {
+                    int end = KeyValueSet.this.data.indexOf(",", pos);
+                    if (end == -1) end = KeyValueSet.this.data.length();
+                    int start = pos;
+                    pos = end + 1;
+                    if (start < end) {
+                        int eq = KeyValueSet.this.data.indexOf("=", start);
+                        if (eq > start && eq < end) {
+                            return new String[]{
+                                KeyValueSet.this.data.substring(start, eq),
+                                KeyValueSet.this.data.substring(eq + 1, end)
+                            };
+                        }
+                    }
+                }
+                return null;
+            }
+
             @Override // java.util.Iterator
             public boolean hasNext() {
-                return start[0] < end[0];
+                return nextItem != null;
             }
 
             @Override // java.util.Iterator
             public String[] next() {
-                int index2 = KeyValueSet.this.data.indexOf("=", start[0]);
-                item[0] = KeyValueSet.this.data.substring(start[0], index2);
-                item[1] = KeyValueSet.this.data.substring(index2 + 1, end[0]);
-                int[] iArr = start;
-                int[] iArr2 = end;
-                iArr[0] = iArr2[0] + 1;
-                iArr2[0] = KeyValueSet.this.data.indexOf(",", start[0]);
-                int[] iArr3 = end;
-                if (iArr3[0] == -1) {
-                    iArr3[0] = KeyValueSet.this.data.length();
-                }
-                return item;
+                if (nextItem == null) throw new java.util.NoSuchElementException();
+                String[] current = nextItem;
+                nextItem = advance();
+                return current;
             }
         };
     }

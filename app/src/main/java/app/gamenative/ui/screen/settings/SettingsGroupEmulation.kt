@@ -16,23 +16,19 @@ import app.gamenative.R
 import app.gamenative.ui.component.dialog.Box64PresetsDialog
 import app.gamenative.ui.component.dialog.ContainerConfigDialog
 import app.gamenative.ui.component.dialog.FEXCorePresetsDialog
-import app.gamenative.ui.component.dialog.LinuxSetupDialog
 import app.gamenative.ui.component.dialog.OrientationDialog
-import app.gamenative.ui.component.settings.HapticSettingsMenuLink
-import app.gamenative.ui.component.settings.HapticSettingsSwitch
-import app.gamenative.ui.screen.PluviaScreen
 import app.gamenative.ui.theme.PluviaTheme
 import app.gamenative.ui.theme.settingsTileColors
 import app.gamenative.ui.theme.settingsTileColorsAlt
 import app.gamenative.utils.ContainerUtils
 import com.alorma.compose.settings.ui.SettingsGroup
+import com.alorma.compose.settings.ui.SettingsMenuLink
 import com.alorma.compose.settings.ui.SettingsSwitch
 
 @Composable
-fun SettingsGroupEmulation(
-    onNavigateRoute: ((String) -> Unit)? = null,
-) {
-    SettingsGroup {
+fun SettingsGroupEmulation() {
+    SettingsGroup(
+    ) {
         var showConfigDialog by rememberSaveable { mutableStateOf(false) }
         var showOrientationDialog by rememberSaveable { mutableStateOf(false) }
         var showBox64PresetsDialog by rememberSaveable { mutableStateOf(false) }
@@ -82,35 +78,21 @@ fun SettingsGroupEmulation(
             WineProtonManagerDialog(open = showWineProtonManager, onDismiss = { showWineProtonManager = false })
         }
 
-        var showLinuxSetupDialog by rememberSaveable { mutableStateOf(false) }
-        if (showLinuxSetupDialog) {
-            val context = LocalContext.current
-            LinuxSetupDialog(
-                visible = showLinuxSetupDialog,
-                onDismissRequest = { showLinuxSetupDialog = false },
-                onSwitchToLinux = {
-                    showLinuxSetupDialog = false
-                    ContainerUtils.getOrCreateContainer(context, "CUSTOM_GAME_99999")
-                    onNavigateRoute?.invoke(PluviaScreen.XServer.route)
-                }
-            )
-        }
-
-        HapticSettingsMenuLink(
+        SettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_emulation_orientations_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_emulation_orientations_subtitle)) },
             onClick = { showOrientationDialog = true },
         )
 
-        HapticSettingsMenuLink(
+        SettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_emulation_default_config_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_emulation_default_config_subtitle)) },
             onClick = { showConfigDialog = true },
         )
         var autoApplyKnownConfig by rememberSaveable { mutableStateOf(PrefManager.autoApplyKnownConfig) }
-        HapticSettingsSwitch(
+        SettingsSwitch(
             colors = settingsTileColorsAlt(),
             state = autoApplyKnownConfig,
             title = { Text(text = stringResource(R.string.settings_emulation_auto_apply_known_config_title)) },
@@ -120,41 +102,46 @@ fun SettingsGroupEmulation(
                 PrefManager.autoApplyKnownConfig = it
             },
         )
-        HapticSettingsMenuLink(
+        var fexCodeCacheEnabled by rememberSaveable { mutableStateOf(PrefManager.fexCodeCacheEnabled) }
+        SettingsSwitch(
+            colors = settingsTileColorsAlt(),
+            state = fexCodeCacheEnabled,
+            title = { Text(text = stringResource(R.string.settings_emulation_fex_code_cache_title)) },
+            subtitle = { Text(text = stringResource(R.string.settings_emulation_fex_code_cache_subtitle)) },
+            onCheckedChange = {
+                fexCodeCacheEnabled = it
+                PrefManager.fexCodeCacheEnabled = it
+            },
+        )
+        SettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_emulation_box64_presets_title)) },
             subtitle = { Text(stringResource(R.string.settings_emulation_box64_presets_subtitle)) },
             onClick = { showBox64PresetsDialog = true },
         )
-        HapticSettingsMenuLink(
+        SettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.fexcore_presets)) },
             subtitle = { Text(text = stringResource(R.string.fexcore_presets_description)) },
             onClick = { showFexcorePresetsDialog = true },
         )
-        HapticSettingsMenuLink(
+        SettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_emulation_driver_manager_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_emulation_driver_manager_subtitle)) },
             onClick = { showDriverManager = true },
         )
-        HapticSettingsMenuLink(
+        SettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_emulation_contents_manager_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_emulation_contents_manager_subtitle)) },
             onClick = { showContentsManager = true },
         )
-        HapticSettingsMenuLink(
+        SettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_emulation_wine_proton_manager_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_emulation_wine_proton_manager_subtitle)) },
             onClick = { showWineProtonManager = true },
-        )
-        HapticSettingsMenuLink(
-            colors = settingsTileColorsAlt(),
-            title = { Text(text = "Linux Environment (PRoot)") },
-            subtitle = { Text(text = "Download, configure ARM64 Debian rootfs & switch environment") },
-            onClick = { showLinuxSetupDialog = true },
         )
     }
 }

@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -11,8 +12,8 @@ import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
@@ -25,14 +26,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import app.gamenative.utils.HapticManager
-import app.gamenative.utils.hapticClickable
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import app.gamenative.ui.theme.BrokenGlassMenuSurface
+import app.gamenative.ui.theme.LocalLooksState
 import com.alorma.compose.settings.ui.base.internal.LocalSettingsGroupEnabled
 import com.alorma.compose.settings.ui.base.internal.SettingsTileColors
 import com.alorma.compose.settings.ui.base.internal.SettingsTileDefaults
@@ -66,11 +71,9 @@ fun SettingsListDropdown(
     SettingsTileScaffold(
         modifier = Modifier
             .focusRequester(focusRequester)
-            .hapticClickable(
+            .clickable(
                 enabled = enabled,
-                onClick = {
-                    isDropdownExpanded = true
-                },
+                onClick = { isDropdownExpanded = true },
             ).then(modifier),
         enabled = enabled,
         title = title,
@@ -101,30 +104,38 @@ fun SettingsListDropdown(
         tonalElevation = tonalElevation,
         shadowElevation = shadowElevation,
     ) {
+        val isGlass = LocalLooksState.current.isGlassEnabled
         DropdownMenu(
+            modifier = Modifier.zIndex(1000f),
             expanded = isDropdownExpanded,
             onDismissRequest = {
                 isDropdownExpanded = false
                 focusRequester.requestFocus()
             },
+            containerColor = if (isGlass) MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.94f) else MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = if (isGlass) 0.dp else 3.dp,
+            shadowElevation = if (isGlass) 6.dp else 3.dp,
         ) {
-            items.forEachIndexed { index, text ->
-                val isMuted = itemMuted?.getOrNull(index) == true
-                val textColor = if (isMuted) {
-                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                } else {
-                    MaterialTheme.colorScheme.onSurface
+            BrokenGlassMenuSurface {
+                Column {
+                    items.forEachIndexed { index, text ->
+                        val isMuted = itemMuted?.getOrNull(index) == true
+                        val textColor = if (isMuted) {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        }
+                        DropdownMenuItem(
+                            enabled = enabled,
+                            text = { Text(text = text, color = textColor) },
+                            onClick = {
+                                onItemSelected(index)
+                                isDropdownExpanded = false
+                                focusRequester.requestFocus()
+                            },
+                        )
+                    }
                 }
-                DropdownMenuItem(
-                    enabled = enabled,
-                    text = { Text(text = text, color = textColor) },
-                    onClick = {
-                        HapticManager.trigger(HapticManager.HapticType.CLICK)
-                        onItemSelected(index)
-                        isDropdownExpanded = false
-                        focusRequester.requestFocus()
-                    },
-                )
             }
         }
         Row {

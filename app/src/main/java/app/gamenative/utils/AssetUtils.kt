@@ -2,12 +2,26 @@ package app.gamenative.utils
 
 import android.content.res.AssetManager
 import com.winlator.core.TarCompressorUtils
-import java.io.File
 import timber.log.Timber
+import java.io.File
+import java.nio.file.Files
 
 object AssetUtils {
-    fun log(): Timber.Tree {
+    fun log() : Timber.Tree {
         return Timber.tag("AssetUtils")
+    }
+
+    /** Delete a tree even when an earlier payload left it read-only. */
+    internal fun deleteTree(dir: File) {
+        if (!dir.exists()) return
+        dir.walkBottomUp()
+            .onEnter { !Files.isSymbolicLink(it.toPath()) }
+            .filterNot { Files.isSymbolicLink(it.toPath()) }
+            .forEach {
+                it.setWritable(true, false)
+                it.setExecutable(true, false)
+            }
+        dir.deleteRecursively()
     }
 
     /**
@@ -21,31 +35,31 @@ object AssetUtils {
     fun extractComponentsWithVersionCheck(
         extractionPairs: List<Pair<String, File>>,
         assetManager: AssetManager,
-        extractType: TarCompressorUtils.Type,
+        extractType: TarCompressorUtils.Type
     ) {
         for ((assetFile, targetDir) in extractionPairs) {
             log().i("Extracting $assetFile to ${targetDir.absolutePath}")
             val tempDir = File(targetDir.parentFile, "${targetDir.name}.tmp")
-            if (tempDir.exists()) tempDir.deleteRecursively()
+            deleteTree(tempDir)
             tempDir.mkdirs()
 
             val success = TarCompressorUtils.extract(
                 extractType,
                 assetManager,
                 assetFile,
-                tempDir,
+                tempDir
             )
 
             if (success) {
-                if (targetDir.exists()) targetDir.deleteRecursively()
+                deleteTree(targetDir)
                 if (!tempDir.renameTo(targetDir)) {
                     log().e("Failed to promote extracted dir for $assetFile")
-                    tempDir.deleteRecursively()
+                    deleteTree(tempDir)
                     continue
                 }
                 log().i("Successfully extracted $assetFile")
             } else {
-                tempDir.deleteRecursively()
+                deleteTree(tempDir)
                 log().e("Failed to extract $assetFile")
             }
         }

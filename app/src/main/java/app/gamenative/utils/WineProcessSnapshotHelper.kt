@@ -64,21 +64,9 @@ object WineProcessSnapshotHelper {
                     ?.toIntOrNull()
                 if (uid == null || uid != myUid) continue
 
-                val comm = try {
-                    File(pidDir, "comm").readText().trim()
-                } catch (_: Exception) {
-                    ""
-                }
-                val stat = try {
-                    File(pidDir, "stat").readText()
-                } catch (_: Exception) {
-                    ""
-                }
-                val cmdlineBytes = try {
-                    File(pidDir, "cmdline").readBytes()
-                } catch (_: Exception) {
-                    ByteArray(0)
-                }
+                val comm = try { File(pidDir, "comm").readText().trim() } catch (_: Exception) { "" }
+                val stat = try { File(pidDir, "stat").readText() } catch (_: Exception) { "" }
+                val cmdlineBytes = try { File(pidDir, "cmdline").readBytes() } catch (_: Exception) { ByteArray(0) }
                 val cmdlineArgs = cmdlineBytes.toNullSeparatedStrings()
                 val searchableText = buildString {
                     append(comm)
@@ -89,8 +77,7 @@ object WineProcessSnapshotHelper {
                 }
 
                 if (!searchableText.contains("wine", ignoreCase = true) &&
-                    !searchableText.contains(".exe", ignoreCase = true)
-                ) {
+                    !searchableText.contains(".exe", ignoreCase = true)) {
                     continue
                 }
 

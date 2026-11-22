@@ -16,6 +16,7 @@ class GOGConverter {
 
     @TypeConverter
     fun toStringList(value: String): List<String> {
+
         if (value.isEmpty()) {
             return emptyList()
         }

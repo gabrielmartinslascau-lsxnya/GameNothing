@@ -2,12 +2,12 @@ package app.gamenative.data
 
 import app.gamenative.enums.PathType
 import app.gamenative.utils.SteamUtils
-import java.io.File
 import java.nio.file.Path
 import java.nio.file.Paths
 import kotlin.io.path.pathString
-import kotlin.text.replace
 import kotlinx.serialization.Serializable
+import java.io.File
+import kotlin.text.replace
 
 /**
  * @param timestamp the value in milliseconds, since the epoch (1970-01-01T00:00:00Z)
@@ -27,26 +27,22 @@ data class UserFileInfo(
         get() {
             val pathForPrefix = when {
                 cloudPath.isBlank() || cloudPath == "." -> ""
-                else -> cloudPath
+                else -> cloudPath.replace("\\", "/").removeSuffix("/.")
             }
-            return Paths.get("%${cloudRoot.name}%$pathForPrefix").pathString
-                .replace("{64BitSteamID}", SteamUtils.getSteamId64().toString())
-                .replace("{Steam3AccountID}", SteamUtils.getSteam3AccountId().toString())
+            return SteamUtils.substituteSteamIdPlaceholders(Paths.get("%${cloudRoot.name}%$pathForPrefix").pathString)
         }
 
     // Bare placeholder (%GameInstall%) expects no slash before filename; path with folder uses Paths.get.
     val prefixPath: String
-        get() = when {
-            cloudPath.isBlank() || cloudPath == "." -> "$prefix$filename"
-            else -> Paths.get(prefix, filename).pathString
-        }.replace("{64BitSteamID}", SteamUtils.getSteamId64().toString())
-            .replace("{Steam3AccountID}", SteamUtils.getSteam3AccountId().toString())
+        get() = SteamUtils.substituteSteamIdPlaceholders(
+            when {
+                cloudPath.isBlank() || cloudPath == "." -> "$prefix$filename"
+                else -> Paths.get(prefix, filename).pathString
+            },
+        )
 
     val substitutedPath: String
-        get() = path
-            .replace("{64BitSteamID}", SteamUtils.getSteamId64().toString())
-            .replace("{Steam3AccountID}", SteamUtils.getSteam3AccountId().toString())
-            .replace("\\", File.separator)
+        get() = SteamUtils.substituteSteamIdPlaceholders(path).replace("\\", File.separator)
 
     fun getAbsPath(prefixToPath: (String) -> String): Path {
         return Paths.get(prefixToPath(root.toString()), substitutedPath, filename)

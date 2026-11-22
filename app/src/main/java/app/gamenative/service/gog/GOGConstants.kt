@@ -2,7 +2,9 @@ package app.gamenative.service.gog
 
 import android.content.Context
 import android.net.Uri
+import app.gamenative.PluviaApp
 import app.gamenative.PrefManager
+import app.gamenative.utils.StorageUtils
 import java.io.File
 import java.nio.file.Paths
 import java.security.SecureRandom
@@ -20,7 +22,6 @@ object GOGConstants {
     fun init(context: Context) {
         appContext = context.applicationContext
     }
-
     // GOG API URLs
     const val GOG_BASE_API_URL = "https://api.gog.com"
     const val GOG_AUTH_URL = "https://auth.gog.com"
@@ -87,8 +88,7 @@ object GOGConstants {
      * Returns English codes (CONTAINER_LANGUAGE_TO_GOG_CODES.getValue(GOG_FALLBACK_DOWNLOAD_LANGUAGE)) for unknown languages.
      */
     fun containerLanguageToGogCodes(containerLanguage: String): List<String> =
-        CONTAINER_LANGUAGE_TO_GOG_CODES[containerLanguage.lowercase()]
-            ?: CONTAINER_LANGUAGE_TO_GOG_CODES.getValue(GOG_FALLBACK_DOWNLOAD_LANGUAGE)
+        CONTAINER_LANGUAGE_TO_GOG_CODES[containerLanguage.lowercase()] ?: CONTAINER_LANGUAGE_TO_GOG_CODES.getValue(GOG_FALLBACK_DOWNLOAD_LANGUAGE)
 
     /** Path under _CommonRedist to a file that indicates this dependency is installed. */
     val GOG_DEPENDENCY_INSTALLED_PATH: Map<String, String> = mapOf(
@@ -127,7 +127,9 @@ object GOGConstants {
      */
     val externalGOGGamesPath: String
         get() {
-            val path = Paths.get(PrefManager.externalStoragePath, "GOG", "games", "common").toString()
+            val ctx = appContext ?: PluviaApp.instance
+            val root = StorageUtils.resolveStoragePath(ctx, PrefManager.externalStoragePath) ?: PrefManager.externalStoragePath
+            val path = Paths.get(root, "GOG", "games", "common").toString()
             // Ensure directory exists for StatFs
             File(path).mkdirs()
             return path
@@ -135,7 +137,9 @@ object GOGConstants {
 
     val defaultGOGGamesPath: String
         get() {
-            return if (PrefManager.useExternalStorage && File(PrefManager.externalStoragePath).exists()) {
+            val ctx = appContext ?: PluviaApp.instance
+            val root = StorageUtils.resolveStoragePath(ctx, PrefManager.externalStoragePath) ?: PrefManager.externalStoragePath
+            return if (PrefManager.useExternalStorage && File(root).exists()) {
                 Timber.i("GOG using external storage: $externalGOGGamesPath")
                 externalGOGGamesPath
             } else {

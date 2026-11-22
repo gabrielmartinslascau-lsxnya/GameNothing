@@ -1,0 +1,518 @@
+import json
+import os
+import runpy
+import tempfile
+import unittest
+from pathlib import Path
+from unittest import mock
+
+BIN = Path(__file__).resolve().parents[1] / "linuxfs/overlay/usr/local/bin"
+MODULE = runpy.run_path(str(BIN / "droiddeck-wincomponents"))
+GAME_ENV = runpy.run_path(str(BIN / "droiddeck-game-env"))
+
+
+class WinComponentsTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        root = Path(self.tmp.name)
+        self.store = root / "store"
+        self.compat = root / "compatdata/2571976725"
+        self.selection = root / "wincomponents.json"
+        self.pfx = self.compat / "pfx/drive_c/windows"
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def component(self, cid, overrides, files):
+        folder = self.store / cid
+        folder.mkdir(parents=True, exist_ok=True)
+        for rel, data in files.items():
+            path = folder / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+        (folder / "component.json").write_text(json.dumps({"id": cid, "overrides": overrides}))
+
+    def pick(self, *ids):
+        self.selection.write_text(json.dumps({"version": 1, "games": {"2571976725": list(ids)}}))
+
+    def apply(self, proton=None, env=None):
+        return MODULE["apply"](self.compat, "2571976725", self.selection, self.store, proton=proton, env=env)
+
+    def proton(self, arm=True):
+        root = Path(self.tmp.name) / ("arm-proton" if arm else "x64-proton")
+        (root / "files/lib/wine" / ("aarch64-unix" if arm else "x86_64-unix")).mkdir(parents=True)
+        return root / "proton"
+
+    def pe_image(self, machine):
+        head = bytearray(64)
+        head[:2] = b"MZ"
+        head[60:64] = (64).to_bytes(4, "little")
+        return bytes(head) + b"PE\0\0" + machine.to_bytes(2, "little") + b"\0" * 32
+
+    def arm64ec_pe_image(self):
+        image = bytearray(0x400)
+        image[:2] = b"MZ"
+        image[60:64] = (64).to_bytes(4, "little")
+        image[64:68] = b"PE\0\0"
+        coff = 68
+        image[coff:coff + 2] = (0x8664).to_bytes(2, "little")
+        image[coff + 2:coff + 4] = (1).to_bytes(2, "little")
+        image[coff + 16:coff + 18] = (240).to_bytes(2, "little")
+        optional = coff + 20
+        image[optional:optional + 2] = (0x20B).to_bytes(2, "little")
+        image[optional + 108:optional + 112] = (16).to_bytes(4, "little")
+        directory = optional + 112 + 10 * 8
+        image[directory:directory + 4] = (0x1000).to_bytes(4, "little")
+        image[directory + 4:directory + 8] = (0xD0).to_bytes(4, "little")
+        section = optional + 240
+        image[section + 8:section + 12] = (0x200).to_bytes(4, "little")
+        image[section + 12:section + 16] = (0x1000).to_bytes(4, "little")
+        image[section + 16:section + 20] = (0x200).to_bytes(4, "little")
+        image[section + 20:section + 24] = (0x200).to_bytes(4, "little")
+        image[0x200:0x204] = (0xD0).to_bytes(4, "little")
+        image[0x2C8:0x2D0] = (0x10000000).to_bytes(8, "little")
+        return bytes(image)
+
+    def test_foreign_component_dll_is_skipped_and_override_dropped(self):
+        proton = self.proton()
+        self.component("vc", ["ucrtbase"], {"system32/ucrtbase.dll": self.pe_image(0x8664)})
+        self.pick("vc")
+        names, _ = self.apply(proton)
+        self.assertEqual(names, [])
+        self.assertFalse((self.pfx / "system32/ucrtbase.dll").exists())
+        names, notes = self.apply(proton)
+        self.assertEqual(names, [])
+        self.assertEqual(notes, [])
+
+    def test_component_final_arm64ec_dll_is_placed_and_keeps_its_override(self):
+        proton = self.proton()
+        self.component("vc", ["ucrtbase"], {"system32/ucrtbase.dll": self.arm64ec_pe_image()})
+        self.pick("vc")
+        names, _ = self.apply(proton)
+        self.assertEqual(names, ["ucrtbase"])
+        self.assertEqual(MODULE["pe_machine"](self.pfx / "system32/ucrtbase.dll"), 0x8664)
+
+    def test_compatible_copy_keeps_override_when_other_architecture_copy_is_skipped(self):
+        proton = self.proton()
+        self.component("vc", ["ucrtbase"], {
+            "system32/ucrtbase.dll": self.pe_image(0x8664),
+            "syswow64/ucrtbase.dll": self.pe_image(0x14C),
+        })
+        self.pick("vc")
+        names, _ = self.apply(proton)
+        self.assertEqual(names, ["ucrtbase"])
+        self.assertFalse((self.pfx / "system32/ucrtbase.dll").exists())
+        self.assertEqual(MODULE["pe_machine"](self.pfx / "syswow64/ucrtbase.dll"), 0x14C)
+
+    def test_existing_foreign_component_dll_is_removed_for_repair(self):
+        proton = self.proton()
+        self.component("vc", ["ucrtbase"], {"system32/ucrtbase.dll": self.pe_image(0x8664)})
+        self.pick("vc")
+        self.pfx.joinpath("system32").mkdir(parents=True)
+        self.pfx.joinpath("system32/ucrtbase.dll").write_bytes(self.pe_image(0x8664))
+        self.compat.joinpath(".droiddeck-wincomponents.json").write_text(json.dumps({
+            "files": {"drive_c/windows/system32/ucrtbase.dll": "vc"}, "components": ["vc"]}))
+        self.apply(proton)
+        self.assertFalse((self.pfx / "system32/ucrtbase.dll").exists())
+        self.assertEqual([], GAME_ENV["repair_foreign_system_dlls"](str(self.compat), str(proton)))
+        self.assertEqual([], GAME_ENV["repair_foreign_system_dlls"](str(self.compat), str(proton)))
+
+    def test_foreign_component_restore_does_not_override_repair_with_native_override(self):
+        proton = self.proton()
+        builtin = Path(self.tmp.name) / "arm-proton/files/lib/wine/aarch64-windows/ucrtbase.dll"
+        builtin.parent.mkdir(parents=True, exist_ok=True)
+        builtin.write_bytes(self.pe_image(0xAA64))
+        system32 = self.pfx / "system32"
+        system32.mkdir(parents=True)
+        dll = system32 / "ucrtbase.dll"
+        dll.write_bytes(self.pe_image(0x8664))
+        backup = self.compat / ".droiddeck-wincomponents-backup/drive_c/windows/system32/ucrtbase.dll"
+        backup.parent.mkdir(parents=True)
+        backup.write_bytes(self.pe_image(0x8664))
+        self.compat.joinpath(".droiddeck-wincomponents.json").write_text(json.dumps({
+            "files": {"drive_c/windows/system32/ucrtbase.dll": "vc"}, "components": ["vc"]}))
+        self.compat.joinpath("pfx/user.reg").parent.mkdir(parents=True, exist_ok=True)
+        self.compat.joinpath("pfx/user.reg").write_text(
+            'WINE REGISTRY Version 2\n\n[Software\\\\Wine\\\\DllOverrides] 1\n"ucrtbase"="native,builtin"\n')
+        fixed = GAME_ENV["repair_foreign_system_dlls"](str(self.compat), str(proton))
+        self.assertEqual(["system32/ucrtbase.dll (machine 0x8664)"], fixed)
+        self.apply(proton)
+        self.assertTrue(dll.is_symlink())
+        self.assertEqual(0xAA64, MODULE["pe_machine"](dll))
+
+    def test_matching_component_dll_is_placed(self):
+        proton = self.proton()
+        self.component("vc", ["ucrtbase"], {"system32/ucrtbase.dll": self.pe_image(0xAA64)})
+        self.pick("vc")
+        names, _ = self.apply(proton)
+        self.assertEqual(names, ["ucrtbase"])
+        self.assertEqual(MODULE["pe_machine"](self.pfx / "system32/ucrtbase.dll"), 0xAA64)
+
+    def test_x64_proton_places_x64_component_dll(self):
+        proton = self.proton(arm=False)
+        self.component("vc", ["ucrtbase"], {"system32/ucrtbase.dll": self.pe_image(0x8664)})
+        self.pick("vc")
+        names, _ = self.apply(proton)
+        self.assertEqual(names, ["ucrtbase"])
+        self.assertEqual(MODULE["pe_machine"](self.pfx / "system32/ucrtbase.dll"), 0x8664)
+
+    def test_arm_proton_with_x64_selection_places_x64_component_dll(self):
+        proton = self.proton()
+        self.component("vc", ["ucrtbase"], {"system32/ucrtbase.dll": self.pe_image(0x8664)})
+        self.pick("vc")
+        names, _ = self.apply(proton, {"PROTON_USE_ARM64": "0"})
+        self.assertEqual(names, ["ucrtbase"])
+        self.assertEqual(MODULE["pe_machine"](self.pfx / "system32/ucrtbase.dll"), 0x8664)
+
+    def test_places_files_before_the_prefix_exists_and_returns_overrides(self):
+        self.component("openal", ["openal32"], {"syswow64/OpenAL32.dll": b"x86", "system32/OpenAL32.dll": b"x64"})
+        self.pick("openal")
+        names, notes = self.apply()
+        self.assertEqual(names, ["openal32"])
+        self.assertEqual((self.pfx / "syswow64/openal32.dll").read_bytes(), b"x86")
+        self.assertEqual((self.pfx / "system32/openal32.dll").read_bytes(), b"x64")
+        self.assertIn("2 file(s) placed", notes[-1])
+        self.assertEqual(MODULE["overrides_value"](names + names), "openal32=n,b")
+
+    def test_second_launch_copies_nothing(self):
+        self.component("openal", ["openal32"], {"syswow64/OpenAL32.dll": b"x86"})
+        self.pick("openal")
+        self.apply()
+        _, notes = self.apply()
+        self.assertEqual(notes, [])
+
+    def test_replaces_a_proton_builtin_symlink_and_keeps_the_prefix_spelling(self):
+        self.component("xaudio", ["xaudio2_7"], {"syswow64/xaudio2_7.dll": b"native"})
+        builtin = Path(self.tmp.name) / "proton/lib/wine/i386-windows/xaudio2_7.dll"
+        builtin.parent.mkdir(parents=True)
+        builtin.write_bytes(b"builtin")
+        (self.pfx / "syswow64").mkdir(parents=True)
+        (self.pfx / "syswow64/XAudio2_7.dll").symlink_to(builtin)
+        self.pick("xaudio")
+        self.apply()
+        placed = self.pfx / "syswow64/XAudio2_7.dll"
+        self.assertFalse(placed.is_symlink())
+        self.assertEqual(placed.read_bytes(), b"native")
+        self.assertEqual(builtin.read_bytes(), b"builtin")
+        self.assertEqual(os.listdir(self.pfx / "syswow64"), ["XAudio2_7.dll"])
+
+    def test_restores_a_file_an_older_proton_deleted(self):
+        self.component("openal", ["openal32"], {"syswow64/OpenAL32.dll": b"x86"})
+        self.pick("openal")
+        self.apply()
+        (self.pfx / "syswow64/openal32.dll").unlink()
+        _, notes = self.apply()
+        self.assertTrue((self.pfx / "syswow64/openal32.dll").is_file())
+        self.assertIn("1 file(s) placed", notes[-1])
+
+    def test_turning_a_component_off_removes_its_files_and_forgets_protons_config(self):
+        self.component("openal", ["openal32"], {"syswow64/OpenAL32.dll": b"x86"})
+        self.pick("openal")
+        self.apply()
+        (self.compat / "config_info").write_text("cached")
+        self.pick()
+        names, notes = self.apply()
+        self.assertEqual(names, [])
+        self.assertFalse((self.pfx / "syswow64/openal32.dll").exists())
+        self.assertFalse((self.compat / "config_info").exists())
+        self.assertIn("1 removed", notes[-1])
+
+    def test_a_file_of_someone_elses_is_kept_and_put_back_when_turned_off(self):
+        self.component("vc", ["msvcp100"], {"syswow64/msvcp100.dll": b"ours"})
+        installer = self.pfx / "syswow64/MSVCP100.dll"
+        installer.parent.mkdir(parents=True)
+        installer.write_bytes(b"from a real installer")
+        self.pick("vc")
+        self.apply()
+        self.assertEqual(installer.read_bytes(), b"ours")
+        self.apply()
+        self.pick()
+        names, notes = self.apply()
+        self.assertEqual(installer.read_bytes(), b"from a real installer")
+        self.assertIn("1 put back as they were", notes[-1])
+        self.assertFalse((self.compat / ".droiddeck-wincomponents-backup/drive_c/windows/syswow64/msvcp100.dll").exists())
+
+    def test_protons_own_dlls_and_our_earlier_copy_get_no_backup(self):
+        self.component("vc", ["msvcp100"], {"syswow64/msvcp100.dll": b"ours v1", "system32/msvcp100.dll": b"ours 64"})
+        builtin = self.pfx / "system32/msvcp100.dll"
+        builtin.parent.mkdir(parents=True)
+        builtin.write_bytes(b"MZ" + b"\0" * 62 + b"Wine builtin DLL")
+        self.pick("vc")
+        self.apply()
+        (self.store / "vc/syswow64/msvcp100.dll").write_bytes(b"ours v2")
+        os.utime(self.store / "vc/syswow64/msvcp100.dll", (1, 1))
+        self.apply()
+        self.assertFalse((self.compat / ".droiddeck-wincomponents-backup").exists())
+
+    def test_missing_component_is_skipped(self):
+        self.pick("physx")
+        names, notes = self.apply()
+        self.assertEqual(names, [])
+        self.assertEqual(notes, ["physx is not installed; skipped"])
+
+    def test_a_component_gone_from_the_store_keeps_what_it_placed(self):
+        self.component("dmband", ["dmband"], {"syswow64/dmband.dll": b"band"})
+        meta = self.store / "directmusic"
+        meta.mkdir(parents=True)
+        (meta / "component.json").write_text(json.dumps({"id": "directmusic", "overrides": [], "requires": ["dmband"]}))
+        self.component("openal", ["openal32"], {"syswow64/OpenAL32.dll": b"x86"})
+        self.pick("directmusic", "openal")
+        self.apply()
+        for cid in ("dmband", "directmusic", "openal"):
+            for path in sorted((self.store / cid).rglob("*"), reverse=True):
+                path.rmdir() if path.is_dir() else path.unlink()
+            (self.store / cid).rmdir()
+        names, notes = self.apply()
+        self.assertEqual(MODULE["overrides_value"](names), "dmband=n,b;openal32=n,b")
+        self.assertEqual((self.pfx / "syswow64/dmband.dll").read_bytes(), b"band")
+        self.assertEqual((self.pfx / "syswow64/openal32.dll").read_bytes(), b"x86")
+        self.assertTrue(all("kept the files it placed" in note for note in notes), notes)
+        self.component("openal", ["openal32"], {"syswow64/OpenAL32.dll": b"x86 v2"})
+        os.utime(self.store / "openal/syswow64/OpenAL32.dll", (1, 1))
+        names, _ = self.apply()
+        self.assertEqual(MODULE["overrides_value"](names), "dmband=n,b;openal32=n,b")
+        self.assertEqual((self.pfx / "syswow64/openal32.dll").read_bytes(), b"x86 v2")
+        self.pick()
+        self.apply()
+        self.assertFalse((self.pfx / "syswow64/dmband.dll").exists())
+        self.assertFalse((self.pfx / "syswow64/openal32.dll").exists())
+
+    def test_state_from_before_the_update_keeps_a_missing_bundles_parts(self):
+        self.component("dmband", ["dmband"], {"syswow64/dmband.dll": b"band"})
+        meta = self.store / "directmusic"
+        meta.mkdir(parents=True)
+        (meta / "component.json").write_text(json.dumps({"id": "directmusic", "overrides": [], "requires": ["dmband"]}))
+        self.pick("directmusic")
+        self.apply()
+        state_file = self.compat / ".droiddeck-wincomponents.json"
+        state = json.loads(state_file.read_text())
+        rel = next(iter(state["files"]))
+        state_file.write_text(json.dumps({"files": state["files"], "components": state["components"], "registry": {}}))
+        for cid in ("dmband", "directmusic"):
+            for path in sorted((self.store / cid).rglob("*"), reverse=True):
+                path.rmdir() if path.is_dir() else path.unlink()
+            (self.store / cid).rmdir()
+        dll = self.compat / "pfx" / rel
+        for _ in range(2):
+            names, notes = self.apply()
+            self.assertEqual(MODULE["overrides_value"](names), "dmband=n,b")
+            self.assertEqual(dll.read_bytes(), b"band")
+            self.assertEqual(len(notes), 2)
+            saved = json.loads(state_file.read_text())
+            self.assertEqual(saved["guessed"], ["directmusic"])
+            self.assertNotIn("directmusic", saved["requires"])
+        self.component("dmband", ["dmband"], {"syswow64/dmband.dll": b"band2"})
+        names, _ = self.apply()
+        self.assertEqual(MODULE["overrides_value"](names), "dmband=n,b")
+        self.assertEqual(dll.read_bytes(), b"band2")
+        self.assertEqual(json.loads(state_file.read_text())["guessed"], ["directmusic"])
+        self.pick()
+        self.apply()
+        self.assertFalse(dll.exists())
+
+    def test_a_missing_legacy_bundle_with_its_own_files_keeps_its_parts_and_their_registry(self):
+        self.pfx.parent.mkdir(parents=True)
+        user = self.compat / "pfx/user.reg"
+        user.write_text('WINE REGISTRY Version 2\n\n[Software\\\\Test] 1700000000\n"Mode"="ours"\n')
+        ident = "HKCU\tsoftware\\test\tmode"
+        own = self.compat / "pfx/drive_c/windows/syswow64/bundle.dll"
+        part = self.compat / "pfx/drive_c/windows/syswow64/part.dll"
+        for path in (own, part):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"x")
+        self.compat.joinpath(".droiddeck-wincomponents.json").write_text(json.dumps({
+            "files": {"drive_c/windows/syswow64/bundle.dll": "bundle", "drive_c/windows/syswow64/part.dll": "part"},
+            "components": ["bundle", "part", "tweak"],
+            "registry": {ident: {"prev": None, "cid": "tweak", "hive": "HKCU", "key": "Software\\Test", "name": "Mode"}}}))
+        self.pick("bundle")
+        names, _ = self.apply()
+        self.assertEqual(set(MODULE["overrides_value"](names).split(";")), {"bundle=n,b", "part=n,b"})
+        self.assertTrue(own.exists() and part.exists())
+        self.assertIn('"Mode"="ours"', user.read_text())
+        saved = json.loads((self.compat / ".droiddeck-wincomponents.json").read_text())
+        self.assertEqual(saved["guessed"], ["bundle"])
+        self.assertIn(ident, saved["registry"])
+
+    def test_a_missing_component_that_only_set_registry_values_keeps_them(self):
+        self.pfx.parent.mkdir(parents=True)
+        user = self.compat / "pfx/user.reg"
+        user.write_text('WINE REGISTRY Version 2\n\n[Software\\\\Test] 1700000000\n"Mode"="ours"\n')
+        ident = "HKCU\tsoftware\\test\tmode"
+        self.compat.joinpath(".droiddeck-wincomponents.json").write_text(json.dumps({
+            "files": {}, "components": ["tweak"], "requires": {}, "overrides": {"tweak": []},
+            "registry": {ident: {"prev": None, "cid": "tweak", "hive": "HKCU", "key": "Software\\Test", "name": "Mode"}}}))
+        self.pick("tweak")
+        _, notes = self.apply()
+        self.assertIn('"Mode"="ours"', user.read_text())
+        self.assertIn("tweak is not in the store; kept the files it placed until it is installed again", notes)
+        self.assertIn(ident, json.loads((self.compat / ".droiddeck-wincomponents.json").read_text())["registry"])
+
+    def test_no_selection_touches_nothing(self):
+        self.assertEqual(self.apply(), ([], []))
+        self.assertFalse(self.compat.exists())
+
+    def test_bad_selection_is_refused(self):
+        self.selection.write_text(json.dumps({"version": 1, "games": {"2571976725": ["a/../etc"]}}))
+        with self.assertRaises(ValueError):
+            self.apply()
+
+    def test_game_env_puts_component_overrides_before_the_games_own(self):
+        self.component("openal", ["openal32"], {"syswow64/OpenAL32.dll": b"x86"})
+        self.pick("openal")
+        globals_ = GAME_ENV["win_components"].__globals__
+        real = runpy.run_path(str(BIN / "droiddeck-wincomponents"))
+        real["apply"].__defaults__ = (self.selection, self.store, self.selection.parent / "no-pending.json", None, None, None)
+        with mock.patch.dict(globals_, {"runpy": mock.Mock(run_path=lambda _path: real)}):
+            self.assertEqual(GAME_ENV["win_components"](str(self.compat) + "/", "2571976725"), "openal32=n,b")
+            self.assertEqual(GAME_ENV["win_components"]("", "2571976725"), "")
+
+    def test_bundle_brings_its_parts_and_catalog_names_with_dots_work(self):
+        self.component("dmband", ["dmband"], {"syswow64/dmband.dll": b"band"})
+        self.component("dsound", ["dsound=n"], {"syswow64/dsound.dll": b"ds"})
+        meta = self.store / "directmusic"
+        meta.mkdir(parents=True)
+        (meta / "component.json").write_text(json.dumps({"id": "directmusic", "overrides": [], "requires": ["dmband", "dsound"]}))
+        self.component("xaudio2.7", ["xaudio2_7"], {"system32/xaudio2_7.dll": b"xa"})
+        self.pick("directmusic", "xaudio2.7")
+        names, _ = self.apply()
+        self.assertEqual(MODULE["overrides_value"](names), "dmband=n,b;dsound=n,b;xaudio2_7=n,b")
+        self.assertEqual((self.pfx / "syswow64/dmband.dll").read_bytes(), b"band")
+        self.assertEqual(json.loads((self.compat / ".droiddeck-wincomponents.json").read_text())["components"],
+                         ["dmband", "dsound", "directmusic", "xaudio2.7"])
+
+    def test_files_one_level_down_are_placed(self):
+        self.component("gmdls", [], {"system32/drivers/GM.DLS": b"dls"})
+        self.pick("gmdls")
+        self.apply()
+        self.assertEqual((self.pfx / "system32/drivers/gm.dls").read_bytes(), b"dls")
+
+    def test_overrides_value_last_word_wins_and_refuses_junk(self):
+        self.assertEqual(MODULE["overrides_value"](["a", "b=n", "a=b", "bad;name", "c=x"]), "b=n;a=b")
+
+
+    def prefix_dll(self, arch, name, data=None, link=None):
+        path = self.pfx / arch / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if link is not None:
+            link.parent.mkdir(parents=True, exist_ok=True)
+            link.write_bytes(b"MZ" + b"\0" * 126)
+            path.symlink_to(link)
+        else:
+            path.write_bytes(data)
+
+    def test_a_native_only_override_without_a_native_dll_falls_back_to_builtin(self):
+        self.component("dotnet48", ["mscoree=n"], {"drive_c/windows/Microsoft.NET/Framework64/clr.dll": b"clr"})
+        dist = Path(self.tmp.name) / "proton/lib/wine"
+        self.prefix_dll("system32", "mscoree.dll", link=dist / "aarch64-windows/mscoree.dll")
+        self.prefix_dll("syswow64", "mscoree.dll", link=dist / "i386-windows/mscoree.dll")
+        self.pick("dotnet48")
+        names, notes = self.apply()
+        self.assertEqual(MODULE["overrides_value"](names), "mscoree=n,b")
+        self.assertIn("mscoree=n has no native DLL in the prefix; using n,b", notes)
+
+    def test_a_wine_placeholder_file_is_not_a_native_dll(self):
+        self.component("dotnet48", ["mscoree=n"], {})
+        for arch in ("system32", "syswow64"):
+            self.prefix_dll(arch, "MSCOREE.DLL", b"MZ" + b"\0" * 62 + b"Wine placeholder DLL")
+        self.pick("dotnet48")
+        names, _ = self.apply()
+        self.assertEqual(MODULE["overrides_value"](names), "mscoree=n,b")
+
+    def test_a_native_only_override_stays_native_when_the_native_dll_is_there(self):
+        self.component("dotnet48", ["mscoree=n"], {})
+        for arch in ("system32", "syswow64"):
+            self.prefix_dll(arch, "mscoree.dll", b"MZ" + b"\0" * 62 + b"Microsoft .NET runtime")
+        self.pick("dotnet48")
+        names, notes = self.apply()
+        self.assertEqual(MODULE["overrides_value"](names), "mscoree=n")
+        self.assertFalse([n for n in notes if "has no native DLL" in n])
+
+    def test_a_native_only_override_with_one_architecture_missing_keeps_the_other_native(self):
+        self.component("physx", ["physxloader=n"], {"system32/PhysXLoader.dll": b"MZ native64"})
+        self.pick("physx")
+        names, _ = self.apply()
+        self.assertEqual(MODULE["overrides_value"](names), "physxloader=n,b")
+
+    def test_other_override_modes_are_left_alone(self):
+        self.component("mix", ["openal32", "xinput1_3=b", "d3dx9_43=n,b"], {})
+        self.pick("mix")
+        names, notes = self.apply()
+        self.assertEqual(MODULE["overrides_value"](names), "openal32=n,b;xinput1_3=b;d3dx9_43=n,b")
+        self.assertFalse([n for n in notes if "has no native DLL" in n])
+
+
+class PendingWaitTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        root = Path(self.tmp.name)
+        self.store = root / "store"
+        self.pending = root / "pending.json"
+        self.slept = []
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def install(self, cid, revision=0):
+        folder = self.store / cid
+        folder.mkdir(parents=True, exist_ok=True)
+        metadata = {"id": cid, "overrides": []}
+        if revision is not None:
+            metadata["revision"] = revision
+        (folder / "component.json").write_text(json.dumps(metadata))
+
+    def clock(self):
+        return len(self.slept) * 0.5
+
+    def wait(self, timeout=10.0, on_sleep=None):
+        def sleep(seconds):
+            self.slept.append(seconds)
+            if on_sleep:
+                on_sleep(len(self.slept))
+        return MODULE["wait_for_pending"]("1262580", self.pending, self.store, timeout, sleep, self.clock)
+
+    def test_nothing_pending_means_no_wait(self):
+        self.assertIsNone(self.wait())
+        self.pending.write_text(json.dumps({"games": {"999": ["d3dx9"]}}))
+        self.assertIsNone(self.wait())
+        self.install("d3dx9")
+        self.pending.write_text(json.dumps({"games": {"1262580": ["d3dx9"]}}))
+        self.assertIsNone(self.wait())
+        self.install("d3dx9", revision=None)
+        self.assertIsNone(self.wait())
+        self.assertEqual([], self.slept)
+
+    def test_waits_until_the_component_lands(self):
+        self.pending.write_text(json.dumps({"games": {"1262580": ["vcredist2019_dll"]}}))
+        note = self.wait(on_sleep=lambda n: self.install("vcredist2019_dll") if n == 3 else None)
+        self.assertEqual(3, len(self.slept))
+        self.assertEqual("wincomp: 1262580 waited 1500ms for vcredist2019_dll", note)
+
+    def test_gives_up_cleanly_after_the_timeout(self):
+        self.pending.write_text(json.dumps({"games": {"1262580": ["vcredist2019_dll", "d3dx9"]}}))
+        self.install("d3dx9")
+        note = self.wait(timeout=2.0)
+        self.assertEqual(4, len(self.slept))
+        self.assertEqual("wincomp: 1262580 launched without vcredist2019_dll (not ready)", note)
+
+    def test_an_existing_old_revision_waits_until_the_repair_lands(self):
+        self.install("vcredist2010_dll", revision=0)
+        self.pending.write_text(json.dumps({"games": {"1262580": ["vcredist2010_dll"]},
+                                           "revisions": {"vcredist2010_dll": 1}}))
+        note = self.wait(on_sleep=lambda n: self.install("vcredist2010_dll", revision=1) if n == 3 else None)
+        self.assertEqual(3, len(self.slept))
+        self.assertEqual(note, "wincomp: 1262580 waited 1500ms for vcredist2010_dll")
+
+    def test_an_old_revision_does_not_satisfy_a_pending_repair(self):
+        self.install("vcredist2010_dll", revision=1)
+        self.pending.write_text(json.dumps({"games": {"1262580": ["vcredist2010_dll"]},
+                                           "revisions": {"vcredist2010_dll": 2}}))
+        self.assertEqual(self.wait(timeout=1.0), "wincomp: 1262580 launched without vcredist2010_dll (not ready)")
+        self.assertEqual(2, len(self.slept))
+
+    def test_a_damaged_pending_file_is_no_wait(self):
+        self.pending.write_text("{not json")
+        self.assertIsNone(self.wait())
+
+
+if __name__ == "__main__":
+    unittest.main()

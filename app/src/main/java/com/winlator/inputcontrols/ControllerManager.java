@@ -4,7 +4,6 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.hardware.input.InputManager;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -66,7 +65,6 @@ public class ControllerManager {
 
     private static final long ASSIGN_SETTLE_MS = 300L;
     private final Map<String, Long> firstSeenByIdentifier = new HashMap<>();
-    private final Map<String, Runnable> pendingRemovals = new HashMap<>();
     private final Handler settleHandler = new Handler(Looper.getMainLooper());
     private final Runnable settleAssignRunnable = this::autoAssignConnectedDevices;
     private final Set<String> sessionActiveIdentifiers = new HashSet<>();
@@ -103,13 +101,12 @@ public class ControllerManager {
     public void scanForDevices() {
         detectedDevices.clear();
         int[] deviceIds = inputManager.getInputDeviceIds();
-        if (deviceIds == null) return;
         Set<String> present = new HashSet<>();
         for (int deviceId : deviceIds) {
             InputDevice device = inputManager.getInputDevice(deviceId);
             // Some handhelds expose built-in controls as virtual devices, so
             // accept any device that reports a real gamepad/joystick shape.
-            if (device != null && isGameController(device) && device.getDescriptor() != null) {
+            if (device != null && isGameController(device)) {
                 detectedDevices.add(device);
                 String ident = getDeviceIdentifier(device);
                 knownDeviceIdentifiers.put(deviceId, ident);
@@ -159,11 +156,21 @@ public class ControllerManager {
     /**
      * Saves the current player slot assignments and enabled states to SharedPreferences.
      */
-    public void saveAssignments() {
+    public synchronized void saveAssignments() {
         SharedPreferences.Editor editor = preferences.edit();
         for (int i = 0; i < MAX_SLOTS; i++) {
-            // Save the assigned device identifier
+            // Save the assigned device identifier, with any session-only virtual-slot displacement undone so
+            // a pad moved off Player 1 for a Steam Controller never has that move written to preferences.
             String deviceIdentifier = slotAssignments.get(i);
+            boolean enabled = i == 0 && reservedSlots[0] ? reservedSlotWasEnabled : enabledSlots[i];
+            if (displacedIdentifier != null) {
+                if (i == displacedToSlot) {
+                    deviceIdentifier = null;
+                    enabled = displacedToSlotWasEnabled;
+                } else if (i == 0) {
+                    deviceIdentifier = displacedIdentifier;
+                }
+            }
             String prefKey = PREF_PLAYER_SLOT_PREFIX + i;
             if (deviceIdentifier != null) {
                 editor.putString(prefKey, deviceIdentifier);
@@ -173,7 +180,7 @@ public class ControllerManager {
 
             // Save the enabled state
             String enabledKey = PREF_ENABLED_SLOTS_PREFIX + i;
-            editor.putBoolean(enabledKey, enabledSlots[i]);
+            editor.putBoolean(enabledKey, enabled);
         }
         editor.apply();
     }
@@ -186,49 +193,37 @@ public class ControllerManager {
      * @return True if the device is a game controller.
      */
     public static boolean isGameController(InputDevice device) {
-        if (device == null || device.isVirtual()) return false;
+        if (device == null) return false;
 
-        // Composite HID keyboards often report SOURCE_JOYSTICK.
-        // Real game controllers usually have SOURCE_GAMEPAD.
         boolean isGamepad = device.supportsSource(InputDevice.SOURCE_GAMEPAD);
         boolean isJoystick = device.supportsSource(InputDevice.SOURCE_JOYSTICK);
 
-        // If it's not a gamepad, check if it has axes and is NOT a full keyboard
-        if (!isGamepad) {
-            if (!isJoystick) return false;
+        // Only consider axes reported under a controller source class. Composite HID
+        // devices (e.g. keyboards with built-in touchpads) expose AXIS_X/AXIS_Y through
+        // SOURCE_MOUSE and may wrongly claim SOURCE_JOYSTICK in their source mask, which
+        // caused them to be treated as gamepads. SOURCE_GAMEPAD is queried as well, for
+        // drivers that attach the sticks to the gamepad source instead.
+        boolean hasAxes =
+                ExternalController.hasControllerAxis(device, android.view.MotionEvent.AXIS_X) ||
+                        ExternalController.hasControllerAxis(device, android.view.MotionEvent.AXIS_Y);
 
-            // Check for standard joystick axes
-            boolean hasAxes = device.getMotionRange(MotionEvent.AXIS_X) != null &&
-                             device.getMotionRange(MotionEvent.AXIS_Y) != null;
-            if (!hasAxes) return false;
-
-            // Filter out full keyboards: they usually have KEYCODE_Q, KEYCODE_W, etc.
-            // Also check for composite HID devices that report too many keys
-            boolean[] hasAlphaKeys = device.hasKeys(
-                KeyEvent.KEYCODE_Q, KeyEvent.KEYCODE_W, KeyEvent.KEYCODE_E,
-                KeyEvent.KEYCODE_R, KeyEvent.KEYCODE_T, KeyEvent.KEYCODE_Y,
-                KeyEvent.KEYCODE_A, KeyEvent.KEYCODE_S, KeyEvent.KEYCODE_D,
-                KeyEvent.KEYCODE_F, KeyEvent.KEYCODE_G, KeyEvent.KEYCODE_H
-            );
-            int alphaCount = 0;
-            for (boolean b : hasAlphaKeys) if (b) alphaCount++;
-            if (alphaCount >= 5) return false;
-        }
-
-        // Must have at least some "gamepad" buttons to be considered a controller
         boolean[] hasGamepadKeysArray = device.hasKeys(
                 KeyEvent.KEYCODE_BUTTON_A,
                 KeyEvent.KEYCODE_BUTTON_B,
                 KeyEvent.KEYCODE_BUTTON_X,
-                KeyEvent.KEYCODE_BUTTON_Y,
-                KeyEvent.KEYCODE_BUTTON_START,
-                KeyEvent.KEYCODE_BUTTON_SELECT
+                KeyEvent.KEYCODE_BUTTON_Y
         );
 
-        for (boolean hasKey : hasGamepadKeysArray) if (hasKey) return true;
+        boolean hasGamepadKeys = false;
+        for (boolean hasKey : hasGamepadKeysArray) {
+            if (hasKey) {
+                hasGamepadKeys = true;
+                break;
+            }
+        }
 
-        // If no gamepad buttons, check for D-Pad or Joysticks
-        return isGamepad || (device.getMotionRange(MotionEvent.AXIS_Z) != null || device.getMotionRange(MotionEvent.AXIS_HAT_X) != null);
+        return (isGamepad && hasGamepadKeys) ||
+                (isJoystick && hasAxes);
     }
 
     /**
@@ -239,8 +234,20 @@ public class ControllerManager {
      */
     public static String getDeviceIdentifier(InputDevice device) {
         if (device == null) return null;
+        if (JoyConSupport.isJoyCon(device)) {
+            List<int[]> connectedDevices = new ArrayList<>();
+            for (int deviceId : InputDevice.getDeviceIds()) {
+                InputDevice connectedDevice = InputDevice.getDevice(deviceId);
+                if (connectedDevice != null) {
+                    connectedDevices.add(new int[]{connectedDevice.getVendorId(), connectedDevice.getProductId()});
+                }
+            }
+            if (JoyConSupport.hasExactlyOnePair(connectedDevices)) {
+                return JoyConSupport.PAIRED_IDENTIFIER;
+            }
+        }
         // The descriptor is the most reliable unique ID for a device.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
             return device.getDescriptor();
         }
         // Fallback for older Android versions
@@ -415,13 +422,6 @@ public class ControllerManager {
             return;
         }
 
-        // Cancel any pending removal if the same device re-connects
-        Runnable pending = pendingRemovals.remove(deviceIdentifier);
-        if (pending != null) {
-            settleHandler.removeCallbacks(pending);
-            Log.d(TAG, "Canceled pending removal for settled device: " + deviceIdentifier);
-        }
-
         knownDeviceIdentifiers.put(deviceId, deviceIdentifier);
         scanForDevices();
         int existing = getSlotForDevice(deviceId);
@@ -455,7 +455,6 @@ public class ControllerManager {
         scanForDevices();
         boolean changed = false;
         for (InputDevice device : detectedDevices) {
-            if (device == null) continue;
             String deviceIdentifier = getDeviceIdentifier(device);
             if (deviceIdentifier == null || getSlotForDevice(device.getId()) >= 0) {
                 continue;
@@ -488,55 +487,19 @@ public class ControllerManager {
 
     public void onDeviceDisconnected(int deviceId) {
         String deviceIdentifier = getDeviceIdentifierForDeviceId(deviceId);
-        if (deviceIdentifier == null) {
-            knownDeviceIdentifiers.remove(deviceId);
-            scanForDevices();
-            return;
-        }
-
-        // Check if this device is assigned to a slot.
         int slot = getSlotForIdentifier(deviceIdentifier);
-        if (slot < 0) {
-            knownDeviceIdentifiers.remove(deviceId);
-            scanForDevices();
-            return;
-        }
-
-        // If it was assigned, wait a moment before unassigning to handle "ghost" disconnects
-        // (common when controllers report multiple device IDs for sensors/touchpads).
-        if (pendingRemovals.containsKey(deviceIdentifier)) return;
-
-        Log.d(TAG, "Device disconnected, scheduling settle-removal: " + deviceIdentifier);
-        Runnable removeTask = () -> {
-            pendingRemovals.remove(deviceIdentifier);
-            // Verify it's STILL disconnected before finalizing removal
-            if (isDeviceActuallyConnected(deviceIdentifier)) {
-                Log.d(TAG, "Settle-removal aborted: device re-appeared: " + deviceIdentifier);
-                return;
-            }
-
-            knownDeviceIdentifiers.remove(deviceId);
+        knownDeviceIdentifiers.remove(deviceId);
+        scanForDevices();
+        if (slot >= 0) {
             slotAssignments.remove(slot);
-            lastKnownSlotByIdentifier.put(deviceIdentifier, slot);
+            if (deviceIdentifier != null) {
+                lastKnownSlotByIdentifier.put(deviceIdentifier, slot);
+            }
             markSlotRecentlyFreed(slot);
-            scanForDevices();
             saveAssignments();
             notifySlotsChanged();
-            Log.i(TAG, "Finalized unassignment of disconnected deviceId=" + deviceId + " from Player " + (slot + 1));
-        };
-
-        pendingRemovals.put(deviceIdentifier, removeTask);
-        settleHandler.postDelayed(removeTask, ASSIGN_SETTLE_MS);
-    }
-
-    private boolean isDeviceActuallyConnected(String identifier) {
-        int[] ids = inputManager.getInputDeviceIds();
-        if (ids == null) return false;
-        for (int id : ids) {
-            InputDevice d = inputManager.getInputDevice(id);
-            if (d != null && identifier.equals(getDeviceIdentifier(d))) return true;
+            Log.i(TAG, "Unassigned disconnected deviceId=" + deviceId + " from Player " + (slot + 1));
         }
-        return false;
     }
 
     private void markSlotRecentlyFreed(int slot) {
@@ -566,32 +529,34 @@ public class ControllerManager {
 
     public boolean noteGamepadButton(int deviceId) {
         markActive(deviceId);
+        // A virtual controller holding Player 1 leaves slotAssignments[0] EMPTY on purpose, so the
+        // "claim an unoccupied Player 1" path below reads the reserved slot as free and hands it to the
+        // first pad whose button is pressed — putting a physical pad back on top of the Steam Controller
+        // and persisting that. The reservation is the only record that the slot is taken.
+        if (reservedSlots[0]) return false;
         int slot = getSlotForDevice(deviceId);
         if (slot == 0) return false;
-
-        String deviceIdentifier = getDeviceIdentifierForDeviceId(deviceId);
-        if (deviceIdentifier == null) return false;
-
         InputDevice occupant = getAssignedDeviceForSlot(0);
         if (occupant == null) {
-            // Player 1 slot is empty, claim it immediately
+            String deviceIdentifier = getDeviceIdentifierForDeviceId(deviceId);
+            if (deviceIdentifier == null) return false;
             assignDeviceIdentifierToSlot(0, deviceIdentifier);
-            enabledSlots[0] = true;
-            Log.i(TAG, "deviceId=" + deviceId + " claimed empty Player 1 slot");
-        } else {
-            String occupantIdentifier = getDeviceIdentifier(occupant);
-            if (occupantIdentifier == null || sessionActiveIdentifiers.contains(occupantIdentifier)) return false;
-
-            // Player 1 is idle, displace them
-            assignDeviceIdentifierToSlot(0, deviceIdentifier);
-            if (slot > 0) {
-                assignDeviceIdentifierToSlot(slot, occupantIdentifier);
-            }
-            Log.i(TAG, "deviceId=" + deviceId + " displaced idle Player 1");
+            saveAssignments();
+            notifySlotsChanged();
+            Log.i(TAG, "deviceId=" + deviceId + " claimed empty Player 1");
+            return true;
         }
-
+        String occupantIdentifier = getDeviceIdentifier(occupant);
+        if (occupantIdentifier == null || sessionActiveIdentifiers.contains(occupantIdentifier)) return false;
+        String deviceIdentifier = getDeviceIdentifierForDeviceId(deviceId);
+        if (deviceIdentifier == null) return false;
+        assignDeviceIdentifierToSlot(0, deviceIdentifier);
+        if (slot > 0) {
+            assignDeviceIdentifierToSlot(slot, occupantIdentifier);
+        }
         saveAssignments();
         notifySlotsChanged();
+        Log.i(TAG, "deviceId=" + deviceId + " displaced idle Player 1");
         return true;
     }
 
@@ -600,7 +565,7 @@ public class ControllerManager {
         if (identifier == null || !sessionActiveIdentifiers.add(identifier)) return;
         InputDevice device = inputManager.getInputDevice(deviceId);
         if (device != null &&
-                (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || device.isExternal())) {
+                (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q || device.isExternal())) {
             sessionUsedExternalController = true;
         }
     }
@@ -617,7 +582,101 @@ public class ControllerManager {
     }
 
     private boolean isSlotAvailable(int slot) {
-        return slot >= 0 && slot < MAX_SLOTS && getAssignedDeviceForSlot(slot) == null;
+        return slot >= 0 && slot < MAX_SLOTS && !reservedSlots[slot] && getAssignedDeviceForSlot(slot) == null;
+    }
+
+    /**
+     * Slots held by a virtual controller that Android never reports as an InputDevice — currently only the
+     * BLE Steam Controller, which feeds WinHandler directly instead of registering as a gamepad. Such a
+     * controller is invisible to {@link #getAssignedDeviceForSlot}, so without this the auto-assigner would
+     * hand its slot to the next physical pad and the two would share one player slot (same shared-memory
+     * gamepad state, same rumble). Session-only and deliberately NOT persisted by {@link #saveAssignments}:
+     * a reservation must never outlive the session that took it.
+     */
+    private final boolean[] reservedSlots = new boolean[MAX_SLOTS];
+
+    // Physical controller moved off Player 1 to make room for a virtual one, so the move can be undone when
+    // the reservation is released. Session-only, like the reservation itself.
+    private String displacedIdentifier = null;
+    private int displacedToSlot = -1;
+    private boolean displacedToSlotWasEnabled = false;
+    private boolean reservedSlotWasEnabled = false;
+
+    /**
+     * Reserves <b>Player 1</b> for a virtual controller, moving any physical pad sitting there to the next
+     * free slot for the duration.
+     * <p>
+     * Player 1 specifically, not "the first free slot": single-player games read player 1 only, so a virtual
+     * controller parked on player 2 has its sticks and buttons silently ignored while its trackpad/mouse
+     * output — which doesn't go through a player slot — keeps working. That split is confusing enough to be
+     * worth displacing a pad over. The displacement is NOT persisted, so the user's own slot assignment is
+     * restored by {@link #releaseVirtualSlot} and survives untouched in preferences either way.
+     *
+     * @return the reserved slot, or -1 if no slot could be freed (caller should carry on unreserved).
+     */
+    public synchronized int reserveVirtualSlot() {
+        if (reservedSlots[0]) return -1;
+        // Test the PERSISTED assignment, not isSlotAvailable(0): that resolves the slot against currently
+        // connected InputDevices, so a pad assigned to Player 1 but switched off reads as "available". We
+        // would then reserve Player 1 while its name is still in slotAssignments, and when the pad powers on
+        // mid-session onDeviceConnected() sees an existing assignment, leaves it alone, and lands it right
+        // back on top of the virtual controller.
+        String occupant = slotAssignments.get(0);
+        if (occupant != null) {
+            // The displacement target must be free of a persisted assignment too, or we would overwrite some
+            // other pad's saved slot.
+            int target = -1;
+            for (int slot = 1; slot < MAX_SLOTS; slot++) {
+                if (!reservedSlots[slot] && slotAssignments.get(slot) == null) { target = slot; break; }
+            }
+            if (target < 0) {
+                Log.w(TAG, "Player 1 is taken and cannot be freed; virtual controller stays unreserved");
+                return -1;
+            }
+            slotAssignments.remove(0);
+            slotAssignments.put(target, occupant);
+            displacedToSlotWasEnabled = enabledSlots[target];
+            enabledSlots[target] = true;
+            displacedIdentifier = occupant;
+            displacedToSlot = target;
+            Log.i(TAG, "Moved " + occupant + " to Player " + (target + 1) + " for a virtual controller");
+        }
+        reservedSlotWasEnabled = enabledSlots[0];
+        reservedSlots[0] = true;
+        enabledSlots[0] = true;
+        notifySlotsChanged();
+        Log.i(TAG, "Reserved Player 1 for a virtual controller");
+        return 0;
+    }
+
+    /**
+     * True while a virtual controller holds this slot. Callers outside this class need it because the slot
+     * looks empty from every other angle: no InputDevice, no entry in slotAssignments. WinHandler in
+     * particular must not report the slot as a disconnected gamepad just because no pad is assigned to it.
+     */
+    public synchronized boolean isSlotReserved(int slot) {
+        return slot >= 0 && slot < MAX_SLOTS && reservedSlots[slot];
+    }
+
+    /** Releases a slot taken by {@link #reserveVirtualSlot}, restoring any pad it displaced. */
+    public synchronized void releaseVirtualSlot(int slot) {
+        if (slot < 0 || slot >= MAX_SLOTS || !reservedSlots[slot]) return;
+        reservedSlots[slot] = false;
+        enabledSlots[slot] = reservedSlotWasEnabled;
+        if (displacedIdentifier != null) {
+            if (displacedIdentifier.equals(slotAssignments.get(displacedToSlot))) {
+                slotAssignments.remove(displacedToSlot);
+            }
+            slotAssignments.put(slot, displacedIdentifier);
+            enabledSlots[displacedToSlot] = displacedToSlotWasEnabled;
+            Log.i(TAG, "Restored " + displacedIdentifier + " to Player " + (slot + 1));
+            displacedIdentifier = null;
+            displacedToSlot = -1;
+        } else {
+            markSlotRecentlyFreed(slot);
+        }
+        notifySlotsChanged();
+        Log.i(TAG, "Released virtual-controller reservation on Player " + (slot + 1));
     }
 
     private int getPreferredFreeSlot(String deviceIdentifier) {

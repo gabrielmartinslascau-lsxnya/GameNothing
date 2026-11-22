@@ -3,12 +3,12 @@ package app.gamenative.utils
 import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
-import java.io.File
-import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import java.io.File
+import kotlin.coroutines.coroutineContext
 
 /**
  * Imports a user-picked folder (a SAF tree URI from OpenDocumentTree) into
@@ -73,35 +73,23 @@ object CustomGameImporter {
         deleteSource: Boolean,
         onBytes: (Long, String) -> Unit,
     ) {
-        val children = runCatching { src.listFiles() }.getOrElse { emptyArray() }
-        for (child in children) {
+        for (child in src.listFiles()) {
             coroutineContext.ensureActive()
-            if (!child.exists()) continue
-
             val childName = sanitizeName(child.name)
             if (child.isDirectory) {
                 val subDir = File(dest, childName)
                 subDir.mkdirs()
                 moveTree(context, child, subDir, deleteSource, onBytes)
-                if (deleteSource) {
-                    runCatching {
-                        if (!child.delete()) {
-                            Timber.tag("CustomGameImporter").w("Could not remove source folder ${child.uri}")
-                        }
-                    }
+                if (deleteSource && !child.delete()) {
+                    Timber.tag("CustomGameImporter").w("Could not remove source folder ${child.uri}")
                 }
             } else {
-                val expected = child.length()
-                val outFile = File(dest, childName)
-                var written = 0L
-                val input = runCatching { context.contentResolver.openInputStream(child.uri) }
-                    .onFailure { e ->
-                        if (e is kotlinx.coroutines.CancellationException) throw e
-                        Timber.tag("CustomGameImporter").w(e, "Failed to open ${child.uri}")
-                    }
-                    .getOrNull() ?: continue
-
                 runCatching {
+                    val expected = child.length()
+                    val outFile = File(dest, childName)
+                    var written = 0L
+                    val input = context.contentResolver.openInputStream(child.uri)
+                        ?: throw java.io.IOException("Could not open ${child.uri}")
                     input.use { ins ->
                         outFile.outputStream().use { output ->
                             val buf = ByteArray(1 shl 16)
@@ -115,22 +103,16 @@ object CustomGameImporter {
                             }
                         }
                     }
+                    if (expected > 0 && written != expected) {
+                        outFile.delete()
+                        throw java.io.IOException("Size mismatch for $childName: $written of $expected bytes")
+                    }
+                    if (deleteSource && !child.delete()) {
+                        Timber.tag("CustomGameImporter").w("Could not delete source file ${child.uri}")
+                    }
                 }.onFailure { e ->
                     if (e is kotlinx.coroutines.CancellationException) throw e
-                    Timber.tag("CustomGameImporter").e(e, "Error copying $childName")
-                }
-
-                if (expected > 0 && written != expected) {
-                    outFile.delete()
-                    Timber.tag("CustomGameImporter").w("Size mismatch for $childName: $written of $expected bytes")
-                    continue
-                }
-                if (deleteSource) {
-                    runCatching {
-                        if (!child.delete()) {
-                            Timber.tag("CustomGameImporter").w("Could not delete source file ${child.uri}")
-                        }
-                    }
+                    Timber.tag("CustomGameImporter").w(e, "Failed to copy file $childName, continuing...")
                 }
             }
         }

@@ -31,7 +31,7 @@ class NdotParticle(
 )
 
 /**
- * A ultra-optimized startup wrapper that acts as a true buffer.
+ * An ultra-optimized startup wrapper that acts as a true buffer.
  */
 @Composable
 fun NothingLaunchWrapper(
@@ -152,6 +152,11 @@ fun NothingLaunchWrapper(
 
         if (!latestIsReady && !localReleased) {
             snapshotFlow { latestIsReady || localReleased }.filter { it }.first()
+        }
+
+        if (showDots && !localReleased) {
+            // Brief beat so the GameNothing brand splash is cleanly visible before reveal fade.
+            delay(500)
         }
 
         Timber.tag("NothingWrapper").d("Reveal signal received. Starting Phase 3 (Fade Out).")

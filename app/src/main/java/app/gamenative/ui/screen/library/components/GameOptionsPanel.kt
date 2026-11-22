@@ -34,6 +34,7 @@ import androidx.compose.material.icons.automirrored.filled.AddToHomeScreen
 import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.AltRoute
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -43,20 +44,26 @@ import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.Face4
 import androidx.compose.material.icons.filled.Feedback
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RestartAlt
-import androidx.compose.material.icons.filled.SdStorage
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarOutline
 import androidx.compose.material.icons.filled.Update
+import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -81,6 +88,8 @@ import androidx.compose.ui.unit.dp
 import app.gamenative.R
 import app.gamenative.ui.data.AppMenuOption
 import app.gamenative.ui.enums.AppOptionMenuType
+import app.gamenative.ui.theme.BrokenGlassPanel
+import app.gamenative.ui.theme.LocalLooksState
 import app.gamenative.ui.util.adaptivePanelWidth
 
 @Composable
@@ -137,57 +146,76 @@ fun GameOptionsPanel(
             .fillMaxHeight()
             .width(adaptivePanelWidth(360.dp)),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                            MaterialTheme.colorScheme.surface,
+        val looks = LocalLooksState.current
+        val panelBody: @Composable () -> Unit = {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(vertical = 24.dp)
+                    .verticalScroll(rememberScrollState())
+                    .focusGroup(),
+            ) {
+                Text(
+                    text = stringResource(R.string.game_options_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                val groupedOptionsByCategory = groupOptions(options)
+
+                // Map category keys to localized strings
+                val categoryLabels = mapOf(
+                    OptionCategory.QUICK_ACTIONS to stringResource(R.string.game_options_quick_actions),
+                    OptionCategory.GAME_MANAGEMENT to stringResource(R.string.game_options_game_management),
+                    OptionCategory.CONTAINER to stringResource(R.string.game_options_container),
+                    OptionCategory.CLOUD_SAVES to stringResource(R.string.game_options_cloud_saves),
+                    OptionCategory.HELP_INFO to stringResource(R.string.game_options_help_info),
+                )
+
+                var isFirstItem = true
+                groupedOptionsByCategory.forEach { (category, categoryOptions) ->
+                    if (categoryOptions.isNotEmpty()) {
+                        OptionSection(
+                            title = categoryLabels[category] ?: category.name,
+                            options = categoryOptions,
+                            onOptionClick = { option ->
+                                option.onClick()
+                                onDismiss()
+                            },
+                            firstItemFocusRequester = if (isFirstItem) firstItemFocusRequester else null,
+                        )
+                        isFirstItem = false
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+            }
+        }
+        if (looks.isGlassEnabled) {
+            BrokenGlassPanel(
+                modifier = Modifier.fillMaxSize(),
+                cornerRadius = 24,
+                backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+            ) {
+                panelBody()
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                                MaterialTheme.colorScheme.surface,
+                            ),
                         ),
                     ),
-                )
-                .padding(vertical = 24.dp)
-                .verticalScroll(rememberScrollState())
-                .focusGroup(),
-        ) {
-            Text(
-                text = stringResource(R.string.game_options_title),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            val groupedOptionsByCategory = groupOptions(options)
-
-            // Map category keys to localized strings
-            val categoryLabels = mapOf(
-                OptionCategory.QUICK_ACTIONS to stringResource(R.string.game_options_quick_actions),
-                OptionCategory.GAME_MANAGEMENT to stringResource(R.string.game_options_game_management),
-                OptionCategory.CONTAINER to stringResource(R.string.game_options_container),
-                OptionCategory.CLOUD_SAVES to stringResource(R.string.game_options_cloud_saves),
-                OptionCategory.HELP_INFO to stringResource(R.string.game_options_help_info),
-            )
-
-            var isFirstItem = true
-            groupedOptionsByCategory.forEach { (category, categoryOptions) ->
-                if (categoryOptions.isNotEmpty()) {
-                    OptionSection(
-                        title = categoryLabels[category] ?: category.name,
-                        options = categoryOptions,
-                        onOptionClick = { option ->
-                            option.onClick()
-                            onDismiss()
-                        },
-                        firstItemFocusRequester = if (isFirstItem) firstItemFocusRequester else null,
-                    )
-                    isFirstItem = false
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
+            ) {
+                panelBody()
             }
         }
     }
@@ -325,6 +353,7 @@ private fun getIconForOption(type: AppOptionMenuType): ImageVector {
         AppOptionMenuType.StorePage -> Icons.AutoMirrored.Filled.OpenInNew
         AppOptionMenuType.CreateShortcut -> Icons.AutoMirrored.Filled.AddToHomeScreen
         AppOptionMenuType.ExportFrontend -> Icons.Default.Share
+        AppOptionMenuType.CopyLaunchLink -> Icons.Default.Link
         AppOptionMenuType.RunContainer -> Icons.Default.PlayArrow
         AppOptionMenuType.EditContainer -> Icons.Default.Settings
         AppOptionMenuType.ResetToDefaults -> Icons.Default.RestartAlt
@@ -346,18 +375,21 @@ private fun getIconForOption(type: AppOptionMenuType): ImageVector {
         AppOptionMenuType.TestGraphics -> Icons.Default.Build
         AppOptionMenuType.PlayWithDiagnostics -> Icons.Default.BugReport
         AppOptionMenuType.ShareDiagnostics -> Icons.Default.Share
+        AppOptionMenuType.AiDebugRun -> Icons.Default.SmartToy
         AppOptionMenuType.ImportConfig -> Icons.Default.ArrowDownward
         AppOptionMenuType.ExportConfig -> Icons.Default.ArrowUpward
         AppOptionMenuType.ImportSaves -> Icons.Default.ArrowDownward
         AppOptionMenuType.ExportSaves -> Icons.Default.ArrowUpward
+        AppOptionMenuType.RestoreSaveBackup -> Icons.Default.Restore
         AppOptionMenuType.ManageGameContent -> Icons.Default.Apps
         AppOptionMenuType.ManageWorkshop -> Icons.Default.Build
+        AppOptionMenuType.ImportFiles -> Icons.Default.UploadFile
+        AppOptionMenuType.ExportFiles -> Icons.Default.FileDownload
         AppOptionMenuType.ManageMods -> Icons.Default.Extension
         AppOptionMenuType.ChangeBranch -> Icons.AutoMirrored.Filled.CallSplit
+        AppOptionMenuType.ChangePreferredCopy -> Icons.Filled.Face4
         AppOptionMenuType.AddToFavorites -> Icons.Filled.StarOutline
         AppOptionMenuType.RemoveFromFavorites -> Icons.Filled.Star
-        AppOptionMenuType.RemoveFromLibrary -> Icons.Default.Delete
-        AppOptionMenuType.MoveGame -> Icons.Default.SdStorage
     }
 }
 
@@ -373,21 +405,22 @@ private fun groupOptions(options: List<AppMenuOption>): Map<OptionCategory, List
             // Quick Actions
             AppOptionMenuType.EditContainer,
             AppOptionMenuType.RunContainer,
+            AppOptionMenuType.AiDebugRun,
             AppOptionMenuType.CreateShortcut,
             AppOptionMenuType.ExportFrontend,
+            AppOptionMenuType.CopyLaunchLink,
             AppOptionMenuType.AddToFavorites,
             AppOptionMenuType.RemoveFromFavorites,
             -> quickActions.add(option)
 
             // Game Management
             AppOptionMenuType.Uninstall,
-            AppOptionMenuType.RemoveFromLibrary,
             AppOptionMenuType.VerifyFiles,
             AppOptionMenuType.Update,
             AppOptionMenuType.MoveToExternalStorage,
             AppOptionMenuType.MoveToInternalStorage,
             AppOptionMenuType.ChangeBranch,
-            AppOptionMenuType.MoveGame,
+            AppOptionMenuType.ChangePreferredCopy,
             -> gameManagement.add(option)
 
             // Container Settings
@@ -397,6 +430,8 @@ private fun groupOptions(options: List<AppMenuOption>): Map<OptionCategory, List
             AppOptionMenuType.BrowseCommunityConfigs,
             AppOptionMenuType.ImportConfig,
             AppOptionMenuType.ExportConfig,
+            AppOptionMenuType.ImportFiles,
+            AppOptionMenuType.ExportFiles,
             AppOptionMenuType.ImportSaves,
             AppOptionMenuType.ExportSaves,
             -> containerSettings.add(option)
@@ -406,6 +441,7 @@ private fun groupOptions(options: List<AppMenuOption>): Map<OptionCategory, List
             AppOptionMenuType.BrowseOnlineSaves,
             AppOptionMenuType.ForceDownloadRemote,
             AppOptionMenuType.ForceUploadLocal,
+            AppOptionMenuType.RestoreSaveBackup,
             -> cloudSaves.add(option)
 
             // Help & Info

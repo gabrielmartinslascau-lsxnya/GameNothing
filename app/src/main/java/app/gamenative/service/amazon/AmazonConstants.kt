@@ -2,7 +2,9 @@ package app.gamenative.service.amazon
 
 import android.content.Context
 import android.net.Uri
+import app.gamenative.PluviaApp
 import app.gamenative.PrefManager
+import app.gamenative.utils.StorageUtils
 import java.io.File
 import java.nio.file.Paths
 import timber.log.Timber
@@ -57,15 +59,18 @@ object AmazonConstants {
         return path
     }
 
-    fun externalAmazonGamesPath(): String {
-        val path = Paths.get(PrefManager.externalStoragePath, "Amazon", "games").toString()
+    fun externalAmazonGamesPath(context: Context? = null): String {
+        val ctx = context ?: PluviaApp.instance
+        val root = StorageUtils.resolveStoragePath(ctx, PrefManager.externalStoragePath) ?: PrefManager.externalStoragePath
+        val path = Paths.get(root, "Amazon", "games").toString()
         File(path).mkdirs()
         return path
     }
 
     fun defaultAmazonGamesPath(context: Context): String {
-        return if (PrefManager.useExternalStorage && File(PrefManager.externalStoragePath).exists()) {
-            val path = externalAmazonGamesPath()
+        val root = StorageUtils.resolveStoragePath(context, PrefManager.externalStoragePath) ?: PrefManager.externalStoragePath
+        return if (PrefManager.useExternalStorage && File(root).exists()) {
+            val path = externalAmazonGamesPath(context)
             Timber.i("Amazon using external storage: $path")
             path
         } else {

@@ -5,6 +5,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.horizontalScroll
@@ -13,6 +14,7 @@ import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -33,22 +35,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.layer.GraphicsLayer
-import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -59,21 +57,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.ui.component.focusRing
 import app.gamenative.ui.enums.LibraryTab
-import app.gamenative.ui.theme.LocalBackgroundLayer
+import app.gamenative.ui.screen.support.SupportReplyWatcher
+import app.gamenative.ui.theme.LocalLooksState
+import app.gamenative.ui.theme.BrokenGlassPanel
 import app.gamenative.ui.theme.PluviaTheme
-import app.gamenative.ui.theme.PluviaGlassPanel
 import app.gamenative.ui.theme.glassContentColor
-import app.gamenative.ui.theme.pluviaGlass
-import app.gamenative.utils.HapticManager
-import app.gamenative.utils.hapticClickable
-import app.gamenative.utils.hapticSelectable
 import app.gamenative.ui.util.WindowWidthClass
 import app.gamenative.ui.util.rememberWindowWidthClass
+import app.gamenative.utils.HapticManager
 
 /**
  * Tab bar for library navigation with sliding pill indicator.
@@ -82,6 +80,7 @@ import app.gamenative.ui.util.rememberWindowWidthClass
 @Composable
 fun LibraryTabBar(
     currentTab: LibraryTab,
+    tabs: List<LibraryTab>,
     tabCounts: Map<LibraryTab, Int>,
     onTabSelected: (LibraryTab) -> Unit,
     onOptionsClick: () -> Unit,
@@ -93,15 +92,23 @@ fun LibraryTabBar(
     onNextTab: () -> Unit = {},
     onPlaygroundSettingsClick: () -> Unit = {},
     isScrolling: Boolean = false,
-    distortionStrength: Float? = null,
     modifier: Modifier = Modifier,
 ) {
     val widthClass = rememberWindowWidthClass()
 
+    val today = System.currentTimeMillis() / (24L * 60 * 60 * 1000)
+    var recommendedSeenDay by remember { mutableLongStateOf(PrefManager.recommendedTabSeenDay) }
+    LaunchedEffect(currentTab) {
+        recommendedSeenDay = PrefManager.recommendedTabSeenDay
+    }
+    val showRecommendedDot = recommendedSeenDay != today
+
     when (widthClass) {
         WindowWidthClass.COMPACT -> CompactLibraryTabBar(
             currentTab = currentTab,
+            tabs = tabs,
             tabCounts = tabCounts,
+            showRecommendedDot = showRecommendedDot,
             onTabSelected = onTabSelected,
             onOptionsClick = onOptionsClick,
             onSearchClick = onSearchClick,
@@ -112,13 +119,14 @@ fun LibraryTabBar(
             onNextTab = onNextTab,
             onPlaygroundSettingsClick = onPlaygroundSettingsClick,
             isScrolling = isScrolling,
-            distortionStrength = distortionStrength,
             modifier = modifier,
         )
 
         else -> ExpandedLibraryTabBar(
             currentTab = currentTab,
+            tabs = tabs,
             tabCounts = tabCounts,
+            showRecommendedDot = showRecommendedDot,
             onTabSelected = onTabSelected,
             onOptionsClick = onOptionsClick,
             onSearchClick = onSearchClick,
@@ -129,7 +137,6 @@ fun LibraryTabBar(
             onNextTab = onNextTab,
             onPlaygroundSettingsClick = onPlaygroundSettingsClick,
             isScrolling = isScrolling,
-            distortionStrength = distortionStrength,
             modifier = modifier,
         )
     }
@@ -142,7 +149,9 @@ fun LibraryTabBar(
 @Composable
 private fun CompactLibraryTabBar(
     currentTab: LibraryTab,
+    tabs: List<LibraryTab>,
     tabCounts: Map<LibraryTab, Int>,
+    showRecommendedDot: Boolean,
     onTabSelected: (LibraryTab) -> Unit,
     onOptionsClick: () -> Unit,
     onSearchClick: () -> Unit,
@@ -153,10 +162,8 @@ private fun CompactLibraryTabBar(
     onNextTab: () -> Unit,
     onPlaygroundSettingsClick: () -> Unit,
     isScrolling: Boolean = false,
-    distortionStrength: Float? = null,
     modifier: Modifier = Modifier,
 ) {
-    val tabs = LibraryTab.visibleEntries
     val currentIndex = tabs.indexOf(currentTab)
     val scrollState = rememberScrollState()
     val tabPositions = remember { mutableStateMapOf<Int, Float>() }
@@ -170,20 +177,15 @@ private fun CompactLibraryTabBar(
         scrollState.animateScrollTo((targetCenter - viewportCenter).coerceAtLeast(0))
     }
 
-    val contentColor = glassContentColor()
-
-    PluviaGlassPanel(
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        cornerRadius = 16,
-        isScrolling = isScrolling,
-        distortionStrength = distortionStrength
+            .background(Color.Transparent)
+            .padding(top = 8.dp, bottom = 12.dp, start = 8.dp, end = 8.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp, bottom = 12.dp, start = 8.dp, end = 8.dp)
                 .focusGroup()
                 .onPreviewKeyEvent { keyEvent ->
                     if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
@@ -219,53 +221,23 @@ private fun CompactLibraryTabBar(
                         onOptionsClick()
                     }
                 },
-                type = HapticManager.HapticType.MENU,
+                isScrolling = isScrolling,
             )
 
-            val density = LocalDensity.current
-            var compactTabContentLayer by remember { mutableStateOf<GraphicsLayer?>(null) }
-
-            val compactIndicatorOffset by animateDpAsState(
-                targetValue = with(density) { (tabPositions[currentIndex] ?: 0f).toDp() },
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMedium,
-                ),
-                label = "compactIndicatorOffset",
-            )
-
-            val compactIndicatorWidth by animateDpAsState(
-                targetValue = with(density) { (tabWidths[currentIndex] ?: 60f).toDp() },
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMedium,
-                ),
-                label = "compactIndicatorWidth",
-            )
-
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(Color.White.copy(alpha = 0.05f))
-                    .horizontalScroll(scrollState)
-                    .padding(4.dp),
-                contentAlignment = Alignment.CenterStart,
+            BrokenGlassPanel(
+                modifier = Modifier.weight(1f),
+                cornerRadius = 20,
+                isScrolling = isScrolling,
+                backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
             ) {
                 Row(
-                    modifier = Modifier.drawWithCache {
-                        val layer = obtainGraphicsLayer()
-                        onDrawWithContent {
-                            layer.record {
-                                this@onDrawWithContent.drawContent()
-                            }
-                            drawLayer(layer)
-                            compactTabContentLayer = layer
-                        }
-                    },
+                    modifier = Modifier
+                        .horizontalScroll(scrollState)
+                        .padding(4.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    val contentColor = glassContentColor()
                     tabs.forEachIndexed { index, tab ->
                         val isSelected = tab == currentTab
                         val tabInteractionSource = remember { MutableInteractionSource() }
@@ -277,29 +249,40 @@ private fun CompactLibraryTabBar(
                                     tabWidths[index] = coordinates.size.width.toFloat()
                                 }
                                 .clip(RoundedCornerShape(16.dp))
+                                .background(
+                                    when {
+                                        isSelected -> MaterialTheme.colorScheme.primary
+                                        isTabFocused -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                        else -> Color.Transparent
+                                    },
+                                )
                                 .focusRing(tabInteractionSource, RoundedCornerShape(16.dp), width = 2.dp)
-                                .hapticSelectable(
+                                .selectable(
                                     selected = isSelected,
                                     interactionSource = tabInteractionSource,
-                                    onClick = { onTabSelected(tab) },
-                                    type = HapticManager.HapticType.CLICK,
+                                    indication = null,
+                                    onClick = {
+                                        HapticManager.trigger(HapticManager.HapticType.CLICK)
+                                        onTabSelected(tab)
+                                    },
                                 )
                                 .padding(horizontal = if (tab.icon != null) 8.dp else 14.dp, vertical = 8.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             val count = tabCounts[tab]
                             val tabColor = when {
-                                isSelected -> MaterialTheme.colorScheme.primary
+                                isSelected -> MaterialTheme.colorScheme.onPrimary
                                 isTabFocused -> MaterialTheme.colorScheme.primary
-                                else -> contentColor.copy(alpha = 0.8f)
+                                else -> contentColor.copy(alpha = 0.7f)
                             }
                             if (tab.icon != null) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = tab.icon,
-                                        contentDescription = stringResource(tab.labelResId),
+                                    TabIcon(
+                                        tab = tab,
+                                        isSelected = isSelected,
+                                        showDot = showRecommendedDot,
                                         tint = tabColor,
-                                        modifier = Modifier.size(18.dp),
+                                        size = 18.dp,
                                     )
                                     if (count != null && count > 0) {
                                         Text(
@@ -330,42 +313,41 @@ private fun CompactLibraryTabBar(
                         }
                     }
                 }
-
-                if (compactTabContentLayer != null && compactIndicatorWidth > 0.dp) {
-                    CompositionLocalProvider(LocalBackgroundLayer provides compactTabContentLayer) {
-                        PluviaGlassPanel(
-                            modifier = Modifier
-                                .offset { IntOffset(compactIndicatorOffset.roundToPx(), 0) }
-                                .width(compactIndicatorWidth)
-                                .height(36.dp),
-                            cornerRadius = 18,
-                            isScrolling = isScrolling,
-                            distortionStrength = distortionStrength
-                        ) {}
-                    }
-                }
             }
 
             CompactIconButton(
                 icon = Icons.Default.Search,
                 contentDescription = stringResource(R.string.search),
                 onClick = onSearchClick,
-                type = HapticManager.HapticType.CLICK,
+                isScrolling = isScrolling,
             )
             CompactIconButton(
                 icon = Icons.Default.Add,
                 contentDescription = stringResource(R.string.action_add_game),
                 onClick = onAddGameClick,
-                type = HapticManager.HapticType.MENU,
+                isScrolling = isScrolling,
             )
-            CompactIconButton(
-                icon = Icons.Default.Menu,
-                contentDescription = stringResource(R.string.menu),
-                onClick = onMenuClick,
-                type = HapticManager.HapticType.MENU,
-            )
+            Box {
+                CompactIconButton(
+                    icon = Icons.Default.Menu,
+                    contentDescription = stringResource(R.string.menu),
+                    onClick = onMenuClick,
+                    isScrolling = isScrolling,
+                )
+                SupportUnreadDot(modifier = Modifier.align(Alignment.TopEnd))
+            }
         }
     }
+}
+
+@Composable
+private fun SupportUnreadDot(modifier: Modifier = Modifier) {
+    if (SupportReplyWatcher.unread.value.isEmpty()) return
+    Box(
+        modifier = modifier
+            .size(10.dp)
+            .background(MaterialTheme.colorScheme.primary, CircleShape),
+    )
 }
 
 /**
@@ -376,41 +358,46 @@ private fun CompactIconButton(
     icon: ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
-    type: HapticManager.HapticType = HapticManager.HapticType.CLICK,
+    isScrolling: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
-    Box(
+    val contentColor = glassContentColor()
+    BrokenGlassPanel(
         modifier = modifier
             .size(36.dp)
-            .clip(CircleShape)
-            .background(
-                if (isFocused) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                } else {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                },
-            )
             .focusRing(interactionSource, CircleShape, width = 2.dp)
-            .hapticClickable(
+            .selectable(
+                selected = false,
                 interactionSource = interactionSource,
-                onClick = onClick,
-                type = type,
+                indication = null,
+                onClick = {
+                    HapticManager.trigger(HapticManager.HapticType.CLICK)
+                    onClick()
+                },
             ),
-        contentAlignment = Alignment.Center,
+        cornerRadius = 18,
+        isScrolling = isScrolling,
+        backgroundColor = if (isFocused) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        }
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = if (isFocused) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                glassContentColor().copy(alpha = 0.8f)
-            },
-            modifier = Modifier.size(20.dp),
-        )
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = if (isFocused) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    contentColor.copy(alpha = 0.8f)
+                },
+                modifier = Modifier.size(20.dp),
+            )
+        }
     }
 }
 
@@ -420,7 +407,9 @@ private fun CompactIconButton(
 @Composable
 private fun ExpandedLibraryTabBar(
     currentTab: LibraryTab,
+    tabs: List<LibraryTab>,
     tabCounts: Map<LibraryTab, Int>,
+    showRecommendedDot: Boolean,
     onTabSelected: (LibraryTab) -> Unit,
     onOptionsClick: () -> Unit,
     onSearchClick: () -> Unit,
@@ -431,10 +420,8 @@ private fun ExpandedLibraryTabBar(
     onNextTab: () -> Unit,
     onPlaygroundSettingsClick: () -> Unit,
     isScrolling: Boolean = false,
-    distortionStrength: Float? = null,
     modifier: Modifier = Modifier,
 ) {
-    val tabs = LibraryTab.visibleEntries
     val currentIndex = tabs.indexOf(currentTab)
     val scrollState = rememberScrollState()
 
@@ -442,22 +429,31 @@ private fun ExpandedLibraryTabBar(
     val tabWidths = remember { mutableStateMapOf<Int, Float>() }
 
     val density = LocalDensity.current
+    val looks = LocalLooksState.current
 
     val indicatorOffset by animateDpAsState(
         targetValue = with(density) { (tabPositions[currentIndex] ?: 0f).toDp() },
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium,
-        ),
+        animationSpec = if (looks.jigglyAnimations) {
+            spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMedium,
+            )
+        } else {
+            tween(200)
+        },
         label = "indicatorOffset",
     )
 
     val indicatorWidth by animateDpAsState(
         targetValue = with(density) { (tabWidths[currentIndex] ?: 80f).toDp() },
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium,
-        ),
+        animationSpec = if (looks.jigglyAnimations) {
+            spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMedium,
+            )
+        } else {
+            tween(200)
+        },
         label = "indicatorWidth",
     )
 
@@ -469,18 +465,15 @@ private fun ExpandedLibraryTabBar(
         scrollState.animateScrollTo((targetCenter - viewportCenter).coerceAtLeast(0))
     }
 
-    PluviaGlassPanel(
+    Box(
         modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        cornerRadius = 16,
-        isScrolling = isScrolling,
-        distortionStrength = distortionStrength
+            .background(Color.Transparent)
+            .padding(top = 8.dp, bottom = 20.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp, bottom = 20.dp, start = 12.dp, end = 12.dp)
+                .padding(horizontal = 12.dp)
                 .focusGroup()
                 .onPreviewKeyEvent { keyEvent ->
                     if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
@@ -516,60 +509,55 @@ private fun ExpandedLibraryTabBar(
                         onOptionsClick()
                     }
                 },
-                type = HapticManager.HapticType.MENU,
+                isScrolling = isScrolling,
             )
 
-            var tabContentLayer by remember { mutableStateOf<GraphicsLayer?>(null) }
-
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Color.White.copy(alpha = 0.05f))
-                    .horizontalScroll(scrollState)
-                    .padding(4.dp),
-                contentAlignment = Alignment.CenterStart,
+            BrokenGlassPanel(
+                modifier = Modifier.weight(1f),
+                cornerRadius = 24,
+                isScrolling = isScrolling,
+                backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
             ) {
-                Row(
-                    modifier = Modifier.drawWithCache {
-                        val layer = obtainGraphicsLayer()
-                        onDrawWithContent {
-                            layer.record {
-                                this@onDrawWithContent.drawContent()
-                            }
-                            drawLayer(layer)
-                            tabContentLayer = layer
-                        }
-                    },
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                Box(
+                    modifier = Modifier
+                        .horizontalScroll(scrollState)
+                        .padding(4.dp),
+                    contentAlignment = Alignment.CenterStart,
                 ) {
-                    tabs.forEachIndexed { index, tab ->
-                        TabItem(
-                            tab = tab,
-                            count = tabCounts[tab],
-                            isSelected = tab == currentTab,
-                            onClick = { onTabSelected(tab) },
-                            onPositioned = { position, width ->
-                                tabPositions[index] = position
-                                tabWidths[index] = width
-                            },
-                        )
-                    }
-                }
+                    // Sliding pill indicator (rendered behind tabs)
+                    Box(
+                        modifier = Modifier
+                            .offset { IntOffset(indicatorOffset.roundToPx(), 0) }
+                            .width(indicatorWidth)
+                            .height(40.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(
+                                brush = Brush.horizontalGradient(
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.primary,
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
+                                    ),
+                                ),
+                            ),
+                    )
 
-                // Active Floating Refraction Glass Lens Indicator
-                if (tabContentLayer != null && indicatorWidth > 0.dp) {
-                    CompositionLocalProvider(LocalBackgroundLayer provides tabContentLayer) {
-                        PluviaGlassPanel(
-                            modifier = Modifier
-                                .offset { IntOffset(indicatorOffset.roundToPx(), 0) }
-                                .width(indicatorWidth)
-                                .height(40.dp),
-                            cornerRadius = 20,
-                            isScrolling = isScrolling,
-                            distortionStrength = distortionStrength
-                        ) {}
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        tabs.forEachIndexed { index, tab ->
+                            TabItem(
+                                tab = tab,
+                                count = tabCounts[tab],
+                                isSelected = tab == currentTab,
+                                showDot = showRecommendedDot,
+                                onClick = { onTabSelected(tab) },
+                                onPositioned = { position, width ->
+                                    tabPositions[index] = position
+                                    tabWidths[index] = width
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -578,22 +566,25 @@ private fun ExpandedLibraryTabBar(
                 icon = Icons.Default.Search,
                 contentDescription = stringResource(R.string.search),
                 onClick = onSearchClick,
-                type = HapticManager.HapticType.CLICK,
+                isScrolling = isScrolling,
             )
 
             IconActionButton(
                 icon = Icons.Default.Add,
                 contentDescription = stringResource(R.string.action_add_game),
                 onClick = onAddGameClick,
-                type = HapticManager.HapticType.MENU,
+                isScrolling = isScrolling,
             )
 
-            IconActionButton(
-                icon = Icons.Default.Menu,
-                contentDescription = stringResource(R.string.menu),
-                onClick = onMenuClick,
-                type = HapticManager.HapticType.MENU,
-            )
+            Box {
+                IconActionButton(
+                    icon = Icons.Default.Menu,
+                    contentDescription = stringResource(R.string.menu),
+                    onClick = onMenuClick,
+                    isScrolling = isScrolling,
+                )
+                SupportUnreadDot(modifier = Modifier.align(Alignment.TopEnd))
+            }
         }
     }
 }
@@ -603,73 +594,71 @@ private fun IconActionButton(
     icon: ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
-    type: HapticManager.HapticType = HapticManager.HapticType.CLICK,
+    isScrolling: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
+    val looks = LocalLooksState.current
 
     val scale by animateFloatAsState(
         targetValue = if (isFocused) 1.15f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium,
-        ),
+        animationSpec = if (looks.jigglyAnimations) {
+            spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMedium,
+            )
+        } else {
+            tween(150)
+        },
         label = "iconButtonScale",
     )
 
     val alpha by animateFloatAsState(
-        targetValue = if (isFocused) 1f else 0.7f,
+        targetValue = if (isFocused) 1f else 0.85f,
         animationSpec = spring(stiffness = Spring.StiffnessMedium),
         label = "iconButtonAlpha",
     )
 
-    Box(
+    val contentColor = glassContentColor()
+    BrokenGlassPanel(
         modifier = modifier
-            // Both the focus scale and alpha go in a SINGLE graphicsLayer above the ring. Previously
-            // .scale (above) and .alpha (below) were two separate animating layers sandwiching the
-            // focusRing draw node, which made the ring flicker off ~100ms after focus. One stable
-            // layer wrapping clip/background/focusRing fixes it.
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
                 this.alpha = alpha
             }
             .size(44.dp)
-            .clip(CircleShape)
-            .background(
-                brush = Brush.radialGradient(
-                    colors = if (isFocused) {
-                        listOf(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                        )
-                    } else {
-                        listOf(
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
-                        )
-                    },
-                ),
-            )
             .focusRing(interactionSource, CircleShape, width = 2.dp)
-            .hapticClickable(
+            .selectable(
+                selected = false,
                 interactionSource = interactionSource,
-                onClick = onClick,
-                type = type,
+                indication = null,
+                onClick = {
+                    HapticManager.trigger(HapticManager.HapticType.CLICK)
+                    onClick()
+                },
             ),
-        contentAlignment = Alignment.Center,
+        cornerRadius = 22,
+        isScrolling = isScrolling,
+        backgroundColor = if (isFocused) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        }
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = if (isFocused) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                glassContentColor().copy(alpha = 0.8f)
-            },
-            modifier = Modifier.size(22.dp),
-        )
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = if (isFocused) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    contentColor.copy(alpha = 0.8f)
+                },
+                modifier = Modifier.size(22.dp),
+            )
+        }
     }
 }
 
@@ -678,6 +667,7 @@ private fun TabItem(
     tab: LibraryTab,
     count: Int?,
     isSelected: Boolean,
+    showDot: Boolean,
     onClick: () -> Unit,
     onPositioned: (Float, Float) -> Unit,
     modifier: Modifier = Modifier,
@@ -701,11 +691,9 @@ private fun TabItem(
         stringResource(tab.labelResId)
     }
 
+    val contentColor = glassContentColor()
     Box(
         modifier = modifier
-            // Min height = the sliding pill's height (40.dp) so the focus ring outlines the same
-            // 40dp-tall, 20dp-radius capsule the user sees. Uses heightIn (not a fixed height) so the
-            // label can grow at large accessibility font scales instead of being clipped.
             .heightIn(min = 40.dp)
             .clip(RoundedCornerShape(20.dp))
             .focusRing(interactionSource, RoundedCornerShape(20.dp), width = 2.dp)
@@ -715,25 +703,29 @@ private fun TabItem(
                     coordinates.size.width.toFloat(),
                 )
             }
-            .hapticSelectable(
+            .selectable(
                 selected = isSelected,
                 interactionSource = interactionSource,
-                onClick = onClick,
-                type = HapticManager.HapticType.CLICK,
+                indication = null,
+                onClick = {
+                    HapticManager.trigger(HapticManager.HapticType.CLICK)
+                    onClick()
+                },
             )
             .padding(horizontal = if (tab.icon != null) 10.dp else 20.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
         if (tab.icon != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = tab.icon,
-                    contentDescription = stringResource(tab.labelResId),
+                TabIcon(
+                    tab = tab,
+                    isSelected = isSelected,
+                    showDot = showDot,
                     tint = when {
-                        isSelected -> MaterialTheme.colorScheme.primary
-                        else -> glassContentColor().copy(alpha = textAlpha)
+                        isSelected -> MaterialTheme.colorScheme.onPrimary
+                        else -> contentColor.copy(alpha = textAlpha)
                     },
-                    modifier = Modifier.size(20.dp),
+                    size = 20.dp,
                 )
                 if (count != null && count > 0) {
                     Text(
@@ -742,8 +734,8 @@ private fun TabItem(
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                         maxLines = 1,
                         color = when {
-                            isSelected -> MaterialTheme.colorScheme.primary
-                            else -> glassContentColor().copy(alpha = textAlpha)
+                            isSelected -> MaterialTheme.colorScheme.onPrimary
+                            else -> contentColor.copy(alpha = textAlpha)
                         },
                         modifier = Modifier.padding(start = 4.dp),
                     )
@@ -757,10 +749,39 @@ private fun TabItem(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = when {
-                    isSelected -> MaterialTheme.colorScheme.primary
-                    else -> glassContentColor().copy(alpha = textAlpha)
+                    isSelected -> MaterialTheme.colorScheme.onPrimary
+                    else -> contentColor.copy(alpha = textAlpha)
                 },
                 textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TabIcon(
+    tab: LibraryTab,
+    isSelected: Boolean,
+    showDot: Boolean,
+    tint: Color,
+    size: Dp,
+) {
+    val icon = tab.icon ?: return
+    Box {
+        Icon(
+            imageVector = icon,
+            contentDescription = stringResource(tab.labelResId),
+            tint = tint,
+            modifier = Modifier.size(size),
+        )
+        if (tab == LibraryTab.RECOMMENDED && !isSelected && showDot) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = 3.dp, y = (-2).dp)
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.tertiary),
             )
         }
     }
@@ -777,6 +798,7 @@ private fun Preview_LibraryTabBar() {
         ) {
             LibraryTabBar(
                 currentTab = LibraryTab.ALL,
+                tabs = LibraryTab.visibleEntries,
                 tabCounts = mapOf(
                     LibraryTab.ALL to 42,
                     LibraryTab.STEAM to 30,
@@ -806,6 +828,7 @@ private fun Preview_LibraryTabBar_Steam() {
         ) {
             LibraryTabBar(
                 currentTab = LibraryTab.STEAM,
+                tabs = LibraryTab.visibleEntries,
                 tabCounts = mapOf(
                     LibraryTab.ALL to 42,
                     LibraryTab.STEAM to 30,

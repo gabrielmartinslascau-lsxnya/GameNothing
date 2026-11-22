@@ -3,6 +3,8 @@ package app.gamenative.service.epic
 import android.content.Context
 import app.gamenative.PrefManager
 import app.gamenative.data.EpicGame
+import app.gamenative.data.LaunchInfo
+import app.gamenative.data.LibraryItem
 import app.gamenative.db.dao.EpicGameDao
 import app.gamenative.utils.Net
 import app.gamenative.utils.sanitizeForFilename
@@ -11,6 +13,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import org.json.JSONArray
@@ -30,7 +33,7 @@ class EpicManager @Inject constructor(
     // Deployment ID cache TTL — deployment IDs rarely change, but a periodic re-probe
     // gives automatic recovery from any poisoned cache entry (stale negative, truncated
     // value, etc.) without requiring manual intervention.
-    private val DEPLOYMENT_ID_CACHE_TTL_MS = 30L * 24 * 60 * 60 * 1000 // 30 days
+    private val DEPLOYMENT_ID_CACHE_TTL_MS = 30L * 24 * 60 * 60 * 1000  // 30 days
 
     private val httpClient = Net.http
 
@@ -221,6 +224,8 @@ class EpicManager @Inject constructor(
                 return@withContext Result.failure(error)
             }
 
+            val latestBuildVersions = fetchAssetBuildVersions(accessToken)
+
             val epicGames = mutableListOf<EpicGame>()
             var processedCount = 0
             for ((index, game) in gamesList.withIndex()) {
@@ -228,6 +233,7 @@ class EpicManager @Inject constructor(
 
                 if (result.isSuccess) {
                     val epicGame = result.getOrNull()
+                        ?.let { it.copy(version = latestBuildVersions[it.appName] ?: "") }
                     if (epicGame != null) {
                         epicGames.add(epicGame)
                         processedCount++
@@ -251,6 +257,44 @@ class EpicManager @Inject constructor(
         } catch (e: Exception) {
             Timber.e(e, "Failed to refresh Epic library")
             Result.failure(e)
+        }
+    }
+
+    suspend fun fetchAssetBuildVersions(accessToken: String): Map<String, String> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("${EpicConstants.EPIC_LAUNCHER_API_URL}/launcher/api/public/assets/Windows?label=Live")
+                .header("Authorization", "Bearer $accessToken")
+                .header("User-Agent", EpicConstants.EPIC_USER_AGENT)
+                .get()
+                .build()
+
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Timber.tag("Epic").w("Asset list fetch failed: ${response.code}")
+                    return@withContext emptyMap()
+                }
+                val body = response.body?.string()
+                if (body.isNullOrEmpty()) {
+                    Timber.tag("Epic").w("Empty asset list response")
+                    return@withContext emptyMap()
+                }
+                val assets = JSONArray(body)
+                val versions = mutableMapOf<String, String>()
+                for (i in 0 until assets.length()) {
+                    val asset = assets.getJSONObject(i)
+                    val appName = asset.optString("appName", "")
+                    val buildVersion = asset.optString("buildVersion", "")
+                    if (appName.isNotEmpty() && buildVersion.isNotEmpty()) {
+                        versions[appName] = buildVersion
+                    }
+                }
+                Timber.tag("Epic").i("Fetched build versions for ${versions.size} asset(s)")
+                versions
+            }
+        } catch (e: Exception) {
+            Timber.tag("Epic").e(e, "Failed to fetch Epic asset build versions")
+            emptyMap()
         }
     }
 
@@ -341,7 +385,7 @@ class EpicManager @Inject constructor(
                     }
 
                     // Skip invalid platform (such as Android versions)
-                    if (platforms.isNotEmpty() && !platforms.contains("Win32") && !platforms.contains("Windows")) {
+                    if(platforms.isNotEmpty() && !platforms.contains("Win32") && !platforms.contains("Windows")){
                         Timber.tag("Epic").d("Skipping due to invalid platform: $appName (namespace=$namespace, sandbox=$sandboxType)")
                         continue
                     }
@@ -651,11 +695,11 @@ class EpicManager @Inject constructor(
     }
 
     suspend fun deleteAllNonInstalledGames() {
-        if (PrefManager.aggressiveCaching) return
         withContext(Dispatchers.IO) {
             epicGameDao.deleteAllNonInstalledGames()
         }
     }
+
 
     /**
      * Get a single game by ID
@@ -1085,6 +1129,50 @@ class EpicManager @Inject constructor(
      * Manifest is small (~500KB-1MB) and contains all file metadata
      * Returns size in bytes, or 0 if failed
      */
+    suspend fun backfillInstallState(
+        context: Context,
+        appId: Int,
+        installPath: String,
+        containerLanguage: String,
+    ): EpicInstallState? = withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+        if (!backfillsInFlight.add(appId)) return@withContext null
+        try {
+            val game = getGameById(appId) ?: return@withContext null
+            val manifestResult = fetchManifestFromEpic(context, game.namespace, game.catalogId, game.appName)
+            val manifestData = manifestResult.getOrNull() ?: return@withContext null
+            val manifest = app.gamenative.service.epic.manifest.EpicManifest.readAll(manifestData.manifestBytes)
+            val selectedTags = EpicConstants.containerLanguageToEpicInstallTags(containerLanguage)
+            val files = app.gamenative.service.epic.manifest.ManifestUtils.getFilesForSelectedInstallTags(manifest, selectedTags)
+            if (files.isEmpty()) return@withContext null
+            val installDir = File(installPath)
+            val matches = files.all { f ->
+                val local = File(installDir, f.filename)
+                local.isFile && local.length() == f.fileSize
+            }
+            val meta = manifest.meta.takeIf { matches }
+            val state = EpicInstallState(
+                buildVersion = meta?.buildVersion ?: "",
+                language = containerLanguage,
+                prereqIds = meta?.prereqIds.orEmpty(),
+                prereqName = meta?.prereqName.orEmpty(),
+                prereqPath = meta?.prereqPath.orEmpty(),
+            )
+            EpicInstallState.write(installPath, state)
+            Timber.tag("Epic").i("Backfilled install state for ${game.appName}: matchesLatest=$matches version=${state.buildVersion}")
+            app.gamenative.PluviaApp.events.emitJava(
+                app.gamenative.events.AndroidEvent.DownloadStatusChanged(appId, false),
+            )
+            state
+        } catch (e: Exception) {
+            Timber.tag("Epic").w(e, "Failed to backfill install state for appId $appId")
+            null
+        } finally {
+            backfillsInFlight.remove(appId)
+        }
+    }
+
+    private val backfillsInFlight = java.util.Collections.synchronizedSet(mutableSetOf<Int>())
+
     suspend fun fetchManifestSizes(context: Context, appId: Int): ManifestSizes = withContext(Dispatchers.IO) {
         try {
             // Get the game info to get namespace and catalogItemId

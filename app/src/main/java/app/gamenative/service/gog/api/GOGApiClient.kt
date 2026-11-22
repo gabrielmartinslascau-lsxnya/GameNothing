@@ -82,7 +82,7 @@ class GOGApiClient @Inject constructor(
             }
         }
 
-    suspend fun fetchDependencyRepository(url: String): Result<DependencyRepository> = withContext(Dispatchers.IO) {
+    suspend fun fetchDependencyRepository(url: String): Result<DependencyRepository> = withContext(Dispatchers.IO){
         try {
             val credentials = GOGAuthManager.getStoredCredentials(context).getOrNull()
 
@@ -185,39 +185,39 @@ class GOGApiClient @Inject constructor(
 
     suspend fun fetchDependencyManifest(manifestUrl: String): Result<GOGDependencyManifestMeta> = withContext(Dispatchers.IO) {
         try {
-            val credentials = GOGAuthManager.getStoredCredentials(context).getOrNull()
-            if (credentials == null) {
-                return@withContext Result.failure(Exception("Not authenticated"))
+                val credentials = GOGAuthManager.getStoredCredentials(context).getOrNull()
+                if (credentials == null) {
+                    return@withContext Result.failure(Exception("Not authenticated"))
+                }
+
+                val request = Request.Builder()
+                    .url(manifestUrl)
+                    .header("Authorization", "Bearer ${credentials.accessToken}")
+                    .build()
+
+                val response = httpClient.newCall(request).execute()
+
+                if (!response.isSuccessful) {
+                    return@withContext Result.failure(
+                        Exception("Failed to fetch manifest: HTTP ${response.code}"),
+                    )
+                }
+
+                val manifestBytes = response.body?.bytes()
+                    ?: return@withContext Result.failure(Exception("Empty response"))
+
+                // Decompress based on detected format
+                val manifestStr = parser.decompressManifest(manifestBytes)
+
+                Timber.tag("GOG").d("Manifest decompressed, size: ${manifestStr.length} bytes")
+
+                val manifest = parser.parseDependencyManifest(manifestStr)
+
+                Result.success(manifest)
+            } catch (e: Exception) {
+                Timber.tag("GOG").e(e, "Failed to fetch dependency manifest from $manifestUrl")
+                Result.failure(e)
             }
-
-            val request = Request.Builder()
-                .url(manifestUrl)
-                .header("Authorization", "Bearer ${credentials.accessToken}")
-                .build()
-
-            val response = httpClient.newCall(request).execute()
-
-            if (!response.isSuccessful) {
-                return@withContext Result.failure(
-                    Exception("Failed to fetch manifest: HTTP ${response.code}"),
-                )
-            }
-
-            val manifestBytes = response.body?.bytes()
-                ?: return@withContext Result.failure(Exception("Empty response"))
-
-            // Decompress based on detected format
-            val manifestStr = parser.decompressManifest(manifestBytes)
-
-            Timber.tag("GOG").d("Manifest decompressed, size: ${manifestStr.length} bytes")
-
-            val manifest = parser.parseDependencyManifest(manifestStr)
-
-            Result.success(manifest)
-        } catch (e: Exception) {
-            Timber.tag("GOG").e(e, "Failed to fetch dependency manifest from $manifestUrl")
-            Result.failure(e)
-        }
     }
 
     /**
@@ -304,6 +304,43 @@ class GOGApiClient @Inject constructor(
     }
 
     /**
+     * Fetch depot manifest (Gen 2) and return the raw inflated JSON alongside the parsed form.
+     * The native GOG engine (GameDownloadService → libgndownload store_dl/gog) re-parses the
+     * raw JSON itself, so the byte-exact string must survive the trip.
+     */
+    suspend fun fetchDepotManifestWithRaw(manifestHash: String): Result<Pair<DepotManifest, String>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val credentials = GOGAuthManager.getStoredCredentials(context).getOrNull()
+                    ?: return@withContext Result.failure(Exception("Not authenticated"))
+
+                val path = gogGalaxyPath(manifestHash)
+                val url = "$GOG_CDN/content-system/v2/meta/$path"
+
+                val request = Request.Builder()
+                    .url(url)
+                    .header("Authorization", "Bearer ${credentials.accessToken}")
+                    .build()
+
+                val response = httpClient.newCall(request).execute()
+                if (!response.isSuccessful) {
+                    return@withContext Result.failure(
+                        Exception("Failed to fetch depot manifest: HTTP ${response.code}"),
+                    )
+                }
+
+                val depotBytes = response.body?.bytes()
+                    ?: return@withContext Result.failure(Exception("Empty response"))
+
+                val depotStr = parser.decompressManifest(depotBytes)
+                Result.success(parser.parseDepotManifest(depotStr) to depotStr)
+            } catch (e: Exception) {
+                Timber.tag("GOG").e(e, "Failed to fetch depot manifest $manifestHash")
+                Result.failure(e)
+            }
+        }
+
+    /**
      * Fetch depot manifest (contains file list for a specific depot) — Gen 2
      *
      * @param manifestHash Hash from depot.manifest field
@@ -367,7 +404,7 @@ class GOGApiClient @Inject constructor(
      */
     suspend fun fetchDependencyDepotManifest(
         manifestHash: String,
-        baseUrls: List<String>,
+        baseUrls: List<String>
     ): Result<DepotManifest> = withContext(Dispatchers.IO) {
         try {
             // Build depot manifest URL

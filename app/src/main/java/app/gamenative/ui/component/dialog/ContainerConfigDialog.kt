@@ -1,37 +1,65 @@
 package app.gamenative.ui.component.dialog
 
+import android.widget.Spinner
+import android.widget.ArrayAdapter
 import android.content.res.Configuration
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.outlined.AddCircleOutline
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.TextButton
+import app.gamenative.ui.component.NoExtractOutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -39,9 +67,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -49,55 +80,80 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.compose.ui.tooling.preview.Preview
 import app.gamenative.BuildConfig
+import app.gamenative.PluviaApp
 import app.gamenative.R
-import app.gamenative.service.SteamService
-import app.gamenative.ui.component.NoExtractOutlinedTextField
+import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.ui.component.dialog.state.MessageDialogState
+import app.gamenative.ui.component.settings.FullScreenGlassSelectorDialog
+import app.gamenative.ui.component.settings.SettingsCPUList
+import app.gamenative.ui.component.settings.SettingsCenteredLabel
+import app.gamenative.ui.component.settings.SettingsListDropdown
 import app.gamenative.ui.components.rememberCustomGameFolderPicker
 import app.gamenative.ui.components.requestPermissionsForPath
+import app.gamenative.ui.theme.BrokenGlassPanel
+import app.gamenative.ui.theme.LocalBackgroundLayer
+import app.gamenative.ui.theme.LocalBrokenGlassBackdrop
+import app.gamenative.ui.theme.LocalLooksState
 import app.gamenative.ui.theme.PluviaTheme
-import app.gamenative.ui.util.SnackbarManager
-import app.gamenative.utils.ContainerUtils
+import app.gamenative.ui.theme.glassContentColor
+import app.gamenative.ui.theme.rememberBrokenGlassCanvasBackdrop
+import app.gamenative.ui.theme.settingsTileColors
+import app.gamenative.ui.theme.settingsTileColorsAlt
+import com.alorma.compose.settings.ui.base.internal.LocalSettingsTileColors
 import app.gamenative.utils.CustomGameScanner
+import app.gamenative.utils.ContainerUtils
 import app.gamenative.utils.ManifestComponentHelper
-import app.gamenative.utils.ManifestComponentHelper.VersionOptionList
 import app.gamenative.utils.ManifestContentTypes
 import app.gamenative.utils.ManifestData
 import app.gamenative.utils.ManifestEntry
 import app.gamenative.utils.ManifestInstaller
+import app.gamenative.service.SteamService
+import app.gamenative.service.download.SteamDownloadMode
+import app.gamenative.utils.ManifestComponentHelper.VersionOptionList
+import app.gamenative.utils.ManifestRepository
 import app.gamenative.utils.PaddingUtils
-import app.gamenative.utils.computePercentResolutions
+import com.winlator.contents.ContentProfile
+import com.alorma.compose.settings.ui.SettingsGroup
+import com.alorma.compose.settings.ui.SettingsMenuLink
+import com.alorma.compose.settings.ui.SettingsSwitch
 import com.winlator.box86_64.Box86_64Preset
 import com.winlator.box86_64.Box86_64PresetManager
 import com.winlator.container.Container
 import com.winlator.container.ContainerData
-import com.winlator.contents.ContentProfile
-import com.winlator.core.DefaultVersion
-import com.winlator.core.GPUHelper
 import com.winlator.core.KeyValueSet
 import com.winlator.core.StringUtils
+import com.winlator.core.envvars.EnvVars
+import com.winlator.core.DefaultVersion
+import com.winlator.core.GPUHelper
+import com.winlator.core.WineInfo
 import com.winlator.core.WineInfo.MAIN_WINE_VERSION
 import com.winlator.core.WineThemeManager
-import com.winlator.core.envvars.EnvVars
+import com.winlator.fexcore.FEXCoreManager
 import com.winlator.fexcore.FEXCorePreset
 import com.winlator.fexcore.FEXCorePresetManager
-import java.io.File
-import java.util.Locale
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
  * Gets the component title for Win Components settings group.
@@ -112,15 +168,21 @@ internal fun winComponentsItemTitleRes(string: String): Int {
         "directplay" -> R.string.directplay
         "directshow" -> R.string.directshow
         "directx" -> R.string.directx
+        "vcrun2005" -> R.string.vcrun2005
+        "vcrun2008" -> R.string.vcrun2008
         "vcrun2010" -> R.string.vcrun2010
+        "vcrun2012" -> R.string.vcrun2012
+        "vcrun2013" -> R.string.vcrun2013
+        "vcrun2022" -> R.string.vcrun2022
+        "xaudio" -> R.string.xaudio
         "wmdecoder" -> R.string.wmdecoder
         "opengl" -> R.string.opengl
+        "physx" -> R.string.physx
         else -> throw IllegalArgumentException("No string res found for Win Components title: $string")
     }
 }
 
 private data class ContainerConfigDialogStaticData(
-    val screenSizes: List<String>,
     val baseGraphicsDrivers: List<String>,
     val dxWrappers: List<String>,
     val displayRenderers: List<String>,
@@ -180,7 +242,6 @@ private fun rememberContainerConfigDialogStaticData(): ContainerConfigDialogStat
         }
 
     return ContainerConfigDialogStaticData(
-        screenSizes = stringArrayResource(R.array.screen_size_entries).toList(),
         baseGraphicsDrivers = stringArrayResource(R.array.graphics_driver_entries).toList(),
         dxWrappers = stringArrayResource(R.array.dxwrapper_entries).toList(),
         displayRenderers = stringArrayResource(R.array.displayrenderers_entries).toList(),
@@ -247,15 +308,24 @@ fun ContainerConfigDialog(
     initialConfig: ContainerData = ContainerData(),
     onDismissRequest: () -> Unit,
     onSave: (ContainerData) -> Unit,
+    appId: String? = null,
+    onSaveAndRun: ((ContainerData) -> Unit)? = null,
 ) {
     if (visible) {
         val context = LocalContext.current
+        val inspectionMode = LocalInspectionMode.current
         val scope = rememberCoroutineScope()
         val installScope = remember {
             CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         }
         DisposableEffect(Unit) {
+            if (!inspectionMode) {
+                PluviaApp.containerConfigDialogCount++
+            }
             onDispose {
+                if (!inspectionMode && PluviaApp.containerConfigDialogCount > 0) {
+                    PluviaApp.containerConfigDialogCount--
+                }
                 installScope.cancel()
             }
         }
@@ -265,8 +335,27 @@ fun ContainerConfigDialog(
         }
         var config by configState
 
+        // Automatically flip tuningMode back to OFF if the user manually edits a managed field
+        var previousConfig by remember { mutableStateOf(config) }
+        LaunchedEffect(config) {
+            if (previousConfig != config) {
+                val reconciled = app.gamenative.performance.PerformanceModeManager.reconcileManualOverride(
+                    previousConfig,
+                    config,
+                )
+                if (reconciled != config) {
+                    config = reconciled
+                    app.gamenative.performance.PerformanceModeManager.persistIfContainerExists(
+                        context,
+                        appId,
+                        reconciled,
+                    )
+                }
+                previousConfig = reconciled
+            }
+        }
+
         val staticData = rememberContainerConfigDialogStaticData()
-        val screenSizes = staticData.screenSizes
         val baseGraphicsDrivers = staticData.baseGraphicsDrivers
         val graphicsDriversRef = remember { mutableStateOf(baseGraphicsDrivers.toMutableList()) }
         var graphicsDrivers by graphicsDriversRef
@@ -326,17 +415,6 @@ fun ContainerConfigDialog(
         var manifestDownloadProgress by remember { mutableStateOf(-1f) }
         var manifestDownloadLabel by remember { mutableStateOf("") }
         var versionsLoaded by remember { mutableStateOf(false) }
-        val showCustomResolutionDialogRef = remember { mutableStateOf(false) }
-        var showCustomResolutionDialog by showCustomResolutionDialogRef
-        val customResolutionValidationErrorRef = remember { mutableStateOf<String?>(null) }
-        var customResolutionValidationError by customResolutionValidationErrorRef
-
-        LaunchedEffect(visible) {
-            if (visible) {
-                showCustomResolutionDialog = false
-                customResolutionValidationError = null
-            }
-        }
 
         val languages = staticData.languages
         val availability = componentAvailability
@@ -515,7 +593,7 @@ fun ContainerConfigDialog(
 
         fun launchSteamAppDownload(appId: Int, label: String, onDownloaded: () -> Unit) {
             if (manifestInstallInProgress) return
-            val downloadInfo = SteamService.downloadApp(appId) ?: run {
+            val downloadInfo = SteamService.downloadApp(appId, SteamDownloadMode.UPDATE) ?: run {
                 onDownloaded()
                 return
             }
@@ -555,7 +633,6 @@ fun ContainerConfigDialog(
         // Exposed device extensions selection indices; populated dynamically when UI opens
         val exposedExtIndicesRef = rememberSaveable { mutableStateOf(listOf<Int>()) }
         var exposedExtIndices by exposedExtIndicesRef
-        val inspectionMode = LocalInspectionMode.current
         val gpuExtensions = remember(inspectionMode) {
             if (inspectionMode) {
                 listOf(
@@ -662,6 +739,8 @@ fun ContainerConfigDialog(
         var sharpnessLevel by sharpnessLevelRef
         val sharpnessDenoiseRef = rememberSaveable { mutableIntStateOf(config.sharpnessDenoise.coerceIn(0, 100)) }
         var sharpnessDenoise by sharpnessDenoiseRef
+        val vibrationIntensityRef = rememberSaveable { mutableIntStateOf(config.vibrationIntensity.coerceIn(0, 100)) }
+        var vibrationIntensity by vibrationIntensityRef
         val adrenotoolsTurnipCheckedRef = rememberSaveable {
             val cfg = KeyValueSet(config.graphicsDriverConfig)
             mutableStateOf(cfg.get("adrenotoolsTurnip", "1") != "0")
@@ -677,15 +756,7 @@ fun ContainerConfigDialog(
             val storedRendererPm = config.rendererPresentMode.ifEmpty { "fifo" }
             val defaultRendererPresentIdx = rendererPresentModes.indexOfFirst { it.equals("fifo", true) }.takeIf { it >= 0 } ?: 0
             rendererPresentModeIndex =
-                rendererPresentModes.indexOfFirst { it.equals(storedRendererPm, true) }.let {
-                    if (it >=
-                        0
-                    ) {
-                        it
-                    } else {
-                        defaultRendererPresentIdx
-                    }
-                }
+                rendererPresentModes.indexOfFirst { it.equals(storedRendererPm, true) }.let { if (it >= 0) it else defaultRendererPresentIdx }
 
             val resourceType = cfg.get("resourceType", "auto")
             val defaultResourceIdx = resourceTypes.indexOfFirst { it.equals("auto", true) }.takeIf { it >= 0 } ?: 0
@@ -701,7 +772,7 @@ fun ContainerConfigDialog(
             val defaultBcnTypeIdx = bcnEmulationTypeEntries.indexOfFirst { it.equals(bcnType, true) }.takeIf { it >= 0 } ?: 0
             bcnEmulationTypeIndex = defaultBcnTypeIdx
 
-            bcnEmulationCacheEnabled = cfg.get("bcnEmulationCache", "0") == "1"
+            bcnEmulationCacheEnabled = cfg.get("bcnEmulationCache", "1") == "1"
             disablePresentWaitChecked = cfg.get("disablePresentWait", "0") == "1"
 
             val syncRaw = cfg.get("syncFrame").ifEmpty { cfg.get("frameSync", "0") }
@@ -714,6 +785,10 @@ fun ContainerConfigDialog(
             sharpnessEffectIndex = sharpnessEffects.indexOfFirst { it.equals(config.sharpnessEffect, true) }.coerceAtLeast(0)
             sharpnessLevel = config.sharpnessLevel.coerceIn(0, 100)
             sharpnessDenoise = config.sharpnessDenoise.coerceIn(0, 100)
+        }
+
+        LaunchedEffect(config.vibrationIntensity) {
+            vibrationIntensity = config.vibrationIntensity.coerceIn(0, 100)
         }
 
         LaunchedEffect(versionsLoaded, wrapperOptions, config.graphicsDriverConfig) {
@@ -729,25 +804,6 @@ fun ContainerConfigDialog(
             if (newIdx >= 0 && bionicDriverIndex != newIdx) bionicDriverIndex = newIdx
         }
 
-        val screenSizeIndexRef = rememberSaveable {
-            val searchIndex = screenSizes.indexOfFirst { it.contains(config.screenSize) }
-            mutableIntStateOf(if (searchIndex > 0) searchIndex else 0)
-        }
-        var screenSizeIndex by screenSizeIndexRef
-        val customScreenWidthRef = rememberSaveable {
-            val searchIndex = screenSizes.indexOfFirst { it.contains(config.screenSize) }
-            mutableStateOf(
-                if (searchIndex <= 0) config.screenSize.split("x").getOrElse(0) { "1280" } else "1280",
-            )
-        }
-        var customScreenWidth by customScreenWidthRef
-        val customScreenHeightRef = rememberSaveable {
-            val searchIndex = screenSizes.indexOfFirst { it.contains(config.screenSize) }
-            mutableStateOf(
-                if (searchIndex <= 0) config.screenSize.split("x").getOrElse(1) { "720" } else "720",
-            )
-        }
-        var customScreenHeight by customScreenHeightRef
         val graphicsDriverIndexRef = rememberSaveable {
             val driverIndex = graphicsDrivers.indexOfFirst { StringUtils.parseIdentifier(it) == config.graphicsDriver }
             mutableIntStateOf(if (driverIndex >= 0) driverIndex else 0)
@@ -802,21 +858,14 @@ fun ContainerConfigDialog(
         // VKD3D version control (forced depending on driver)
         fun vkd3dForcedVersion(): String {
             val driverType = StringUtils.parseIdentifier(graphicsDrivers[graphicsDriverIndex])
-            val isVortekLike =
-                config.containerVariant.equals(Container.GLIBC) &&
-                    driverType == "vortek" ||
-                    driverType == "adreno" ||
-                    driverType == "sd-8-elite"
+            val isVortekLike = config.containerVariant.equals(Container.GLIBC) && driverType == "vortek" || driverType == "adreno" || driverType == "sd-8-elite"
             return if (isVortekLike) "2.6" else "2.14.1"
         }
 
         val graphicsDriverVersionIndexRef = rememberSaveable {
             val version = config.graphicsDriverVersion
-            val driverIndex = if (version.isEmpty()) {
-                0
-            } else {
-                getVersionsForDriver().indexOfFirst { it == version }.let { if (it >= 0) it else 0 }
-            }
+            val driverIndex = if (version.isEmpty()) 0
+            else getVersionsForDriver().indexOfFirst { it == version }.let { if (it >= 0) it else 0 }
             mutableIntStateOf(driverIndex)
         }
         var graphicsDriverVersionIndex by graphicsDriverVersionIndexRef
@@ -876,9 +925,7 @@ fun ContainerConfigDialog(
             val selectedVersion = context.ids.getOrNull(dxvkVersionIndex).orEmpty()
             val version = if (selectedVersion.isEmpty()) {
                 if (context.isVortekLike) "async-1.10.3" else DefaultVersion.DXVK
-            } else {
-                selectedVersion
-            }
+            } else selectedVersion
             val envSet = EnvVars(config.envVars)
             // Update dxwrapperConfig version regardless of wrapper type (allows DXVK config even when VKD3D is selected)
             val kvs = KeyValueSet(config.dxwrapperConfig)
@@ -999,7 +1046,7 @@ fun ContainerConfigDialog(
                     requestPermissionsForPath(context, path, storagePermissionLauncher)
                 }
 
-                config = config.copy(drives = "${config.drives}$letter:$path")
+                config = config.copy(drives = "${config.drives}${letter}:${path}")
                 pendingDriveLetter = ""
             },
             onFailure = { message ->
@@ -1010,19 +1057,6 @@ fun ContainerConfigDialog(
                 SteamService.keepAlive = false
             },
         )
-
-        val applyScreenSizeToConfig: () -> Unit = {
-            val screenSize = if (screenSizeIndex == 0) {
-                if (customScreenWidth.isNotEmpty() && customScreenHeight.isNotEmpty()) {
-                    "${customScreenWidth}x$customScreenHeight"
-                } else {
-                    config.screenSize
-                }
-            } else {
-                screenSizes[screenSizeIndex].split(" ")[0]
-            }
-            config = config.copy(screenSize = screenSize)
-        }
 
         val onDismissCheck: () -> Unit = {
             if (initialConfig != config) {
@@ -1039,13 +1073,8 @@ fun ContainerConfigDialog(
         }
 
         val nonzeroResolutionError = stringResource(
-            R.string.container_config_custom_resolution_error_nonzero,
+            R.string.container_config_custom_resolution_error_nonzero
         )
-        val aspectResolutionError = stringResource(
-            R.string.container_config_custom_resolution_error_aspect,
-        )
-
-        val percentResolutions = remember(context) { computePercentResolutions(context) }
 
         val state = ContainerConfigState(
             config = configState,
@@ -1055,8 +1084,6 @@ fun ContainerConfigDialog(
             wrapperVersions = wrapperVersionsRef,
             dxvkVersionsAll = dxvkVersionsAllRef,
             componentAvailability = componentAvailabilityRef,
-            showCustomResolutionDialog = showCustomResolutionDialogRef,
-            customResolutionValidationError = customResolutionValidationErrorRef,
             vkMaxVersionIndex = vkMaxVersionIndexRef,
             imageCacheIndex = imageCacheIndexRef,
             exposedExtIndices = exposedExtIndicesRef,
@@ -1074,12 +1101,10 @@ fun ContainerConfigDialog(
             sharpnessEffectIndex = sharpnessEffectIndexRef,
             sharpnessLevel = sharpnessLevelRef,
             sharpnessDenoise = sharpnessDenoiseRef,
+            vibrationIntensity = vibrationIntensityRef,
             adrenotoolsTurnipChecked = adrenotoolsTurnipCheckedRef,
             emulator64Index = emulator64IndexRef,
             emulator32Index = emulator32IndexRef,
-            screenSizeIndex = screenSizeIndexRef,
-            customScreenWidth = customScreenWidthRef,
-            customScreenHeight = customScreenHeightRef,
             graphicsDriverIndex = graphicsDriverIndexRef,
             dxWrapperIndex = dxWrapperIndexRef,
             displayRendererIndex = displayRendererIndexRef,
@@ -1097,8 +1122,6 @@ fun ContainerConfigDialog(
             selectedDriveLetter = selectedDriveLetterRef,
             pendingDriveLetter = pendingDriveLetterRef,
             driveLetterMenuExpanded = driveLetterMenuExpandedRef,
-            screenSizes = screenSizes,
-            percentResolutions = percentResolutions,
             baseGraphicsDrivers = baseGraphicsDrivers,
             dxWrappers = dxWrappers,
             displayRenderers = displayRenderers,
@@ -1180,7 +1203,6 @@ fun ContainerConfigDialog(
             },
             getVersionsForDriver = { getVersionsForDriver() },
             getVersionsForBox64 = { getVersionsForBox64() },
-            applyScreenSizeToConfig = applyScreenSizeToConfig,
             vkd3dForcedVersion = { vkd3dForcedVersion() },
             currentDxvkContext = { currentDxvkContext() },
         )
@@ -1207,117 +1229,232 @@ fun ContainerConfigDialog(
             properties = DialogProperties(
                 usePlatformDefaultWidth = false,
                 dismissOnClickOutside = false,
+                decorFitsSystemWindows = false,
             ),
             content = {
+                val looks = LocalLooksState.current
+                val isGlass = looks.isGlassEnabled
+                val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
+                SideEffect {
+                    dialogWindow?.setDimAmount(if (isGlass) 0.35f else 0.60f)
+                }
                 val scrollState = rememberScrollState()
+                val dialogBackdrop = rememberBrokenGlassCanvasBackdrop(
+                    looks.wallpaperColor.copy(alpha = if (isGlass) 0.72f else 0.96f),
+                )
 
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    topBar = {
-                        CenterAlignedTopAppBar(
-                            title = {
-                                Text(
-                                    text = "$title${if (initialConfig != config) "*" else ""}",
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            },
-                            navigationIcon = {
-                                IconButton(
-                                    onClick = onDismissCheck,
-                                    content = { Icon(Icons.Default.Close, null) },
-                                )
-                            },
-                            actions = {
-                                IconButton(
-                                    onClick = { onSave(config) },
-                                    content = { Icon(Icons.Default.Save, null) },
-                                )
-                            },
-                        )
-                    },
-                ) { paddingValues ->
-                    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
-                    val tabs = listOf(
-                        stringResource(R.string.container_config_tab_general),
-                        stringResource(R.string.container_config_tab_graphics),
-                        stringResource(R.string.container_config_tab_emulation),
-                        stringResource(R.string.container_config_tab_controller),
-                        stringResource(R.string.container_config_tab_wine),
-                        stringResource(R.string.container_config_tab_win_components),
-                        stringResource(R.string.container_config_tab_environment),
-                        stringResource(R.string.container_config_tab_drives),
-                        stringResource(R.string.container_config_tab_advanced),
-                    )
-
-                    // Let controller shoulder buttons cycle through the tabs: R1/R2
-                    // forward, L1/L2 back (both wrap). The handler lives on the content
-                    // container (not a focusable wrapper, which would break up/down
-                    // traversal), so it fires whenever focus is anywhere in the tabs or
-                    // content below.
-                    val firstTabFocusRequester = remember { FocusRequester() }
-                    // Seed focus onto the first tab when the dialog opens so the gamepad
-                    // can navigate immediately instead of needing a button press first.
-                    LaunchedEffect(Unit) { runCatching { firstTabFocusRequester.requestFocus() } }
-
-                    Column(
+                CompositionLocalProvider(
+                    LocalBrokenGlassBackdrop provides if (isGlass) dialogBackdrop else null,
+                    LocalBackgroundLayer provides null,
+                ) {
+                    Box(
                         modifier = Modifier
-                            .onPreviewKeyEvent { event ->
-                                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                                when (event.key) {
-                                    Key.ButtonR1, Key.ButtonR2 -> {
-                                        selectedTab = (selectedTab + 1) % tabs.size
-                                        true
-                                    }
-                                    Key.ButtonL1, Key.ButtonL2 -> {
-                                        selectedTab = (selectedTab - 1 + tabs.size) % tabs.size
-                                        true
-                                    }
-                                    else -> false
-                                }
-                            }
-                            .padding(
-                                top = PaddingUtils.statusBarAwarePadding().calculateTopPadding() + paddingValues.calculateTopPadding(),
-                                bottom = 32.dp + paddingValues.calculateBottomPadding(),
-                                start = paddingValues.calculateStartPadding(LayoutDirection.Ltr),
-                                end = paddingValues.calculateEndPadding(LayoutDirection.Ltr),
-                            )
-                            .fillMaxSize(),
+                            .fillMaxSize()
+                            .background(
+                                if (isGlass) {
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            Color.Black.copy(alpha = 0.28f),
+                                            looks.wallpaperColor.copy(alpha = 0.56f),
+                                            Color.Black.copy(alpha = 0.44f),
+                                        ),
+                                    )
+                                } else {
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.background,
+                                            MaterialTheme.colorScheme.background,
+                                        ),
+                                    )
+                                },
+                            ),
                     ) {
-                        ScrollableTabRow(selectedTabIndex = selectedTab, edgePadding = 0.dp) {
-                            tabs.forEachIndexed { index, label ->
-                                Tab(
-                                    selected = selectedTab == index,
-                                    onClick = { selectedTab = index },
-                                    text = { Text(text = label) },
-                                    modifier = if (index == 0) {
-                                        Modifier.focusRequester(firstTabFocusRequester)
-                                    } else {
-                                        Modifier
+                        Scaffold(
+                            modifier = Modifier.fillMaxSize(),
+                            containerColor = Color.Transparent,
+                            topBar = {
+                                CenterAlignedTopAppBar(
+                                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                                        containerColor = Color.Transparent,
+                                        titleContentColor = if (isGlass) glassContentColor() else MaterialTheme.colorScheme.onSurface,
+                                        navigationIconContentColor = if (isGlass) glassContentColor() else MaterialTheme.colorScheme.onSurface,
+                                        actionIconContentColor = if (isGlass) glassContentColor() else MaterialTheme.colorScheme.onSurface,
+                                    ),
+                                    title = {
+                                        Text(
+                                            text = "$title${if (initialConfig != config) "*" else ""}",
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    },
+                                    navigationIcon = {
+                                        IconButton(
+                                            onClick = onDismissCheck,
+                                            content = { Icon(Icons.Default.Close, null) },
+                                        )
+                                    },
+                                    actions = {
+                                        IconButton(
+                                            onClick = { onSave(config) },
+                                            content = { Icon(Icons.Default.Save, null) },
+                                        )
                                     },
                                 )
+                            },
+                        ) { paddingValues ->
+                            var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+                            val tabs = listOf(
+                                stringResource(R.string.container_config_tab_performance),
+                                stringResource(R.string.container_config_tab_general),
+                                stringResource(R.string.container_config_tab_graphics),
+                                stringResource(R.string.container_config_tab_emulation),
+                                stringResource(R.string.container_config_tab_controller),
+                                stringResource(R.string.container_config_tab_wine),
+                                stringResource(R.string.container_config_tab_win_components),
+                                stringResource(R.string.container_config_tab_environment),
+                                stringResource(R.string.container_config_tab_drives),
+                                stringResource(R.string.container_config_tab_advanced)
+                            )
+
+                            // Let controller shoulder buttons cycle through the tabs: R1/R2
+                            // forward, L1/L2 back (both wrap). The handler lives on the content
+                            // container (not a focusable wrapper, which would break up/down
+                            // traversal), so it fires whenever focus is anywhere in the tabs or
+                            // content below.
+                            val firstTabFocusRequester = remember { FocusRequester() }
+                            // Seed focus onto the first tab when the dialog opens so the gamepad
+                            // can navigate immediately instead of needing a button press first.
+                            LaunchedEffect(Unit) { runCatching { firstTabFocusRequester.requestFocus() } }
+
+                            Column(
+                                modifier = Modifier
+                                    .onPreviewKeyEvent { event ->
+                                        if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                                        when (event.key) {
+                                            Key.ButtonR1, Key.ButtonR2 -> {
+                                                selectedTab = (selectedTab + 1) % tabs.size
+                                                true
+                                            }
+                                            Key.ButtonL1, Key.ButtonL2 -> {
+                                                selectedTab = (selectedTab - 1 + tabs.size) % tabs.size
+                                                true
+                                            }
+                                            else -> false
+                                        }
+                                    }
+                                    .padding(
+                                        top = PaddingUtils.statusBarAwarePadding().calculateTopPadding() + paddingValues.calculateTopPadding(),
+                                        bottom = 32.dp + paddingValues.calculateBottomPadding(),
+                                        start = paddingValues.calculateStartPadding(LayoutDirection.Ltr),
+                                        end = paddingValues.calculateEndPadding(LayoutDirection.Ltr),
+                                    )
+                                    .fillMaxSize(),
+                            ) {
+                                ScrollableTabRow(
+                                    selectedTabIndex = selectedTab,
+                                    edgePadding = 0.dp,
+                                    containerColor = if (isGlass) Color.Transparent else MaterialTheme.colorScheme.surface,
+                                    contentColor = if (isGlass) glassContentColor() else MaterialTheme.colorScheme.primary,
+                                ) {
+                                    tabs.forEachIndexed { index, label ->
+                                        Tab(
+                                            selected = selectedTab == index,
+                                            onClick = { selectedTab = index },
+                                            text = { Text(text = label) },
+                                            modifier = if (index == 0) {
+                                                Modifier.focusRequester(firstTabFocusRequester)
+                                            } else {
+                                                Modifier
+                                            },
+                                        )
+                                    }
+                                }
+                                Column(
+                                    modifier = Modifier
+                                        .verticalScroll(scrollState)
+                                        .weight(1f)
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    if (selectedTab == 0) PerformanceTabContent(state, appId)
+                                    if (selectedTab == 1) GeneralTabContent(state, nonzeroResolutionError)
+                                    if (selectedTab == 2) GraphicsTabContent(state, default)
+                                    if (selectedTab == 3) EmulationTabContent(state)
+                                    if (selectedTab == 4) ControllerTabContent(state, default)
+                                    if (selectedTab == 5) WineTabContent(state)
+                                    if (selectedTab == 6) WinComponentsTabContent(state)
+                                    if (selectedTab == 7) EnvironmentTabContent(state)
+                                    if (selectedTab == 8) DrivesTabContent(state)
+                                    if (selectedTab == 9) AdvancedTabContent(state)
+                                }
                             }
-                        }
-                        Column(
-                            modifier = Modifier
-                                .verticalScroll(scrollState)
-                                .weight(1f),
-                        ) {
-                            if (selectedTab == 0) GeneralTabContent(state, nonzeroResolutionError, aspectResolutionError)
-                            if (selectedTab == 1) GraphicsTabContent(state, default)
-                            if (selectedTab == 2) EmulationTabContent(state)
-                            if (selectedTab == 3) ControllerTabContent(state, default)
-                            if (selectedTab == 4) WineTabContent(state)
-                            if (selectedTab == 5) WinComponentsTabContent(state)
-                            if (selectedTab == 6) EnvironmentTabContent(state)
-                            if (selectedTab == 7) DrivesTabContent(state)
-                            if (selectedTab == 8) AdvancedTabContent(state)
                         }
                     }
                 }
-            },
+            }
         )
     }
+}
+
+@Composable
+internal fun ContainerGlassCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val looks = LocalLooksState.current
+    val isGlass = looks.isGlassEnabled
+    val cardShape = RoundedCornerShape(18.dp)
+    val contentColor = if (isGlass) glassContentColor() else MaterialTheme.colorScheme.onSurface
+    val borderColor = if (isGlass) {
+        Color.White.copy(alpha = 0.16f)
+    } else {
+        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+    }
+    val innerScrim = if (isGlass) {
+        Color.Black.copy(alpha = 0.34f)
+    } else {
+        MaterialTheme.colorScheme.surfaceContainerHigh
+    }
+
+    BrokenGlassPanel(
+        modifier = modifier
+            .fillMaxWidth()
+            .border(1.dp, borderColor, cardShape),
+        cornerRadius = 18,
+        shape = cardShape,
+        backgroundColor = if (isGlass) {
+            MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.44f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        },
+    ) {
+        CompositionLocalProvider(
+            LocalContentColor provides contentColor,
+            LocalSettingsTileColors provides settingsTileColorsAlt(),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(innerScrim)
+                    .padding(vertical = 4.dp),
+                content = content,
+            )
+        }
+    }
+}
+
+@Composable
+internal fun ContainerCardDivider() {
+    val looks = LocalLooksState.current
+    val dividerColor = if (looks.isGlassEnabled) {
+        Color.White.copy(alpha = 0.10f)
+    } else {
+        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
+    }
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        color = dividerColor,
+    )
 }
 
 @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES or Configuration.UI_MODE_TYPE_NORMAL)
@@ -1343,7 +1480,7 @@ private fun Preview_ContainerConfigDialog() {
             launchRealSteam = false,
             launchBionicSteam = false,
             allowSteamUpdates = false,
-            steamType = "normal",
+            steamType = Container.STEAM_TYPE_HEADLESS,
             cpuList = "0,1,2,3",
             cpuListWoW64 = "0,1,2,3",
             wow64Mode = true,
@@ -1387,6 +1524,8 @@ internal fun ExecutablePathDropdown(
     var expanded by remember { mutableStateOf(false) }
     var executables by remember { mutableStateOf<List<String>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var showCustomPathDialog by remember { mutableStateOf(false) }
+    var customPathText by remember { mutableStateOf("") }
     val context = LocalContext.current
 
     // Load executables from A: drive when component is first created
@@ -1398,11 +1537,13 @@ internal fun ExecutablePathDropdown(
         isLoading = false
     }
 
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-        modifier = modifier,
-    ) {
+    val selectedExeIndex = executables.indexOf(value)
+    val exeLabels = remember(executables) { executables.map { it.substringAfterLast('\\') } }
+    val exeSubtitles = remember(executables) {
+        executables.map { it.substringBeforeLast('\\', "").ifEmpty { null } }
+    }
+
+    Box(modifier = modifier) {
         NoExtractOutlinedTextField(
             value = value,
             onValueChange = onValueChange,
@@ -1418,15 +1559,14 @@ internal fun ExecutablePathDropdown(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                 // A focused text field also swallows the center/enter (gamepad A) key,
                 // so the anchor never opens via controller. Intercept it here and toggle
-                // the menu. (Up/down focus-escape is handled in NoExtractOutlinedTextField.)
+                // the picker. (Up/down focus-escape is handled in NoExtractOutlinedTextField.)
                 .onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                     when (event.key) {
                         Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.Spacebar, Key.ButtonA -> {
-                            expanded = !expanded
+                            if (!isLoading) expanded = true
                             true
                         }
                         else -> false
@@ -1434,36 +1574,56 @@ internal fun ExecutablePathDropdown(
                 },
             singleLine = true,
         )
-
-        if (!isLoading && executables.isNotEmpty()) {
-            ExposedDropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-            ) {
-                executables.forEach { executable ->
-                    DropdownMenuItem(
-                        text = {
-                            Column {
-                                Text(
-                                    text = executable.substringAfterLast('\\'),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
-                                if (executable.contains('\\')) {
-                                    Text(
-                                        text = executable.substringBeforeLast('\\'),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        },
-                        onClick = {
-                            onValueChange(executable)
-                            expanded = false
-                        },
-                    )
-                }
-            }
+        if (!isLoading) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clickable { expanded = true },
+            )
         }
+    }
+
+    FullScreenGlassSelectorDialog(
+        visible = expanded && !isLoading,
+        title = { Text(stringResource(R.string.container_config_executable_path)) },
+        items = exeLabels,
+        selectedIndex = selectedExeIndex,
+        itemSubtitles = exeSubtitles,
+        searchable = true,
+        emptyText = stringResource(R.string.container_config_executable_path_placeholder),
+        footerActionLabel = stringResource(R.string.container_config_executable_path_custom),
+        onFooterAction = {
+            customPathText = value
+            showCustomPathDialog = true
+        },
+        onItemSelected = { idx ->
+            executables.getOrNull(idx)?.let(onValueChange)
+        },
+        onDismiss = { expanded = false },
+    )
+
+    if (showCustomPathDialog) {
+        AlertDialog(
+            onDismissRequest = { showCustomPathDialog = false },
+            title = { Text(stringResource(R.string.container_config_executable_path_custom)) },
+            text = {
+                NoExtractOutlinedTextField(
+                    value = customPathText,
+                    onValueChange = { customPathText = it },
+                    placeholder = { Text(stringResource(R.string.container_config_executable_path_custom_placeholder)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onValueChange(customPathText.trim())
+                    showCustomPathDialog = false
+                }) { Text(stringResource(R.string.ok)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCustomPathDialog = false }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
     }
 }

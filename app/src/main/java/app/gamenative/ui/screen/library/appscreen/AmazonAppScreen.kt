@@ -1,15 +1,17 @@
 package app.gamenative.ui.screen.library.appscreen
 
 import android.content.Context
+import app.gamenative.ui.util.SnackbarManager
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import app.gamenative.ui.component.dialog.LoadingDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -21,31 +23,32 @@ import app.gamenative.R
 import app.gamenative.data.AmazonGame
 import app.gamenative.data.GameSource
 import app.gamenative.data.LibraryItem
+import app.gamenative.data.StoreGameDetails
+import app.gamenative.data.parseAmazonStoreDetails
+import app.gamenative.data.withoutTitleOnlyDescription
 import app.gamenative.events.AndroidEvent
 import app.gamenative.service.DownloadService
 import app.gamenative.service.amazon.AmazonConstants
 import app.gamenative.service.amazon.AmazonService
 import app.gamenative.ui.component.dialog.AmazonInstallDialog
-import app.gamenative.ui.component.dialog.LoadingDialog
 import app.gamenative.ui.component.dialog.MessageDialog
 import app.gamenative.ui.component.dialog.state.MessageDialogState
 import app.gamenative.ui.data.AppMenuOption
 import app.gamenative.ui.data.GameDisplayInfo
 import app.gamenative.ui.enums.AppOptionMenuType
 import app.gamenative.ui.enums.DialogType
-import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.utils.ContainerUtils
 import app.gamenative.utils.DateTimeUtils
 import app.gamenative.utils.MarkerUtils
 import com.winlator.container.ContainerData
 import com.winlator.core.StringUtils
-import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import java.io.File
 
 /** Amazon-specific [BaseAppScreen] implementation. */
 class AmazonAppScreen : BaseAppScreen() {
@@ -98,6 +101,7 @@ class AmazonAppScreen : BaseAppScreen() {
         /** Resolve productId from a library item's appId-backed gameId. */
         fun productIdOf(libraryItem: LibraryItem): String =
             AmazonService.getProductIdByAppId(libraryItem.gameId) ?: ""
+
     }
 
     // ── BaseAppScreen contract ─────────────────────────────────────────────
@@ -110,7 +114,7 @@ class AmazonAppScreen : BaseAppScreen() {
         val productId = productIdOf(libraryItem)
         Timber.tag(TAG).d(
             "getGameDisplayInfo: productId=$productId name=${libraryItem.name} " +
-                "gameId=${libraryItem.gameId}",
+                "gameId=${libraryItem.gameId}"
         )
 
         var game by remember(productId) { mutableStateOf<AmazonGame?>(null) }
@@ -138,7 +142,7 @@ class AmazonAppScreen : BaseAppScreen() {
                 "Loaded game: title=${game?.title}, developer=${game?.developer}, " +
                     "releaseDate=${game?.releaseDate}, artUrl=${game?.artUrl?.take(60)}, " +
                     "heroUrl=${game?.heroUrl?.take(60)}, downloadSize=${game?.downloadSize}, " +
-                    "installSize=${game?.installSize}, isInstalled=${game?.isInstalled}",
+                    "installSize=${game?.installSize}, isInstalled=${game?.isInstalled}"
             )
             // Proactively fetch size from manifest if not yet cached
             val g = game
@@ -155,7 +159,7 @@ class AmazonAppScreen : BaseAppScreen() {
 
         // Artwork — use heroUrl for the backdrop, artUrl/iconHash for the icon
         val heroImageUrl = g?.heroUrl?.takeIf { it.isNotEmpty() }
-            ?: g?.artUrl?.takeIf { it.isNotEmpty() } // fall back to art if no hero
+            ?: g?.artUrl?.takeIf { it.isNotEmpty() }   // fall back to art if no hero
             ?: libraryItem.iconHash.takeIf { it.isNotEmpty() }
 
         val iconUrl = g?.artUrl?.takeIf { it.isNotEmpty() }
@@ -174,12 +178,6 @@ class AmazonAppScreen : BaseAppScreen() {
             null
         }
 
-        val gameNameForCompatibility = g?.title ?: libraryItem.name
-        val (compatibilityMessage, compatibilityColor) = rememberCompatibilityInfo(
-            context = context,
-            gameName = gameNameForCompatibility,
-        )
-
         return GameDisplayInfo(
             name = g?.title ?: libraryItem.name,
             iconUrl = iconUrl,
@@ -197,12 +195,15 @@ class AmazonAppScreen : BaseAppScreen() {
             sizeFromStore = sizeFromStore,
             lastPlayedText = null,
             playtimeText = null,
-            compatibilityMessage = compatibilityMessage,
-            compatibilityColor = compatibilityColor,
+            storeDetails = parseAmazonStoreDetails(g?.productJson).mergedWith(
+                StoreGameDetails(
+                    screenshots = listOfNotNull(heroImageUrl, iconUrl).distinct(),
+                ),
+            ).withoutTitleOnlyDescription(g?.title ?: libraryItem.name),
         )
     }
 
-    override fun isInstalled(context: Context, libraryItem: LibraryItem): Boolean =
+override fun isInstalled(context: Context, libraryItem: LibraryItem): Boolean =
         AmazonService.isGameInstalledByAppId(context, libraryItem.gameId)
 
     override fun isValidToDownload(context: Context, libraryItem: LibraryItem): Boolean =
@@ -230,7 +231,7 @@ class AmazonAppScreen : BaseAppScreen() {
         val hasPartial = hasPartialDownload(context, libraryItem)
 
         Timber.tag(TAG).d(
-            "onDownloadInstallClick: productId=$productId, installed=$installed, downloading=$downloading, partial=$hasPartial",
+            "onDownloadInstallClick: productId=$productId, installed=$installed, downloading=$downloading, partial=$hasPartial"
         )
 
         if (downloading) {
@@ -265,16 +266,12 @@ class AmazonAppScreen : BaseAppScreen() {
                 }
                 val installBytes = game?.installSize ?: 0L
 
-                val downloadSize = if (downloadBytes > 0L) {
+                val downloadSize = if (downloadBytes > 0L)
                     app.gamenative.utils.StorageUtils.formatBinarySize(downloadBytes)
-                } else {
-                    "Unknown"
-                }
-                val installSize = if (installBytes > 0L) {
+                else "Unknown"
+                val installSize = if (installBytes > 0L)
                     app.gamenative.utils.StorageUtils.formatBinarySize(installBytes)
-                } else {
-                    "Unknown"
-                }
+                else "Unknown"
 
                 val installDir = AmazonConstants.getGameInstallPath(context, game?.title ?: libraryItem.name)
                 val availableBytes = app.gamenative.utils.StorageUtils.getAvailableSpace(AmazonConstants.defaultAmazonGamesPath(context))
@@ -342,7 +339,7 @@ class AmazonAppScreen : BaseAppScreen() {
                     message = context.getString(R.string.epic_delete_download_message),
                     confirmBtnText = context.getString(R.string.yes),
                     dismissBtnText = context.getString(R.string.no),
-                ),
+                )
             )
         } else if (isInstalled(context, libraryItem)) {
             // Show uninstall confirmation dialog (debounces multi-tap)
@@ -465,8 +462,7 @@ class AmazonAppScreen : BaseAppScreen() {
             }
         }
         app.gamenative.PluviaApp.events.on<app.gamenative.events.AndroidEvent.DownloadStatusChanged, Unit>(downloadStatusListener)
-        disposables +=
-            { app.gamenative.PluviaApp.events.off<app.gamenative.events.AndroidEvent.DownloadStatusChanged, Unit>(downloadStatusListener) }
+        disposables += { app.gamenative.PluviaApp.events.off<app.gamenative.events.AndroidEvent.DownloadStatusChanged, Unit>(downloadStatusListener) }
 
         // Listen for install status changes
         val installListener: (app.gamenative.events.AndroidEvent.LibraryInstallStatusChanged) -> Unit = { event ->
@@ -476,8 +472,7 @@ class AmazonAppScreen : BaseAppScreen() {
             }
         }
         app.gamenative.PluviaApp.events.on<app.gamenative.events.AndroidEvent.LibraryInstallStatusChanged, Unit>(installListener)
-        disposables +=
-            { app.gamenative.PluviaApp.events.off<app.gamenative.events.AndroidEvent.LibraryInstallStatusChanged, Unit>(installListener) }
+        disposables += { app.gamenative.PluviaApp.events.off<app.gamenative.events.AndroidEvent.LibraryInstallStatusChanged, Unit>(installListener) }
 
         return { disposables.forEach { it() } }
     }

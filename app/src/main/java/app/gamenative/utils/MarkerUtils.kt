@@ -1,8 +1,8 @@
 package app.gamenative.utils
 
 import app.gamenative.enums.Marker
-import java.io.File
 import timber.log.Timber
+import java.io.File
 
 object MarkerUtils {
     private const val DOWNLOAD_INFO_DIR = ".DownloadInfo"
@@ -10,10 +10,12 @@ object MarkerUtils {
     private val VERIFY_PREREQUISITE_MARKERS = listOf(
         Marker.VCREDIST_INSTALLED,
         Marker.GOG_SCRIPT_INSTALLED,
+        Marker.GOG_SUPPORT_INSTALLED,
         Marker.PHYSX_INSTALLED,
         Marker.OPENAL_INSTALLED,
         Marker.XNA_INSTALLED,
         Marker.UBISOFT_CONNECT_INSTALLED,
+        Marker.KNOWN_INSTALL_SCRIPT_RUN,
     )
 
     fun hasMarker(dirPath: String, type: Marker): Boolean {
@@ -63,7 +65,7 @@ object MarkerUtils {
                 File(dir, type.fileName).createNewFile()
                 Timber.i("Added marker ${type.fileName} at $dirPath")
                 return true
-            } catch (e: Exception) {
+            } catch(e: Exception) {
                 Timber.e(e, "Failed to add marker ${type.fileName} at $dirPath")
                 return false
             }

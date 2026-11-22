@@ -1,5 +1,6 @@
 package app.gamenative.ui.screen.library.appscreen
 
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -14,58 +15,78 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import app.gamenative.PluviaApp
+import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.api.isValidCommunityConfig
 import app.gamenative.api.prepareCommunityConfigForApply
 import app.gamenative.data.GameSource
+import app.gamenative.data.CommunityCompatibilityClassifier
+import app.gamenative.data.CommunityCompatibilitySummary
+import app.gamenative.data.CommunityEvidenceTier
 import app.gamenative.data.FavoritesManager
 import app.gamenative.data.LibraryItem
+import app.gamenative.data.StoreDetailsRepository
+import app.gamenative.data.withoutTitleOnlyDescription
 import app.gamenative.events.AndroidEvent
 import app.gamenative.mods.ModContainerResolver
 import app.gamenative.mods.NexusModManager
 import app.gamenative.ui.component.dialog.CommunityConfigsDialog
+import app.gamenative.ui.component.dialog.CommunityHardwareScope
 import app.gamenative.ui.component.dialog.ContainerConfigDialog
+import app.gamenative.ui.component.dialog.ExportFilesDialog
+import app.gamenative.ui.component.dialog.ImportFilesDialog
 import app.gamenative.ui.component.dialog.LoadingDialog
 import app.gamenative.ui.component.dialog.NexusModsDialog
+import app.gamenative.ui.component.dialog.SaveBackupRestoreDialog
 import app.gamenative.ui.data.AppMenuOption
+import app.gamenative.ui.data.Achievement
 import app.gamenative.ui.data.GameDisplayInfo
 import app.gamenative.ui.enums.AppOptionMenuType
 import app.gamenative.ui.screen.library.components.toggleFavorite
 import app.gamenative.ui.util.ContainerConfigTransfer
 import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.utils.BestConfigService
+import app.gamenative.utils.CloudSaveBackupManager
 import app.gamenative.utils.ContainerUtils
+import app.gamenative.utils.DeviceGameStatsCache
+import app.gamenative.utils.SessionReport
 import app.gamenative.utils.DiagnosticsLog
 import app.gamenative.utils.GameCompatibilityCache
 import app.gamenative.utils.GameCompatibilityService
+import app.gamenative.utils.GpuGameStatsCache
 import app.gamenative.utils.ManifestInstaller
 import app.gamenative.utils.createPinnedShortcut
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
 import com.winlator.container.ContainerData
 import com.winlator.core.GPUInformation
 import java.io.File
 import kotlin.text.Charsets
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 
@@ -78,6 +99,11 @@ data class KnownConfigInstallState(
     val progress: Float,
     val label: String,
 )
+
+internal fun canShowUpdatePending(
+    isInstalled: Boolean,
+    isDownloading: Boolean,
+): Boolean = isInstalled && !isDownloading
 
 internal suspend fun installMissingComponentsForConfig(
     context: Context,
@@ -156,13 +182,18 @@ internal suspend fun installMissingComponentsForConfig(
 
 abstract class BaseAppScreen {
     companion object {
+        private const val WINDOWS_VR_ENABLED_EXTRA = "windowsVrEnabled"
         private val installDialogStates = mutableStateMapOf<String, app.gamenative.ui.component.dialog.state.MessageDialogState>()
         private val exportConfigRequests = mutableStateMapOf<String, Boolean>()
         private val importConfigRequests = mutableStateMapOf<String, Boolean>()
         private val exportSavesRequests = mutableStateMapOf<String, Boolean>()
         private val importSavesRequests = mutableStateMapOf<String, Boolean>()
+        private val restoreSaveBackupRequests = mutableStateMapOf<String, Boolean>()
+        private var saveBackupsRevision by mutableIntStateOf(0)
+        private val importFilesRequests = mutableStateMapOf<String, Boolean>()
+        private val exportFilesRequests = mutableStateMapOf<String, Boolean>()
         private val manageModsRequests = mutableStateMapOf<String, Boolean>()
-        private val communityConfigRequests = mutableStateMapOf<String, Boolean>()
+        private val communityConfigRequests = mutableStateMapOf<String, CommunityHardwareScope>()
         private val knownConfigInstallStates = mutableStateMapOf<Int, KnownConfigInstallState>()
 
         fun showInstallDialog(appId: String, state: app.gamenative.ui.component.dialog.state.MessageDialogState) {
@@ -225,6 +256,42 @@ abstract class BaseAppScreen {
             return importSavesRequests[appId] == true
         }
 
+        fun requestRestoreSaveBackup(appId: String) {
+            restoreSaveBackupRequests[appId] = true
+        }
+
+        fun clearRestoreSaveBackupRequest(appId: String) {
+            restoreSaveBackupRequests.remove(appId)
+        }
+
+        fun shouldRestoreSaveBackup(appId: String): Boolean {
+            return restoreSaveBackupRequests[appId] == true
+        }
+
+        fun requestImportFiles(appId: String) {
+            importFilesRequests[appId] = true
+        }
+
+        fun clearImportFilesRequest(appId: String) {
+            importFilesRequests.remove(appId)
+        }
+
+        fun shouldImportFiles(appId: String): Boolean {
+            return importFilesRequests[appId] == true
+        }
+
+        fun requestExportFiles(appId: String) {
+            exportFilesRequests[appId] = true
+        }
+
+        fun clearExportFilesRequest(appId: String) {
+            exportFilesRequests.remove(appId)
+        }
+
+        fun shouldExportFiles(appId: String): Boolean {
+            return exportFilesRequests[appId] == true
+        }
+
         fun requestManageMods(appId: String) {
             manageModsRequests[appId] = true
         }
@@ -237,8 +304,11 @@ abstract class BaseAppScreen {
             return manageModsRequests[appId] == true
         }
 
-        fun requestCommunityConfigs(appId: String) {
-            communityConfigRequests[appId] = true
+        fun requestCommunityConfigs(
+            appId: String,
+            hardwareScope: CommunityHardwareScope = CommunityHardwareScope.CURRENT_DEVICE,
+        ) {
+            communityConfigRequests[appId] = hardwareScope
         }
 
         fun clearCommunityConfigsRequest(appId: String) {
@@ -246,7 +316,11 @@ abstract class BaseAppScreen {
         }
 
         fun shouldBrowseCommunityConfigs(appId: String): Boolean {
-            return communityConfigRequests[appId] == true
+            return communityConfigRequests.containsKey(appId)
+        }
+
+        fun communityConfigsHardwareScope(appId: String): CommunityHardwareScope {
+            return communityConfigRequests[appId] ?: CommunityHardwareScope.CURRENT_DEVICE
         }
 
         // missing components that prevent config from being applied
@@ -280,46 +354,6 @@ abstract class BaseAppScreen {
         fun getKnownConfigInstallState(gameId: Int): KnownConfigInstallState? {
             return knownConfigInstallStates[gameId]
         }
-    }
-
-    /**
-     * Compatibility info is fetched and cached by [LibraryViewModel]. App screens should only read from cache
-     * and render the message if available.
-     */
-    @Composable
-    protected fun rememberCompatibilityInfo(
-        context: Context,
-        gameName: String,
-    ): Pair<String?, ULong?> {
-        var compatibilityMessage by remember(gameName) { mutableStateOf<String?>(null) }
-        var compatibilityColor by remember(gameName) { mutableStateOf<ULong?>(null) }
-
-        LaunchedEffect(gameName) {
-            if (gameName.isBlank()) {
-                compatibilityMessage = null
-                compatibilityColor = null
-                return@LaunchedEffect
-            }
-            try {
-                val cachedResponse = GameCompatibilityCache.getCached(gameName)
-                if (cachedResponse != null) {
-                    val message = GameCompatibilityService.getCompatibilityMessageFromResponse(context, cachedResponse)
-                    compatibilityMessage = message.text
-                    compatibilityColor = message.color.value
-                } else {
-                    compatibilityMessage = null
-                    compatibilityColor = null
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Timber.tag("BaseAppScreen").e(e, "Failed to get compatibility from cache")
-                compatibilityMessage = null
-                compatibilityColor = null
-            }
-        }
-
-        return compatibilityMessage to compatibilityColor
     }
 
     /**
@@ -504,6 +538,18 @@ abstract class BaseAppScreen {
     }
 
     @Composable
+    protected open fun getAiDebugRunOption(
+        context: Context,
+        libraryItem: LibraryItem,
+        onAiDebugRun: () -> Unit,
+    ): AppMenuOption? {
+        return AppMenuOption(
+            AppOptionMenuType.AiDebugRun,
+            onClick = { onAiDebugRun() },
+        )
+    }
+
+    @Composable
     protected open fun getShareDiagnosticsOption(
         context: Context,
         libraryItem: LibraryItem,
@@ -552,6 +598,30 @@ abstract class BaseAppScreen {
             onClick = {
                 val suggested = "${gameName}$extension"
                 exportFrontendLauncher.launch(suggested)
+            },
+        )
+    }
+
+    @Composable
+    protected open fun getCopyLaunchLinkOption(
+        context: Context,
+        libraryItem: LibraryItem,
+    ): AppMenuOption? {
+        val gameId = getGameId(libraryItem)
+        val gameSource = getGameSource(libraryItem).name
+        val gameName = getGameName(context, libraryItem)
+        val uri = "gamenative://run?appid=$gameId&gamesource=$gameSource"
+        val labelText = context.getString(R.string.app_name) + " $gameName"
+        val clipboardManager = LocalClipboard.current
+        val scope = rememberCoroutineScope()
+        return AppMenuOption(
+            optionType = AppOptionMenuType.CopyLaunchLink,
+            onClick = {
+                scope.launch {
+                    clipboardManager.setClipEntry(
+                        ClipEntry(ClipData.newPlainText(labelText, uri))
+                    )
+                }
             },
         )
     }
@@ -647,6 +717,51 @@ abstract class BaseAppScreen {
 
     protected open fun supportsSaveTransfer(libraryItem: LibraryItem): Boolean = false
 
+    /** Provider and game id the cloud save backups for this game are stored under, or null if it has none. */
+    protected open suspend fun resolveSaveBackupTarget(context: Context, libraryItem: LibraryItem): SaveBackupTarget? = null
+
+    protected open fun isGameRunningForSaveRestore(libraryItem: LibraryItem): Boolean = PluviaApp.xEnvironment != null
+
+    private suspend fun loadSaveBackups(context: Context, libraryItem: LibraryItem): List<CloudSaveBackupManager.SaveBackup> =
+        withContext(Dispatchers.IO) {
+            try {
+                resolveSaveBackupTarget(context, libraryItem)
+                    ?.let { CloudSaveBackupManager.listBackups(context, it.provider, it.gameId) }
+                    .orEmpty()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to list save backups for ${libraryItem.appId}")
+                emptyList()
+            }
+        }
+
+    @Composable
+    protected open fun getRestoreSaveBackupOption(
+        context: Context,
+        libraryItem: LibraryItem,
+    ): AppMenuOption? {
+        val hasBackups by produceState(false, libraryItem.appId, saveBackupsRevision) {
+            value = loadSaveBackups(context, libraryItem).isNotEmpty()
+        }
+        if (!hasBackups) return null
+        return AppMenuOption(
+            optionType = AppOptionMenuType.RestoreSaveBackup,
+            onClick = {
+                requestRestoreSaveBackup(libraryItem.appId)
+            },
+        )
+    }
+
+    protected open val supportsAchievements: Boolean = false
+
+    /** Null when the fetch failed, so the caller can retry. Empty means the game has none. */
+    protected open suspend fun fetchAchievements(libraryItem: LibraryItem): List<Achievement>? = null
+
+    /** Changes once the storefront can answer, retrying a fetch that ran too early. */
+    @Composable
+    protected open fun achievementsReadyKey(): Any = Unit
+
     protected open suspend fun exportSaves(
         context: Context,
         libraryItem: LibraryItem,
@@ -683,8 +798,31 @@ abstract class BaseAppScreen {
         return configOptions + listOfNotNull(
             getExportSavesOption(context, libraryItem),
             getImportSavesOption(context, libraryItem),
+            getRestoreSaveBackupOption(context, libraryItem),
         )
     }
+
+    @Composable
+    protected open fun getImportFilesOption(
+        context: Context,
+        libraryItem: LibraryItem,
+    ): AppMenuOption = AppMenuOption(
+        optionType = AppOptionMenuType.ImportFiles,
+        onClick = {
+            requestImportFiles(libraryItem.appId)
+        },
+    )
+
+    @Composable
+    protected open fun getExportFilesOption(
+        context: Context,
+        libraryItem: LibraryItem,
+    ): AppMenuOption = AppMenuOption(
+        optionType = AppOptionMenuType.ExportFiles,
+        onClick = {
+            requestExportFiles(libraryItem.appId)
+        },
+    )
 
     @Composable
     protected open fun getManageModsOption(
@@ -868,6 +1006,7 @@ abstract class BaseAppScreen {
             val gpuName = GPUInformation.getRenderer(context)
 
             val bestConfig = BestConfigService.fetchBestConfig(
+                context = context,
                 gameName = gameName,
                 gpuName = gpuName,
                 gameStore = libraryItem.gameSource.name,
@@ -921,6 +1060,7 @@ abstract class BaseAppScreen {
                                 val cd = ContainerUtils.toContainerData(c)
                                 val updated = ContainerUtils.applyBestConfigMapToContainerData(cd, forced)
                                 ContainerUtils.applyToContainer(context, c, updated)
+                                SessionReport.markConfigApplied(c, "known", bestConfig.toMatch())
                                 SnackbarManager.show(context.getString(R.string.best_config_applied_with_defaults))
                             } else {
                                 SnackbarManager.show(context.getString(R.string.best_config_known_config_invalid))
@@ -939,6 +1079,7 @@ abstract class BaseAppScreen {
                     parsedConfig,
                 )
                 ContainerUtils.applyToContainer(context, container, updatedData)
+                SessionReport.markConfigApplied(container, "known", bestConfig.toMatch())
                 SnackbarManager.show(context.getString(R.string.best_config_applied_successfully))
             } else {
                 SnackbarManager.show(context.getString(R.string.best_config_known_config_invalid))
@@ -966,6 +1107,7 @@ abstract class BaseAppScreen {
         configJson: kotlinx.serialization.json.JsonObject,
         matchType: String,
         matchedGpu: String,
+        storeMatch: Boolean,
         applyLaunchArguments: Boolean,
         applyEnvironmentVariables: Boolean,
     ): Boolean {
@@ -999,7 +1141,7 @@ abstract class BaseAppScreen {
                 configJson = safeConfig,
                 matchType = matchType,
                 applyKnownConfig = true,
-                storeMatch = false,
+                storeMatch = storeMatch,
                 matchedGpu = matchedGpu,
                 preserveConfigValues = true,
             )
@@ -1016,7 +1158,7 @@ abstract class BaseAppScreen {
                                     configJson = safeConfig,
                                     matchType = matchType,
                                     applyKnownConfig = true,
-                                    storeMatch = false,
+                                    storeMatch = storeMatch,
                                     forceApply = true,
                                     matchedGpu = matchedGpu,
                                     preserveConfigValues = true,
@@ -1026,6 +1168,7 @@ abstract class BaseAppScreen {
                                     val currentData = ContainerUtils.toContainerData(container)
                                     val updatedData = ContainerUtils.applyBestConfigMapToContainerData(currentData, forced)
                                     ContainerUtils.applyToContainer(context, container, updatedData)
+                                    SessionReport.markConfigApplied(container, "imported")
                                     SnackbarManager.show(context.getString(R.string.best_config_applied_with_defaults))
                                 } else {
                                     SnackbarManager.show(context.getString(R.string.best_config_known_config_invalid))
@@ -1051,6 +1194,7 @@ abstract class BaseAppScreen {
                     val currentData = ContainerUtils.toContainerData(container)
                     val updatedData = ContainerUtils.applyBestConfigMapToContainerData(currentData, parsedConfig)
                     ContainerUtils.applyToContainer(context, container, updatedData)
+                    SessionReport.markConfigApplied(container, "imported")
                 }
                 SnackbarManager.show(context.getString(R.string.best_config_applied_successfully))
                 true
@@ -1115,6 +1259,7 @@ abstract class BaseAppScreen {
         onClickPlay: (Boolean) -> Unit,
         onTestGraphics: () -> Unit,
         onPlayWithDiagnostics: () -> Unit,
+        onAiDebugRun: () -> Unit,
         exportFrontendLauncher: ActivityResultLauncher<String>,
     ): List<AppMenuOption> {
         val isInstalled = isInstalled(context, libraryItem)
@@ -1128,10 +1273,12 @@ abstract class BaseAppScreen {
             getRunContainerOption(context, libraryItem, onClickPlay)?.let { menuOptions.add(it) }
             getTestGraphicsOption(context, libraryItem, onTestGraphics)?.let { menuOptions.add(it) }
             getPlayWithDiagnosticsOption(context, libraryItem, onPlayWithDiagnostics)?.let { menuOptions.add(it) }
+            getAiDebugRunOption(context, libraryItem, onAiDebugRun)?.let { menuOptions.add(it) }
             getShareDiagnosticsOption(context, libraryItem)?.let { menuOptions.add(it) }
             getResetContainerOption(context, libraryItem)?.let { menuOptions.add(it) }
             getCreateShortcutOption(context, libraryItem)?.let { menuOptions.add(it) }
             getExportContainerOption(context, libraryItem, exportFrontendLauncher)?.let { menuOptions.add(it) }
+            getCopyLaunchLinkOption(context, libraryItem)?.let { menuOptions.add(it) }
         }
 
         // Always available options
@@ -1152,7 +1299,18 @@ abstract class BaseAppScreen {
         // so container-related items appear as:
         // Reset Container, Reset DRM, Use Known Config, Export Config, Import Config.
         if (isInstalled) {
-            menuOptions.addAll(getConfigMenuOptions(context, libraryItem))
+            LaunchedEffect(libraryItem.appId) { saveBackupsRevision++ }
+            val configOptions = getConfigMenuOptions(context, libraryItem)
+            val fileOptions = listOf(
+                getImportFilesOption(context, libraryItem),
+                getExportFilesOption(context, libraryItem),
+            )
+            val insertAt = configOptions.indexOfLast {
+                it.optionType == AppOptionMenuType.ImportConfig || it.optionType == AppOptionMenuType.ExportConfig
+            } + 1
+            menuOptions.addAll(configOptions.take(insertAt))
+            menuOptions.addAll(fileOptions)
+            menuOptions.addAll(configOptions.drop(insertAt))
         }
 
         return menuOptions
@@ -1178,6 +1336,7 @@ abstract class BaseAppScreen {
         onClickPlay: (Boolean) -> Unit,
         onTestGraphics: () -> Unit,
         onPlayWithDiagnostics: () -> Unit,
+        onAiDebugRun: () -> Unit,
         onBack: () -> Unit,
     ) {
         val context = LocalContext.current
@@ -1199,7 +1358,82 @@ abstract class BaseAppScreen {
                 }
             }
         }
-        val displayInfo = displayInfoBase.copy(hltbStats = hltbStats)
+
+        // Enrich the locally synced catalog record with public storefront description,
+        // reviews, tags, screenshots, and trailers. The local record remains the fallback.
+        val localStoreDetails = displayInfoBase.storeDetails
+            .withoutTitleOnlyDescription(libraryItem.name)
+        var storeDetails by remember(appId) {
+            mutableStateOf(localStoreDetails)
+        }
+        val storeLocale = context.resources.configuration.locales[0]
+        LaunchedEffect(appId, localStoreDetails, storeLocale.toLanguageTag()) {
+            storeDetails = StoreDetailsRepository.getDetails(
+                libraryItem = libraryItem,
+                fallback = localStoreDetails,
+                locale = storeLocale,
+            )
+        }
+        val displayInfo = displayInfoBase.copy(
+            hltbStats = hltbStats,
+            storeDetails = storeDetails.mergedWith(localStoreDetails),
+        )
+
+        var communityCompatibility by remember(appId, displayInfo.name) {
+            mutableStateOf(
+                GameCompatibilityCache.getCached(displayInfo.name)
+                    ?.let(CommunityCompatibilityClassifier::fromCompatibilityResponse)
+                    ?: CommunityCompatibilitySummary.unknown(),
+            )
+        }
+        val communityCompatibilityWithRatings = remember(communityCompatibility, libraryItem.gameSource, displayInfo.name) {
+            val deviceStats = DeviceGameStatsCache.getAll()
+            val gpuStats = GpuGameStatsCache.getAll()
+            CommunityCompatibilityClassifier.withBulkRatings(
+                communityCompatibility,
+                listOf(
+                    CommunityEvidenceTier.SAME_DEVICE to deviceStats[libraryItem.gameSource]?.get(displayInfo.name),
+                    CommunityEvidenceTier.SAME_GPU to gpuStats[libraryItem.gameSource]?.get(displayInfo.name),
+                ),
+                statsAvailable = listOf(deviceStats, gpuStats).any { stats ->
+                    stats.values.any { games -> games.values.any { it.ratings != null } }
+                },
+            )
+        }
+        var communityCompatibilityLoading by remember(appId) { mutableStateOf(false) }
+        var communityCompatibilityError by remember(appId) { mutableStateOf(false) }
+        var communityCompatibilityRetryKey by remember(appId) { mutableStateOf(0) }
+
+        LaunchedEffect(appId, displayInfo.name, communityCompatibilityRetryKey) {
+            val gameName = displayInfo.name
+            if (gameName.isBlank()) return@LaunchedEffect
+            if (communityCompatibilityRetryKey == 0 && GameCompatibilityCache.getCached(gameName) != null) {
+                return@LaunchedEffect
+            }
+            communityCompatibilityLoading = true
+            communityCompatibilityError = false
+            try {
+                val gpuName = withContext(Dispatchers.IO) {
+                    runCatching { GPUInformation.getRenderer(context) }.getOrNull().orEmpty().trim()
+                }
+                val results = if (gpuName.isEmpty()) null else GameCompatibilityService.fetchCompatibility(listOf(gameName), gpuName)
+                if (results == null) {
+                    communityCompatibilityError = true
+                } else {
+                    withContext(Dispatchers.IO) { GameCompatibilityCache.cacheAll(results) }
+                    results[gameName]?.let {
+                        communityCompatibility = CommunityCompatibilityClassifier.fromCompatibilityResponse(it)
+                    }
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                communityCompatibilityError = true
+                Timber.tag("CommunityCompatibility").w(error, "Failed to load compatibility for $gameName")
+            } finally {
+                communityCompatibilityLoading = false
+            }
+        }
 
         // Use composable state for values that change over time
         var isInstalledState by remember(libraryItem.appId) {
@@ -1225,28 +1459,54 @@ abstract class BaseAppScreen {
         var hasLeftoverInstallState by remember(libraryItem.appId) {
             mutableStateOf(hasLeftoverInstall(context, libraryItem))
         }
+        var achievementsState by remember(libraryItem.appId) {
+            mutableStateOf<List<Achievement>?>(null)
+        }
 
-        // Immersive/VR launch mode is only offered on the modernXr build running on Meta Quest.
         val isImmersiveModeSupported = remember(libraryItem.appId) {
-            app.gamenative.BuildConfig.XR_BUILD && app.gamenative.MainActivity.isMetaQuest()
+            app.gamenative.BuildConfig.XR_BUILD && app.gamenative.MainActivity.isHeadset(context)
         }
         var isImmersiveModeEnabledState by remember(libraryItem.appId) { mutableStateOf<Boolean?>(null) }
+        var isVrModeEnabledState by remember(libraryItem.appId) { mutableStateOf(false) }
         val immersiveModeSaveRequests = remember(libraryItem.appId) { Channel<Boolean>(Channel.CONFLATED) }
+        val vrModeSaveRequests = remember(libraryItem.appId) { Channel<Boolean>(Channel.CONFLATED) }
+        val containerSaveMutex = remember(libraryItem.appId) { kotlinx.coroutines.sync.Mutex() }
         if (isImmersiveModeSupported) {
             LaunchedEffect(libraryItem.appId) {
                 val stored = withContext(Dispatchers.IO) {
-                    runCatching { ContainerUtils.getContainer(context, libraryItem.appId).isLaunchImmersiveMode() }
-                        .getOrDefault(true)
+                    runCatching {
+                        val container = ContainerUtils.getContainer(context, libraryItem.appId)
+                        container.isLaunchImmersiveMode() to
+                            container.getExtra(WINDOWS_VR_ENABLED_EXTRA, "false").toBoolean()
+                    }.getOrDefault(true to false)
                 }
                 if (isImmersiveModeEnabledState == null) {
-                    isImmersiveModeEnabledState = stored
+                    isImmersiveModeEnabledState = stored.first
+                    isVrModeEnabledState = stored.second
                 }
-                for (enabled in immersiveModeSaveRequests) {
-                    withContext(Dispatchers.IO) {
-                        runCatching {
-                            val container = ContainerUtils.getContainer(context, libraryItem.appId)
-                            container.setLaunchImmersiveMode(enabled)
-                            container.saveData()
+                launch {
+                    for (enabled in immersiveModeSaveRequests) {
+                        containerSaveMutex.withLock {
+                            withContext(Dispatchers.IO) {
+                                runCatching {
+                                    val container = ContainerUtils.getContainer(context, libraryItem.appId)
+                                    container.setLaunchImmersiveMode(enabled)
+                                    container.saveData()
+                                }
+                            }
+                        }
+                    }
+                }
+                launch {
+                    for (enabled in vrModeSaveRequests) {
+                        containerSaveMutex.withLock {
+                            withContext(Dispatchers.IO) {
+                                runCatching {
+                                    val container = ContainerUtils.getContainer(context, libraryItem.appId)
+                                    container.putExtra(WINDOWS_VR_ENABLED_EXTRA, enabled.toString())
+                                    container.saveData()
+                                }
+                            }
                         }
                     }
                 }
@@ -1263,8 +1523,20 @@ abstract class BaseAppScreen {
             downloadProgressState = getDownloadProgress(context, libraryItem)
             hasPartialDownloadState = hasPartialDownload(context, libraryItem)
             hasLeftoverInstallState = hasLeftoverInstall(context, libraryItem)
-            if (includeUpdatePending) {
-                isUpdatePendingState = isUpdatePendingSuspend(context, libraryItem)
+            if (includeUpdatePending && canShowUpdatePending(isInstalledState, currentlyDownloading)) {
+                isUpdatePendingState = try {
+                    isUpdatePendingSuspend(context, libraryItem)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Timber.w(e, "Update check failed for ${libraryItem.appId}")
+                    isUpdatePendingState
+                }
+            } else if (includeUpdatePending) {
+                // A first install writes temporary depot manifest IDs while downloading. Do not
+                // interpret those in-progress IDs as a second update, and clear any stale result
+                // from an earlier asynchronous refresh.
+                isUpdatePendingState = false
             }
         }
 
@@ -1278,6 +1550,27 @@ abstract class BaseAppScreen {
             performStateRefresh(true)
         }
 
+        val achievementsReadyKey = achievementsReadyKey()
+        LaunchedEffect(libraryItem.appId, achievementsReadyKey) {
+            if (!supportsAchievements) return@LaunchedEffect
+            // Retry so a transient error doesn't silently drop the section.
+            repeat(3) { attempt ->
+                val result = try {
+                    fetchAchievements(libraryItem)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to fetch achievements for ${getGameId(libraryItem)}")
+                    null
+                }
+                if (result != null) {
+                    achievementsState = result
+                    return@LaunchedEffect
+                }
+                if (attempt < 2) delay(2000)
+            }
+        }
+
         var showConfigDialog by androidx.compose.runtime.remember {
             androidx.compose.runtime.mutableStateOf(false)
         }
@@ -1289,8 +1582,10 @@ abstract class BaseAppScreen {
         }
 
         val onEditContainer: () -> Unit = {
-            containerData = loadContainerData(context, libraryItem)
-            showConfigDialog = true
+            uiScope.launch {
+                containerData = withContext(Dispatchers.IO) { loadContainerData(context, libraryItem) }
+                showConfigDialog = true
+            }
         }
 
         // Export for Frontend launcher
@@ -1489,6 +1784,50 @@ abstract class BaseAppScreen {
             }
         }
 
+        var restoreSaveBackupRequested by remember(appId) {
+            mutableStateOf(shouldRestoreSaveBackup(appId))
+        }
+
+        LaunchedEffect(appId) {
+            snapshotFlow { shouldRestoreSaveBackup(appId) }
+                .collect { shouldRequest ->
+                    restoreSaveBackupRequested = shouldRequest
+                }
+        }
+
+        var saveBackups by remember(appId) { mutableStateOf<List<CloudSaveBackupManager.SaveBackup>>(emptyList()) }
+
+        LaunchedEffect(restoreSaveBackupRequested) {
+            if (restoreSaveBackupRequested) {
+                saveBackups = loadSaveBackups(context, libraryItem)
+                if (saveBackups.isEmpty()) clearRestoreSaveBackupRequest(appId)
+            } else {
+                saveBackups = emptyList()
+            }
+        }
+
+        var importFilesRequested by remember(appId) {
+            mutableStateOf(shouldImportFiles(appId))
+        }
+
+        LaunchedEffect(appId) {
+            snapshotFlow { shouldImportFiles(appId) }
+                .collect { shouldRequest ->
+                    importFilesRequested = shouldRequest
+                }
+        }
+
+        var exportFilesRequested by remember(appId) {
+            mutableStateOf(shouldExportFiles(appId))
+        }
+
+        LaunchedEffect(appId) {
+            snapshotFlow { shouldExportFiles(appId) }
+                .collect { shouldRequest ->
+                    exportFilesRequested = shouldRequest
+                }
+        }
+
         var manageModsRequested by remember(appId) {
             mutableStateOf(shouldManageMods(appId))
         }
@@ -1511,8 +1850,17 @@ abstract class BaseAppScreen {
                 }
         }
 
-        val optionsMenu =
-            getOptionsMenu(context, libraryItem, onEditContainer, onBack, onClickPlay, onTestGraphics, onPlayWithDiagnostics, exportFrontendLauncher)
+        val optionsMenu = getOptionsMenu(
+            context,
+            libraryItem,
+            onEditContainer,
+            onBack,
+            onClickPlay,
+            onTestGraphics,
+            onPlayWithDiagnostics,
+            onAiDebugRun,
+            exportFrontendLauncher,
+        )
 
         // Get download info based on game source for progress tracking
         val downloadInfo = when (libraryItem.gameSource) {
@@ -1521,7 +1869,8 @@ abstract class BaseAppScreen {
             app.gamenative.data.GameSource.GOG -> app.gamenative.service.gog.GOGService.getDownloadInfo(displayInfo.gameId.toString())
             app.gamenative.data.GameSource.CUSTOM_GAME -> null // Custom games don't support downloads yet
             app.gamenative.data.GameSource.AMAZON -> app.gamenative.service.amazon.AmazonService.getDownloadInfoByAppId(libraryItem.gameId)
-            GameSource.ANDROID_APP -> null
+            app.gamenative.data.GameSource.XBOX -> app.gamenative.service.xbox.XboxService.getDownloadInfoByAppId(libraryItem.gameId)
+            app.gamenative.data.GameSource.ANDROID_APP -> null
         }
 
         DisposableEffect(libraryItem.appId) {
@@ -1549,13 +1898,17 @@ abstract class BaseAppScreen {
         // Render the common UI
         app.gamenative.ui.screen.library.AppScreenContent(
             displayInfo = displayInfo,
-            isInstalled = isInstalledState,
-            isValidToDownload = isValidToDownloadState,
-            isDownloading = isDownloadingState,
-            downloadProgress = downloadProgressState,
-            hasPartialDownload = hasPartialDownloadState,
-            hasLeftoverInstall = hasLeftoverInstallState,
-            isUpdatePending = isUpdatePendingState,
+            resetHeroOnFirstArtworkChange = libraryItem.gameSource == GameSource.AMAZON,
+            downloadDisplayDetails = app.gamenative.ui.data.DownloadDisplayDetails(
+                isInstalled = isInstalledState,
+                isValidToDownload = isValidToDownloadState,
+                isDownloading = isDownloadingState,
+                downloadProgress = downloadProgressState,
+                hasPartialDownload = hasPartialDownloadState,
+                hasLeftoverInstall = hasLeftoverInstallState,
+                isUpdatePending = canShowUpdatePending(isInstalledState, isDownloadingState) &&
+                    isUpdatePendingState,
+            ),
             downloadInfo = downloadInfo,
             immersiveMode = app.gamenative.ui.screen.library.ImmersiveModeUiState(
                 isSupported = isImmersiveModeSupported && isImmersiveModeEnabledState != null,
@@ -1563,6 +1916,11 @@ abstract class BaseAppScreen {
                 onChange = { enabled ->
                     isImmersiveModeEnabledState = enabled
                     immersiveModeSaveRequests.trySend(enabled)
+                },
+                isVrEnabled = isVrModeEnabledState,
+                onVrChange = { enabled ->
+                    isVrModeEnabledState = enabled
+                    vrModeSaveRequests.trySend(enabled)
                 },
             ),
             onDownloadInstallClick = {
@@ -1590,8 +1948,29 @@ abstract class BaseAppScreen {
                 }
             },
             onBack = onBack,
+            achievements = achievementsState,
             optionsMenu = optionsMenu,
-            dialogOpen = showConfigDialog || communityConfigsRequested || manageModsRequested,
+            dialogOpen = showConfigDialog || communityConfigsRequested || manageModsRequested || importFilesRequested || exportFilesRequested,
+            communityCompatibility = app.gamenative.ui.screen.library.CommunityCompatibilityUiState(
+                summary = communityCompatibilityWithRatings,
+                loading = communityCompatibilityLoading,
+                loadError = communityCompatibilityError,
+                onRetry = {
+                    communityCompatibilityRetryKey += 1
+                },
+                onViewReports = {
+                    val reportsTier = communityCompatibilityWithRatings.reportEvidenceTier
+                        .takeIf { it != CommunityEvidenceTier.NONE }
+                        ?: communityCompatibilityWithRatings.evidenceTier
+                    val scope = when (reportsTier) {
+                        CommunityEvidenceTier.SAME_DEVICE -> CommunityHardwareScope.CURRENT_DEVICE
+                        CommunityEvidenceTier.SAME_SOC, CommunityEvidenceTier.SAME_GPU -> CommunityHardwareScope.CURRENT_GPU
+                        CommunityEvidenceTier.COMPATIBLE_GPU_FAMILY -> CommunityHardwareScope.COMPATIBLE_GPUS
+                        CommunityEvidenceTier.NONE -> CommunityHardwareScope.CURRENT_DEVICE
+                    }
+                    requestCommunityConfigs(appId, scope)
+                },
+            ),
         )
 
         if (showReadiness && launchActivity != null) {
@@ -1617,13 +1996,23 @@ abstract class BaseAppScreen {
                     saveContainerConfig(context, libraryItem, it)
                     showConfigDialog = false
                 },
+                appId = libraryItem.appId,
+                onSaveAndRun = {
+                    saveContainerConfig(context, libraryItem, it)
+                    showConfigDialog = false
+                    onClickPlay(false)
+                },
             )
         }
 
-        LaunchedEffect(appId, communityConfigsRequested) {
+        LaunchedEffect(appId, communityConfigsRequested, isInstalledState) {
             communityContainerData = if (communityConfigsRequested) {
-                withContext(Dispatchers.IO) {
-                    loadContainerData(context, libraryItem)
+                if (isInstalledState) {
+                    withContext(Dispatchers.IO) {
+                        loadContainerData(context, libraryItem)
+                    }
+                } else {
+                    ContainerData(envVars = "", execArgs = "")
                 }
             } else {
                 null
@@ -1645,9 +2034,15 @@ abstract class BaseAppScreen {
                     gameName = displayInfo.name,
                     currentLaunchArguments = currentContainerData.execArgs,
                     currentEnvironmentVariables = currentContainerData.envVars,
+                    initialHardwareScope = communityConfigsHardwareScope(appId),
+                    canApply = isInstalledState,
                     onDismissRequest = { clearCommunityConfigsRequest(appId) },
                     onApply = { run, matchType, options ->
                         clearCommunityConfigsRequest(appId)
+                        if (!isInstalledState) {
+                            SnackbarManager.show(context.getString(R.string.community_config_install_before_apply))
+                            return@CommunityConfigsDialog
+                        }
                         uiScope.launch(Dispatchers.IO) {
                             applyCommunityConfigForLibraryItem(
                                 context = context,
@@ -1655,6 +2050,7 @@ abstract class BaseAppScreen {
                                 configJson = run.config,
                                 matchType = matchType,
                                 matchedGpu = run.device.gpu,
+                                storeMatch = run.gameStore.equals(libraryItem.gameSource.name, ignoreCase = true),
                                 applyLaunchArguments = options.applyLaunchArguments,
                                 applyEnvironmentVariables = options.applyEnvironmentVariables,
                             )
@@ -1662,6 +2058,60 @@ abstract class BaseAppScreen {
                     },
                 )
             }
+        }
+
+        if (restoreSaveBackupRequested && saveBackups.isNotEmpty()) {
+            SaveBackupRestoreDialog(
+                backups = saveBackups,
+                onRestore = { backup ->
+                    clearRestoreSaveBackupRequest(appId)
+                    if (isGameRunningForSaveRestore(libraryItem)) {
+                        SnackbarManager.show(context.getString(R.string.save_backup_game_running))
+                    } else {
+                        uiScope.launch {
+                            val restored = try {
+                                withContext(NonCancellable + Dispatchers.IO) { CloudSaveBackupManager.restore(context, backup) }
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                Timber.e(e, "Failed to restore save backup for $appId")
+                                false
+                            }
+                            saveBackupsRevision++
+                            SnackbarManager.show(
+                                context.getString(
+                                    if (restored) R.string.save_backup_restored else R.string.save_backup_restore_failed,
+                                ),
+                            )
+                        }
+                    }
+                },
+                onDismiss = { clearRestoreSaveBackupRequest(appId) },
+            )
+        }
+
+        if (importFilesRequested) {
+            ImportFilesDialog(
+                visible = true,
+                gameName = libraryItem.name,
+                gameRootDir = getInstallPath(context, libraryItem)?.let { File(it) },
+                winePrefix = ModContainerResolver.getWinePrefix(context, libraryItem.appId),
+                onDismissRequest = {
+                    clearImportFilesRequest(appId)
+                },
+            )
+        }
+
+        if (exportFilesRequested) {
+            ExportFilesDialog(
+                visible = true,
+                gameName = libraryItem.name,
+                gameRootDir = getInstallPath(context, libraryItem)?.let { File(it) },
+                winePrefix = ModContainerResolver.getWinePrefix(context, libraryItem.appId),
+                onDismissRequest = {
+                    clearExportFilesRequest(appId)
+                },
+            )
         }
 
         if (manageModsRequested) {
@@ -1773,3 +2223,5 @@ abstract class BaseAppScreen {
         // Default: no additional dialogs
     }
 }
+
+data class SaveBackupTarget(val provider: String, val gameId: String)

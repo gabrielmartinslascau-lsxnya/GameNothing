@@ -1,17 +1,17 @@
 package app.gamenative.ui.screen.login
 
+import android.content.Context
+import app.gamenative.ui.util.SnackbarManager
+import android.view.KeyEvent
 import android.content.Intent
 import android.content.res.Configuration
-import android.view.KeyEvent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -22,11 +22,15 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -39,6 +43,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -46,6 +51,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import app.gamenative.ui.component.NoExtractOutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -64,9 +70,9 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -82,29 +88,28 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
+import app.gamenative.ui.theme.LocalLooksState
+import app.gamenative.ui.theme.brokenGlass
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import app.gamenative.Constants
-import app.gamenative.PrefManager
+import app.gamenative.ui.screen.auth.AmazonOAuthActivity
+import app.gamenative.ui.screen.auth.EpicOAuthActivity
+import app.gamenative.ui.screen.auth.GOGOAuthActivity
+import app.gamenative.utils.PlatformOAuthHandlers
 import app.gamenative.R
 import app.gamenative.enums.LoginResult
 import app.gamenative.enums.LoginScreen
 import app.gamenative.ui.component.LoadingScreen
-import app.gamenative.ui.component.NoExtractOutlinedTextField
 import app.gamenative.ui.data.UserLoginState
 import app.gamenative.ui.enums.ConnectionState
 import app.gamenative.ui.model.UserLoginViewModel
-import app.gamenative.ui.screen.auth.AmazonOAuthActivity
-import app.gamenative.ui.screen.auth.EpicOAuthActivity
-import app.gamenative.ui.screen.auth.GOGOAuthActivity
 import app.gamenative.ui.theme.PluviaTheme
-import app.gamenative.ui.util.SnackbarManager
-import app.gamenative.utils.PlatformOAuthHandlers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /**
  * Modifier that allows D-pad up/down and B-button to escape focus from a text field,
@@ -331,13 +336,10 @@ private fun UserLoginScreenContent(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
+    val looks = LocalLooksState.current
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                if (PrefManager.videoBackgroundPath.isNotEmpty()) Color.Transparent
-                else MaterialTheme.colorScheme.background
-            )
             .imePadding(),
     ) {
         Column(
@@ -397,15 +399,25 @@ private fun UserLoginScreenContent(
                     userLoginState.loginResult != LoginResult.Success
                 ) {
                     // Login Card
+                    val loginCardShape = RoundedCornerShape(16.dp)
                     Card(
                         modifier = Modifier
                             .padding(horizontal = 16.dp)
-                            .fillMaxWidth(),
+                            .fillMaxWidth()
+                            .brokenGlass(
+                                cornerRadius = 16,
+                                shape = loginCardShape,
+                                backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.52f),
+                            ),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
+                            containerColor = if (looks.isGlassEnabled) {
+                                Color.Transparent
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f)
+                            },
                         ),
                         border = BorderStroke(1.dp, primaryColor.copy(alpha = 0.2f)),
-                        shape = RoundedCornerShape(16.dp),
+                        shape = loginCardShape,
                     ) {
                         // Top gradient border
                         Box(

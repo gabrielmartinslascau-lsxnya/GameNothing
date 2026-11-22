@@ -16,6 +16,7 @@ import app.gamenative.ui.model.HomeViewModel
 import app.gamenative.ui.screen.downloads.HomeDownloadsScreen
 import app.gamenative.ui.screen.library.HomeLibraryScreen
 import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.utils.HapticManager
 
 @Composable
 fun HomeScreen(
@@ -25,6 +26,7 @@ fun HomeScreen(
     onClickPlay: (String, Boolean) -> Unit,
     onTestGraphics: (String) -> Unit,
     onPlayWithDiagnostics: (String) -> Unit,
+    onAiDebugRun: (String) -> Unit,
     onLogout: () -> Unit,
     onNavigateRoute: (String) -> Unit,
     onGoOnline: () -> Unit,
@@ -48,11 +50,12 @@ fun HomeScreen(
             onClickPlay = onClickPlay,
             onTestGraphics = onTestGraphics,
             onPlayWithDiagnostics = onPlayWithDiagnostics,
+            onAiDebugRun = onAiDebugRun,
             onNavigateRoute = onNavigateRoute,
             onLogout = onLogout,
             onGoOnline = onGoOnline,
             onDownloadsClick = {
-                app.gamenative.utils.HapticManager.trigger(app.gamenative.utils.HapticManager.HapticType.CLICK)
+                HapticManager.trigger(HapticManager.HapticType.CLICK)
                 viewModel.onDestination(HomeDestination.Downloads)
             },
             isOffline = isOffline,
@@ -63,6 +66,7 @@ fun HomeScreen(
             onClickPlay = onClickPlay,
             onTestGraphics = onTestGraphics,
             onPlayWithDiagnostics = onPlayWithDiagnostics,
+            onAiDebugRun = onAiDebugRun,
             downloadBarStyle = downloadBarStyle,
         )
     }
@@ -84,6 +88,7 @@ private fun Preview_HomeScreenContent() {
             onClickPlay = { _, _ -> },
             onTestGraphics = { },
             onPlayWithDiagnostics = { },
+            onAiDebugRun = { },
             onLogout = {},
             onNavigateRoute = {},
             onClickExit = {},

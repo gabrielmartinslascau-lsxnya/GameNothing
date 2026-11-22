@@ -9,8 +9,6 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkAll
-import java.io.File
-import kotlin.io.path.createTempDirectory
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -20,6 +18,8 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
+import kotlin.io.path.createTempDirectory
 
 @RunWith(RobolectricTestRunner::class)
 class GogScriptInterpreterStepTest {
@@ -39,7 +39,7 @@ class GogScriptInterpreterStepTest {
     }
 
     @Test
-    fun appliesTo_requiresGogAndGlibcAndMissingMarker() {
+    fun appliesTo_requiresGogAndMissingMarker() {
         every { container.containerVariant } returns Container.GLIBC
         assertTrue(GogScriptInterpreterStep.appliesTo(container, GameSource.GOG, gameDir.absolutePath))
         MarkerUtils.addMarker(gameDir.absolutePath, Marker.GOG_SCRIPT_INSTALLED)
@@ -49,7 +49,7 @@ class GogScriptInterpreterStepTest {
         assertFalse(GogScriptInterpreterStep.appliesTo(container, GameSource.STEAM, gameDir.absolutePath))
 
         every { container.containerVariant } returns Container.BIONIC
-        assertFalse(GogScriptInterpreterStep.appliesTo(container, GameSource.GOG, gameDir.absolutePath))
+        assertTrue(GogScriptInterpreterStep.appliesTo(container, GameSource.GOG, gameDir.absolutePath))
     }
 
     @Test

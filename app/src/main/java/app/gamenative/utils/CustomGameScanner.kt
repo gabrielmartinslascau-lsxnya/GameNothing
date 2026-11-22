@@ -8,11 +8,13 @@ import android.os.Build
 import android.os.Environment
 import android.provider.Settings
 import androidx.core.content.ContextCompat
+import app.gamenative.PluviaApp
 import app.gamenative.PrefManager
 import app.gamenative.data.AppInfo
 import app.gamenative.data.GameSource
 import app.gamenative.data.LibraryItem
 import app.gamenative.enums.Marker
+import app.gamenative.events.AndroidEvent
 import app.gamenative.service.DownloadService
 import app.gamenative.service.SteamService
 import app.gamenative.service.SteamService.Companion.INVALID_APP_ID
@@ -20,13 +22,14 @@ import app.gamenative.service.SteamService.Companion.getMainAppDepots
 import com.winlator.container.Container
 import com.winlator.container.ContainerManager
 import java.io.File
-import kotlin.collections.component1
-import kotlin.collections.component2
 import kotlin.math.abs
-import kotlin.text.ifEmpty
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
 import timber.log.Timber
+import kotlin.collections.component1
+import kotlin.collections.component2
+import kotlin.text.ifEmpty
 
 object CustomGameScanner {
 
@@ -69,7 +72,9 @@ object CustomGameScanner {
 
     /**
      * Destination for imported custom games: CustomGames under the public install root of the
-     * configured install volume, falling back to the app sandbox.
+     * configured install volume, falling back to the app sandbox. On the primary volume app-internal
+     * storage is used: every /storage/emulated path, Android/data included on fuse-bpf devices,
+     * goes through the MediaProvider FUSE daemon, which aborts when wine walks a game folder.
      */
     val importRootPath: String
         get() {
@@ -79,15 +84,18 @@ object CustomGameScanner {
                 if (StorageUtils.ensureInstallRoot(dir)) return dir.absolutePath
             }
             val appDir = DownloadService.baseExternalAppDirPath
-            if (appDir.isNotEmpty()) {
+            if (appDir.isNotEmpty() && !isPrimaryEmulatedVolume(appDir)) {
                 val publicRoot = StorageUtils.publicInstallRoot(File(appDir))
                 if (publicRoot != null) {
                     val dir = File(publicRoot, "CustomGames")
                     if (StorageUtils.ensureInstallRoot(dir)) return dir.absolutePath
                 }
             }
-            return defaultRootPath
+            return if (isPrimaryEmulatedVolume(appDir)) internalRootPath else defaultRootPath
         }
+
+    private val internalRootPath: String
+        get() = File(DownloadService.baseDataDirPath, "CustomGames").apply { mkdirs() }.absolutePath
 
     /**
      * Roots whose immediate subfolders are treated as custom games: the public GameNative
@@ -158,18 +166,15 @@ object CustomGameScanner {
         val folder = File(folderPath)
         if (!folder.exists() || !folder.isDirectory) return null
 
-        val steamGridLogo = runCatching {
-            folder.listFiles { file ->
-                file.isFile &&
-                    file.name.startsWith("steamgriddb_logo", ignoreCase = true) &&
-                    (
-                        file.name.endsWith(".png", ignoreCase = true) ||
-                            file.name.endsWith(".jpg", ignoreCase = true) ||
-                            file.name.endsWith(".webp", ignoreCase = true)
-                        )
-            }
-        }.getOrNull()?.firstOrNull()
-        if (steamGridLogo != null && steamGridLogo.exists()) {
+        val steamGridLogo = folder.listFiles { file ->
+            file.isFile && file.name.startsWith("steamgriddb_logo", ignoreCase = true) &&
+                (
+                    file.name.endsWith(".png", ignoreCase = true) ||
+                        file.name.endsWith(".jpg", ignoreCase = true) ||
+                        file.name.endsWith(".webp", ignoreCase = true)
+                    )
+        }?.firstOrNull()
+        if (steamGridLogo != null) {
             Timber.tag("CustomGameScanner").d("Found SteamGridDB logo: ${steamGridLogo.absolutePath}")
             return steamGridLogo.absolutePath
         }
@@ -204,8 +209,7 @@ object CustomGameScanner {
         if (!folder.exists() || !folder.isDirectory) return null
 
         val steamGridLogo = folder.listFiles { file ->
-            file.isFile &&
-                file.name.startsWith("steamgriddb_logo", ignoreCase = true) &&
+            file.isFile && file.name.startsWith("steamgriddb_logo", ignoreCase = true) &&
                 (
                     file.name.endsWith(".png", ignoreCase = true) ||
                         file.name.endsWith(".jpg", ignoreCase = true) ||
@@ -317,35 +321,29 @@ object CustomGameScanner {
     private fun findCoverByBaseNames(folder: File, baseNames: List<String>): String? {
         if (!folder.exists() || !folder.isDirectory) return null
         val extensions = listOf("png", "jpg", "jpeg", "webp")
-        val files = runCatching { folder.listFiles { f -> f.isFile } }.getOrNull() ?: return null
+        val files = folder.listFiles { f -> f.isFile } ?: return null
         for (base in baseNames) {
             val match = files.filter { file ->
-                runCatching {
-                    extensions.any { ext -> file.name.equals("$base.$ext", ignoreCase = true) }
-                }.getOrDefault(false)
+                extensions.any { ext -> file.name.equals("$base.$ext", ignoreCase = true) }
             }.minByOrNull { file ->
                 // Rank by extension preference so e.g. cover.png wins over cover.jpg.
                 val ext = file.name.substringAfterLast('.', "").lowercase()
                 extensions.indexOf(ext).let { if (it == -1) Int.MAX_VALUE else it }
             }
-            if (match != null && match.exists()) return Uri.fromFile(match).toString()
+            if (match != null) return Uri.fromFile(match).toString()
         }
         return null
     }
 
     // Shared helper for .ico/.png heuristic
     private fun findNearbyImageIcon(folder: File, uniqueExeRel: String?): String? {
-        fun File.icoFiles(): List<File> = runCatching {
-            this.listFiles { f ->
-                f.isFile && (f.name.endsWith(".ico", ignoreCase = true) || f.name.endsWith(".png", ignoreCase = true))
-            }?.toList() ?: emptyList()
-        }.getOrElse { emptyList() }
+        fun File.icoFiles(): List<File> = this.listFiles { f ->
+            f.isFile && (f.name.endsWith(".ico", ignoreCase = true) || f.name.endsWith(".png", ignoreCase = true))
+        }?.toList() ?: emptyList()
 
         val rootIcons = folder.icoFiles()
-        val subdirIcons = runCatching {
-            folder.listFiles { f -> f.isDirectory }?.flatMap { it.icoFiles() } ?: emptyList()
-        }.getOrElse { emptyList() }
-        val allIcons = (rootIcons + subdirIcons).filter { it.exists() }
+        val subdirIcons = folder.listFiles { f -> f.isDirectory }?.flatMap { it.icoFiles() } ?: emptyList()
+        val allIcons = (rootIcons + subdirIcons)
         if (allIcons.isEmpty()) {
             Timber.tag("CustomGameScanner").d("findNearbyImageIcon - No icon files found in $folder")
             return null
@@ -417,16 +415,12 @@ object CustomGameScanner {
      * When container has a configured path, verifies the file exists to avoid launching stale/missing paths.
      */
     fun getLaunchExecutable(container: Container): String {
-        val gameFolderPath = ContainerUtils.getADrivePath(container.drives) ?: return ""
         val exe = container.executablePath
+        if (ContainerUtils.isAbsoluteWindowsPath(exe)) return exe
+        val gameFolderPath = ContainerUtils.getADrivePath(container.drives) ?: return ""
         if (exe.isNotEmpty()) {
-            runCatching {
-                val fullPath = File(gameFolderPath, exe.replace('\\', File.separatorChar))
-                if (fullPath.exists() && fullPath.isFile) return exe
-            }.onFailure { e ->
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                Timber.tag("CustomGameScanner").w(e, "Error checking executable path: $exe")
-            }
+            val fullPath = File(gameFolderPath, exe.replace('\\', File.separatorChar))
+            if (fullPath.exists() && fullPath.isFile) return exe
             // Stale or missing path — fall through to auto-detect
         }
         return findUniqueExeRelativeToFolder(gameFolderPath) ?: ""
@@ -435,32 +429,27 @@ object CustomGameScanner {
     fun findUniqueExeRelativeToFolder(folder: File): String? {
         if (!folder.exists() || !folder.isDirectory) return null
 
+        fun File.isValidExe(): Boolean = this.isFile && this.name.endsWith(".exe", ignoreCase = true) &&
+            !this.name.startsWith("unins", ignoreCase = true)
+
         val candidates = mutableListOf<String>()
 
-        runCatching {
-            folder.listFiles { f ->
-                f.isFile &&
-                    f.name.endsWith(".exe", ignoreCase = true) &&
+        folder.listFiles { f ->
+            f.isFile && f.name.endsWith(".exe", ignoreCase = true) &&
+                !f.name.startsWith("unins", ignoreCase = true)
+        }?.forEach { f ->
+            candidates.add(f.name)
+        }
+
+        val subDirs = folder.listFiles { f -> f.isDirectory } ?: emptyArray()
+        for (sd in subDirs) {
+            sd.listFiles { f ->
+                f.isFile && f.name.endsWith(".exe", ignoreCase = true) &&
                     !f.name.startsWith("unins", ignoreCase = true)
             }?.forEach { f ->
-                candidates.add(f.name)
+                val rel = sd.name + "/" + f.name
+                candidates.add(rel)
             }
-
-            val subDirs = folder.listFiles { f -> f.isDirectory } ?: emptyArray()
-            for (sd in subDirs) {
-                if (!sd.exists()) continue
-                sd.listFiles { f ->
-                    f.isFile &&
-                        f.name.endsWith(".exe", ignoreCase = true) &&
-                        !f.name.startsWith("unins", ignoreCase = true)
-                }?.forEach { f ->
-                    val rel = sd.name + "/" + f.name
-                    candidates.add(rel)
-                }
-            }
-        }.onFailure { e ->
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            Timber.tag("CustomGameScanner").w(e, "Error finding unique exe in ${folder.path}")
         }
 
         // Keep only unique items
@@ -480,32 +469,27 @@ object CustomGameScanner {
     fun findAllValidExeFiles(folder: File): List<String> {
         if (!folder.exists() || !folder.isDirectory) return emptyList()
 
+        fun File.isValidExe(): Boolean = this.isFile && this.name.endsWith(".exe", ignoreCase = true) &&
+            !this.name.startsWith("unins", ignoreCase = true)
+
         val candidates = mutableListOf<String>()
 
-        runCatching {
-            folder.listFiles { f ->
-                f.isFile &&
-                    f.name.endsWith(".exe", ignoreCase = true) &&
+        folder.listFiles { f ->
+            f.isFile && f.name.endsWith(".exe", ignoreCase = true) &&
+                !f.name.startsWith("unins", ignoreCase = true)
+        }?.forEach { f ->
+            candidates.add(f.name)
+        }
+
+        val subDirs = folder.listFiles { f -> f.isDirectory } ?: emptyArray()
+        for (sd in subDirs) {
+            sd.listFiles { f ->
+                f.isFile && f.name.endsWith(".exe", ignoreCase = true) &&
                     !f.name.startsWith("unins", ignoreCase = true)
             }?.forEach { f ->
-                candidates.add(f.name)
+                val rel = sd.name + "/" + f.name
+                candidates.add(rel)
             }
-
-            val subDirs = folder.listFiles { f -> f.isDirectory } ?: emptyArray()
-            for (sd in subDirs) {
-                if (!sd.exists()) continue
-                sd.listFiles { f ->
-                    f.isFile &&
-                        f.name.endsWith(".exe", ignoreCase = true) &&
-                        !f.name.startsWith("unins", ignoreCase = true)
-                }?.forEach { f ->
-                    val rel = sd.name + "/" + f.name
-                    candidates.add(rel)
-                }
-            }
-        }.onFailure { e ->
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            Timber.tag("CustomGameScanner").w(e, "Error finding all valid exes in ${folder.path}")
         }
 
         return candidates.distinct()
@@ -583,24 +567,64 @@ object CustomGameScanner {
         val existingAppIds = mutableSetOf<String>()
 
         for (folderPath in candidateFolders()) {
-            runCatching {
-                // Filter by query if provided
-                if (q.isNotEmpty()) {
-                    val folderName = File(folderPath).name
-                    if (!folderName.contains(q, ignoreCase = true)) return@runCatching
-                }
+            // Filter by query if provided
+            if (q.isNotEmpty()) {
+                val folderName = File(folderPath).name
+                if (!folderName.contains(q, ignoreCase = true)) continue
+            }
 
-                val item = createLibraryItemFromFolder(folderPath)
-                if (item != null && existingAppIds.add(item.appId)) {
-                    items.add(item.copy(index = indexCounter++))
-                }
-            }.onFailure { e ->
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                Timber.tag("CustomGameScanner").w(e, "Failed to scan folder: $folderPath")
+            val item = createLibraryItemFromFolder(folderPath)
+            if (item != null && existingAppIds.add(item.appId)) {
+                items.add(item.copy(index = indexCounter++))
             }
         }
 
         return items
+    }
+
+    private const val PRIMARY_EMULATED_PREFIX = "/storage/emulated/"
+
+    fun isPrimaryEmulatedVolume(path: String): Boolean = path.startsWith(PRIMARY_EMULATED_PREFIX)
+
+    /**
+     * Moves a custom game from the primary volume's shared CustomGames roots (public and
+     * Android/data) into app-internal storage. Only folders with a stored id in .gamenative are
+     * moved, since otherwise the id is derived from the folder path and the game would lose its
+     * container.
+     */
+    fun migrateToInternalStorage(folderPath: String?): String? {
+        if (folderPath.isNullOrBlank() || !isPrimaryEmulatedVolume(folderPath)) return folderPath
+        val appDir = DownloadService.baseExternalAppDirPath
+        if (appDir.isEmpty()) return folderPath
+        val sharedRoots = listOfNotNull(
+            StorageUtils.publicInstallRoot(File(appDir))?.let { File(it, "CustomGames") },
+            File(appDir, "CustomGames"),
+        )
+        val src = File(folderPath)
+        if (src.parentFile !in sharedRoots || !src.isDirectory) return folderPath
+        if (GameMetadataManager.getAppId(src) == null) return folderPath
+        val dst = File(internalRootPath, src.name)
+        if (dst.exists()) {
+            Timber.tag("CustomGameScanner").w("Cannot migrate $folderPath; ${dst.absolutePath} already exists")
+            return folderPath
+        }
+        val moved = src.renameTo(dst) || runCatching {
+            src.copyRecursively(dst)
+            src.deleteRecursively()
+            true
+        }.getOrElse { e ->
+            Timber.tag("CustomGameScanner").w(e, "Copy of $folderPath failed")
+            dst.deleteRecursively()
+            false
+        }
+        return if (moved) {
+            Timber.tag("CustomGameScanner").i("Migrated custom game $folderPath to ${dst.absolutePath}")
+            invalidateCache()
+            dst.absolutePath
+        } else {
+            Timber.tag("CustomGameScanner").w("Could not migrate $folderPath; leaving in place")
+            folderPath
+        }
     }
 
     /**
@@ -615,15 +639,7 @@ object CustomGameScanner {
         val folders = LinkedHashSet<String>()
         folders.addAll(PrefManager.customGameManualFolders)
         for (root in scanRootPaths) {
-            runCatching {
-                val rootFile = File(root)
-                if (rootFile.exists() && rootFile.isDirectory) {
-                    rootFile.listFiles { f -> f.isDirectory }?.forEach { folders.add(it.absolutePath) }
-                }
-            }.onFailure { e ->
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                Timber.tag("CustomGameScanner").w(e, "Failed to scan root: $root")
-            }
+            File(root).listFiles { f -> f.isDirectory }?.forEach { folders.add(it.absolutePath) }
         }
         return folders
     }
@@ -633,11 +649,9 @@ object CustomGameScanner {
 
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             try {
-                val hasExtractedIcon = runCatching {
-                    folder.listFiles { file ->
-                        file.isFile && file.name.endsWith(".extracted.ico", ignoreCase = true)
-                    }
-                }.getOrNull()?.isNotEmpty() == true
+                val hasExtractedIcon = folder.listFiles { file ->
+                    file.isFile && file.name.endsWith(".extracted.ico", ignoreCase = true)
+                }?.isNotEmpty() == true
 
                 if (!hasExtractedIcon) {
                     val uniqueExeRel = findUniqueExeRelativeToFolder(folder)
@@ -654,7 +668,6 @@ object CustomGameScanner {
                     }
                 }
             } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
                 Timber.tag("CustomGameScanner").d(e, "Icon extraction failed for ${folder.name}")
             }
         }
@@ -662,8 +675,7 @@ object CustomGameScanner {
 
     fun createLibraryItemFromFolder(folderPath: String): LibraryItem? {
         val folder = File(folderPath)
-        val exists = runCatching { folder.exists() && folder.isDirectory }.getOrDefault(false)
-        if (!exists) {
+        if (!folder.exists() || !folder.isDirectory) {
             Timber.tag("CustomGameScanner").w("Folder does not exist or is not a directory: $folderPath")
             return null
         }
@@ -689,7 +701,7 @@ object CustomGameScanner {
                                     downloadedDepots = mainAppDepotIds,
                                     dlcDepots = emptyList(),
                                     branch = "public",
-                                    customInstallPath = folderPath,
+                                    customInstallPath = folderPath
                                 ),
                             )
                         }

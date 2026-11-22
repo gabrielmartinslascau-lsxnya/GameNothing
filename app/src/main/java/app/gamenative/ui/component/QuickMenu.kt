@@ -1,6 +1,7 @@
 package app.gamenative.ui.component
 
 import android.view.KeyEvent
+import timber.log.Timber
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
@@ -9,6 +10,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -16,10 +18,12 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.gamenative.ui.model.MainViewModel
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -42,25 +46,25 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Gamepad
 import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.Monitor
 import androidx.compose.material.icons.filled.Mouse
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.QueryStats
+import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -68,6 +72,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -75,78 +80,56 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import app.gamenative.ui.theme.NdotFontFamily
-import app.gamenative.ui.theme.PTMonoFontFamily
-import android.os.Build
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.gamenative.PluviaApp
 import app.gamenative.PrefManager
 import app.gamenative.R
+import app.gamenative.data.GyroSettings
+import app.gamenative.display.GameNativeDrm
 import app.gamenative.powercontrol.PowerManager
+import app.gamenative.ui.component.dialog.GyroSettingsDialog
+import app.gamenative.ui.component.dialog.OnScreenControllerSettingsDialog
+import app.gamenative.ui.component.dialog.ControlProfileLibraryDialog
+import app.gamenative.ui.component.quickMenus.GamescopeQuickMenuTab
 import app.gamenative.ui.component.quickMenus.PowerControlQuickMenuTab
 import app.gamenative.ui.data.PerformanceHudConfig
 import app.gamenative.ui.data.PerformanceHudSize
-import app.gamenative.ui.theme.PluviaAnimation
 import app.gamenative.ui.theme.PluviaTheme
-import app.gamenative.ui.theme.PluviaGlassPanel
-import app.gamenative.ui.theme.glassContentColor
-import app.gamenative.ui.theme.toColor
-import app.gamenative.ui.theme.toHex
-import app.gamenative.ui.component.HSVColorPicker
-import app.gamenative.ui.theme.LocalLooksState
-import app.gamenative.ui.theme.LooksState
 import app.gamenative.ui.util.adaptivePanelWidth
-import app.gamenative.ui.theme.pluviaGlass
-import app.gamenative.utils.hapticClickable
-import app.gamenative.utils.hapticSelectable
-import androidx.compose.ui.graphics.asComposeRenderEffect
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.CompositingStrategy
-import app.gamenative.ui.component.settings.HapticSettingsSwitch
-import app.gamenative.ui.component.settings.SettingsListDropdown
-import app.gamenative.ui.theme.settingsTileColorsAlt
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
-import app.gamenative.enums.FontType
-import app.gamenative.ui.model.MainViewModel
-import app.gamenative.enums.GlassMode
-import app.gamenative.ui.component.settings.HapticSettingsMenuLink
-import app.gamenative.ui.theme.toColor
-import app.gamenative.ui.theme.toHex
-import app.gamenative.ui.component.HSVColorPicker
-import java.util.Locale
 import app.gamenative.utils.MathUtils.normalizedProgress
 import com.winlator.container.Container
+import com.winlator.inputcontrols.ControlsProfile
 import com.winlator.renderer.GLRenderer
 import com.winlator.renderer.VulkanRenderer
 import com.winlator.winhandler.ProcessInfo
-import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import timber.log.Timber
-import androidx.compose.material.icons.filled.Palette
-import androidx.hilt.navigation.compose.hiltViewModel
-import app.gamenative.utils.HapticManager
+import java.io.File
+import kotlin.math.roundToInt
 
 object QuickMenuAction {
     const val KEYBOARD = 1
@@ -159,35 +142,65 @@ object QuickMenuAction {
     const val DISABLE_MOUSE = 8
     const val SHOOTER_MODE = 9
     const val RADIAL_MENU = 10
-    const val CROSSHAIR = 11
+    const val GYRO = 11
+    const val CONTROL_PROFILES = 12
+    const val CONTROL_PROFILE_APPLIED = 13
+    const val PHYSICAL_CONTROLLER_SETTINGS = 14
+    // Steam Controller (Triton) live editors — shown in the CONTROLLER tab only when an SC is connected.
+    const val SC_BINDINGS = 15
+    const val SC_LAYOUT = 16
+    // Single root entry that opens the Steam Controller editor hub (lists the editors above).
+    const val SC_ROOT = 17
 }
 
-enum class QuickMenuTab(val labelResId: Int, val icon: ImageVector) {
-    HUD(R.string.performance_hud, Icons.Default.QueryStats),
-    POWER(R.string.power_control, Icons.Default.BatteryChargingFull),
-    LSFG(R.string.lsfg_tab_title, Icons.Default.Speed),
-    LOOKS(R.string.settings_looks_title, Icons.Default.Palette),
-    INVITE(R.string.steam_invite_tab_title, Icons.Default.PersonAdd),
-    EFFECTS(R.string.screen_effects, Icons.Default.AutoFixHigh),
-    CONTROLLER(R.string.quick_menu_tab_controller, Icons.Default.Gamepad),
-    REFRESH_RATE(R.string.settings_looks_refresh_rate, Icons.Default.Palette),
-    TOOLS(R.string.task_manager, Icons.Default.BarChart),
-    IMMERSIVE(R.string.quick_menu_tab_immersive, Icons.Default.ViewInAr);
+private object QuickMenuTab {
+    const val HUD = 0
+    const val LSFG = 1
+    const val EFFECTS = 2
+    const val CONTROLLER = 3
+    const val TOOLS = 4
+    const val IMMERSIVE = 5
+    const val INVITE = 6
+    const val POWER = 7
+    const val GAMESCOPE = 8
+    const val REFRESH_RATE = 9
+}
 
-    fun isVisible(immersiveHooks: Any?, inviteMenu: Any?, renderer: Any?, glRenderer: Any?, isLsfgAvailable: Boolean): Boolean {
-        return when (this) {
-            LSFG -> isLsfgAvailable
-            INVITE -> inviteMenu != null
-            EFFECTS -> renderer != null || glRenderer != null
-            IMMERSIVE -> immersiveHooks != null
-            else -> true
-        }
+private class GyroQuickMenuState(private val container: Container) {
+    var settings by mutableStateOf(GyroSettings.fromContainer(container))
+        private set
+
+    val isAvailable: Boolean
+        get() = PluviaApp.inputControlsView?.isGyroAvailable == true
+
+    val isTiltAvailable: Boolean
+        get() = PluviaApp.inputControlsView?.isGyroTiltAvailable == true
+
+    fun setEnabled(enabled: Boolean) {
+        if (enabled && !isAvailable) return
+        persistSettings(
+            settings.copy(mode = if (enabled) settings.lastTarget else GyroSettings.MODE_DISABLED),
+        )
+    }
+
+    fun persistSettings(value: GyroSettings) {
+        settings = value.normalized()
+        settings.saveTo(container)
+        applyToCurrentView()
+    }
+
+    fun reloadFromContainer() {
+        settings = GyroSettings.fromContainer(container)
+        applyToCurrentView()
+    }
+
+    fun hasGyroControlAssigned(activationMode: Int): Boolean =
+        PluviaApp.inputControlsView?.hasGyroControlAssigned(activationMode) == true
+
+    fun applyToCurrentView() {
+        PluviaApp.inputControlsView?.setGyroSettings(settings)
     }
 }
-
-private var PrefManager.quickMenuLastTabEnum: QuickMenuTab
-    get() = QuickMenuTab.entries.getOrNull(quickMenuLastTab) ?: QuickMenuTab.HUD
-    set(value) { quickMenuLastTab = value.ordinal }
 
 data class QuickMenuItem(
     val id: Int,
@@ -204,20 +217,127 @@ private enum class PerformanceHudPreset(val labelResId: Int) {
     FULL(R.string.performance_hud_preset_full),
 }
 
-private fun applyPerformanceHudPreset(currentConfig: PerformanceHudConfig, preset: PerformanceHudPreset): PerformanceHudConfig {
+private fun applyPerformanceHudPreset(
+    currentConfig: PerformanceHudConfig,
+    preset: PerformanceHudPreset,
+): PerformanceHudConfig {
     return when (preset) {
-        PerformanceHudPreset.FPS_ONLY -> currentConfig.copy(showFrameRate = true, showRefreshRate = false, showCpuUsage = false, showGpuUsage = false, showRamUsage = false, showBatteryLevel = false, showPowerDraw = false, showBatteryRuntime = false, showBatteryTemperature = false, showClockTime = false, showCpuTemperature = false, showGpuTemperature = false, showFrameRateGraph = false, showCpuUsageGraph = false, showGpuUsageGraph = false)
-        PerformanceHudPreset.ESSENTIAL -> currentConfig.copy(showFrameRate = true, showRefreshRate = true, showCpuUsage = true, showGpuUsage = true, showRamUsage = true, showBatteryLevel = false, showPowerDraw = false, showBatteryRuntime = false, showBatteryTemperature = false, showClockTime = false, showCpuTemperature = false, showGpuTemperature = false, showFrameRateGraph = false, showCpuUsageGraph = false, showGpuUsageGraph = false)
-        PerformanceHudPreset.BATTERY -> currentConfig.copy(showFrameRate = true, showRefreshRate = true, showCpuUsage = true, showGpuUsage = true, showRamUsage = true, showBatteryLevel = true, showPowerDraw = false, showBatteryRuntime = true, showBatteryTemperature = true, showClockTime = false, showCpuTemperature = false, showGpuTemperature = false, showFrameRateGraph = true, showCpuUsageGraph = false, showGpuUsageGraph = false)
-        PerformanceHudPreset.FULL -> currentConfig.copy(showFrameRate = true, showRefreshRate = true, showCpuUsage = true, showGpuUsage = true, showRamUsage = true, showBatteryLevel = true, showPowerDraw = true, showBatteryRuntime = true, showBatteryTemperature = true, showClockTime = true, showCpuTemperature = true, showGpuTemperature = true, showFrameRateGraph = true, showCpuUsageGraph = true, showGpuUsageGraph = true)
+        PerformanceHudPreset.FPS_ONLY -> currentConfig.copy(
+            showFrameRate = true,
+            showCpuUsage = false,
+            showGpuUsage = false,
+            showRamUsage = false,
+            showBatteryLevel = false,
+            showPowerDraw = false,
+            showBatteryRuntime = false,
+            showBatteryTemperature = false,
+            showClockTime = false,
+            showCpuTemperature = false,
+            showGpuTemperature = false,
+            showBottleneck = false,
+            showFrameRateGraph = false,
+            showCpuUsageGraph = false,
+            showGpuUsageGraph = false,
+        )
+
+        PerformanceHudPreset.ESSENTIAL -> currentConfig.copy(
+            showFrameRate = true,
+            showCpuUsage = true,
+            showGpuUsage = true,
+            showRamUsage = true,
+            showBatteryLevel = false,
+            showPowerDraw = false,
+            showBatteryRuntime = false,
+            showBatteryTemperature = false,
+            showClockTime = false,
+            showCpuTemperature = false,
+            showGpuTemperature = false,
+            showBottleneck = true,
+            showFrameRateGraph = false,
+            showCpuUsageGraph = false,
+            showGpuUsageGraph = false,
+        )
+
+        PerformanceHudPreset.BATTERY -> currentConfig.copy(
+            showFrameRate = true,
+            showCpuUsage = true,
+            showGpuUsage = true,
+            showRamUsage = true,
+            showBatteryLevel = true,
+            showPowerDraw = false,
+            showBatteryRuntime = true,
+            showBatteryTemperature = true,
+            showClockTime = false,
+            showCpuTemperature = false,
+            showGpuTemperature = false,
+            showBottleneck = false,
+            showFrameRateGraph = true,
+            showCpuUsageGraph = false,
+            showGpuUsageGraph = false,
+        )
+
+        PerformanceHudPreset.FULL -> currentConfig.copy(
+            showFrameRate = true,
+            showCpuUsage = true,
+            showGpuUsage = true,
+            showRamUsage = true,
+            showBatteryLevel = true,
+            showPowerDraw = true,
+            showBatteryRuntime = true,
+            showBatteryTemperature = true,
+            showClockTime = true,
+            showCpuTemperature = true,
+            showGpuTemperature = true,
+            showBottleneck = true,
+            showFrameRateGraph = true,
+            showCpuUsageGraph = true,
+            showGpuUsageGraph = true,
+        )
     }
 }
 
-private fun matchesPerformanceHudPreset(currentConfig: PerformanceHudConfig, preset: PerformanceHudPreset): Boolean {
-    val p = applyPerformanceHudPreset(currentConfig, preset)
-    return currentConfig.showFrameRate == p.showFrameRate && currentConfig.showRefreshRate == p.showRefreshRate && currentConfig.showCpuUsage == p.showCpuUsage && currentConfig.showGpuUsage == p.showGpuUsage && currentConfig.showRamUsage == p.showRamUsage && currentConfig.showBatteryLevel == p.showBatteryLevel && currentConfig.showPowerDraw == p.showPowerDraw && currentConfig.showBatteryRuntime == p.showBatteryRuntime && currentConfig.showBatteryTemperature == p.showBatteryTemperature && currentConfig.showClockTime == p.showClockTime && currentConfig.showCpuTemperature == p.showCpuTemperature && currentConfig.showGpuTemperature == p.showGpuTemperature && currentConfig.showFrameRateGraph == p.showFrameRateGraph && currentConfig.showCpuUsageGraph == p.showCpuUsageGraph && currentConfig.showGpuUsageGraph == p.showGpuUsageGraph
+private fun matchesPerformanceHudPreset(
+    currentConfig: PerformanceHudConfig,
+    preset: PerformanceHudPreset,
+): Boolean {
+    val presetConfig = applyPerformanceHudPreset(currentConfig, preset)
+    return currentConfig.showFrameRate == presetConfig.showFrameRate &&
+        currentConfig.showCpuUsage == presetConfig.showCpuUsage &&
+        currentConfig.showGpuUsage == presetConfig.showGpuUsage &&
+        currentConfig.showRamUsage == presetConfig.showRamUsage &&
+        currentConfig.showBatteryLevel == presetConfig.showBatteryLevel &&
+        currentConfig.showPowerDraw == presetConfig.showPowerDraw &&
+        currentConfig.showBatteryRuntime == presetConfig.showBatteryRuntime &&
+        currentConfig.showBatteryTemperature == presetConfig.showBatteryTemperature &&
+        currentConfig.showClockTime == presetConfig.showClockTime &&
+        currentConfig.showCpuTemperature == presetConfig.showCpuTemperature &&
+        currentConfig.showGpuTemperature == presetConfig.showGpuTemperature &&
+        currentConfig.showBottleneck == presetConfig.showBottleneck &&
+        currentConfig.showFrameRateGraph == presetConfig.showFrameRateGraph &&
+        currentConfig.showCpuUsageGraph == presetConfig.showCpuUsageGraph &&
+        currentConfig.showGpuUsageGraph == presetConfig.showGpuUsageGraph
 }
 
+// fpsLimiterSteps / fpsLimiterCurrentIndex / fpsLimiterProgress /
+// nextFpsLimiterValue / previousFpsLimiterValue live in FpsLimiterUtils.kt
+
+/**
+ * Lets ANY quick-menu row — no matter how deeply nested, in this file or any other — report its
+ * own gamepad interaction to the Meta Quest immersive activity, without threading a dedicated
+ * parameter through every intermediate composable in between (the previous approach: adding a
+ * new callback param to QuickMenuAdjustmentRow, then to its tab wrapper, then to QuickMenu itself,
+ * then to every call site — for every single row that needed it. A new row buried in some future
+ * tab would need the SAME threading redone by hand, easy to forget).
+ *
+ * Exists because normal Android/Compose gamepad input (real hardware, real KeyEvents) already
+ * works correctly for every existing row with zero extra code — this is ONLY needed because the
+ * immersive activity's Quest-Touch-controller input is synthetic and confirmed, repeatedly this
+ * session, to never reach Compose's own key dispatch or default click-on-focused-view behavior in
+ * that Activity. [QuickMenu] provides the real implementation (backed by state it forwards to
+ * ImmersiveXrActivity via registerAdjustmentControl/registerFocusedActivate); everywhere else —
+ * i.e. normal 2D panel mode — gets the no-op default below, so a row that reports itself here
+ * costs nothing and needs no `if (immersive)` branching of its own.
+ */
 class ImmersiveInputBypass(
     val active: Boolean = false,
     private val applyAdjustment: (Pair<() -> Unit, () -> Unit>?) -> Unit = {},
@@ -226,18 +346,38 @@ class ImmersiveInputBypass(
     private var adjustmentOwner: Any? = null
     private var activateOwner: Any? = null
 
+    // `owner` must be stable per row, and only the current owner may clear a slot — focus-change
+    // effects from two rows can run in either order.
+    // Reports (onDecrease, onIncrease) while a row is both focused and lock-toggled (A to lock,
+    // DPAD_LEFT/RIGHT to adjust, B or losing focus to unlock) — for slider-style rows.
     fun reportAdjustment(owner: Any, actions: Pair<() -> Unit, () -> Unit>?) {
-        if (actions != null) { adjustmentOwner = owner; applyAdjustment(actions) }
-        else if (adjustmentOwner === owner) { adjustmentOwner = null; applyAdjustment(null) }
+        if (actions != null) {
+            adjustmentOwner = owner
+            applyAdjustment(actions)
+        } else if (adjustmentOwner === owner) {
+            adjustmentOwner = null
+            applyAdjustment(null)
+        }
     }
 
+    // Reports a row's own click/select action while it's focused — for plain radio/toggle rows
+    // that only need a single BUTTON_A/DPAD_CENTER press to activate.
     fun reportActivate(owner: Any, action: (() -> Unit)?) {
-        if (action != null) { activateOwner = owner; applyActivate(action) }
-        else if (activateOwner === owner) { activateOwner = null; applyActivate(null) }
+        if (action != null) {
+            activateOwner = owner
+            applyActivate(action)
+        } else if (activateOwner === owner) {
+            activateOwner = null
+            applyActivate(null)
+        }
     }
 }
 val LocalImmersiveInputBypass = staticCompositionLocalOf { ImmersiveInputBypass() }
 
+/** Performance HUD + FPS limiter state/callbacks as one QuickMenu parameter instead of eight —
+ * XServerScreen's call site sits at the dex verifier's 255-register limit, and every argument
+ * of that call costs a register there (a runtime VerifyError from exactly that was reproduced
+ * on device). */
 class PerformanceQuickMenuState(
     val hudEnabled: Boolean = false,
     val hudConfig: PerformanceHudConfig = PerformanceHudConfig(),
@@ -249,6 +389,8 @@ class PerformanceQuickMenuState(
     val onFpsLimiterChanged: (Int) -> Unit = {},
 )
 
+/** LSFG hot-reload state/callbacks as one QuickMenu parameter instead of seven — same
+ * register-limit reason as [PerformanceQuickMenuState]. Tab only visible when [isAvailable]. */
 class LsfgQuickMenuState(
     val isAvailable: Boolean = false,
     val multiplier: Int = 2,
@@ -264,16 +406,19 @@ fun QuickMenu(
     isVisible: Boolean,
     onDismiss: () -> Unit,
     onItemSelected: (Int) -> Boolean,
-    viewModel: MainViewModel = hiltViewModel(),
     renderer: VulkanRenderer? = null,
     glRenderer: GLRenderer? = null,
     container: Container? = null,
+    isGamescopeSession: Boolean = false,
     wineProcesses: List<ProcessInfo> = emptyList(),
     isWineProcessesLoading: Boolean = false,
     onToolsVisibilityChanged: (Boolean) -> Unit = {},
     onEndWineProcess: (ProcessInfo) -> Unit = {},
     performance: PerformanceQuickMenuState = PerformanceQuickMenuState(),
     hasPhysicalController: Boolean = false,
+    /** A Steam Controller (Triton) is live this session — surface its rich editors and hide the generic gamepad
+     *  mapper (the BLE Triton isn't an Android input device, so the generic mapper doesn't apply to it). */
+    isSteamControllerLive: Boolean = false,
     isTouchscreenModeActive: Boolean = false,
     onTouchGestureSettingsClick: () -> Unit = {},
     isShooterModeActive: Boolean = false,
@@ -281,10 +426,18 @@ fun QuickMenu(
     activeToggleIds: Set<Int> = emptySet(),
     lsfg: LsfgQuickMenuState = LsfgQuickMenuState(),
     onAnimationComplete: (Boolean) -> Unit = {},
+    /** Lets the menu open itself when the running game asks for its Steam invite dialog. */
     onRequestOpen: () -> Unit = {},
     immersiveHooks: app.gamenative.ui.screen.xr.ImmersiveSessionHooks? = null,
+    viewModel: MainViewModel? = null,
     modifier: Modifier = Modifier,
 ) {
+    val mainViewModel = viewModel ?: if (!LocalInspectionMode.current && LocalViewModelStoreOwner.current != null) {
+        hiltViewModel<MainViewModel>()
+    } else {
+        null
+    }
+    val immersiveControls = immersiveHooks?.controls
     val isPerformanceHudEnabled = performance.hudEnabled
     val performanceHudConfig = performance.hudConfig
     val fpsLimiterEnabled = performance.fpsLimiterEnabled
@@ -301,148 +454,823 @@ fun QuickMenu(
     val onLsfgFlowScaleChanged = lsfg.onFlowScaleChanged
     val onLsfgPerformanceModeChanged = lsfg.onPerformanceModeChanged
     val focusManager = LocalFocusManager.current
-    LaunchedEffect(immersiveHooks) { immersiveHooks?.registerFocusManager?.invoke(focusManager) }
+    LaunchedEffect(immersiveHooks) {
+        immersiveHooks?.registerFocusManager?.invoke(focusManager)
+    }
+    val focusTabRailScope = rememberCoroutineScope()
     var activeAdjustment by remember { mutableStateOf<Pair<() -> Unit, () -> Unit>?>(null) }
     var activeRadioActivate by remember { mutableStateOf<(() -> Unit)?>(null) }
-    LaunchedEffect(Unit) { immersiveHooks?.registerFocusedActivate?.invoke { activeRadioActivate } }
+    LaunchedEffect(Unit) {
+        immersiveHooks?.registerFocusedActivate?.invoke { activeRadioActivate }
+    }
     var startHeld by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { immersiveHooks?.registerStartHeld?.invoke { startHeld = it } }
-    LaunchedEffect(Unit) { immersiveHooks?.registerAdjustmentControl?.invoke { activeAdjustment } }
+    LaunchedEffect(Unit) {
+        immersiveHooks?.registerStartHeld?.invoke { startHeld = it }
+    }
+    LaunchedEffect(Unit) {
+        immersiveHooks?.registerAdjustmentControl?.invoke { activeAdjustment }
+    }
+    val exitGameItem = QuickMenuItem(
+        id = QuickMenuAction.EXIT_GAME,
+        icon = Icons.AutoMirrored.Filled.ExitToApp,
+        labelResId = R.string.exit_game,
+        accentColor = PluviaTheme.colors.accentDanger,
+    )
 
-    val exitGameItem = QuickMenuItem(id = QuickMenuAction.EXIT_GAME, icon = Icons.AutoMirrored.Filled.ExitToApp, labelResId = R.string.exit_game, accentColor = PluviaTheme.colors.accentDanger)
+    // Kept here rather than plumbed through XServerScreen: that composable sits at the
+    // dex verifier's register limit and extra locals can produce invalid bytecode.
+    val gyroMenu = remember(container?.id) { container?.let(::GyroQuickMenuState) }
 
     val controllerItems = buildList {
-        add(QuickMenuItem(QuickMenuAction.DISABLE_MOUSE, Icons.Filled.Mouse, R.string.disable_mouse_input, PluviaTheme.colors.accentPurple))
-        add(QuickMenuItem(QuickMenuAction.KEYBOARD, Icons.Default.Keyboard, R.string.keyboard, PluviaTheme.colors.accentPurple))
-        add(QuickMenuItem(QuickMenuAction.INPUT_CONTROLS, Icons.Default.TouchApp, R.string.input_controls, PluviaTheme.colors.accentPurple))
-        if (hasPhysicalController) add(QuickMenuItem(QuickMenuAction.EDIT_PHYSICAL_CONTROLLER, Icons.Default.Gamepad, R.string.edit_physical_controller, PluviaTheme.colors.accentPurple))
-        add(QuickMenuItem(QuickMenuAction.EDIT_CONTROLS, Icons.Default.Edit, R.string.edit_controls, PluviaTheme.colors.accentPurple))
-        add(QuickMenuItem(QuickMenuAction.TOUCHSCREEN_MODE, Icons.Default.Fingerprint, R.string.touchscreen_mode, PluviaTheme.colors.accentPurple))
-        add(QuickMenuItem(QuickMenuAction.SHOOTER_MODE, Icons.Default.Gamepad, R.string.shooter_mode_toggle, PluviaTheme.colors.accentPurple))
-        add(QuickMenuItem(QuickMenuAction.CROSSHAIR, Icons.Default.Add, R.string.crosshair_toggle, PluviaTheme.colors.accentPurple))
-        add(QuickMenuItem(QuickMenuAction.RADIAL_MENU, Icons.Default.Settings, R.string.radial_menu, PluviaTheme.colors.accentPurple))
+        // Steam Controller editors live behind a single root entry (most relevant when a Triton is connected).
+        if (isSteamControllerLive) {
+            add(QuickMenuItem(QuickMenuAction.SC_ROOT, Icons.Filled.Gamepad, R.string.sc_edit_root, PluviaTheme.colors.accentPurple))
+        }
+        add(
+            QuickMenuItem(
+                id = QuickMenuAction.DISABLE_MOUSE,
+                icon = Icons.Filled.Mouse,
+                labelResId = R.string.disable_mouse_input,
+                accentColor = PluviaTheme.colors.accentPurple,
+            )
+        )
+        add(
+            QuickMenuItem(
+                id = QuickMenuAction.KEYBOARD,
+                icon = Icons.Default.Keyboard,
+                labelResId = R.string.keyboard,
+                accentColor = PluviaTheme.colors.accentPurple,
+            )
+        )
+        add(
+            QuickMenuItem(
+                id = QuickMenuAction.INPUT_CONTROLS,
+                icon = Icons.Default.TouchApp,
+                labelResId = R.string.input_controls,
+                accentColor = PluviaTheme.colors.accentPurple,
+            )
+        )
+        // The generic gamepad mapper doesn't apply to the BLE Steam Controller — hide it when an SC is live.
+        if (hasPhysicalController && !isSteamControllerLive) {
+            add(
+                QuickMenuItem(
+                    id = QuickMenuAction.EDIT_PHYSICAL_CONTROLLER,
+                    icon = Icons.Default.Gamepad,
+                    labelResId = R.string.edit_physical_controller,
+                    accentColor = PluviaTheme.colors.accentPurple,
+                )
+            )
+        }
+        add(
+            QuickMenuItem(
+                id = QuickMenuAction.EDIT_CONTROLS,
+                icon = Icons.Default.Edit,
+                labelResId = R.string.edit_controls,
+                accentColor = PluviaTheme.colors.accentPurple,
+            )
+        )
+        add(
+            QuickMenuItem(
+                id = QuickMenuAction.CONTROL_PROFILES,
+                icon = Icons.Default.Gamepad,
+                labelResId = R.string.control_profiles,
+                accentColor = PluviaTheme.colors.accentPurple,
+            )
+        )
+        add(
+            QuickMenuItem(
+                id = QuickMenuAction.TOUCHSCREEN_MODE,
+                icon = Icons.Default.Fingerprint,
+                labelResId = R.string.touchscreen_mode,
+                accentColor = PluviaTheme.colors.accentPurple,
+            )
+        )
+        add(
+            QuickMenuItem(
+                id = QuickMenuAction.SHOOTER_MODE,
+                icon = Icons.Default.Gamepad,
+                labelResId = R.string.shooter_mode_toggle,
+                accentColor = PluviaTheme.colors.accentPurple,
+            )
+        )
+        add(
+            QuickMenuItem(
+                id = QuickMenuAction.RADIAL_MENU,
+                icon = Icons.Default.Settings,
+                labelResId = R.string.radial_menu,
+                accentColor = PluviaTheme.colors.accentPurple,
+            )
+        )
+        if (container != null) {
+            add(
+                QuickMenuItem(
+                    id = QuickMenuAction.GYRO,
+                    icon = Icons.Default.ScreenRotation,
+                    labelResId = R.string.gyro_aiming,
+                    accentColor = PluviaTheme.colors.accentPurple,
+                    enabled = gyroMenu?.isAvailable == true,
+                ),
+            )
+        }
     }
 
+    // Created here rather than plumbed through XServerScreen: that composable
+    // sits at the dex verifier's register limit and any extra locals there
+    // trip a VerifyError at class load (dex methods over 255 registers hit a
+    // broken D8 codegen path).
     val inviteMenu = remember(container?.id) { SteamInviteState.createIfAvailable(container) }
-    var lsfgPresentMode by remember(container?.id) { mutableStateOf(container?.let { app.gamenative.utils.LsfgQuickMenuHelper.presentMode(it) } ?: "mailbox") }
+    var showGyroSettingsDialog by rememberSaveable(container?.id) { mutableStateOf(false) }
+    var onScreenControllerSettingsProfile by remember(container?.id) {
+        mutableStateOf<ControlsProfile?>(null)
+    }
+    var showControlProfiles by rememberSaveable(container?.id) { mutableStateOf(false) }
+    var lastControllerFocusRequester by remember(container?.id) { mutableStateOf<FocusRequester?>(null) }
+    var controlProfileReturnFocusRequester by remember(container?.id) { mutableStateOf<FocusRequester?>(null) }
+    // Owned here, not plumbed through XServerScreen (register limit; see inviteMenu).
+    var lsfgPresentMode by remember(container?.id) {
+        mutableStateOf(container?.let { app.gamenative.utils.LsfgQuickMenuHelper.presentMode(it) } ?: "mailbox")
+    }
+    var lsfgBackend by remember(container?.id) {
+        mutableStateOf(container?.let { app.gamenative.utils.LsfgVkManager.backend(it) } ?: "native")
+    }
 
+    // The effects tab drives the XServer renderer; a gamescope session applies its effects through
+    // the gamescope tab instead.
+    val hasEffectsTab = !isGamescopeSession && (renderer != null || glRenderer != null)
     var selectedTab by rememberSaveable {
-        mutableStateOf(
+        mutableIntStateOf(
             when {
-                PrefManager.quickMenuLastTabEnum == QuickMenuTab.LSFG && !isLsfgAvailable -> QuickMenuTab.HUD
-                PrefManager.quickMenuLastTabEnum == QuickMenuTab.INVITE && inviteMenu == null -> QuickMenuTab.HUD
-                PrefManager.quickMenuLastTabEnum == QuickMenuTab.IMMERSIVE && immersiveHooks == null -> QuickMenuTab.HUD
-                else -> PrefManager.quickMenuLastTabEnum
-            },
+                PrefManager.quickMenuLastTab == QuickMenuTab.LSFG && !isLsfgAvailable -> QuickMenuTab.HUD
+                PrefManager.quickMenuLastTab == QuickMenuTab.INVITE && inviteMenu == null -> QuickMenuTab.HUD
+                PrefManager.quickMenuLastTab == QuickMenuTab.POWER -> QuickMenuTab.HUD
+                PrefManager.quickMenuLastTab == QuickMenuTab.IMMERSIVE && immersiveControls == null -> QuickMenuTab.HUD
+                PrefManager.quickMenuLastTab == QuickMenuTab.GAMESCOPE && !isGamescopeSession -> QuickMenuTab.HUD
+                PrefManager.quickMenuLastTab == QuickMenuTab.EFFECTS && !hasEffectsTab -> QuickMenuTab.HUD
+                else -> PrefManager.quickMenuLastTab
+            }
         )
+    }
+    val selectedTabLabelResId = when (selectedTab) {
+        QuickMenuTab.HUD -> R.string.performance_hud
+        QuickMenuTab.LSFG -> R.string.lsfg_tab_title
+        QuickMenuTab.EFFECTS -> R.string.screen_effects
+        QuickMenuTab.TOOLS -> R.string.task_manager
+        QuickMenuTab.INVITE -> R.string.steam_invite_tab_title
+        QuickMenuTab.POWER -> R.string.power_control
+        QuickMenuTab.GAMESCOPE -> R.string.gamescope_tab_title
+        QuickMenuTab.IMMERSIVE -> R.string.quick_menu_tab_immersive
+        QuickMenuTab.REFRESH_RATE -> R.string.settings_looks_refresh_rate
+        else -> R.string.quick_menu_tab_controller
     }
 
     val hudScrollState = rememberScrollState()
     val effectsScrollState = rememberScrollState()
     val lsfgScrollState = rememberScrollState()
+    val effectsTabFocusRequester = remember { FocusRequester() }
     val controllerScrollState = rememberScrollState()
-    val immersiveScrollState = rememberScrollState()
+    val lsfgTabFocusRequester = remember { FocusRequester() }
+    val hudTabFocusRequester = remember { FocusRequester() }
+    val controllerTabFocusRequester = remember { FocusRequester() }
+    val toolsTabFocusRequester = remember { FocusRequester() }
+    val powerTabFocusRequester = remember { FocusRequester() }
+    val refreshRateScrollState = rememberScrollState()
+    val refreshRateTabFocusRequester = remember { FocusRequester() }
+    val refreshRateItemFocusRequester = remember { FocusRequester() }
     val hudItemFocusRequester = remember { FocusRequester() }
-    val lsfgItemFocusRequester = remember { FocusRequester() }
-    val inviteItemFocusRequester = remember { FocusRequester() }
     val effectsItemFocusRequester = remember { FocusRequester() }
-    val powerItemFocusRequester = remember { FocusRequester() }
-    val toolsItemFocusRequester = remember { FocusRequester() }
-    val immersiveItemFocusRequester = remember { FocusRequester() }
     val controllerItemFocusRequester = remember { FocusRequester() }
+    val toolsItemFocusRequester = remember { FocusRequester() }
+    val lsfgItemFocusRequester = remember { FocusRequester() }
+    val inviteTabFocusRequester = remember { FocusRequester() }
+    val inviteItemFocusRequester = remember { FocusRequester() }
 
-    val visibleState = remember { MutableTransitionState(false) }.apply { targetState = isVisible }
-    LaunchedEffect(visibleState.currentState, visibleState.isIdle) { if (visibleState.isIdle) onAnimationComplete(visibleState.currentState) }
-    BackHandler(enabled = isVisible) { onDismiss() }
+    // The game's own "Invite friends" button reaches us as an engine callback the Steam host
+    // captures. Open on the invite tab rather than drawing a separate panel, so controller focus
+    // and back-to-dismiss behave like the rest of the menu.
+    if (inviteMenu != null) {
+        LaunchedEffect(inviteMenu) {
+            while (true) {
+                if (!isVisible && inviteMenu.consumeGameInviteRequest()) {
+                    selectedTab = QuickMenuTab.INVITE
+                    PrefManager.quickMenuLastTab = selectedTab
+                    SteamInviteState.openedForGameRequest = true
+                    onRequestOpen()
+                }
+                delay(1000)
+            }
+        }
+    }
+    val powerItemFocusRequester = remember { FocusRequester() }
+    val gamescopeScrollState = rememberScrollState()
+    val gamescopeTabFocusRequester = remember { FocusRequester() }
+    val gamescopeItemFocusRequester = remember { FocusRequester() }
+    val immersiveScrollState = rememberScrollState()
+    val immersiveTabFocusRequester = remember { FocusRequester() }
+    val exitFocusRequester = remember { FocusRequester() }
+    val immersiveItemFocusRequester = remember { FocusRequester() }
 
-    val availableTabs = remember(isLsfgAvailable, renderer, glRenderer, immersiveHooks, inviteMenu) {
-        QuickMenuTab.entries.filter { it.isVisible(immersiveHooks, inviteMenu, renderer, glRenderer, isLsfgAvailable) }
+    val visibleState = remember { MutableTransitionState(false) }
+    visibleState.targetState = isVisible
+
+    LaunchedEffect(visibleState.currentState, visibleState.isIdle) {
+        if (visibleState.isIdle) {
+            onAnimationComplete(visibleState.currentState)
+        }
+    }
+
+    BackHandler(enabled = isVisible) {
+        onDismiss()
+    }
+
+    // Only the tabs actually shown in the rail, in on-screen order — mirrors the conditions each
+    // QuickMenuTabButton below is gated on (isLsfgAvailable, a renderer being available, etc).
+    val availableTabs = remember(isLsfgAvailable, hasEffectsTab, immersiveControls, inviteMenu, isGamescopeSession)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           {
+        buildList {
+            add(QuickMenuTab.HUD)
+            add(QuickMenuTab.POWER)
+            add(QuickMenuTab.REFRESH_RATE)
+            if (isGamescopeSession) add(QuickMenuTab.GAMESCOPE)
+            if (isLsfgAvailable) add(QuickMenuTab.LSFG)
+            if (inviteMenu != null) add(QuickMenuTab.INVITE)
+            if (hasEffectsTab) add(QuickMenuTab.EFFECTS)
+            add(QuickMenuTab.CONTROLLER)
+            add(QuickMenuTab.TOOLS)
+            if (immersiveControls != null) add(QuickMenuTab.IMMERSIVE)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        immersiveHooks?.registerFocusExit?.invoke {
+            runCatching { exitFocusRequester.requestFocus() }
+        }
+        immersiveHooks?.registerFocusTabRail?.invoke {
+            val requester = when (selectedTab) {
+                QuickMenuTab.HUD -> hudTabFocusRequester
+                QuickMenuTab.POWER -> powerTabFocusRequester
+                QuickMenuTab.REFRESH_RATE -> refreshRateTabFocusRequester
+                QuickMenuTab.GAMESCOPE -> gamescopeTabFocusRequester
+                QuickMenuTab.LSFG -> lsfgTabFocusRequester
+                QuickMenuTab.EFFECTS -> effectsTabFocusRequester
+                QuickMenuTab.CONTROLLER -> controllerTabFocusRequester
+                QuickMenuTab.TOOLS -> toolsTabFocusRequester
+                QuickMenuTab.IMMERSIVE -> immersiveTabFocusRequester
+                else -> null
+            }
+            if (requester == null) return@invoke
+            focusTabRailScope.launch {
+                repeat(3) { attempt ->
+                    try {
+                        requester.requestFocus()
+                        Timber.i("QuickMenu: requestFocusTabRail succeeded for tab=%s on attempt=%d", selectedTab, attempt)
+                        return@launch
+                    } catch (e: IllegalStateException) {
+                        Timber.w(e, "QuickMenu: requestFocusTabRail failed for tab=%s on attempt=%d", selectedTab, attempt)
+                        delay(80)
+                    }
+                }
+                Timber.w("QuickMenu: requestFocusTabRail never succeeded for tab=%s after 3 attempts", selectedTab)
+            }
+        }
     }
 
     LaunchedEffect(availableTabs) {
         immersiveHooks?.registerCycleTab?.invoke { forward ->
             val currentIndex = availableTabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0
-            val nextTab = availableTabs[if (forward) (currentIndex + 1) % availableTabs.size else (currentIndex - 1 + availableTabs.size) % availableTabs.size]
+            val nextTab = if (forward) {
+                availableTabs[(currentIndex + 1) % availableTabs.size]
+            } else {
+                availableTabs[(currentIndex - 1 + availableTabs.size) % availableTabs.size]
+            }
             selectedTab = nextTab
-            PrefManager.quickMenuLastTabEnum = nextTab
+            PrefManager.quickMenuLastTab = nextTab
         }
     }
 
     CompositionLocalProvider(
-        LocalImmersiveInputBypass provides remember(immersiveHooks != null) {
+        LocalImmersiveInputBypass provides remember(immersiveControls != null) {
             ImmersiveInputBypass(
-                active = immersiveHooks != null,
+                active = immersiveControls != null,
                 applyAdjustment = { activeAdjustment = it },
                 applyActivate = { activeRadioActivate = it },
             )
         },
     ) {
-        Box(
-            modifier = modifier.fillMaxSize()
-                .onPreviewKeyEvent { keyEvent ->
-                    if (isVisible && startHeld) return@onPreviewKeyEvent true
-                    if (keyEvent.nativeKeyEvent.action != KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false
-                    val currentIndex = availableTabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0
-                    val nextTab = if (immersiveHooks == null) null else when (keyEvent.nativeKeyEvent.keyCode) {
-                        KeyEvent.KEYCODE_BUTTON_L1 -> availableTabs[(currentIndex - 1 + availableTabs.size) % availableTabs.size]
-                        KeyEvent.KEYCODE_BUTTON_R1 -> availableTabs[(currentIndex + 1) % availableTabs.size]
-                        else -> null
-                    }
-                    if (nextTab != null) { selectedTab = nextTab; PrefManager.quickMenuLastTabEnum = nextTab; true } else false
-                },
+    Box(
+        modifier = modifier.fillMaxSize()
+            .onPreviewKeyEvent { keyEvent ->
+                if (isVisible && startHeld) {
+                    return@onPreviewKeyEvent true
+                }
+                if (keyEvent.nativeKeyEvent.action != KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false
+                Timber.i("QuickMenu: onPreviewKeyEvent keyCode=%d selectedTab=%d", keyEvent.nativeKeyEvent.keyCode, selectedTab)
+                val currentIndex = availableTabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0
+                val nextTab = if (immersiveHooks == null) null else when (keyEvent.nativeKeyEvent.keyCode) {
+                    KeyEvent.KEYCODE_BUTTON_L1 -> availableTabs[(currentIndex - 1 + availableTabs.size) % availableTabs.size]
+                    KeyEvent.KEYCODE_BUTTON_R1 -> availableTabs[(currentIndex + 1) % availableTabs.size]
+                    else -> null
+                }
+                if (nextTab != null) {
+                    selectedTab = nextTab
+                    PrefManager.quickMenuLastTab = nextTab
+                    true
+                } else {
+                    false
+                }
+            },
+    ) {
+        AnimatedVisibility(
+            visible = isVisible,
+            enter = fadeIn(animationSpec = tween(200)),
+            exit = fadeOut(animationSpec = tween(150)),
         ) {
-            AnimatedVisibility(visible = isVisible, enter = fadeIn(animationSpec = tween(200)), exit = fadeOut(animationSpec = tween(150))) {
-                Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0f)).then(if (immersiveHooks != null) Modifier.pointerInput(Unit) { detectTapGestures { onDismiss() } } else Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss)))
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0f))
+                    .then(
+                        // Immersive only: .clickable() adds a screen-sized focus target that
+                        // Compose's directional focus search can land on, silently closing the
+                        // menu on the next DPAD_CENTER. Flat mode keeps master's clickable.
+                        if (immersiveHooks != null) {
+                            Modifier.pointerInput(Unit) { detectTapGestures { onDismiss() } }
+                        } else {
+                            Modifier.clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = onDismiss,
+                            )
+                        },
+                    ),
+            )
+        }
+
+        AnimatedVisibility(
+            visibleState = visibleState,
+            enter = slideInHorizontally(
+                initialOffsetX = { fullWidth -> -fullWidth },
+                animationSpec = tween(200),
+            ),
+            exit = slideOutHorizontally(
+                targetOffsetX = { fullWidth -> -fullWidth },
+                animationSpec = tween(150),
+            ),
+            modifier = Modifier.align(Alignment.CenterStart),
+        ) {
+            val panelWidth = when (selectedTab) {
+                // PowerControl is the widest tab (multi-column readouts).
+                QuickMenuTab.POWER -> adaptivePanelWidth(800.dp, 0.95f)
+                // Gamescope is narrower than PowerControl but wide enough for the
+                // Scaling Filter's six tick labels to sit unclipped under their stops.
+                QuickMenuTab.GAMESCOPE -> adaptivePanelWidth(500.dp, 0.9f)
+                else -> adaptivePanelWidth(400.dp)
             }
 
-            AnimatedVisibility(visibleState = visibleState, enter = PluviaAnimation.slideInFromLeft(), exit = PluviaAnimation.slideOutToLeft(), modifier = Modifier.align(Alignment.CenterStart)) {
-                val panelWidth = if (selectedTab == QuickMenuTab.POWER) adaptivePanelWidth(800.dp, 0.95f) else adaptivePanelWidth(400.dp)
-                val contentColor = glassContentColor()
-                val looks = LocalLooksState.current
-                val shape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
-
-                PluviaGlassPanel(
+            val looks = app.gamenative.ui.theme.LocalLooksState.current
+            val contentColor = app.gamenative.ui.theme.glassContentColor()
+            app.gamenative.ui.theme.BrokenGlassPanel(
+                modifier = Modifier
+                    .width(panelWidth)
+                    .fillMaxHeight(),
+                cornerRadius = 24,
+                backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+            ) {
+                Column(
                     modifier = Modifier
-                        .width(panelWidth)
-                        .fillMaxHeight(),
-                    shape = shape
+                        .fillMaxSize()
+                        .statusBarsPadding(),
                 ) {
-                    Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
-                        Row(modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(text = stringResource(R.string.quick_menu_title), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = contentColor)
-                            IconButton(onClick = onDismiss) { Icon(imageVector = Icons.Default.Close, contentDescription = stringResource(R.string.close), tint = contentColor) }
-                        }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 20.dp, end = 8.dp, top = 16.dp, bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.quick_menu_title),
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.SemiBold,
+                            ),
+                            color = contentColor,
+                        )
+                        QuickMenuCloseButton(onClick = onDismiss)
+                    }
 
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = contentColor.copy(alpha = 0.2f),
+                    )
 
-                        Row(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 12.dp)) {
-                            Column(modifier = Modifier.width(64.dp).fillMaxHeight().focusGroup(), horizontalAlignment = Alignment.CenterHorizontally) {
-                                val tabScrollState = rememberScrollState()
-                                Column(modifier = Modifier.weight(1f).verticalScroll(tabScrollState), verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    availableTabs.forEach { tab -> QuickMenuTabButton(icon = tab.icon, contentDescriptionResId = tab.labelResId, selected = selectedTab == tab, accentColor = looks.mainColor, onSelected = { selectedTab = tab; PrefManager.quickMenuLastTabEnum = tab }, modifier = Modifier.width(56.dp)) }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 12.dp, vertical = 12.dp),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .width(64.dp)
+                                .fillMaxHeight()
+                                .focusGroup(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            val tabScrollState = rememberScrollState()
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .verticalScroll(tabScrollState),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                QuickMenuTabButton(
+                                    icon = Icons.Default.QueryStats,
+                                    contentDescriptionResId = R.string.performance_hud,
+                                    selected = selectedTab == QuickMenuTab.HUD,
+                                    accentColor = PluviaTheme.colors.accentPurple,
+                                    onSelected = {
+                                        selectedTab = QuickMenuTab.HUD
+                                        PrefManager.quickMenuLastTab = selectedTab
+                                    },
+                                    modifier = Modifier.width(56.dp),
+                                    focusRequester = hudTabFocusRequester,
+                                )
+                                QuickMenuTabButton(
+                                    icon = Icons.Default.BatteryChargingFull,
+                                    contentDescriptionResId = R.string.power_control,
+                                    selected = selectedTab == QuickMenuTab.POWER,
+                                    accentColor = PluviaTheme.colors.accentPurple,
+                                    onSelected = {
+                                        selectedTab = QuickMenuTab.POWER
+                                        PrefManager.quickMenuLastTab = selectedTab
+                                    },
+                                    modifier = Modifier.width(56.dp),
+                                    focusRequester = powerTabFocusRequester,
+                                )
+                                QuickMenuTabButton(
+                                    icon = Icons.Default.Speed,
+                                    contentDescriptionResId = R.string.settings_looks_refresh_rate,
+                                    selected = selectedTab == QuickMenuTab.REFRESH_RATE,
+                                    accentColor = PluviaTheme.colors.accentPurple,
+                                    onSelected = {
+                                        selectedTab = QuickMenuTab.REFRESH_RATE
+                                        PrefManager.quickMenuLastTab = selectedTab
+                                    },
+                                    modifier = Modifier.width(56.dp),
+                                    focusRequester = refreshRateTabFocusRequester,
+                                )
+                                if (isGamescopeSession) {
+                                    QuickMenuTabButton(
+                                        icon = Icons.Default.Monitor,
+                                        contentDescriptionResId = R.string.gamescope_tab_title,
+                                        selected = selectedTab == QuickMenuTab.GAMESCOPE,
+                                        accentColor = PluviaTheme.colors.accentPurple,
+                                        onSelected = {
+                                            selectedTab = QuickMenuTab.GAMESCOPE
+                                            PrefManager.quickMenuLastTab = selectedTab
+                                        },
+                                        modifier = Modifier.width(56.dp),
+                                        focusRequester = gamescopeTabFocusRequester,
+                                    )
                                 }
-                                Spacer(modifier = Modifier.height(87.dp)) // Moved 200px up (12dp + 75dp)
-                                QuickMenuRailActionButton(item = exitGameItem, onClick = { if (onItemSelected(QuickMenuAction.EXIT_GAME)) onDismiss() }, modifier = Modifier.width(56.dp))
+                                if (isLsfgAvailable) {
+                                    QuickMenuTabButton(
+                                        icon = Icons.Default.Speed,
+                                        contentDescriptionResId = R.string.lsfg_tab_title,
+                                        selected = selectedTab == QuickMenuTab.LSFG,
+                                        accentColor = PluviaTheme.colors.accentPurple,
+                                        onSelected = {
+                                            selectedTab = QuickMenuTab.LSFG
+                                            PrefManager.quickMenuLastTab = selectedTab
+                                        },
+                                        modifier = Modifier.width(56.dp),
+                                        focusRequester = lsfgTabFocusRequester,
+                                    )
+                                }
+                                if (inviteMenu != null) {
+                                    QuickMenuTabButton(
+                                        icon = Icons.Default.PersonAdd,
+                                        contentDescriptionResId = R.string.steam_invite_tab_title,
+                                        selected = selectedTab == QuickMenuTab.INVITE,
+                                        accentColor = PluviaTheme.colors.accentPurple,
+                                        onSelected = {
+                                            selectedTab = QuickMenuTab.INVITE
+                                            PrefManager.quickMenuLastTab = selectedTab
+                                        },
+                                        modifier = Modifier.width(56.dp),
+                                        focusRequester = inviteTabFocusRequester,
+                                    )
+                                }
+                                if (hasEffectsTab) {
+                                    QuickMenuTabButton(
+                                        icon = Icons.Default.AutoFixHigh,
+                                        contentDescriptionResId = R.string.screen_effects,
+                                        selected = selectedTab == QuickMenuTab.EFFECTS,
+                                        accentColor = PluviaTheme.colors.accentPurple,
+                                        onSelected = {
+                                            selectedTab = QuickMenuTab.EFFECTS
+                                            PrefManager.quickMenuLastTab = selectedTab
+                                        },
+                                        modifier = Modifier.width(56.dp),
+                                        focusRequester = effectsTabFocusRequester,
+                                    )
+                                }
+                                QuickMenuTabButton(
+                                    icon = Icons.Default.Gamepad,
+                                    contentDescriptionResId = R.string.quick_menu_tab_controller,
+                                    selected = selectedTab == QuickMenuTab.CONTROLLER,
+                                    accentColor = PluviaTheme.colors.accentPurple,
+                                    onSelected = {
+                                        selectedTab = QuickMenuTab.CONTROLLER
+                                        PrefManager.quickMenuLastTab = selectedTab
+                                    },
+                                    modifier = Modifier.width(56.dp),
+                                    focusRequester = controllerTabFocusRequester,
+                                )
+                                QuickMenuTabButton(
+                                    icon = Icons.Default.BarChart,
+                                    contentDescriptionResId = R.string.task_manager,
+                                    selected = selectedTab == QuickMenuTab.TOOLS,
+                                    accentColor = PluviaTheme.colors.accentPurple,
+                                    onSelected = { selectedTab = QuickMenuTab.TOOLS },
+                                    modifier = Modifier.width(56.dp),
+                                    focusRequester = toolsTabFocusRequester,
+                                )
+                                if (immersiveControls != null) {
+                                    QuickMenuTabButton(
+                                        icon = Icons.Default.ViewInAr,
+                                        contentDescriptionResId = R.string.quick_menu_tab_immersive,
+                                        selected = selectedTab == QuickMenuTab.IMMERSIVE,
+                                        accentColor = PluviaTheme.colors.accentPurple,
+                                        onSelected = {
+                                            selectedTab = QuickMenuTab.IMMERSIVE
+                                            PrefManager.quickMenuLastTab = selectedTab
+                                        },
+                                        modifier = Modifier.width(56.dp),
+                                        focusRequester = immersiveTabFocusRequester,
+                                    )
+                                }
                             }
 
-                            Box(modifier = Modifier.padding(horizontal = 12.dp).width(1.dp).fillMaxHeight().background(if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)))
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 4.dp, vertical = 12.dp)
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)),
+                            )
 
-                            Column(modifier = Modifier.fillMaxSize()) {
-                                Text(text = stringResource(selectedTab.labelResId), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), color = contentColor, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
-                                HorizontalDivider(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), color = if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
-                                Box(modifier = Modifier.weight(1f)) {
-                                    when (selectedTab) {
-                                        QuickMenuTab.HUD -> PerformanceHudQuickMenuTab(isPerformanceHudEnabled = isPerformanceHudEnabled, config = performanceHudConfig, fpsLimiterEnabled = fpsLimiterEnabled, fpsLimiterTarget = fpsLimiterTarget, fpsLimiterMax = fpsLimiterMax, lsfgMultiplier = if (isLsfgAvailable) lsfgMultiplier else 0, onToggle = { onItemSelected(QuickMenuAction.PERFORMANCE_HUD) }, onConfigChanged = onPerformanceHudConfigChanged, onFpsEnabled = onFpsLimiterEnabledChanged, onFpsChanged = onFpsLimiterChanged, scrollState = hudScrollState, focusRequester = hudItemFocusRequester, modifier = Modifier.fillMaxSize())
-                                        QuickMenuTab.LOOKS -> LooksQuickMenuTab(viewModel = viewModel, modifier = Modifier.fillMaxSize())
-                                        QuickMenuTab.LSFG -> LsfgQuickMenuTab(multiplier = lsfgMultiplier, flowScale = lsfgFlowScale, performanceMode = lsfgPerformanceMode, onMultiplierChanged = onLsfgMultiplierChanged, onFlowScaleChanged = onLsfgFlowScaleChanged, onPerformanceModeChanged = onLsfgPerformanceModeChanged, presentMode = lsfgPresentMode, onPresentModeChanged = { lsfgPresentMode = it; container?.let { c -> app.gamenative.utils.LsfgQuickMenuHelper.applyPresentMode(c, it) } }, scrollState = lsfgScrollState, focusRequester = lsfgItemFocusRequester, modifier = Modifier.fillMaxSize())
-                                        QuickMenuTab.INVITE -> inviteMenu?.let { SteamInviteQuickMenuTab(state = it, focusRequester = inviteItemFocusRequester, modifier = Modifier.fillMaxSize()) }
-                                        QuickMenuTab.EFFECTS -> { if (renderer != null) ScreenEffectsTabContent(renderer = renderer, container = container, modifier = Modifier.fillMaxSize(), firstItemFocusRequester = effectsItemFocusRequester, scrollState = effectsScrollState) else if (glRenderer != null) GLScreenEffectsTabContent(renderer = glRenderer, container = container, modifier = Modifier.fillMaxSize(), firstItemFocusRequester = effectsItemFocusRequester, scrollState = effectsScrollState) }
-                                        QuickMenuTab.POWER -> PowerControlQuickMenuTab(focusRequester = powerItemFocusRequester, modifier = Modifier.fillMaxSize())
-                                        QuickMenuTab.TOOLS -> ToolsQuickMenuTab(processes = wineProcesses, isLoadingProcesses = isWineProcessesLoading, onEndProcess = onEndWineProcess, firstItemFocusRequester = toolsItemFocusRequester, modifier = Modifier.fillMaxSize())
-                                        QuickMenuTab.REFRESH_RATE -> RefreshRateQuickMenuTab(viewModel = viewModel, modifier = Modifier.fillMaxSize())
-                                        QuickMenuTab.IMMERSIVE -> immersiveScrollState?.let { ImmersiveQuickMenuTab(controls = immersiveHooks!!.controls, scrollState = it, focusRequester = immersiveItemFocusRequester, modifier = Modifier.fillMaxSize()) }
-                                        else -> Column(modifier = Modifier.fillMaxSize().verticalScroll(controllerScrollState).focusGroup(), verticalArrangement = Arrangement.spacedBy(4.dp)) { controllerItems.forEachIndexed { index, item -> QuickMenuItemRow(item = item, isActive = item.id in activeToggleIds, onClick = { if (onItemSelected(item.id)) onDismiss() }, focusRequester = if (index == 0) controllerItemFocusRequester else null, secondaryIcon = if ((item.id == QuickMenuAction.TOUCHSCREEN_MODE && isTouchscreenModeActive) || (item.id == QuickMenuAction.SHOOTER_MODE && isShooterModeActive)) Icons.Default.Settings else null, secondaryContentDescriptionResId = if (item.id == QuickMenuAction.TOUCHSCREEN_MODE) R.string.gesture_settings_title else R.string.shooter_mode_settings_title, onSecondaryClick = if (item.id == QuickMenuAction.TOUCHSCREEN_MODE) onTouchGestureSettingsClick else onShooterModeSettingsClick) } }
+                            QuickMenuRailActionButton(
+                                item = exitGameItem,
+                                onClick = {
+                                    if (onItemSelected(QuickMenuAction.EXIT_GAME)) {
+                                        onDismiss()
                                     }
+                                },
+                                modifier = Modifier.width(56.dp),
+                                focusRequester = exitFocusRequester,
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp)
+                                .width(1.dp)
+                                .fillMaxHeight()
+                                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)),
+                        )
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize(),
+                        ) {
+                            Text(
+                                text = stringResource(selectedTabLabelResId),
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            )
+
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+                            )
+
+                            Box(
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                when (selectedTab) {
+                                    QuickMenuTab.HUD -> {
+                                        PerformanceHudQuickMenuTab(
+                                            isPerformanceHudEnabled = isPerformanceHudEnabled,
+                                            performanceHudConfig = performanceHudConfig,
+                                            fpsLimiterEnabled = fpsLimiterEnabled,
+                                            fpsLimiterTarget = fpsLimiterTarget,
+                                            fpsLimiterMax = fpsLimiterMax,
+                                            lsfgMultiplier = if (isLsfgAvailable) lsfgMultiplier else 0,
+                                            onTogglePerformanceHud = {
+                                                onItemSelected(QuickMenuAction.PERFORMANCE_HUD)
+                                            },
+                                            onPerformanceHudConfigChanged = onPerformanceHudConfigChanged,
+                                            onFpsLimiterEnabledChanged = onFpsLimiterEnabledChanged,
+                                            onFpsLimiterChanged = onFpsLimiterChanged,
+                                            scrollState = hudScrollState,
+                                            focusRequester = hudItemFocusRequester,
+                                            modifier = Modifier.fillMaxSize(),
+                                        )
+                                    }
+
+                                    QuickMenuTab.LSFG -> {
+                                        LsfgQuickMenuTab(
+                                            multiplier = lsfgMultiplier,
+                                            flowScale = lsfgFlowScale,
+                                            performanceMode = lsfgPerformanceMode,
+                                            onMultiplierChanged = onLsfgMultiplierChanged,
+                                            onFlowScaleChanged = onLsfgFlowScaleChanged,
+                                            onPerformanceModeChanged = onLsfgPerformanceModeChanged,
+                                            backend = lsfgBackend,
+                                            showBackend = !isGamescopeSession,
+                                            onBackendChanged = { backend ->
+                                                lsfgBackend = backend
+                                                container?.let {
+                                                    app.gamenative.utils.LsfgQuickMenuHelper.applyBackend(it, backend, !isGamescopeSession)
+                                                }
+                                            },
+                                            presentMode = lsfgPresentMode,
+                                            onPresentModeChanged = { mode ->
+                                                lsfgPresentMode = mode
+                                                container?.let {
+                                                    app.gamenative.utils.LsfgQuickMenuHelper.applyPresentMode(it, mode, !isGamescopeSession)
+                                                }
+                                            },
+                                            scrollState = lsfgScrollState,
+                                            focusRequester = lsfgItemFocusRequester,
+                                            modifier = Modifier.fillMaxSize(),
+                                        )
+                                    }
+
+                                    QuickMenuTab.INVITE -> {
+                                        if (inviteMenu != null) {
+                                            SteamInviteQuickMenuTab(
+                                                state = inviteMenu,
+                                                focusRequester = inviteItemFocusRequester,
+                                                modifier = Modifier.fillMaxSize(),
+                                            )
+                                        }
+                                    }
+
+                                    QuickMenuTab.EFFECTS -> {
+                                        if (renderer != null) {
+                                            ScreenEffectsTabContent(
+                                                renderer = renderer,
+                                                container = container,
+                                                modifier = Modifier.fillMaxSize(),
+                                                firstItemFocusRequester = effectsItemFocusRequester,
+                                                scrollState = effectsScrollState,
+                                            )
+                                        } else if (glRenderer != null) {
+                                            GLScreenEffectsTabContent(
+                                                renderer = glRenderer,
+                                                container = container,
+                                                modifier = Modifier.fillMaxSize(),
+                                                firstItemFocusRequester = effectsItemFocusRequester,
+                                                scrollState = effectsScrollState,
+                                            )
+                                        } else {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .padding(horizontal = 8.dp, vertical = 16.dp),
+                                                contentAlignment = Alignment.TopStart,
+                                            ) {
+                                                Text(
+                                                    text = stringResource(R.string.main_loading),
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    QuickMenuTab.POWER -> {
+                                        PowerControlQuickMenuTab(
+                                            focusRequester = powerItemFocusRequester,
+                                            modifier = Modifier.fillMaxSize(),
+                                        )
+                                    }
+
+                                    QuickMenuTab.REFRESH_RATE -> {
+                                        mainViewModel?.let { vm ->
+                                            RefreshRateQuickMenuTab(
+                                                viewModel = vm,
+                                                modifier = Modifier.fillMaxSize(),
+                                            )
+                                        }
+                                    }
+
+                                    QuickMenuTab.GAMESCOPE -> {
+                                        GamescopeQuickMenuTab(
+                                            container = container,
+                                            scrollState = gamescopeScrollState,
+                                            focusRequester = gamescopeItemFocusRequester,
+                                            modifier = Modifier.fillMaxSize(),
+                                        )
+                                    }
+
+                                    QuickMenuTab.TOOLS -> {
+                                        ToolsQuickMenuTab(
+                                            processes = wineProcesses,
+                                            isLoadingProcesses = isWineProcessesLoading,
+                                            onEndProcess = onEndWineProcess,
+                                            firstItemFocusRequester = toolsItemFocusRequester,
+                                            modifier = Modifier.fillMaxSize(),
+                                        )
+                                    }
+
+                                    QuickMenuTab.IMMERSIVE -> {
+                                        if (immersiveControls != null) {
+                                            ImmersiveQuickMenuTab(
+                                                controls = immersiveControls,
+                                                scrollState = immersiveScrollState,
+                                                focusRequester = immersiveItemFocusRequester,
+                                                modifier = Modifier.fillMaxSize(),
+                                            )
+                                        }
+                                    }
+
+                                    QuickMenuTab.CONTROLLER -> {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .verticalScroll(controllerScrollState)
+                                                .focusGroup(),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                                        ) {
+                                            val gyroEnabled = gyroMenu?.settings?.mode
+                                                ?.let { it != GyroSettings.MODE_DISABLED } == true
+                                            val touchscreenEnabled = isTouchscreenModeActive
+                                            val shooterEnabled = isShooterModeActive
+                                            controllerItems.forEachIndexed { index, item ->
+                                                QuickMenuItemRow(
+                                                    item = item,
+                                                    isActive = if (item.id == QuickMenuAction.GYRO) {
+                                                        gyroEnabled
+                                                    } else if (item.id == QuickMenuAction.TOUCHSCREEN_MODE) {
+                                                        touchscreenEnabled
+                                                    } else if (item.id == QuickMenuAction.SHOOTER_MODE) {
+                                                        shooterEnabled
+                                                    } else {
+                                                        item.id in activeToggleIds
+                                                    },
+                                                    onClick = {
+                                                        if (item.id == QuickMenuAction.GYRO && gyroMenu != null) {
+                                                            gyroMenu.setEnabled(!gyroEnabled)
+                                                        } else if (item.id == QuickMenuAction.CONTROL_PROFILES) {
+                                                            controlProfileReturnFocusRequester = lastControllerFocusRequester
+                                                            showControlProfiles = true
+                                                        } else if (onItemSelected(item.id)) {
+                                                            onDismiss()
+                                                        }
+                                                    },
+                                                    focusRequester = if (index == 0) controllerItemFocusRequester else null,
+                                                    onFocused = { lastControllerFocusRequester = it },
+                                                    secondaryIcon = if (item.id == QuickMenuAction.INPUT_CONTROLS && item.id in activeToggleIds)
+                                                        Icons.Default.Settings
+                                                    else if (item.id == QuickMenuAction.EDIT_PHYSICAL_CONTROLLER)
+                                                        Icons.Default.Settings
+                                                    else if (item.id == QuickMenuAction.TOUCHSCREEN_MODE && touchscreenEnabled)
+                                                        Icons.Default.Settings
+                                                    else if (item.id == QuickMenuAction.SHOOTER_MODE && shooterEnabled)
+                                                        Icons.Default.Settings
+                                                    else if (item.id == QuickMenuAction.GYRO && gyroEnabled)
+                                                        Icons.Default.Settings
+                                                    else null,
+                                                    secondaryContentDescriptionResId = if (item.id == QuickMenuAction.INPUT_CONTROLS && item.id in activeToggleIds)
+                                                        R.string.on_screen_controller_settings
+                                                    else if (item.id == QuickMenuAction.EDIT_PHYSICAL_CONTROLLER)
+                                                        R.string.physical_controller_settings_title
+                                                    else if (item.id == QuickMenuAction.TOUCHSCREEN_MODE && touchscreenEnabled)
+                                                        R.string.gesture_settings_title
+                                                    else if (item.id == QuickMenuAction.SHOOTER_MODE && shooterEnabled)
+                                                        R.string.shooter_mode_settings_title
+                                                    else if (item.id == QuickMenuAction.GYRO && gyroEnabled)
+                                                        R.string.gyro_settings_title
+                                                    else null,
+                                                    onSecondaryClick = if (item.id == QuickMenuAction.INPUT_CONTROLS && item.id in activeToggleIds)
+                                                        ({ onScreenControllerSettingsProfile = PluviaApp.inputControlsView?.profile })
+                                                    else if (item.id == QuickMenuAction.EDIT_PHYSICAL_CONTROLLER)
+                                                        ({ onItemSelected(QuickMenuAction.PHYSICAL_CONTROLLER_SETTINGS) })
+                                                    else if (item.id == QuickMenuAction.TOUCHSCREEN_MODE && touchscreenEnabled)
+                                                        onTouchGestureSettingsClick
+                                                    else if (item.id == QuickMenuAction.SHOOTER_MODE && shooterEnabled)
+                                                        onShooterModeSettingsClick
+                                                    else if (item.id == QuickMenuAction.GYRO && gyroEnabled)
+                                                        ({ showGyroSettingsDialog = true })
+                                                    else null,
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    else -> Unit
                                 }
                             }
                         }
@@ -451,387 +1279,1896 @@ fun QuickMenu(
             }
         }
     }
-    LaunchedEffect(isVisible, selectedTab) { onToolsVisibilityChanged(isVisible && selectedTab == QuickMenuTab.TOOLS) }
-}
-
-@Composable
-private fun QuickMenuTabButton(icon: ImageVector, contentDescriptionResId: Int, selected: Boolean, accentColor: Color, onSelected: () -> Unit, modifier: Modifier = Modifier, focusRequester: FocusRequester? = null) {
-    val interactionSource = remember { MutableInteractionSource() }; val isFocused by interactionSource.collectIsFocusedAsState(); val looks = LocalLooksState.current; val contentColor = glassContentColor(); val inputBypass = LocalImmersiveInputBypass.current; LaunchedEffect(isFocused) { inputBypass.reportActivate(interactionSource, if (isFocused) onSelected else null) }
-    Box(modifier = modifier.size(56.dp).clip(RoundedCornerShape(14.dp)).background(when { selected -> accentColor.copy(alpha = 0.18f); isFocused -> accentColor.copy(alpha = 0.12f); else -> if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f) }).focusRing(interactionSource, RoundedCornerShape(14.dp), width = 2.dp).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).onFocusChanged { if (it.isFocused && !selected) onSelected() }.hapticSelectable(selected = selected, interactionSource = interactionSource, indication = null, onClick = onSelected).focusable(interactionSource = interactionSource), contentAlignment = Alignment.Center) { Icon(imageVector = icon, contentDescription = stringResource(contentDescriptionResId), tint = if (selected || isFocused) accentColor else contentColor.copy(alpha = 0.7f), modifier = Modifier.size(24.dp)) }
-}
-
-@Composable
-private fun QuickMenuRailActionButton(item: QuickMenuItem, onClick: () -> Unit, modifier: Modifier = Modifier, focusRequester: FocusRequester? = null) {
-    val interactionSource = remember { MutableInteractionSource() }; val inputBypass = LocalImmersiveInputBypass.current; val isFocused by interactionSource.collectIsFocusedAsState(); val accentColor = if (item.accentColor != Color.Unspecified) item.accentColor else MaterialTheme.colorScheme.error; val shape = RoundedCornerShape(14.dp)
-    Box(modifier = modifier.size(56.dp).then(if (isFocused) Modifier.border(width = 2.dp, color = accentColor.copy(alpha = 0.7f), shape = shape) else Modifier.border(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f), shape = shape)).clip(shape).background(if (isFocused) accentColor.copy(alpha = 0.18f) else accentColor.copy(alpha = 0.08f)).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).hapticClickable(interactionSource = interactionSource, indication = null, onClick = onClick).focusable(interactionSource = interactionSource), contentAlignment = Alignment.Center) { Icon(imageVector = item.icon, contentDescription = stringResource(item.labelResId), tint = if (isFocused) accentColor else accentColor.copy(alpha = 0.9f), modifier = Modifier.size(24.dp)) }
-}
-
-@Composable
-private fun QuickMenuItemRow(item: QuickMenuItem, isActive: Boolean, onClick: () -> Unit, focusRequester: FocusRequester?, secondaryIcon: ImageVector?, secondaryContentDescriptionResId: Int?, onSecondaryClick: (() -> Unit)?, modifier: Modifier = Modifier) {
-    val interactionSource = remember { MutableInteractionSource() }; val inputBypass = LocalImmersiveInputBypass.current; val isFocused by interactionSource.collectIsFocusedAsState(); val looks = LocalLooksState.current; val contentColor = glassContentColor(); val accentColor = if (item.accentColor != Color.Unspecified) item.accentColor else looks.mainColor; val shape = RoundedCornerShape(12.dp)
-    val backgroundBrush = if (isFocused && item.enabled) Brush.horizontalGradient(listOf(accentColor.copy(alpha = 0.15f), accentColor.copy(alpha = 0.05f))) else null
-    val itemBgColor = when { !item.enabled -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f); isFocused || isActive -> accentColor.copy(alpha = 0.2f); else -> if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) }
-
-    Row(modifier = modifier.fillMaxWidth().clip(shape).then(if (backgroundBrush != null) Modifier.background(backgroundBrush) else Modifier).focusRing(interactionSource, shape, width = 2.dp).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).hapticSelectable(selected = isFocused, enabled = item.enabled, interactionSource = interactionSource, indication = null, onClick = onClick).focusable(enabled = item.enabled, interactionSource = interactionSource).padding(horizontal = 12.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Box(modifier = Modifier.size(40.dp).then(if (isActive) Modifier.border(BorderStroke(2.dp, accentColor), CircleShape) else Modifier).clip(CircleShape).background(itemBgColor), contentAlignment = Alignment.Center) { Icon(imageVector = item.icon, contentDescription = null, tint = when { !item.enabled -> contentColor.copy(alpha = 0.4f); isFocused || isActive -> accentColor; else -> contentColor.copy(alpha = 0.7f) }, modifier = Modifier.size(22.dp)) }
-        Text(text = stringResource(item.labelResId), style = MaterialTheme.typography.bodyLarge, color = when { !item.enabled -> contentColor.copy(alpha = 0.4f); isFocused -> accentColor; else -> contentColor }, modifier = Modifier.weight(1f))
-        if (secondaryIcon != null && onSecondaryClick != null) { Box(modifier = Modifier.size(48.dp).clip(CircleShape).background(if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)).hapticClickable(role = Role.Button, onClick = onSecondaryClick), contentAlignment = Alignment.Center) { Icon(imageVector = secondaryIcon, contentDescription = stringResource(secondaryContentDescriptionResId ?: R.string.gesture_settings_title), tint = contentColor.copy(alpha = 0.7f), modifier = Modifier.size(18.dp)) } }
     }
-}
 
-@Composable
-private fun SteamInviteQuickMenuTab(state: SteamInviteState, focusRequester: FocusRequester? = null, modifier: Modifier = Modifier) {
-    val scrollState = rememberScrollState(); val accentColor = PluviaTheme.colors.accentPurple; val scope = rememberCoroutineScope(); LaunchedEffect(Unit) { state.refresh(); while (true) { delay(3000); state.refreshQuietly() } }
-    Column(modifier = modifier.verticalScroll(scrollState).focusGroup(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        QuickMenuSectionHeader(title = when { state.isLoading -> stringResource(R.string.main_loading); state.hostUnavailable -> stringResource(R.string.steam_invite_unavailable); else -> stringResource(R.string.steam_invite_header, state.friends.size) }, subtitle = state.lastError?.let { stringResource(it) })
-        state.friends.forEachIndexed { index, friend -> QuickMenuDetailRow(title = friend.name, subtitle = stringResource(when { friend.inOurLobby -> R.string.steam_invite_joined; friend.isJoinable -> R.string.steam_invite_joinable; friend.steamId in state.inviteSent -> R.string.steam_invite_sent; friend.isOnline -> R.string.steam_invite_online; else -> R.string.steam_invite_offline }), accentColor = accentColor, onActivate = { scope.launch { if (friend.isJoinable) state.join(friend) else state.invite(friend.steamId) } }, focusRequester = if (index == 0) focusRequester else null) }
+    if (showGyroSettingsDialog && gyroMenu != null) {
+        GyroSettingsDialog(
+            gyroSettings = gyroMenu.settings,
+            tiltAvailable = gyroMenu.isTiltAvailable,
+            hasGyroControlAssigned = gyroMenu::hasGyroControlAssigned,
+            onDismiss = { showGyroSettingsDialog = false },
+            onSave = { settings ->
+                gyroMenu.persistSettings(settings)
+                showGyroSettingsDialog = false
+            },
+            onAssignControl = { settings ->
+                gyroMenu.persistSettings(settings)
+                showGyroSettingsDialog = false
+                if (onItemSelected(QuickMenuAction.EDIT_CONTROLS)) onDismiss()
+            },
+        )
     }
-}
 
-@Composable
-private fun ToolsQuickMenuTab(processes: List<ProcessInfo>, isLoadingProcesses: Boolean, onEndProcess: (ProcessInfo) -> Unit, firstItemFocusRequester: FocusRequester? = null, modifier: Modifier = Modifier) {
-    val scrollState = rememberScrollState(); val accentColor = PluviaTheme.colors.accentPurple; val contentColor = glassContentColor()
-    Column(modifier = modifier.verticalScroll(scrollState).focusGroup(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        QuickMenuSectionHeader(title = if (isLoadingProcesses) stringResource(R.string.main_loading) else stringResource(R.string.tools_wine_processes_running_hint, processes.size))
-        if (!isLoadingProcesses && processes.isEmpty()) { Text(text = stringResource(R.string.tools_wine_processes_empty), style = MaterialTheme.typography.bodyMedium, color = contentColor.copy(alpha = 0.7f), modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) }
-        else { processes.forEachIndexed { index, process -> QuickMenuDetailRow(title = process.name + if (process.wow64Process) " *32" else "", subtitle = process.formattedMemoryUsage, accentColor = accentColor, onActivate = { onEndProcess(process) }, focusRequester = if (index == 0) firstItemFocusRequester else null) } }
+    onScreenControllerSettingsProfile?.let { profile ->
+        OnScreenControllerSettingsDialog(
+            initialCursorSpeed = profile.cursorSpeed,
+            onDismiss = { onScreenControllerSettingsProfile = null },
+            onSave = { speed ->
+                profile.cursorSpeed = speed
+                profile.save()
+                PluviaApp.touchpadView?.setSensitivity(profile.cursorSpeed)
+                onScreenControllerSettingsProfile = null
+            },
+        )
     }
-}
 
-@Composable
-private fun PerformanceHudQuickMenuTab(isPerformanceHudEnabled: Boolean, config: PerformanceHudConfig, fpsLimiterEnabled: Boolean, fpsLimiterTarget: Int, fpsLimiterMax: Int, lsfgMultiplier: Int, onToggle: () -> Unit, onConfigChanged: (PerformanceHudConfig) -> Unit, onFpsEnabled: (Boolean) -> Unit, onFpsChanged: (Int) -> Unit, scrollState: ScrollState, focusRequester: FocusRequester? = null, modifier: Modifier = Modifier) {
-    val accentColor = PluviaTheme.colors.accentPurple; val contentColor = glassContentColor()
-    Column(modifier = modifier.verticalScroll(scrollState).focusGroup(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        QuickMenuToggleRow(title = stringResource(R.string.performance_hud_fps_limiter), subtitle = if (lsfgMultiplier >= 2) stringResource(R.string.performance_hud_fps_limiter_lsfg_base) else null, enabled = fpsLimiterEnabled, onToggle = { onFpsEnabled(!fpsLimiterEnabled) }, accentColor = accentColor, focusRequester = focusRequester)
-        AnimatedVisibility(visible = fpsLimiterEnabled, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) { Column { Spacer(modifier = Modifier.height(4.dp)); QuickMenuAdjustmentRow(title = stringResource(R.string.performance_hud_fps_limiter_target), valueText = stringResource(R.string.performance_hud_fps_limiter_value, fpsLimiterTarget), progress = (fpsLimiterTarget.toFloat() / fpsLimiterMax.toFloat()).coerceIn(0f, 1f), onDecrease = { onFpsChanged(previousFpsLimiterValue(fpsLimiterTarget, fpsLimiterMax)) }, onIncrease = { onFpsChanged(nextFpsLimiterValue(fpsLimiterTarget, fpsLimiterMax)) }, accentColor = accentColor) } }
-        Spacer(modifier = Modifier.height(8.dp)); QuickMenuToggleRow(title = stringResource(R.string.performance_hud), subtitle = stringResource(R.string.performance_hud_description), enabled = isPerformanceHudEnabled, onToggle = onToggle, accentColor = accentColor)
-        Spacer(modifier = Modifier.height(8.dp)); QuickMenuSectionHeader(title = stringResource(R.string.performance_hud_presets))
-        Row(modifier = Modifier.padding(horizontal = 8.dp).then(if (LocalImmersiveInputBypass.current.active) Modifier.focusGroup() else Modifier), horizontalArrangement = Arrangement.spacedBy(8.dp)) { PerformanceHudPreset.entries.forEach { preset -> QuickMenuChoiceChip(text = stringResource(preset.labelResId), selected = matchesPerformanceHudPreset(config, preset), accentColor = accentColor, onClick = { onConfigChanged(applyPerformanceHudPreset(config, preset)); if (!isPerformanceHudEnabled) onToggle() }, modifier = Modifier.width(56.dp)) } }
-        Spacer(modifier = Modifier.height(8.dp)); QuickMenuSectionHeader(title = stringResource(R.string.performance_hud_appearance))
-        Text(text = stringResource(R.string.performance_hud_size), style = MaterialTheme.typography.labelLarge, color = contentColor, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
-        Row(modifier = Modifier.padding(horizontal = 8.dp).then(if (LocalImmersiveInputBypass.current.active) Modifier.focusGroup() else Modifier), horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(PerformanceHudSize.SMALL to R.string.performance_hud_size_small, PerformanceHudSize.MEDIUM to R.string.performance_hud_size_medium, PerformanceHudSize.LARGE to R.string.performance_hud_size_large).forEach { (size, labelRes) -> QuickMenuChoiceChip(text = stringResource(labelRes), selected = config.size == size, accentColor = accentColor, onClick = { onConfigChanged(config.copy(size = size)) }, modifier = Modifier.width(56.dp)) } }
-        QuickMenuAdjustmentRow(title = stringResource(R.string.performance_hud_background_opacity), valueText = stringResource(R.string.performance_hud_percentage_value, (config.backgroundOpacity * 100f).roundToInt()), progress = normalizedProgress(config.backgroundOpacity, 0f, 1f), onDecrease = { onConfigChanged(config.copy(backgroundOpacity = (config.backgroundOpacity - 0.05f).coerceIn(0f, 1f))) }, onIncrease = { onConfigChanged(config.copy(backgroundOpacity = (config.backgroundOpacity + 0.05f).coerceIn(0f, 1f))) }, accentColor = accentColor)
-        QuickMenuAdjustmentRow(title = stringResource(R.string.performance_hud_color_intensity), valueText = stringResource(R.string.performance_hud_percentage_value, (config.colorIntensity * 100f).roundToInt()), progress = normalizedProgress(config.colorIntensity, 0f, 1f), onDecrease = { onConfigChanged(config.copy(colorIntensity = (config.colorIntensity - 0.05f).coerceIn(0f, 1f))) }, onIncrease = { onConfigChanged(config.copy(colorIntensity = (config.colorIntensity + 0.05f).coerceIn(0f, 1f))) }, accentColor = accentColor)
-        QuickMenuToggleRow(title = stringResource(R.string.performance_hud_text_outline), enabled = config.showTextOutline, onToggle = { onConfigChanged(config.copy(showTextOutline = !config.showTextOutline)) }, accentColor = accentColor)
-        Spacer(modifier = Modifier.height(8.dp)); QuickMenuSectionHeader(title = stringResource(R.string.performance_hud_metrics))
-        QuickMenuToggleRow(title = stringResource(R.string.performance_hud_frame_rate), enabled = config.showFrameRate, onToggle = { onConfigChanged(config.copy(showFrameRate = !config.showFrameRate)) }, accentColor = accentColor)
-        QuickMenuToggleRow(title = stringResource(R.string.performance_hud_frame_rate_graph), enabled = config.showFrameRateGraph, onToggle = { onConfigChanged(config.copy(showFrameRateGraph = !config.showFrameRateGraph)) }, accentColor = accentColor)
-        QuickMenuToggleRow(title = stringResource(R.string.performance_hud_refresh_rate), enabled = config.showRefreshRate, onToggle = { onConfigChanged(config.copy(showRefreshRate = !config.showRefreshRate)) }, accentColor = accentColor)
-        QuickMenuToggleRow(title = stringResource(R.string.performance_hud_cpu_usage), enabled = config.showCpuUsage, onToggle = { onConfigChanged(config.copy(showCpuUsage = !config.showCpuUsage)) }, accentColor = accentColor)
-        QuickMenuToggleRow(title = stringResource(R.string.performance_hud_cpu_usage_graph), enabled = config.showCpuUsageGraph, onToggle = { onConfigChanged(config.copy(showCpuUsageGraph = !config.showCpuUsageGraph)) }, accentColor = accentColor)
-        QuickMenuToggleRow(title = stringResource(R.string.performance_hud_gpu_usage), enabled = config.showGpuUsage, onToggle = { onConfigChanged(config.copy(showGpuUsage = !config.showGpuUsage)) }, accentColor = accentColor)
-        QuickMenuToggleRow(title = stringResource(R.string.performance_hud_gpu_usage_graph), enabled = config.showGpuUsageGraph, onToggle = { onConfigChanged(config.copy(showGpuUsageGraph = !config.showGpuUsageGraph)) }, accentColor = accentColor)
-        QuickMenuToggleRow(title = stringResource(R.string.performance_hud_ram_usage), enabled = config.showRamUsage, onToggle = { onConfigChanged(config.copy(showRamUsage = !config.showRamUsage)) }, accentColor = accentColor)
-        QuickMenuToggleRow(title = stringResource(R.string.performance_hud_battery_level), enabled = config.showBatteryLevel, onToggle = { onConfigChanged(config.copy(showBatteryLevel = !config.showBatteryLevel)) }, accentColor = accentColor)
-        QuickMenuToggleRow(title = stringResource(R.string.performance_hud_power_draw), enabled = config.showPowerDraw, onToggle = { onConfigChanged(config.copy(showPowerDraw = !config.showPowerDraw)) }, accentColor = accentColor)
-        QuickMenuToggleRow(title = stringResource(R.string.performance_hud_runtime_left), enabled = config.showBatteryRuntime, onToggle = { onConfigChanged(config.copy(showBatteryRuntime = !config.showBatteryRuntime)) }, accentColor = accentColor)
-        QuickMenuToggleRow(title = stringResource(R.string.performance_hud_battery_temperature), enabled = config.showBatteryTemperature, onToggle = { onConfigChanged(config.copy(showBatteryTemperature = !config.showBatteryTemperature)) }, accentColor = accentColor)
-        QuickMenuToggleRow(title = stringResource(R.string.performance_hud_clock_time), enabled = config.showClockTime, onToggle = { onConfigChanged(config.copy(showClockTime = !config.showClockTime)) }, accentColor = accentColor)
-        QuickMenuToggleRow(title = stringResource(R.string.performance_hud_cpu_temperature), enabled = config.showCpuTemperature, onToggle = { onConfigChanged(config.copy(showCpuTemperature = !config.showCpuTemperature)) }, accentColor = accentColor)
-        QuickMenuToggleRow(title = stringResource(R.string.performance_hud_gpu_temperature), enabled = config.showGpuTemperature, onToggle = { onConfigChanged(config.copy(showGpuTemperature = !config.showGpuTemperature)) }, accentColor = accentColor)
-        if (PowerManager.isFanControlAvailable()) { var showFan by remember { mutableStateOf(PrefManager.showPerformanceHudFan) }; QuickMenuToggleRow(title = stringResource(R.string.power_control_hud_show_fan), enabled = showFan, onToggle = { showFan = !showFan; PrefManager.showPerformanceHudFan = showFan }, accentColor = accentColor) }
-        if (PowerManager.isClusterTuningAvailable()) { var showTunerCaps by remember { mutableStateOf(PrefManager.showPerformanceHudTunerCaps) }; QuickMenuToggleRow(title = stringResource(R.string.power_control_hud_show_tuner), enabled = showTunerCaps, onToggle = { showTunerCaps = !showTunerCaps; PrefManager.showPerformanceHudTunerCaps = showTunerCaps }, accentColor = accentColor) }
-        Spacer(modifier = Modifier.height(12.dp))
+    if (showControlProfiles && container != null) {
+        ControlProfileLibraryDialog(
+            container = container,
+            onDismiss = { showControlProfiles = false },
+            onProfileApplied = {
+                // The library deliberately uses a private manager while doing
+                // background I/O. Refresh the live manager on the UI thread only
+                // after the transaction has committed.
+                PluviaApp.inputControlsManager?.reloadProfiles()
+                gyroMenu?.reloadFromContainer()
+                onItemSelected(QuickMenuAction.CONTROL_PROFILE_APPLIED)
+            },
+        )
     }
-}
 
-@Composable
-private fun LsfgQuickMenuTab(multiplier: Int, flowScale: Float, performanceMode: Boolean, onMultiplierChanged: (Int) -> Unit, onFlowScaleChanged: (Float) -> Unit, onPerformanceModeChanged: (Boolean) -> Unit, presentMode: String, onPresentModeChanged: (String) -> Unit, scrollState: ScrollState, focusRequester: FocusRequester? = null, modifier: Modifier = Modifier) {
-    val accentColor = PluviaTheme.colors.accentPurple
-    Column(modifier = modifier.verticalScroll(scrollState).focusGroup(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        QuickMenuSectionHeader(title = stringResource(R.string.lsfg_multiplier))
-        Row(modifier = Modifier.padding(horizontal = 8.dp).then(if (LocalImmersiveInputBypass.current.active) Modifier.focusGroup() else Modifier), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(0, 2, 3, 4).forEach { value -> QuickMenuChoiceChip(text = if (value == 0) "Off" else "${value}x", selected = multiplier == value || (value == 0 && multiplier < 2), accentColor = accentColor, onClick = { onMultiplierChanged(value) }, modifier = Modifier.width(56.dp), focusRequester = if (value == 0) focusRequester else null) }
+    LaunchedEffect(showControlProfiles, isVisible) {
+        val returnFocusRequester = controlProfileReturnFocusRequester
+        if (showControlProfiles || returnFocusRequester == null) return@LaunchedEffect
+        if (!isVisible) {
+            controlProfileReturnFocusRequester = null
+            return@LaunchedEffect
         }
-        AnimatedVisibility(visible = multiplier >= 2, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Spacer(modifier = Modifier.height(4.dp)); QuickMenuAdjustmentRow(title = stringResource(R.string.lsfg_flow_scale), subtitle = stringResource(R.string.lsfg_flow_scale_desc), valueText = String.format(java.util.Locale.US, "%.2f", flowScale), progress = (flowScale - 0.25f) / 0.75f, onDecrease = { onFlowScaleChanged((flowScale - 0.05f).coerceIn(0.25f, 1.0f)) }, onIncrease = { onFlowScaleChanged((flowScale + 0.05f).coerceIn(0.25f, 1.0f)) }, accentColor = accentColor)
-                Spacer(modifier = Modifier.height(4.dp)); QuickMenuToggleRow(title = stringResource(R.string.lsfg_performance_mode), subtitle = stringResource(R.string.lsfg_performance_mode_desc), enabled = performanceMode, onToggle = { onPerformanceModeChanged(!performanceMode) }, accentColor = accentColor)
-                Spacer(modifier = Modifier.height(4.dp)); QuickMenuSectionHeader(title = stringResource(R.string.lsfg_present_mode), subtitle = stringResource(R.string.lsfg_present_mode_desc))
-                Row(modifier = Modifier.padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("mailbox" to "Mailbox", "fifo" to "FIFO").forEach { (value, label) -> QuickMenuChoiceChip(text = label, selected = presentMode == value, accentColor = accentColor, onClick = { onPresentModeChanged(value) }, modifier = Modifier.width(96.dp)) }
+        // The library owns a separate window. Let it detach before returning
+        // controller focus to whichever quick-menu control held it before entry.
+        repeat(4) {
+            delay(80)
+            try {
+                if (returnFocusRequester.requestFocus()) {
+                    controlProfileReturnFocusRequester = null
+                    return@LaunchedEffect
+                }
+            } catch (_: IllegalStateException) {
+                // The quick-menu focus target may still be attaching.
+            }
+        }
+        controlProfileReturnFocusRequester = null
+    }
+
+    LaunchedEffect(isVisible, selectedTab) {
+        onToolsVisibilityChanged(isVisible && selectedTab == QuickMenuTab.TOOLS)
+    }
+
+    LaunchedEffect(isVisible, gyroMenu) {
+        if (isVisible) gyroMenu?.reloadFromContainer()
+    }
+
+    // Immersive also re-requests content focus on every tab switch (its LB/RB cycling moves
+    // tabs without ever moving focus); flat mode keeps the original open-only behavior.
+    LaunchedEffect(isVisible, if (immersiveControls != null) selectedTab else Unit) {
+        if (isVisible) {
+            repeat(3) { attempt ->
+                try {
+                    when (selectedTab) {
+                        QuickMenuTab.HUD -> hudItemFocusRequester.requestFocus()
+                        QuickMenuTab.LSFG -> lsfgItemFocusRequester.requestFocus()
+                        QuickMenuTab.INVITE -> inviteItemFocusRequester.requestFocus()
+                        QuickMenuTab.EFFECTS -> effectsItemFocusRequester.requestFocus()
+                        QuickMenuTab.POWER -> powerItemFocusRequester.requestFocus()
+                        QuickMenuTab.GAMESCOPE -> gamescopeItemFocusRequester.requestFocus()
+                        QuickMenuTab.TOOLS -> toolsItemFocusRequester.requestFocus()
+                        QuickMenuTab.IMMERSIVE -> immersiveItemFocusRequester.requestFocus()
+                        else -> controllerItemFocusRequester.requestFocus()
+                    }
+                    Timber.i("QuickMenu: requestFocus succeeded for tab=%d on attempt=%d", selectedTab, attempt)
+                    return@LaunchedEffect
+                } catch (t: Exception) {
+                    Timber.w(t, "QuickMenu: requestFocus threw for tab=%d on attempt=%d", selectedTab, attempt)
+                    delay(80)
                 }
             }
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-    }
-}
-
-@Composable
-private fun ImmersiveQuickMenuTab(controls: app.gamenative.ui.screen.xr.ImmersiveControls, scrollState: ScrollState, focusRequester: FocusRequester? = null, modifier: Modifier = Modifier) {
-    val accentColor = PluviaTheme.colors.accentPurple; val contentColor = glassContentColor()
-    Column(modifier = modifier.verticalScroll(scrollState).focusGroup(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        QuickMenuSectionHeader(title = stringResource(R.string.immersive_passthrough), subtitle = stringResource(R.string.immersive_passthrough_desc))
-        QuickMenuToggleRow(title = stringResource(R.string.immersive_passthrough_toggle), enabled = controls.passthroughEnabled, onToggle = { controls.onPassthroughToggle(!controls.passthroughEnabled) }, accentColor = accentColor, focusRequester = focusRequester)
-        Spacer(modifier = Modifier.height(4.dp)); QuickMenuSectionHeader(title = stringResource(R.string.immersive_resize_mode_title), subtitle = stringResource(R.string.immersive_resize_mode_desc))
-        QuickMenuToggleRow(title = stringResource(R.string.immersive_resize_mode_toggle), enabled = controls.resizeModeEnabled, onToggle = { controls.onResizeModeToggle(!controls.resizeModeEnabled) }, accentColor = accentColor)
-        if (controls.directRenderBlockedByEffects != null) {
-            Spacer(modifier = Modifier.height(4.dp)); QuickMenuSectionHeader(title = stringResource(R.string.immersive_direct_render_title), subtitle = stringResource(if (controls.directRenderBlockedByEffects) R.string.immersive_reset_effects_status_blocked else R.string.immersive_reset_effects_status_ok))
-            val resIntSource = remember { MutableInteractionSource() }; val resIsFocused by resIntSource.collectIsFocusedAsState()
-            val resetBgColor = if (resIsFocused) accentColor.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f)
-            val resetBorderModifier = if (resIsFocused) Modifier.border(width = 2.dp, color = accentColor.copy(alpha = 0.7f), shape = RoundedCornerShape(14.dp)) else Modifier
-            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).clip(RoundedCornerShape(14.dp)).background(resetBgColor).then(resetBorderModifier).selectable(selected = false, interactionSource = resIntSource, indication = null, onClick = controls.onResetScreenEffects).padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(text = stringResource(R.string.immersive_reset_effects_button), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = contentColor)
-                Text(text = stringResource(R.string.immersive_reset_effects_desc), style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = 0.7f))
-            }
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-    }
-}
-
-@Composable
-private fun QuickMenuSectionHeader(title: String, subtitle: String? = null) {
-    val contentColor = glassContentColor()
-    Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-        Text(text = title, style = MaterialTheme.typography.labelLarge, color = contentColor, fontWeight = FontWeight.SemiBold)
-        if (!subtitle.isNullOrBlank()) { Spacer(modifier = Modifier.height(2.dp)); Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = 0.7f)) }
-    }
-}
-
-@Composable
-internal fun QuickMenuToggleRow(title: String, enabled: Boolean, selectable: Boolean = true, onToggle: () -> Unit, accentColor: Color, modifier: Modifier = Modifier, subtitle: String? = null, focusRequester: FocusRequester? = null) {
-    val interactionSource = remember { MutableInteractionSource() }; val inputBypass = LocalImmersiveInputBypass.current; val isFocused by interactionSource.collectIsFocusedAsState(); val contentColor = glassContentColor(); val looks = LocalLooksState.current
-    LaunchedEffect(isFocused, selectable) { inputBypass.reportActivate(interactionSource, if (isFocused && selectable) onToggle else null) }
-    val rowBg = if (isFocused) Brush.horizontalGradient(listOf(accentColor.copy(alpha = 0.16f), accentColor.copy(alpha = 0.08f))) else if (looks.isGlassEnabled) Brush.linearGradient(listOf(Color.Black.copy(alpha = 0.05f), Color.Black.copy(alpha = 0.05f))) else Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f), MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.10f)))
-    val rowBorderModifier = if (isFocused) Modifier.border(2.dp, accentColor.copy(alpha = 0.7f), RoundedCornerShape(14.dp)) else Modifier
-    Row(modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).clip(RoundedCornerShape(14.dp)).background(rowBg).then(rowBorderModifier).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).hapticSelectable(selected = isFocused, interactionSource = interactionSource, indication = null, onClick = { if (selectable) { onToggle() } }).then(if (inputBypass.active) Modifier else Modifier.focusable(interactionSource = interactionSource)).padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Column(modifier = Modifier.weight(1f).then(if (!selectable) Modifier.alpha(0.5f) else Modifier)) {
-            Text(text = title, style = MaterialTheme.typography.bodyLarge, color = contentColor, fontWeight = if (isFocused) FontWeight.SemiBold else FontWeight.Medium)
-            if (!subtitle.isNullOrBlank()) { Spacer(modifier = Modifier.height(4.dp)); Text(text = subtitle, style = MaterialTheme.typography.bodyMedium, color = contentColor.copy(alpha = 0.7f)) }
-        }
-        Box(modifier = if (!selectable) Modifier.alpha(0.5f) else Modifier) { QuickMenuSwitch(enabled = enabled, accentColor = accentColor) }
-    }
-}
-
-@Composable
-private fun QuickMenuSwitch(enabled: Boolean, accentColor: Color) {
-    val looks = LocalLooksState.current
-    Box(modifier = Modifier.width(56.dp).height(32.dp).clip(RoundedCornerShape(999.dp)).background(if (enabled) accentColor else if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)).border(width = 1.dp, color = if (enabled) accentColor.copy(alpha = 0.8f) else if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.2f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f), shape = RoundedCornerShape(999.dp)).padding(4.dp)) {
-        Box(modifier = Modifier.size(22.dp).align(if (enabled) Alignment.CenterEnd else Alignment.CenterStart).background(if (looks.isGlassEnabled && !enabled) Color.Gray else Color.White, CircleShape))
-    }
-}
-
-@Composable
-internal fun QuickMenuAdjustmentRow(title: String, valueText: String, progress: Float, onDecrease: () -> Unit, onIncrease: () -> Unit, accentColor: Color, modifier: Modifier = Modifier, focusRequester: FocusRequester? = null, subtitle: String? = null) {
-    val interactionSource = remember { MutableInteractionSource() }; val isFocused by interactionSource.collectIsFocusedAsState(); val shape = RoundedCornerShape(14.dp); var isAdjustmentLocked by remember { mutableStateOf(false) }; val inputBypass = LocalImmersiveInputBypass.current; val contentColor = glassContentColor(); val looks = LocalLooksState.current
-    LaunchedEffect(isFocused, isAdjustmentLocked) { inputBypass.reportAdjustment(interactionSource, if (isFocused && isAdjustmentLocked) (onDecrease to onIncrease) else null) }
-    val rowBg = if (isFocused) Brush.horizontalGradient(listOf(accentColor.copy(alpha = 0.16f), accentColor.copy(alpha = 0.08f))) else if (looks.isGlassEnabled) Brush.linearGradient(listOf(Color.Black.copy(alpha = 0.05f), Color.Black.copy(alpha = 0.05f))) else Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f), MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.10f)))
-    val rowBorderModifier = if (isFocused && !isAdjustmentLocked) Modifier.border(2.dp, accentColor.copy(alpha = 0.7f), shape) else Modifier
-    Column(modifier = modifier.padding(horizontal = 8.dp, vertical = 2.dp).clip(shape).background(rowBg).then(rowBorderModifier).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).onFocusChanged { if (!it.isFocused) isAdjustmentLocked = false }.focusable(interactionSource = interactionSource).onPreviewKeyEvent { keyEvent -> if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN && isFocused) { when { keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_BUTTON_A && (!inputBypass.active || !isAdjustmentLocked) -> { isAdjustmentLocked = if (inputBypass.active) true else !isAdjustmentLocked; true }; isAdjustmentLocked && (keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_BUTTON_B || (inputBypass.active && keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_BACK)) -> { isAdjustmentLocked = false; true }; isAdjustmentLocked && keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_LEFT -> { onDecrease(); true }; isAdjustmentLocked && keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT -> { onIncrease(); true }; else -> false } } else false }.hapticSelectable(selected = isFocused, interactionSource = interactionSource, indication = null, onClick = {}).padding(horizontal = 16.dp, vertical = 14.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(text = title, style = MaterialTheme.typography.bodyLarge, color = contentColor, fontWeight = if (isFocused) FontWeight.SemiBold else FontWeight.Medium)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(text = valueText, style = MaterialTheme.typography.labelLarge, color = if (isFocused) accentColor else contentColor.copy(alpha = 0.7f))
-                if (isAdjustmentLocked) Text(text = "●", style = MaterialTheme.typography.labelSmall, color = accentColor)
-            }
-        }
-        if (subtitle != null) { Spacer(modifier = Modifier.height(2.dp)); Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = 0.7f)) }
-        Spacer(modifier = Modifier.height(10.dp))
-        Row(modifier = Modifier.fillMaxWidth().height(36.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            QuickMenuAdjustmentButton(text = "-", rowIsFocused = isFocused, isAdjustmentLocked = isAdjustmentLocked, accentColor = accentColor, onClick = onDecrease)
-            Box(modifier = Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
-                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(999.dp)), color = accentColor, trackColor = if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-                Row(modifier = Modifier.fillMaxSize()) {
-                    Box(modifier = Modifier.weight(1f).fillMaxHeight().hapticClickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDecrease))
-                    Box(modifier = Modifier.weight(1f).fillMaxHeight().hapticClickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onIncrease))
-                }
-            }
-            QuickMenuAdjustmentButton(text = "+", rowIsFocused = isFocused, isAdjustmentLocked = isAdjustmentLocked, accentColor = accentColor, onClick = onIncrease)
+            Timber.w("QuickMenu: requestFocus never succeeded for tab=%d after 3 attempts", selectedTab)
         }
     }
 }
 
 @Composable
-private fun QuickMenuAdjustmentButton(text: String, rowIsFocused: Boolean, isAdjustmentLocked: Boolean, accentColor: Color, onClick: () -> Unit) {
-    val looks = LocalLooksState.current
-    val bgColor = if (isAdjustmentLocked) accentColor.copy(alpha = 0.25f) else if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (rowIsFocused) 0.32f else 0.45f)
-    val borderColor = if (isAdjustmentLocked) accentColor.copy(alpha = 0.9f) else if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
-    Box(modifier = Modifier.width(44.dp).fillMaxHeight().clip(RoundedCornerShape(10.dp)).background(bgColor).border(width = if (isAdjustmentLocked) 2.dp else 1.dp, color = borderColor, shape = RoundedCornerShape(10.dp)).hapticClickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick), contentAlignment = Alignment.Center) {
-        Text(text = text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (isAdjustmentLocked) accentColor else glassContentColor().copy(alpha = 0.7f))
-    }
-}
-
-@Composable
-private fun QuickMenuChoiceChip(text: String, selected: Boolean, accentColor: Color, onClick: () -> Unit, modifier: Modifier = Modifier, focusRequester: FocusRequester? = null) {
-    val interactionSource = remember { MutableInteractionSource() }; val isFocused by interactionSource.collectIsFocusedAsState(); val shape = RoundedCornerShape(12.dp); val inputBypass = LocalImmersiveInputBypass.current; val contentColor = glassContentColor(); val looks = LocalLooksState.current
-    LaunchedEffect(isFocused) { inputBypass.reportActivate(interactionSource, if (isFocused) onClick else null) }
-    val borderColor = if (isFocused) accentColor.copy(alpha = 0.7f) else if (selected) accentColor.copy(alpha = 0.55f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
-    val chipBg = when { selected -> accentColor.copy(alpha = 0.18f); isFocused -> accentColor.copy(alpha = 0.12f); else -> if (looks.isGlassEnabled) Color.Black.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f) }
-    Box(modifier = modifier.height(44.dp).then(if (isFocused) Modifier.border(width = 2.dp, color = borderColor, shape = shape) else Modifier.border(width = 1.dp, color = borderColor, shape = shape)).clip(shape).background(chipBg).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).hapticSelectable(selected = selected, interactionSource = interactionSource, indication = null, onClick = onClick).then(if (inputBypass.active) Modifier else Modifier.focusable(interactionSource = interactionSource)).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
-        Text(text = text, style = MaterialTheme.typography.labelLarge, color = if (selected || isFocused) accentColor else contentColor, fontWeight = if (selected || isFocused) FontWeight.SemiBold else FontWeight.Medium)
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun QuickMenuDetailRow(title: String, subtitle: String, accentColor: Color, onActivate: () -> Unit, modifier: Modifier = Modifier, focusRequester: FocusRequester? = null) {
-    val interactionSource = remember { MutableInteractionSource() }; val isFocused by interactionSource.collectIsFocusedAsState(); val shape = RoundedCornerShape(14.dp); val contentColor = glassContentColor(); val looks = LocalLooksState.current
-    val rowBg = if (isFocused) Brush.horizontalGradient(listOf(accentColor.copy(alpha = 0.14f), accentColor.copy(alpha = 0.06f))) else if (looks.isGlassEnabled) Brush.linearGradient(listOf(Color.Black.copy(alpha = 0.05f), Color.Black.copy(alpha = 0.05f))) else Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f), MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.10f)))
-    Row(modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).clip(shape).background(rowBg).then(if (isFocused) Modifier.border(2.dp, accentColor.copy(alpha = 0.8f), shape) else Modifier).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).focusable(interactionSource = interactionSource).onPreviewKeyEvent { keyEvent -> if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN && isFocused) { when (keyEvent.nativeKeyEvent.keyCode) { KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { onActivate(); true }; else -> false } } else false }.hapticSelectable(selected = isFocused, interactionSource = interactionSource, indication = null, onClick = onActivate).padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.bodyLarge, color = if (isFocused) accentColor else contentColor, fontWeight = if (isFocused) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1, modifier = Modifier.fillMaxWidth().basicMarquee(iterations = Int.MAX_VALUE))
-            Spacer(modifier = Modifier.height(4.dp)); Text(text = subtitle, style = MaterialTheme.typography.bodyMedium, color = if (isFocused) accentColor.copy(alpha = 0.92f) else contentColor.copy(alpha = 0.7f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-    }
-}
-
-@Composable
-private fun LooksQuickMenuTab(
-    viewModel: MainViewModel,
-    modifier: Modifier = Modifier
+private fun SteamInviteQuickMenuTab(
+    state: SteamInviteState,
+    focusRequester: FocusRequester? = null,
+    modifier: Modifier = Modifier,
 ) {
-    val looks = LocalLooksState.current
     val scrollState = rememberScrollState()
+    val accentColor = PluviaTheme.colors.accentPurple
+    val scope = rememberCoroutineScope()
+
+    // Keep polling while the tab is up: a friend joining our lobby is the only signal Steam
+    // gives us that an invite was acted on, so the rows would otherwise go stale.
+    LaunchedEffect(Unit) {
+        state.refresh()
+        while (true) {
+            delay(3000)
+            state.refreshQuietly()
+        }
+    }
 
     Column(
         modifier = modifier
             .verticalScroll(scrollState)
             .focusGroup(),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        QuickMenuToggleRow(
-            title = stringResource(R.string.settings_looks_jiggly_title),
-            enabled = looks.isJigglyAnimations,
-            onToggle = { viewModel.setJigglyAnimations(!looks.isJigglyAnimations) },
-            accentColor = looks.mainColor
+        QuickMenuSectionHeader(
+            title = when {
+                state.isLoading -> stringResource(R.string.main_loading)
+                state.hostUnavailable -> stringResource(R.string.steam_invite_unavailable)
+                else -> stringResource(R.string.steam_invite_header, state.friends.size)
+            },
+            subtitle = state.lastError?.let { stringResource(it) },
         )
 
+        state.friends.forEachIndexed { index, friend ->
+            QuickMenuDetailRow(
+                title = friend.name,
+                subtitle = stringResource(
+                    when {
+                        friend.inOurLobby -> R.string.steam_invite_joined
+                        friend.isJoinable -> R.string.steam_invite_joinable
+                        friend.steamId in state.inviteSent -> R.string.steam_invite_sent
+                        friend.isOnline -> R.string.steam_invite_online
+                        else -> R.string.steam_invite_offline
+                    },
+                ),
+                accentColor = accentColor,
+                onActivate = {
+                    scope.launch {
+                        // Someone already in this game gets joined, not invited.
+                        if (friend.isJoinable) state.join(friend) else state.invite(friend.steamId)
+                    }
+                },
+                focusRequester = if (index == 0) focusRequester else null,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ToolsQuickMenuTab(
+    processes: List<ProcessInfo>,
+    isLoadingProcesses: Boolean,
+    onEndProcess: (ProcessInfo) -> Unit,
+    firstItemFocusRequester: FocusRequester? = null,
+    modifier: Modifier = Modifier,
+) {
+    val scrollState = rememberScrollState()
+    val accentColor = PluviaTheme.colors.accentPurple
+
+    Column(
+        modifier = modifier
+            .verticalScroll(scrollState)
+            .focusGroup(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        QuickMenuSectionHeader(
+            title = if (isLoadingProcesses) {
+                stringResource(R.string.main_loading)
+            } else {
+                stringResource(R.string.tools_wine_processes_running_hint, processes.size)
+            },
+        )
+
+        if (!isLoadingProcesses && processes.isEmpty()) {
+            Text(
+                text = stringResource(R.string.tools_wine_processes_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        } else {
+            processes.forEachIndexed { index, process ->
+                QuickMenuDetailRow(
+                    title = process.name + if (process.wow64Process) " *32" else "",
+                    subtitle = process.formattedMemoryUsage,
+                    accentColor = accentColor,
+                    onActivate = {
+                        onEndProcess(process)
+                    },
+                    focusRequester = if (index == 0) firstItemFocusRequester else null,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PerformanceHudQuickMenuTab(
+    isPerformanceHudEnabled: Boolean,
+    performanceHudConfig: PerformanceHudConfig,
+    fpsLimiterEnabled: Boolean,
+    fpsLimiterTarget: Int,
+    fpsLimiterMax: Int,
+    lsfgMultiplier: Int,
+    onTogglePerformanceHud: () -> Unit,
+    onPerformanceHudConfigChanged: (PerformanceHudConfig) -> Unit,
+    onFpsLimiterEnabledChanged: (Boolean) -> Unit,
+    onFpsLimiterChanged: (Int) -> Unit,
+    scrollState: ScrollState,
+    focusRequester: FocusRequester? = null,
+    modifier: Modifier = Modifier,
+) {
+    val accentColor = PluviaTheme.colors.accentPurple
+
+    Column(
+        modifier = modifier
+            .verticalScroll(scrollState)
+            .focusGroup(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        // ── FPS Limiter (topmost) ────────────────────────────────────────
+        val lsfgActive = lsfgMultiplier >= 2
         QuickMenuToggleRow(
-            title = stringResource(R.string.settings_looks_glass_title),
-            enabled = looks.isGlassEnabled,
-            onToggle = { viewModel.setGlassPanels(!looks.isGlassEnabled) },
-            accentColor = looks.mainColor
+            title = stringResource(R.string.performance_hud_fps_limiter),
+            subtitle = if (lsfgActive) {
+                stringResource(R.string.performance_hud_fps_limiter_lsfg_base)
+            } else null,
+            enabled = fpsLimiterEnabled,
+            onToggle = { onFpsLimiterEnabledChanged(!fpsLimiterEnabled) },
+            accentColor = accentColor,
+            focusRequester = focusRequester,
         )
 
         AnimatedVisibility(
-            visible = looks.isGlassEnabled,
+            visible = fpsLimiterEnabled,
             enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
+            exit = shrinkVertically() + fadeOut(),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                QuickMenuToggleRow(
-                    title = "Glass Mode: " + if (looks.glassMode == GlassMode.LIQUID) "Liquid" else "Normal",
-                    enabled = looks.glassMode == GlassMode.LIQUID,
-                    onToggle = {
-                        viewModel.setGlassMode(if (looks.glassMode == GlassMode.LIQUID) GlassMode.STANDARD else GlassMode.LIQUID)
-                    },
-                    accentColor = looks.mainColor
-                )
+            Column {
+                Spacer(modifier = Modifier.height(4.dp))
                 QuickMenuAdjustmentRow(
-                    title = "Liquid Distortion",
-                    valueText = String.format(Locale.US, "%.1fx", 1f + looks.liquidDistortion * 9f),
-                    progress = looks.liquidDistortion,
+                    title = stringResource(R.string.performance_hud_fps_limiter_target),
+                    valueText = stringResource(
+                        R.string.performance_hud_fps_limiter_value,
+                        fpsLimiterTarget,
+                    ),
+                    progress = fpsLimiterProgress(fpsLimiterTarget, fpsLimiterMax),
                     onDecrease = {
-                        viewModel.setLiquidDistortion((looks.liquidDistortion - 0.05f).coerceIn(0f, 1f))
+                        onFpsLimiterChanged(previousFpsLimiterValue(fpsLimiterTarget, fpsLimiterMax))
                     },
                     onIncrease = {
-                        viewModel.setLiquidDistortion((looks.liquidDistortion + 0.05f).coerceIn(0f, 1f))
+                        onFpsLimiterChanged(nextFpsLimiterValue(fpsLimiterTarget, fpsLimiterMax))
                     },
-                    accentColor = looks.mainColor
-                )
-
-                QuickMenuColorPickerRow(
-                    title = "Glass Colour",
-                    currentColor = looks.glassColor,
-                    onColorSelected = { viewModel.setGlassColor(it) }
+                    accentColor = accentColor,
                 )
             }
         }
 
-        val fontOptions = FontType.entries.map { stringResource(it.labelResId) }
-        val currentFontIndex = FontType.entries.indexOfFirst {
-            when (it) {
-                FontType.NDOT -> looks.fontType == NdotFontFamily
-                FontType.NORMAL -> looks.fontType == PTMonoFontFamily
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // ── Performance HUD ──────────────────────────────────────────────
+        QuickMenuToggleRow(
+            title = stringResource(R.string.performance_hud),
+            subtitle = stringResource(R.string.performance_hud_description),
+            enabled = isPerformanceHudEnabled,
+            onToggle = onTogglePerformanceHud,
+            accentColor = accentColor,
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        QuickMenuSectionHeader(
+            title = stringResource(R.string.performance_hud_presets),
+        )
+
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 8.dp)
+                // Immersive only: groups the chips so directional focus enters the row as a
+                // unit. Flat mode keeps master's traversal.
+                .then(if (LocalImmersiveInputBypass.current.active) Modifier.focusGroup() else Modifier),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            PerformanceHudPreset.values().forEach { preset ->
+                QuickMenuChoiceChip(
+                    text = stringResource(preset.labelResId),
+                    selected = matchesPerformanceHudPreset(performanceHudConfig, preset),
+                    accentColor = accentColor,
+                    onClick = {
+                        onPerformanceHudConfigChanged(applyPerformanceHudPreset(performanceHudConfig, preset))
+                        if (!isPerformanceHudEnabled) {
+                            onTogglePerformanceHud()
+                        }
+                    },
+                    modifier = Modifier.width(56.dp),
+                )
             }
-        }.coerceAtLeast(0)
+        }
 
-        SettingsListDropdown(
-            colors = settingsTileColorsAlt(),
-            value = currentFontIndex,
-            items = fontOptions,
-            onItemSelected = { index ->
-                viewModel.setFontType(FontType.entries[index])
+        Spacer(modifier = Modifier.height(8.dp))
+
+        QuickMenuSectionHeader(
+            title = stringResource(R.string.performance_hud_appearance),
+        )
+
+        Text(
+            text = stringResource(R.string.performance_hud_size),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+        )
+
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 8.dp)
+                // Immersive only: groups the chips so directional focus enters the row as a
+                // unit. Flat mode keeps master's traversal.
+                .then(if (LocalImmersiveInputBypass.current.active) Modifier.focusGroup() else Modifier),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf(
+                PerformanceHudSize.SMALL to R.string.performance_hud_size_small,
+                PerformanceHudSize.MEDIUM to R.string.performance_hud_size_medium,
+                PerformanceHudSize.LARGE to R.string.performance_hud_size_large,
+            ).forEach { (size, labelResId) ->
+                QuickMenuChoiceChip(
+                    text = stringResource(labelResId),
+                    selected = performanceHudConfig.size == size,
+                    accentColor = accentColor,
+                    onClick = {
+                        onPerformanceHudConfigChanged(performanceHudConfig.copy(size = size))
+                    },
+                    modifier = Modifier.width(56.dp),
+                )
+            }
+        }
+
+        QuickMenuAdjustmentRow(
+            title = stringResource(R.string.performance_hud_background_opacity),
+            valueText = stringResource(
+                R.string.performance_hud_percentage_value,
+                (performanceHudConfig.backgroundOpacity * 100f).roundToInt(),
+            ),
+            progress = normalizedProgress(performanceHudConfig.backgroundOpacity, 0f, 1f),
+            onDecrease = {
+                onPerformanceHudConfigChanged(
+                    performanceHudConfig.copy(
+                        backgroundOpacity = (performanceHudConfig.backgroundOpacity - 0.05f).coerceIn(0f, 1f),
+                    ),
+                )
             },
-            title = { Text(text = stringResource(R.string.settings_looks_font_type_title)) }
+            onIncrease = {
+                onPerformanceHudConfigChanged(
+                    performanceHudConfig.copy(
+                        backgroundOpacity = (performanceHudConfig.backgroundOpacity + 0.05f).coerceIn(0f, 1f),
+                    ),
+                )
+            },
+            accentColor = accentColor,
         )
 
-        QuickMenuColorPickerRow(
-            title = "Main Colour",
-            currentColor = looks.mainColor,
-            onColorSelected = { viewModel.setMainColor(it) }
+        QuickMenuAdjustmentRow(
+            title = stringResource(R.string.performance_hud_color_intensity),
+            valueText = stringResource(
+                R.string.performance_hud_percentage_value,
+                (performanceHudConfig.colorIntensity * 100f).roundToInt(),
+            ),
+            progress = normalizedProgress(performanceHudConfig.colorIntensity, 0f, 1f),
+            onDecrease = {
+                onPerformanceHudConfigChanged(
+                    performanceHudConfig.copy(
+                        colorIntensity = (performanceHudConfig.colorIntensity - 0.05f).coerceIn(0f, 1f),
+                    ),
+                )
+            },
+            onIncrease = {
+                onPerformanceHudConfigChanged(
+                    performanceHudConfig.copy(
+                        colorIntensity = (performanceHudConfig.colorIntensity + 0.05f).coerceIn(0f, 1f),
+                    ),
+                )
+            },
+            accentColor = accentColor,
         )
 
-        QuickMenuColorPickerRow(
-            title = "Wallpaper Colour",
-            currentColor = looks.wallpaperColor,
-            onColorSelected = { viewModel.setWallpaperColor(it) }
+        QuickMenuToggleRow(
+            title = stringResource(R.string.performance_hud_text_outline),
+            enabled = performanceHudConfig.showTextOutline,
+            onToggle = {
+                onPerformanceHudConfigChanged(
+                    performanceHudConfig.copy(showTextOutline = !performanceHudConfig.showTextOutline),
+                )
+            },
+            accentColor = accentColor,
         )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        QuickMenuSectionHeader(
+            title = stringResource(R.string.performance_hud_metrics),
+        )
+
+        QuickMenuToggleRow(
+            title = stringResource(R.string.performance_hud_frame_rate),
+            enabled = performanceHudConfig.showFrameRate,
+            onToggle = {
+                onPerformanceHudConfigChanged(
+                    performanceHudConfig.copy(showFrameRate = !performanceHudConfig.showFrameRate),
+                )
+            },
+            accentColor = accentColor,
+        )
+        QuickMenuToggleRow(
+            title = stringResource(R.string.performance_hud_frame_rate_graph),
+            enabled = performanceHudConfig.showFrameRateGraph,
+            onToggle = {
+                onPerformanceHudConfigChanged(
+                    performanceHudConfig.copy(showFrameRateGraph = !performanceHudConfig.showFrameRateGraph),
+                )
+            },
+            accentColor = accentColor,
+        )
+        QuickMenuToggleRow(
+            title = stringResource(R.string.performance_hud_cpu_usage),
+            enabled = performanceHudConfig.showCpuUsage,
+            onToggle = {
+                onPerformanceHudConfigChanged(
+                    performanceHudConfig.copy(showCpuUsage = !performanceHudConfig.showCpuUsage),
+                )
+            },
+            accentColor = accentColor,
+        )
+        QuickMenuToggleRow(
+            title = stringResource(R.string.performance_hud_cpu_usage_graph),
+            enabled = performanceHudConfig.showCpuUsageGraph,
+            onToggle = {
+                onPerformanceHudConfigChanged(
+                    performanceHudConfig.copy(showCpuUsageGraph = !performanceHudConfig.showCpuUsageGraph),
+                )
+            },
+            accentColor = accentColor,
+        )
+        QuickMenuToggleRow(
+            title = stringResource(R.string.performance_hud_gpu_usage),
+            enabled = performanceHudConfig.showGpuUsage,
+            onToggle = {
+                onPerformanceHudConfigChanged(
+                    performanceHudConfig.copy(showGpuUsage = !performanceHudConfig.showGpuUsage),
+                )
+            },
+            accentColor = accentColor,
+        )
+        QuickMenuToggleRow(
+            title = stringResource(R.string.performance_hud_gpu_usage_graph),
+            enabled = performanceHudConfig.showGpuUsageGraph,
+            onToggle = {
+                onPerformanceHudConfigChanged(
+                    performanceHudConfig.copy(showGpuUsageGraph = !performanceHudConfig.showGpuUsageGraph),
+                )
+            },
+            accentColor = accentColor,
+        )
+        QuickMenuToggleRow(
+            title = stringResource(R.string.performance_hud_ram_usage),
+            enabled = performanceHudConfig.showRamUsage,
+            onToggle = {
+                onPerformanceHudConfigChanged(
+                    performanceHudConfig.copy(showRamUsage = !performanceHudConfig.showRamUsage),
+                )
+            },
+            accentColor = accentColor,
+        )
+        QuickMenuToggleRow(
+            title = stringResource(R.string.performance_hud_battery_level),
+            enabled = performanceHudConfig.showBatteryLevel,
+            onToggle = {
+                onPerformanceHudConfigChanged(
+                    performanceHudConfig.copy(showBatteryLevel = !performanceHudConfig.showBatteryLevel),
+                )
+            },
+            accentColor = accentColor,
+        )
+        QuickMenuToggleRow(
+            title = stringResource(R.string.performance_hud_power_draw),
+            enabled = performanceHudConfig.showPowerDraw,
+            onToggle = {
+                onPerformanceHudConfigChanged(
+                    performanceHudConfig.copy(showPowerDraw = !performanceHudConfig.showPowerDraw),
+                )
+            },
+            accentColor = accentColor,
+        )
+        QuickMenuToggleRow(
+            title = stringResource(R.string.performance_hud_runtime_left),
+            enabled = performanceHudConfig.showBatteryRuntime,
+            onToggle = {
+                onPerformanceHudConfigChanged(
+                    performanceHudConfig.copy(showBatteryRuntime = !performanceHudConfig.showBatteryRuntime),
+                )
+            },
+            accentColor = accentColor,
+        )
+        QuickMenuToggleRow(
+            title = stringResource(R.string.performance_hud_battery_temperature),
+            enabled = performanceHudConfig.showBatteryTemperature,
+            onToggle = {
+                onPerformanceHudConfigChanged(
+                    performanceHudConfig.copy(showBatteryTemperature = !performanceHudConfig.showBatteryTemperature),
+                )
+            },
+            accentColor = accentColor,
+        )
+        QuickMenuToggleRow(
+            title = stringResource(R.string.performance_hud_clock_time),
+            enabled = performanceHudConfig.showClockTime,
+            onToggle = {
+                onPerformanceHudConfigChanged(
+                    performanceHudConfig.copy(showClockTime = !performanceHudConfig.showClockTime),
+                )
+            },
+            accentColor = accentColor,
+        )
+        QuickMenuToggleRow(
+            title = stringResource(R.string.performance_hud_cpu_temperature),
+            enabled = performanceHudConfig.showCpuTemperature,
+            onToggle = {
+                onPerformanceHudConfigChanged(
+                    performanceHudConfig.copy(showCpuTemperature = !performanceHudConfig.showCpuTemperature),
+                )
+            },
+            accentColor = accentColor,
+        )
+        QuickMenuToggleRow(
+            title = stringResource(R.string.performance_hud_gpu_temperature),
+            enabled = performanceHudConfig.showGpuTemperature,
+            onToggle = {
+                onPerformanceHudConfigChanged(
+                    performanceHudConfig.copy(showGpuTemperature = !performanceHudConfig.showGpuTemperature),
+                )
+            },
+            accentColor = accentColor,
+        )
+        QuickMenuToggleRow(
+            title = stringResource(R.string.performance_hud_bottleneck),
+            enabled = performanceHudConfig.showBottleneck,
+            onToggle = {
+                onPerformanceHudConfigChanged(
+                    performanceHudConfig.copy(showBottleneck = !performanceHudConfig.showBottleneck),
+                )
+            },
+            accentColor = accentColor,
+        )
+        if (PowerManager.isFanControlAvailable()) {
+            var showFan by remember { mutableStateOf(PrefManager.showPerformanceHudFan) }
+            QuickMenuToggleRow(
+                title = stringResource(R.string.power_control_hud_show_fan),
+                enabled = showFan,
+                onToggle = {
+                    showFan = !showFan
+                    PrefManager.showPerformanceHudFan = showFan
+                },
+                accentColor = accentColor,
+            )
+        }
+        if (PowerManager.isClusterTuningAvailable()) {
+            var showTunerCaps by remember { mutableStateOf(PrefManager.showPerformanceHudTunerCaps) }
+            QuickMenuToggleRow(
+                title = stringResource(R.string.power_control_hud_show_tuner),
+                enabled = showTunerCaps,
+                onToggle = {
+                    showTunerCaps = !showTunerCaps
+                    PrefManager.showPerformanceHudTunerCaps = showTunerCaps
+                },
+                accentColor = accentColor,
+            )
+        }
 
         Spacer(modifier = Modifier.height(12.dp))
     }
 }
 
 @Composable
-private fun QuickMenuColorPickerRow(
-    title: String,
-    currentColor: Color,
-    onColorSelected: (String) -> Unit
+private fun LsfgQuickMenuTab(
+    multiplier: Int,
+    flowScale: Float,
+    performanceMode: Boolean,
+    onMultiplierChanged: (Int) -> Unit,
+    onFlowScaleChanged: (Float) -> Unit,
+    onPerformanceModeChanged: (Boolean) -> Unit,
+    backend: String,
+    onBackendChanged: (String) -> Unit,
+    /** Hidden for a gamescope session: the presenter owns the engine there, so there is no choice. */
+    showBackend: Boolean,
+    presentMode: String,
+    onPresentModeChanged: (String) -> Unit,
+    scrollState: ScrollState,
+    focusRequester: FocusRequester? = null,
+    modifier: Modifier = Modifier,
 ) {
-    var showPicker by remember { mutableStateOf(false) }
-    val contentColor = glassContentColor()
+    val accentColor = PluviaTheme.colors.accentPurple
+    val isEnabled = multiplier >= 2
 
-    if (showPicker) {
-        HSVColorPicker(
-            initialColor = currentColor,
-            onColorSelected = { onColorSelected(it.toHex()) },
-            onDismiss = { showPicker = false }
+    Column(
+        modifier = modifier
+            .verticalScroll(scrollState)
+            .focusGroup(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        // ── Multiplier (Off / 2x / 3x / 4x) ───────────────────────────────
+        QuickMenuSectionHeader(
+            title = stringResource(R.string.lsfg_multiplier),
         )
-    }
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 8.dp)
+                // Immersive only: groups the chips so directional focus enters the row as a
+                // unit. Flat mode keeps master's traversal.
+                .then(if (LocalImmersiveInputBypass.current.active) Modifier.focusGroup() else Modifier),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf(0, 2, 3, 4).forEach { value ->
+                QuickMenuChoiceChip(
+                    text = if (value == 0) "Off" else "${value}x",
+                    selected = multiplier == value || (value == 0 && multiplier < 2),
+                    accentColor = accentColor,
+                    onClick = { onMultiplierChanged(value) },
+                    modifier = Modifier.width(56.dp),
+                    focusRequester = if (value == 0) focusRequester else null,
+                )
+            }
+        }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 2.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .hapticClickable { showPicker = true }
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        AnimatedVisibility(
+            visible = isEnabled,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut(),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // ── Flow Scale ────────────────────────────────────────────
+                QuickMenuAdjustmentRow(
+                    title = stringResource(R.string.lsfg_flow_scale),
+                    subtitle = stringResource(R.string.lsfg_flow_scale_desc),
+                    valueText = String.format(java.util.Locale.US, "%.2f", flowScale),
+                    progress = (flowScale - 0.25f) / 0.75f, // 0.25..1.0 → 0..1
+                    onDecrease = {
+                        val next = (flowScale - 0.05f).coerceIn(0.25f, 1.0f)
+                        onFlowScaleChanged(String.format(java.util.Locale.US, "%.2f", next).toFloat())
+                    },
+                    onIncrease = {
+                        val next = (flowScale + 0.05f).coerceIn(0.25f, 1.0f)
+                        onFlowScaleChanged(String.format(java.util.Locale.US, "%.2f", next).toFloat())
+                    },
+                    accentColor = accentColor,
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // ── Performance Mode ──────────────────────────────────────
+                QuickMenuToggleRow(
+                    title = stringResource(R.string.lsfg_performance_mode),
+                    subtitle = stringResource(R.string.lsfg_performance_mode_desc),
+                    enabled = performanceMode,
+                    onToggle = { onPerformanceModeChanged(!performanceMode) },
+                    accentColor = accentColor,
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // ── Present Mode (Mailbox / FIFO) ─────────────────────────
+                QuickMenuSectionHeader(
+                    title = stringResource(R.string.lsfg_present_mode),
+                    subtitle = stringResource(R.string.lsfg_present_mode_desc),
+                )
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf("mailbox" to "Mailbox", "fifo" to "FIFO").forEach { (value, label) ->
+                        QuickMenuChoiceChip(
+                            text = label,
+                            selected = presentMode == value,
+                            accentColor = accentColor,
+                            onClick = { onPresentModeChanged(value) },
+                            modifier = Modifier.width(96.dp),
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // ── Backend (Legacy layer / Native renderer) ──────────────
+                if (showBackend) {
+                    QuickMenuSectionHeader(
+                        title = stringResource(R.string.lsfg_backend),
+                        subtitle = stringResource(R.string.lsfg_backend_desc),
+                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        listOf(
+                            "native" to stringResource(R.string.lsfg_backend_native),
+                            "legacy" to stringResource(R.string.lsfg_backend_legacy),
+                        ).forEach { (value, label) ->
+                            QuickMenuChoiceChip(
+                                text = label,
+                                selected = backend == value,
+                                accentColor = accentColor,
+                                onClick = { onBackendChanged(value) },
+                                modifier = Modifier.width(120.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+    }
+}
+
+@Composable
+private fun ImmersiveQuickMenuTab(
+    controls: app.gamenative.ui.screen.xr.ImmersiveControls,
+    scrollState: ScrollState,
+    focusRequester: FocusRequester? = null,
+    modifier: Modifier = Modifier,
+) {
+    val accentColor = PluviaTheme.colors.accentPurple
+
+    Column(
+        modifier = modifier
+            .verticalScroll(scrollState)
+            .focusGroup(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        // ── Passthrough ────────────────────────────────────────────────
+        QuickMenuSectionHeader(
+            title = stringResource(R.string.immersive_windows_vr_title),
+            subtitle = "${controls.windowsVrStatus} · ${controls.windowsVrRuntimePath}",
+        )
+        QuickMenuToggleRow(
+            title = stringResource(R.string.immersive_windows_vr_toggle),
+            enabled = controls.windowsVrEnabled,
+            onToggle = { controls.onWindowsVrToggle(!controls.windowsVrEnabled) },
+            accentColor = accentColor,
+            focusRequester = focusRequester,
+        )
+        QuickMenuToggleRow(
+            title = stringResource(R.string.immersive_openvr_compatibility_toggle),
+            enabled = controls.openCompositeEnabled,
+            onToggle = { controls.onOpenCompositeToggle(!controls.openCompositeEnabled) },
+            accentColor = accentColor,
+        )
+        Text(
+            text = stringResource(R.string.immersive_windows_vr_restart_required),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+        QuickMenuDetailRow(
+            title = stringResource(R.string.immersive_windows_vr_export),
+            subtitle = stringResource(R.string.immersive_windows_vr_export_desc),
+            accentColor = accentColor,
+            onActivate = controls.onExportWindowsVrDiagnostics,
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        QuickMenuSectionHeader(
+            title = stringResource(R.string.immersive_passthrough),
+            subtitle = stringResource(R.string.immersive_passthrough_desc),
+        )
+        QuickMenuToggleRow(
+            title = stringResource(R.string.immersive_passthrough_toggle),
+            enabled = controls.passthroughEnabled,
+            onToggle = { controls.onPassthroughToggle(!controls.passthroughEnabled) },
+            accentColor = accentColor,
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        QuickMenuSectionHeader(
+            title = stringResource(R.string.immersive_resize_mode_title),
+            subtitle = stringResource(R.string.immersive_resize_mode_desc),
+        )
+        QuickMenuToggleRow(
+            title = stringResource(R.string.immersive_resize_mode_toggle),
+            enabled = controls.resizeModeEnabled,
+            onToggle = { controls.onResizeModeToggle(!controls.resizeModeEnabled) },
+            accentColor = accentColor,
+        )
+
+        if (controls.directRenderBlockedByEffects != null) {
+            Spacer(modifier = Modifier.height(4.dp))
+            QuickMenuSectionHeader(
+                title = stringResource(R.string.immersive_direct_render_title),
+                subtitle = stringResource(
+                    if (controls.directRenderBlockedByEffects) {
+                        R.string.immersive_reset_effects_status_blocked
+                    } else {
+                        R.string.immersive_reset_effects_status_ok
+                    },
+                ),
+            )
+            val resetInteractionSource = remember { MutableInteractionSource() }
+            val resetIsFocused by resetInteractionSource.collectIsFocusedAsState()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(
+                        if (resetIsFocused) {
+                            accentColor.copy(alpha = 0.16f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f)
+                        },
+                    )
+                    .then(
+                        if (resetIsFocused) {
+                            Modifier.border(width = 2.dp, color = accentColor.copy(alpha = 0.7f), shape = RoundedCornerShape(14.dp))
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .selectable(
+                        selected = false,
+                        interactionSource = resetInteractionSource,
+                        indication = null,
+                        onClick = controls.onResetScreenEffects,
+                    )
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.immersive_reset_effects_button),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = stringResource(R.string.immersive_reset_effects_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+    }
+}
+
+@Composable
+internal fun QuickMenuSectionHeader(
+    title: String,
+    subtitle: String? = null,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.padding(horizontal = 8.dp, vertical = 4.dp),
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.bodyLarge,
-            color = contentColor,
-            fontWeight = FontWeight.Medium
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.SemiBold,
         )
+        if (!subtitle.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuickMenuCloseButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    // Flat mode keeps master's explicit focusable(); the immersive path drops it to
+    // avoid a second focus target on the same element (see LocalImmersiveInputBypass).
+    val inputBypass = LocalImmersiveInputBypass.current
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val shape = RoundedCornerShape(14.dp)
+
+    Box(
+        modifier = modifier
+            .size(44.dp)
+            .clip(shape)
+            .background(
+                if (isFocused) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                } else {
+                    Color.Transparent
+                },
+            )
+            .focusRing(interactionSource, shape, width = 2.dp)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            )
+            .then(
+                // Flat mode keeps master's second focus target; immersive drops it.
+                if (inputBypass.active) Modifier else Modifier.focusable(interactionSource = interactionSource),
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Default.Close,
+            contentDescription = stringResource(R.string.quick_menu_back),
+            tint = if (isFocused) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            modifier = Modifier.size(24.dp),
+        )
+    }
+}
+
+@Composable
+private fun QuickMenuTabButton(
+    icon: ImageVector,
+    contentDescriptionResId: Int,
+    selected: Boolean,
+    accentColor: Color,
+    onSelected: () -> Unit,
+    modifier: Modifier = Modifier,
+    focusRequester: FocusRequester? = null,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val shape = RoundedCornerShape(14.dp)
+    val inputBypass = LocalImmersiveInputBypass.current
+    LaunchedEffect(isFocused) {
+        inputBypass.reportActivate(interactionSource, if (isFocused) onSelected else null)
+    }
+
+    Box(
+        modifier = modifier
+            .size(56.dp)
+            .clip(shape)
+            .background(
+                when {
+                    selected -> accentColor.copy(alpha = 0.18f)
+                    isFocused -> accentColor.copy(alpha = 0.12f)
+                    else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                },
+            )
+            .focusRing(interactionSource, shape, width = 2.dp)
+            .then(
+                if (focusRequester != null) {
+                    Modifier.focusRequester(focusRequester)
+                } else {
+                    Modifier
+                }
+            )
+            .onFocusChanged {
+                if (!inputBypass.active && it.isFocused && !selected) {
+                    onSelected()
+                }
+            }
+            .selectable(
+                selected = selected,
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onSelected,
+            )
+            .then(
+                // Flat mode keeps master's second focus target; immersive drops it.
+                if (inputBypass.active) Modifier else Modifier.focusable(interactionSource = interactionSource),
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = stringResource(contentDescriptionResId),
+            tint = when {
+                selected || isFocused -> accentColor
+                else -> MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            modifier = Modifier.size(24.dp),
+        )
+    }
+}
+
+@Composable
+private fun QuickMenuRailActionButton(
+    item: QuickMenuItem,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    focusRequester: FocusRequester? = null,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    // Flat mode keeps master's explicit focusable(); the immersive path drops it to
+    // avoid a second focus target on the same element (see LocalImmersiveInputBypass).
+    val inputBypass = LocalImmersiveInputBypass.current
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    LaunchedEffect(isFocused) {
+        inputBypass.reportActivate(interactionSource, if (isFocused) onClick else null)
+    }
+    val accentColor = if (item.accentColor != Color.Unspecified) {
+        item.accentColor
+    } else {
+        MaterialTheme.colorScheme.error
+    }
+    val shape = RoundedCornerShape(14.dp)
+
+    Box(
+        modifier = modifier
+            .size(56.dp)
+            .then(
+                if (isFocused) {
+                    Modifier.border(
+                        width = 2.dp,
+                        color = accentColor.copy(alpha = 0.7f),
+                        shape = shape,
+                    )
+                } else {
+                    Modifier.border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                        shape = shape,
+                    )
+                }
+            )
+            .clip(shape)
+            .background(
+                if (isFocused) {
+                    accentColor.copy(alpha = 0.18f)
+                } else {
+                    accentColor.copy(alpha = 0.08f)
+                },
+            )
+            .then(
+                if (focusRequester != null) {
+                    Modifier.focusRequester(focusRequester)
+                } else {
+                    Modifier
+                }
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            )
+            .then(
+                // Flat mode keeps master's second focus target; immersive drops it.
+                if (inputBypass.active) Modifier else Modifier.focusable(interactionSource = interactionSource),
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = item.icon,
+            contentDescription = stringResource(item.labelResId),
+            tint = if (isFocused) accentColor else accentColor.copy(alpha = 0.9f),
+            modifier = Modifier.size(24.dp),
+        )
+    }
+}
+
+@Composable
+internal fun QuickMenuChoiceChip(
+    text: String,
+    selected: Boolean,
+    accentColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    focusRequester: FocusRequester? = null,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val shape = RoundedCornerShape(12.dp)
+    val inputBypass = LocalImmersiveInputBypass.current
+    LaunchedEffect(isFocused) {
+        inputBypass.reportActivate(interactionSource, if (isFocused) onClick else null)
+    }
+
+    Box(
+        modifier = modifier
+            .height(44.dp)
+            .then(
+                if (isFocused) {
+                    Modifier.border(
+                        width = 2.dp,
+                        color = accentColor.copy(alpha = 0.7f),
+                        shape = shape,
+                    )
+                } else {
+                    Modifier.border(
+                        width = 1.dp,
+                        color = if (selected) accentColor.copy(alpha = 0.55f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                        shape = shape,
+                    )
+                }
+            )
+            .clip(shape)
+            .background(
+                when {
+                    selected -> accentColor.copy(alpha = 0.18f)
+                    isFocused -> accentColor.copy(alpha = 0.12f)
+                    else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f)
+                },
+            )
+            .then(
+                if (focusRequester != null) {
+                    Modifier.focusRequester(focusRequester)
+                } else {
+                    Modifier
+                }
+            )
+            .selectable(
+                selected = selected,
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            )
+            .then(
+                // Flat mode keeps master's second focus target; immersive drops it.
+                if (inputBypass.active) Modifier else Modifier.focusable(interactionSource = interactionSource),
+            )
+            .padding(horizontal = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (selected || isFocused) accentColor else MaterialTheme.colorScheme.onSurface,
+            fontWeight = if (selected || isFocused) FontWeight.SemiBold else FontWeight.Medium,
+        )
+    }
+}
+
+@Composable
+internal fun QuickMenuAdjustmentRow(
+    title: String,
+    valueText: String,
+    progress: Float,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit,
+    accentColor: Color,
+    modifier: Modifier = Modifier,
+    focusRequester: FocusRequester? = null,
+    subtitle: String? = null,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val shape = RoundedCornerShape(14.dp)
+    var isAdjustmentLocked by remember { mutableStateOf(false) }
+    val inputBypass = LocalImmersiveInputBypass.current
+    LaunchedEffect(isFocused, isAdjustmentLocked) {
+        inputBypass.reportAdjustment(interactionSource, if (isFocused && isAdjustmentLocked) (onDecrease to onIncrease) else null)
+    }
+
+    Column(
+        modifier = modifier
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .clip(shape)
+            .background(
+                if (isFocused) {
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            accentColor.copy(alpha = 0.16f),
+                            accentColor.copy(alpha = 0.08f),
+                        ),
+                    )
+                } else {
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f),
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.10f),
+                        ),
+                    )
+                },
+            )
+            .then(
+                if (isFocused && !isAdjustmentLocked) {
+                    Modifier.border(
+                        width = 2.dp,
+                        color = accentColor.copy(alpha = 0.7f),
+                        shape = shape,
+                    )
+                } else {
+                    Modifier
+                }
+            )
+            .then(
+                if (focusRequester != null) {
+                    Modifier.focusRequester(focusRequester)
+                } else {
+                    Modifier
+                }
+            )
+            .onFocusChanged {
+                if (!it.isFocused) {
+                    if (isAdjustmentLocked) {
+                        Timber.i("QuickMenu: row '%s' lost focus while locked — force-unlocking", title)
+                    }
+                    isAdjustmentLocked = false
+                }
+            }
+            .focusable(interactionSource = interactionSource)
+            .onPreviewKeyEvent { keyEvent ->
+                if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN && isFocused) {
+                    when {
+                        keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_BUTTON_A &&
+                            (!inputBypass.active || !isAdjustmentLocked) -> {
+                            isAdjustmentLocked = if (inputBypass.active) true else !isAdjustmentLocked
+                            Timber.i("QuickMenu: row '%s' lock now %b", title, isAdjustmentLocked)
+                            true
+                        }
+
+                        isAdjustmentLocked &&
+                            (keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_BUTTON_B ||
+                                (inputBypass.active && keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_BACK)) -> {
+                            isAdjustmentLocked = false
+                            true
+                        }
+
+                        isAdjustmentLocked && keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_LEFT -> {
+                            onDecrease()
+                            true
+                        }
+
+                        isAdjustmentLocked && keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                            onIncrease()
+                            true
+                        }
+
+                        else -> false
+                    }
+                } else {
+                    false
+                }
+            }
+            .selectable(
+                selected = isFocused,
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = {},
+            )
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = if (isFocused) FontWeight.SemiBold else FontWeight.Medium,
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = valueText,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (isFocused) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (isAdjustmentLocked) {
+                    Text(
+                        text = "●",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = accentColor,
+                    )
+                }
+            }
+        }
+
+        if (subtitle != null) {
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(36.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            QuickMenuAdjustmentButton(
+                text = "-",
+                rowIsFocused = isFocused,
+                isAdjustmentLocked = isAdjustmentLocked,
+                accentColor = accentColor,
+                onClick = onDecrease,
+            )
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                contentAlignment = Alignment.Center,
+            ) {
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(999.dp)),
+                    color = accentColor,
+                    trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                )
+
+                Row(modifier = Modifier.fillMaxSize()) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = onDecrease,
+                            ),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = onIncrease,
+                            ),
+                    )
+                }
+            }
+
+            QuickMenuAdjustmentButton(
+                text = "+",
+                rowIsFocused = isFocused,
+                isAdjustmentLocked = isAdjustmentLocked,
+                accentColor = accentColor,
+                onClick = onIncrease,
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuickMenuAdjustmentButton(
+    text: String,
+    rowIsFocused: Boolean,
+    isAdjustmentLocked: Boolean,
+    accentColor: Color,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .width(44.dp)
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(10.dp))
+            .background(
+                if (isAdjustmentLocked) {
+                    accentColor.copy(alpha = 0.25f)
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (rowIsFocused) 0.32f else 0.45f)
+                },
+            )
+            .border(
+                width = if (isAdjustmentLocked) 2.dp else 1.dp,
+                color = if (isAdjustmentLocked) {
+                    accentColor.copy(alpha = 0.9f)
+                } else {
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                },
+                shape = RoundedCornerShape(10.dp),
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = if (isAdjustmentLocked) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+internal fun QuickMenuToggleRow(
+    title: String,
+    enabled: Boolean,
+    selectable: Boolean = true,
+    onToggle: () -> Unit,
+    accentColor: Color,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    focusRequester: FocusRequester? = null,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    // Flat mode keeps master's explicit focusable(); the immersive path drops it to
+    // avoid a second focus target on the same element (see LocalImmersiveInputBypass).
+    val inputBypass = LocalImmersiveInputBypass.current
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    LaunchedEffect(isFocused, selectable) {
+        inputBypass.reportActivate(interactionSource, if (isFocused && selectable) onToggle else null)
+    }
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(
+                if (isFocused) {
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            accentColor.copy(alpha = 0.16f),
+                            accentColor.copy(alpha = 0.08f),
+                        ),
+                    )
+                } else {
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f),
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.10f),
+                        ),
+                    )
+                },
+            )
+            .then(
+                if (isFocused) {
+                    Modifier.border(
+                        width = 2.dp,
+                        color = accentColor.copy(alpha = 0.7f),
+                        shape = RoundedCornerShape(14.dp),
+                    )
+                } else {
+                    Modifier
+                }
+            )
+            .then(
+                if (focusRequester != null) {
+                    Modifier.focusRequester(focusRequester)
+                } else {
+                    Modifier
+                }
+            )
+            .selectable(
+                selected = isFocused,
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = { if (selectable) onToggle() },
+            )
+            .then(
+                // Flat mode keeps master's second focus target; immersive drops it.
+                if (inputBypass.active) Modifier else Modifier.focusable(interactionSource = interactionSource),
+            )
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .then(if (!selectable) Modifier.alpha(0.5f) else Modifier)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = if (isFocused) FontWeight.SemiBold else FontWeight.Medium,
+            )
+            if (!subtitle.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
 
         Box(
+            modifier = if (!selectable) Modifier.alpha(0.5f) else Modifier
+        ) {
+            QuickMenuSwitch(
+                enabled = enabled,
+                accentColor = accentColor,
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuickMenuSwitch(
+    enabled: Boolean,
+    accentColor: Color,
+) {
+    Box(
+        modifier = Modifier
+            .width(56.dp)
+            .height(32.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(
+                if (enabled) accentColor else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+            )
+            .border(
+                width = 1.dp,
+                color = if (enabled) accentColor.copy(alpha = 0.8f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+                shape = RoundedCornerShape(999.dp),
+            )
+            .padding(4.dp),
+    ) {
+        Box(
             modifier = Modifier
-                .size(28.dp)
-                .clip(CircleShape)
-                .background(currentColor)
-                .border(1.dp, contentColor.copy(alpha = 0.2f), CircleShape)
+                .size(22.dp)
+                .align(if (enabled) Alignment.CenterEnd else Alignment.CenterStart)
+                .background(Color.White, CircleShape),
         )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun QuickMenuDetailRow(
+    title: String,
+    subtitle: String,
+    accentColor: Color,
+    onActivate: () -> Unit,
+    modifier: Modifier = Modifier,
+    focusRequester: FocusRequester? = null,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val shape = RoundedCornerShape(14.dp)
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .clip(shape)
+            .background(
+                if (isFocused) {
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            accentColor.copy(alpha = 0.14f),
+                            accentColor.copy(alpha = 0.06f),
+                        ),
+                    )
+                } else {
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f),
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.10f),
+                        ),
+                    )
+                },
+            )
+            .then(
+                if (isFocused) {
+                    Modifier.border(
+                        width = 2.dp,
+                        color = accentColor.copy(alpha = 0.8f),
+                        shape = shape,
+                    )
+                } else {
+                    Modifier
+                }
+            )
+            .then(
+                if (focusRequester != null) {
+                    Modifier.focusRequester(focusRequester)
+                } else {
+                    Modifier
+                }
+            )
+            .focusable(interactionSource = interactionSource)
+            .onPreviewKeyEvent { keyEvent ->
+                if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN && isFocused) {
+                    when (keyEvent.nativeKeyEvent.keyCode) {
+                        KeyEvent.KEYCODE_BUTTON_A,
+                        KeyEvent.KEYCODE_DPAD_CENTER,
+                        KeyEvent.KEYCODE_ENTER -> {
+                            onActivate()
+                            true
+                        }
+
+                        else -> false
+                    }
+                } else {
+                    false
+                }
+            }
+            .selectable(
+                selected = isFocused,
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onActivate,
+            )
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (isFocused) accentColor else MaterialTheme.colorScheme.onSurface,
+                fontWeight = if (isFocused) FontWeight.SemiBold else FontWeight.Medium,
+                maxLines = 1,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .basicMarquee(iterations = Int.MAX_VALUE),
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (isFocused) accentColor.copy(alpha = 0.92f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuickMenuItemRow(
+    item: QuickMenuItem,
+    isActive: Boolean = false,
+    onClick: () -> Unit,
+    focusRequester: FocusRequester? = null,
+    onFocused: ((FocusRequester) -> Unit)? = null,
+    secondaryIcon: ImageVector? = null,
+    secondaryContentDescriptionResId: Int? = null,
+    onSecondaryClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val inputBypass = LocalImmersiveInputBypass.current
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val fallbackFocusRequester = remember { FocusRequester() }
+    val rowFocusRequester = focusRequester ?: fallbackFocusRequester
+    val secondaryFocusRequester = remember { FocusRequester() }
+    val secondaryInteractionSource = remember { MutableInteractionSource() }
+    val isSecondaryFocused by secondaryInteractionSource.collectIsFocusedAsState()
+    val isEnabled = item.enabled
+    val hasSecondaryAction = secondaryIcon != null && onSecondaryClick != null
+
+    LaunchedEffect(isFocused, onClick) {
+        inputBypass.reportActivate(interactionSource, if (isFocused) onClick else null)
+        if (isFocused) onFocused?.invoke(rowFocusRequester)
+    }
+    LaunchedEffect(isSecondaryFocused, onSecondaryClick) {
+        inputBypass.reportActivate(
+            secondaryInteractionSource,
+            if (isSecondaryFocused) onSecondaryClick else null,
+        )
+        if (isSecondaryFocused) onFocused?.invoke(secondaryFocusRequester)
+    }
+
+    val accentColor = if (item.accentColor != Color.Unspecified) {
+        item.accentColor
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
+
+    val disabledAlpha = 0.4f
+    val shape = RoundedCornerShape(12.dp)
+
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .clip(shape)
+                .then(
+                    if (isFocused && isEnabled) {
+                        Modifier.background(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    accentColor.copy(alpha = 0.15f),
+                                    accentColor.copy(alpha = 0.05f),
+                                ),
+                            ),
+                        )
+                    } else Modifier
+                )
+                .then(
+                    if (isEnabled) Modifier.focusRing(interactionSource, shape, width = 2.dp)
+                    else Modifier
+                )
+                .focusRequester(rowFocusRequester)
+                .onPreviewKeyEvent { keyEvent ->
+                    if (keyEvent.nativeKeyEvent.action != KeyEvent.ACTION_DOWN || !isFocused) {
+                        return@onPreviewKeyEvent false
+                    }
+                    when (keyEvent.nativeKeyEvent.keyCode) {
+                        KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                            if (hasSecondaryAction) {
+                                secondaryFocusRequester.requestFocus()
+                                true
+                            } else false
+                        }
+                        KeyEvent.KEYCODE_BUTTON_A,
+                        KeyEvent.KEYCODE_DPAD_CENTER,
+                        KeyEvent.KEYCODE_ENTER,
+                        -> {
+                            onClick()
+                            true
+                        }
+                        else -> false
+                    }
+                }
+                .selectable(
+                    selected = isFocused,
+                    enabled = isEnabled,
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = onClick,
+                )
+                .then(
+                    if (inputBypass.active) Modifier
+                    else Modifier.focusable(enabled = isEnabled, interactionSource = interactionSource)
+                )
+                .padding(horizontal = 12.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .then(
+                        if (isActive) Modifier.border(BorderStroke(2.dp, accentColor), CircleShape)
+                        else Modifier
+                    )
+                    .clip(CircleShape)
+                    .background(
+                        when {
+                            !isEnabled -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                            isFocused || isActive -> accentColor.copy(alpha = 0.2f)
+                            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        },
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = item.icon,
+                    contentDescription = null,
+                    tint = when {
+                        !isEnabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = disabledAlpha)
+                        isFocused || isActive -> accentColor
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+
+            Text(
+                text = stringResource(item.labelResId),
+                style = MaterialTheme.typography.bodyLarge,
+                color = when {
+                    !isEnabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = disabledAlpha)
+                    isFocused -> accentColor
+                    else -> MaterialTheme.colorScheme.onSurface
+                },
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        if (secondaryIcon != null && onSecondaryClick != null) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .focusRing(secondaryInteractionSource, CircleShape, width = 2.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isSecondaryFocused) accentColor.copy(alpha = 0.2f)
+                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    )
+                    .focusRequester(secondaryFocusRequester)
+                    .onPreviewKeyEvent { keyEvent ->
+                        if (keyEvent.nativeKeyEvent.action != KeyEvent.ACTION_DOWN || !isSecondaryFocused) {
+                            return@onPreviewKeyEvent false
+                        }
+                        when (keyEvent.nativeKeyEvent.keyCode) {
+                            KeyEvent.KEYCODE_DPAD_LEFT -> {
+                                rowFocusRequester.requestFocus()
+                                true
+                            }
+                            KeyEvent.KEYCODE_BUTTON_A,
+                            KeyEvent.KEYCODE_DPAD_CENTER,
+                            KeyEvent.KEYCODE_ENTER,
+                            -> {
+                                onSecondaryClick()
+                                true
+                            }
+                            else -> false
+                        }
+                    }
+                    .clickable(
+                        interactionSource = secondaryInteractionSource,
+                        indication = null,
+                        role = Role.Button,
+                        onClick = onSecondaryClick,
+                    )
+                    .then(
+                        if (inputBypass.active) Modifier
+                        else Modifier.focusable(interactionSource = secondaryInteractionSource)
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = secondaryIcon,
+                    contentDescription = stringResource(
+                        secondaryContentDescriptionResId ?: R.string.gesture_settings_title,
+                    ),
+                    tint = if (isSecondaryFocused) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
     }
 }
 
 @Composable
 private fun RefreshRateQuickMenuTab(
     viewModel: MainViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val accentColor = LocalLooksState.current.mainColor
+    val accentColor = runCatching { Color(android.graphics.Color.parseColor(state.mainColor)) }.getOrDefault(PluviaTheme.colors.accentPurple)
     val scrollState = rememberScrollState()
 
     Column(
         modifier = modifier
             .verticalScroll(scrollState)
             .focusGroup(),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         QuickMenuSectionHeader(title = stringResource(R.string.settings_looks_refresh_rate))
+
+        QuickMenuToggleRow(
+            title = "Force Refresh Rate",
+            subtitle = "Apply custom display refresh rate",
+            enabled = state.refreshRateEnabled,
+            onToggle = { viewModel.setRefreshRateEnabled(!state.refreshRateEnabled) },
+            accentColor = accentColor,
+        )
 
         val hzOptions = listOf(30, 60, 90, 120, 144)
         val currentHz = state.maxRefreshRate
@@ -839,7 +3176,7 @@ private fun RefreshRateQuickMenuTab(
         QuickMenuAdjustmentRow(
             title = "Target Hz",
             valueText = "$currentHz Hz",
-            progress = (hzOptions.indexOf(currentHz).toFloat() / (hzOptions.size - 1)).coerceIn(0f, 1f),
+            progress = (hzOptions.indexOf(currentHz).coerceAtLeast(0).toFloat() / (hzOptions.size - 1)).coerceIn(0f, 1f),
             onDecrease = {
                 val currentIndex = hzOptions.indexOf(currentHz)
                 if (currentIndex > 0) viewModel.setMaxRefreshRate(hzOptions[currentIndex - 1])
@@ -848,7 +3185,87 @@ private fun RefreshRateQuickMenuTab(
                 val currentIndex = hzOptions.indexOf(currentHz)
                 if (currentIndex < hzOptions.size - 1) viewModel.setMaxRefreshRate(hzOptions[currentIndex + 1])
             },
-            accentColor = accentColor
+            accentColor = accentColor,
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+        QuickMenuSectionHeader(title = "Glass & Looks")
+
+        QuickMenuToggleRow(
+            title = "Glass Effect",
+            enabled = state.glassPanels,
+            onToggle = { viewModel.setGlassPanels(!state.glassPanels) },
+            accentColor = accentColor,
+        )
+
+        if (state.glassPanels) {
+            QuickMenuToggleRow(
+                title = "Broken Glass Shader",
+                enabled = state.glassMode == app.gamenative.enums.GlassMode.BROKEN_GLASS,
+                onToggle = {
+                    val nextMode = if (state.glassMode == app.gamenative.enums.GlassMode.BROKEN_GLASS) {
+                        app.gamenative.enums.GlassMode.STANDARD
+                    } else {
+                        app.gamenative.enums.GlassMode.BROKEN_GLASS
+                    }
+                    viewModel.setGlassMode(nextMode)
+                },
+                accentColor = accentColor,
+            )
+
+            if (state.glassMode == app.gamenative.enums.GlassMode.STANDARD) {
+                QuickMenuAdjustmentRow(
+                    title = "Liquid Distortion",
+                    valueText = String.format(java.util.Locale.US, "%.1fx", 1f + state.liquidDistortion * 9f),
+                    progress = state.liquidDistortion.coerceIn(0f, 1f),
+                    onDecrease = { viewModel.setLiquidDistortion((state.liquidDistortion - 0.05f).coerceIn(0f, 1f)) },
+                    onIncrease = { viewModel.setLiquidDistortion((state.liquidDistortion + 0.05f).coerceIn(0f, 1f)) },
+                    accentColor = accentColor,
+                )
+            } else {
+                QuickMenuAdjustmentRow(
+                    title = "Refraction",
+                    valueText = "${(state.brokenGlassRefraction * 100).toInt()}%",
+                    progress = state.brokenGlassRefraction.coerceIn(0f, 1f),
+                    onDecrease = { viewModel.setBrokenGlassRefraction((state.brokenGlassRefraction - 0.1f).coerceIn(0f, 1f)) },
+                    onIncrease = { viewModel.setBrokenGlassRefraction((state.brokenGlassRefraction + 0.1f).coerceIn(0f, 1f)) },
+                    accentColor = accentColor,
+                )
+
+                QuickMenuAdjustmentRow(
+                    title = "Dispersion",
+                    valueText = "${(state.brokenGlassDispersion * 100).toInt()}%",
+                    progress = state.brokenGlassDispersion.coerceIn(0f, 1f),
+                    onDecrease = { viewModel.setBrokenGlassDispersion((state.brokenGlassDispersion - 0.1f).coerceIn(0f, 1f)) },
+                    onIncrease = { viewModel.setBrokenGlassDispersion((state.brokenGlassDispersion + 0.1f).coerceIn(0f, 1f)) },
+                    accentColor = accentColor,
+                )
+
+                QuickMenuAdjustmentRow(
+                    title = "Thickness",
+                    valueText = "${state.brokenGlassThickness.toInt()}",
+                    progress = ((state.brokenGlassThickness - 12f) / 68f).coerceIn(0f, 1f),
+                    onDecrease = { viewModel.setBrokenGlassThickness((state.brokenGlassThickness - 4f).coerceIn(12f, 80f)) },
+                    onIncrease = { viewModel.setBrokenGlassThickness((state.brokenGlassThickness + 4f).coerceIn(12f, 80f)) },
+                    accentColor = accentColor,
+                )
+
+                QuickMenuAdjustmentRow(
+                    title = "Luminance",
+                    valueText = "${(state.brokenGlassLuminance * 100).toInt()}%",
+                    progress = state.brokenGlassLuminance.coerceIn(0f, 1f),
+                    onDecrease = { viewModel.setBrokenGlassLuminance((state.brokenGlassLuminance - 0.1f).coerceIn(0f, 1f)) },
+                    onIncrease = { viewModel.setBrokenGlassLuminance((state.brokenGlassLuminance + 0.1f).coerceIn(0f, 1f)) },
+                    accentColor = accentColor,
+                )
+            }
+        }
+
+        QuickMenuToggleRow(
+            title = "Jiggly Animations",
+            enabled = state.jigglyAnimations,
+            onToggle = { viewModel.setJigglyAnimations(!state.jigglyAnimations) },
+            accentColor = accentColor,
         )
     }
 }
@@ -856,5 +3273,29 @@ private fun RefreshRateQuickMenuTab(
 @Preview(showBackground = true, backgroundColor = 0xFF000000)
 @Composable
 private fun Preview_QuickMenu() {
-    PluviaTheme { Box(modifier = Modifier.fillMaxSize()) { QuickMenu(isVisible = true, onDismiss = {}, onItemSelected = { false }, hasPhysicalController = false) } }
+    PluviaTheme {
+        Box(modifier = Modifier.fillMaxSize()) {
+            QuickMenu(
+                isVisible = true,
+                onDismiss = {},
+                onItemSelected = { false },
+                hasPhysicalController = false,
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF000000)
+@Composable
+private fun Preview_QuickMenu_WithController() {
+    PluviaTheme {
+        Box(modifier = Modifier.fillMaxSize()) {
+            QuickMenu(
+                isVisible = true,
+                onDismiss = {},
+                onItemSelected = { false },
+                hasPhysicalController = true,
+            )
+        }
+    }
 }

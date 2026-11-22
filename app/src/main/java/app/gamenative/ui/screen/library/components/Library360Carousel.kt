@@ -2,8 +2,6 @@ package app.gamenative.ui.screen.library.components
 
 import android.content.res.Configuration
 import android.net.Uri
-import android.view.ViewGroup
-import android.widget.FrameLayout
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -11,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -58,12 +57,14 @@ import app.gamenative.data.LibraryItem
 import app.gamenative.ui.component.focusRing
 import app.gamenative.ui.data.GameViewState
 import app.gamenative.ui.data.LibraryState
+import app.gamenative.ui.theme.BrokenGlassPanel
+import app.gamenative.ui.theme.LocalLooksState
+import app.gamenative.ui.theme.brokenGlass
 import app.gamenative.ui.theme.glassContentColor
 import app.gamenative.ui.util.JoystickScrollHandler
 import app.gamenative.utils.hapticClickable
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
-import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 @OptIn(UnstableApi::class)
@@ -112,7 +113,6 @@ internal fun Library360Carousel(
     val screenWidth = configuration.screenWidthDp.dp
     val screenHeight = configuration.screenHeightDp.dp
     val density = LocalDensity.current
-    val scope = rememberCoroutineScope()
 
     Box(modifier = modifier.fillMaxSize()) {
         // 4. HORIZONTAL FADE OVERLAY
@@ -155,7 +155,7 @@ internal fun Library360Carousel(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = if (isLandscape) 220.dp else 80.dp),
-            beyondViewportPageCount = 5,
+            beyondViewportPageCount = 2,
             userScrollEnabled = !isHeroMode
         ) { page ->
             val item = items[page]
@@ -230,6 +230,7 @@ internal fun Library360Carousel(
                     val cardWidth = if (isLandscape) 200.dp else 240.dp
                     val cardHeight = if (isLandscape) 300.dp else 340.dp
 
+                    val looks = LocalLooksState.current
                     Box(
                         modifier = Modifier
                             .width(cardWidth)
@@ -243,8 +244,17 @@ internal fun Library360Carousel(
                             )
                             .focusable(interactionSource = interactionSource)
                             .focusRing(interactionSource, RoundedCornerShape(16.dp))
+                            .brokenGlass(
+                                cornerRadius = 16,
+                                shape = RoundedCornerShape(16.dp),
+                                enableHighlight = true,
+                                enableShadow = true
+                            )
                             .clip(RoundedCornerShape(16.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .background(
+                                if (looks.isGlassEnabled) Color.Transparent
+                                else MaterialTheme.colorScheme.surfaceVariant
+                            )
                             .hapticClickable(
                                 interactionSource = interactionSource,
                                 onClick = {
@@ -260,19 +270,33 @@ internal fun Library360Carousel(
                         CoilImage(
                             imageModel = { visualModel },
                             imageOptions = ImageOptions(contentScale = ContentScale.Crop),
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .then(if (looks.isGlassEnabled) Modifier.padding(2.dp).clip(RoundedCornerShape(14.dp)) else Modifier)
                         )
 
-                        // Card Branding Logic
+                        // Lightweight scrim title bar (avoids nested double-glass pass per carousel card)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(
-                                    Brush.verticalGradient(
-                                        colors = listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent)
-                                    )
+                                .then(
+                                    if (looks.isGlassEnabled) {
+                                        Modifier
+                                            .padding(8.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(Color.Black.copy(alpha = 0.42f))
+                                            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(12.dp))
+                                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                                    } else {
+                                        Modifier
+                                            .background(
+                                                Brush.verticalGradient(
+                                                    colors = listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent)
+                                                )
+                                            )
+                                            .padding(12.dp)
+                                    }
                                 )
-                                .padding(12.dp)
                         ) {
                             Text(
                                 text = item.name,
@@ -345,15 +369,19 @@ internal fun Library360Carousel(
                     }
             ) {
                 // Close Button (Touch Exit)
-                IconButton(
-                    onClick = { onSetGameViewState(GameViewState.CAROUSEL) },
+                BrokenGlassPanel(
                     modifier = Modifier
                         .statusBarsPadding()
                         .padding(top = 80.dp)
-                        .padding(start = 4.dp, top = 16.dp, end = 16.dp, bottom = 16.dp)
-                        .align(Alignment.TopStart)
+                        .padding(start = 12.dp, top = 16.dp, end = 16.dp, bottom = 16.dp)
+                        .size(44.dp)
+                        .align(Alignment.TopStart),
+                    cornerRadius = 22,
+                    backgroundColor = Color.Black.copy(alpha = 0.35f)
                 ) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                    IconButton(onClick = { onSetGameViewState(GameViewState.CAROUSEL) }) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                    }
                 }
 
                 Column(

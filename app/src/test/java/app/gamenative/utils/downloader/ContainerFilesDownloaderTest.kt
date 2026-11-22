@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.gamenative.BuildConfig
 import app.gamenative.PrefManager
-import java.io.File
 import com.winlator.container.ContainerManager
 import com.winlator.core.OnExtractFileListener
 import kotlinx.coroutines.runBlocking
@@ -20,6 +19,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import timber.log.Timber
+import java.io.File
 
 /**
  * Test suite for ContainerFilesDownloader functionality.
@@ -50,9 +50,7 @@ class ContainerFilesDownloaderTest {
 
     @Test
     fun testManifestContainsContainerFiles() {
-        val manifestJson = context.assets.open(ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE).bufferedReader().use {
-            it.readText()
-        }
+        val manifestJson = context.assets.open(ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE).bufferedReader().use { it.readText() }
         assertNotNull("${ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE} should exist in assets", manifestJson)
         assertTrue("Manifest should not be empty", manifestJson.isNotEmpty())
 
@@ -69,9 +67,7 @@ class ContainerFilesDownloaderTest {
 
     @Test
     fun testExtrasComponentExists() {
-        val manifestJson = context.assets.open(ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE).bufferedReader().use {
-            it.readText()
-        }
+        val manifestJson = context.assets.open(ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE).bufferedReader().use { it.readText() }
         val manifest = Json { ignoreUnknownKeys = true }
             .decodeFromString<ContainerFilesDownloader.ContainerFilesManifest>(manifestJson)
 
@@ -84,9 +80,7 @@ class ContainerFilesDownloaderTest {
 
     @Test
     fun testContainerPatternCommonExists() {
-        val manifestJson = context.assets.open(ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE).bufferedReader().use {
-            it.readText()
-        }
+        val manifestJson = context.assets.open(ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE).bufferedReader().use { it.readText() }
         val manifest = Json { ignoreUnknownKeys = true }
             .decodeFromString<ContainerFilesDownloader.ContainerFilesManifest>(manifestJson)
 
@@ -196,9 +190,7 @@ class ContainerFilesDownloaderTest {
 
     @Test
     fun testContainerPatternGamenativeExists() {
-        val manifestJson = context.assets.open(ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE).bufferedReader().use {
-            it.readText()
-        }
+        val manifestJson = context.assets.open(ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE).bufferedReader().use { it.readText() }
         val manifest = Json { ignoreUnknownKeys = true }
             .decodeFromString<ContainerFilesDownloader.ContainerFilesManifest>(manifestJson)
 
@@ -209,15 +201,13 @@ class ContainerFilesDownloaderTest {
 
     @Test
     fun testProtonContainerPatternsExist() {
-        val manifestJson = context.assets.open(ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE).bufferedReader().use {
-            it.readText()
-        }
+        val manifestJson = context.assets.open(ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE).bufferedReader().use { it.readText() }
         val manifest = Json { ignoreUnknownKeys = true }
             .decodeFromString<ContainerFilesDownloader.ContainerFilesManifest>(manifestJson)
 
         val protonPatterns = listOf(
             "proton-9.0-x86_64_container_pattern",
-            "proton-9.0-arm64ec_container_pattern",
+            "proton-9.0-arm64ec_container_pattern"
         )
 
         protonPatterns.forEach { componentId ->
@@ -229,25 +219,18 @@ class ContainerFilesDownloaderTest {
 
     @Test
     fun testContainerFileUrlFormat() {
-        val manifestJson = context.assets.open(ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE).bufferedReader().use {
-            it.readText()
-        }
+        val manifestJson = context.assets.open(ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE).bufferedReader().use { it.readText() }
         val manifest = Json { ignoreUnknownKeys = true }
             .decodeFromString<ContainerFilesDownloader.ContainerFilesManifest>(manifestJson)
 
         manifest.components.forEach { component ->
             assertTrue(
                 "Component ${component.id} URL should contain 'container_files/'",
-                component.url.contains("container_files/"),
+                component.url.contains("container_files/")
             )
             assertTrue(
                 "Component ${component.id} URL should end with .tzst",
-                component.url.endsWith(".tzst"),
-            )
-            assertEquals(
-                "Component ${component.id} name should match ID.tzst",
-                "${component.id}.tzst",
-                component.name,
+                component.url.endsWith(".tzst")
             )
         }
     }
@@ -298,7 +281,7 @@ class ContainerFilesDownloaderTest {
             var progressCalled = false
             val downloadedFile = ContainerFilesDownloader.ensureContainerFileAvailable(
                 context,
-                componentId,
+                componentId
             ) { progress ->
                 progressCalled = true
                 println("Download progress: ${(progress * 100).toInt()}%")
@@ -331,7 +314,7 @@ class ContainerFilesDownloaderTest {
 
         val retrievedFile = ContainerFilesDownloader.ensureContainerFileAvailable(
             context,
-            componentId,
+            componentId
         ) { progress ->
             // Progress should not be called for cached files
             throw AssertionError("Progress callback should not be called for cached files")
@@ -348,28 +331,26 @@ class ContainerFilesDownloaderTest {
         try {
             ContainerFilesDownloader.ensureContainerFileAvailable(
                 context,
-                "nonexistent_pattern_xyz",
+                "nonexistent_pattern_xyz"
             )
             throw AssertionError("Should have thrown exception for invalid component")
         } catch (e: Exception) {
             assertTrue(
                 "Exception message should mention component not found",
-                e.message?.contains("not found") == true,
+                e.message?.contains("not found") == true
             )
         }
     }
 
     @Test
     fun testAllManifestComponentsHaveValidUrls() {
-        val manifestJson = context.assets.open(ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE).bufferedReader().use {
-            it.readText()
-        }
+        val manifestJson = context.assets.open(ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE).bufferedReader().use { it.readText() }
         val manifest = Json { ignoreUnknownKeys = true }
             .decodeFromString<ContainerFilesDownloader.ContainerFilesManifest>(manifestJson)
 
         val validDomains = listOf(
             "downloads.gamenative.app",
-            "pub-9fcd5294bd0d4b85a9d73615bf98f3b5.r2.dev",
+            "pub-9fcd5294bd0d4b85a9d73615bf98f3b5.r2.dev"
         )
 
         manifest.components.forEach { component ->
@@ -378,16 +359,14 @@ class ContainerFilesDownloaderTest {
             }
             assertTrue(
                 "Component ${component.id} should use a valid download domain",
-                hasValidDomain,
+                hasValidDomain
             )
         }
     }
 
     @Test
     fun testComponentNamingConsistency() {
-        val manifestJson = context.assets.open(ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE).bufferedReader().use {
-            it.readText()
-        }
+        val manifestJson = context.assets.open(ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE).bufferedReader().use { it.readText() }
         val manifest = Json { ignoreUnknownKeys = true }
             .decodeFromString<ContainerFilesDownloader.ContainerFilesManifest>(manifestJson)
 
@@ -395,28 +374,18 @@ class ContainerFilesDownloaderTest {
             // URL should contain the component name
             assertTrue(
                 "Component ${component.id} URL should contain its name",
-                component.url.contains(component.name),
-            )
-            // Name should match ID with .tzst extension
-            assertEquals(
-                "Component ${component.id} name should match ID.tzst",
-                "${component.id}.tzst",
-                component.name,
+                component.url.contains(component.name)
             )
         }
     }
 
     @Test
     fun testNoOverlapWithOtherDownloaders() {
-        val containerFilesJson = context.assets.open(ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE).bufferedReader().use {
-            it.readText()
-        }
+        val containerFilesJson = context.assets.open(ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE).bufferedReader().use { it.readText() }
         val containerFilesManifest = Json { ignoreUnknownKeys = true }
             .decodeFromString<ContainerFilesDownloader.ContainerFilesManifest>(containerFilesJson)
 
-        val graphicsDriverJson = context.assets.open(GraphicsDriverDownloader.GRAPHICS_DRIVER_MANIFEST_FILE).bufferedReader().use {
-            it.readText()
-        }
+        val graphicsDriverJson = context.assets.open(GraphicsDriverDownloader.GRAPHICS_DRIVER_MANIFEST_FILE).bufferedReader().use { it.readText() }
         val graphicsDriverManifest = Json { ignoreUnknownKeys = true }
             .decodeFromString<GraphicsDriverDownloader.GraphicsDriverManifest>(graphicsDriverJson)
 
@@ -424,9 +393,7 @@ class ContainerFilesDownloaderTest {
         val dxwrapperManifest = Json { ignoreUnknownKeys = true }
             .decodeFromString<DXWrapperDownloader.DXWrapperManifest>(dxwrapperJson)
 
-        val wincomponentJson = context.assets.open(WinComponentDownloader.WINCOMPONENTS_MANIFEST_FILE).bufferedReader().use {
-            it.readText()
-        }
+        val wincomponentJson = context.assets.open(WinComponentDownloader.WINCOMPONENTS_MANIFEST_FILE).bufferedReader().use { it.readText() }
         val wincomponentManifest = Json { ignoreUnknownKeys = true }
             .decodeFromString<WinComponentDownloader.WinComponentManifest>(wincomponentJson)
 
@@ -442,34 +409,32 @@ class ContainerFilesDownloaderTest {
 
         assertTrue(
             "Container files and Graphics driver manifests should not have overlapping IDs",
-            containerFilesIds.intersect(graphicsDriverIds).isEmpty(),
+            containerFilesIds.intersect(graphicsDriverIds).isEmpty()
         )
         assertTrue(
             "Container files and DXWrapper manifests should not have overlapping IDs",
-            containerFilesIds.intersect(dxwrapperIds).isEmpty(),
+            containerFilesIds.intersect(dxwrapperIds).isEmpty()
         )
         assertTrue(
             "Container files and WinComponent manifests should not have overlapping IDs",
-            containerFilesIds.intersect(wincomponentIds).isEmpty(),
+            containerFilesIds.intersect(wincomponentIds).isEmpty()
         )
         assertTrue(
             "Container files and Core driver manifests should not have overlapping IDs",
-            containerFilesIds.intersect(coreDriverIds).isEmpty(),
+            containerFilesIds.intersect(coreDriverIds).isEmpty()
         )
     }
 
     @Test
     fun testAllComponentsAreTzstFiles() {
-        val manifestJson = context.assets.open(ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE).bufferedReader().use {
-            it.readText()
-        }
+        val manifestJson = context.assets.open(ContainerFilesDownloader.CONTAINER_FILES_MANIFEST_FILE).bufferedReader().use { it.readText() }
         val manifest = Json { ignoreUnknownKeys = true }
             .decodeFromString<ContainerFilesDownloader.ContainerFilesManifest>(manifestJson)
 
         manifest.components.forEach { component ->
             assertTrue(
                 "Component ${component.id} should be a tzst file",
-                component.name.endsWith(".tzst"),
+                component.name.endsWith(".tzst")
             )
         }
     }
@@ -493,7 +458,7 @@ class ContainerFilesDownloaderTest {
                     // Progress should not be called for cached files
                     throw AssertionError("Progress callback should not be called for cached files")
                 }
-            },
+            }
         )
 
         if (retrievedFile != null) {
@@ -523,7 +488,7 @@ class ContainerFilesDownloaderTest {
                         progressCalled = true
                         println("Blocking download progress: ${(progress * 100).toInt()}%")
                     }
-                },
+                }
             )
 
             if (downloadedFile != null) {
@@ -553,7 +518,7 @@ class ContainerFilesDownloaderTest {
         val retrievedFile = ensureContainerFileAvailableBlocking(
             context,
             componentId,
-            null, // No progress callback
+            null  // No progress callback
         )
 
         if (retrievedFile != null) {

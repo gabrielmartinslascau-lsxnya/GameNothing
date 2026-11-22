@@ -95,7 +95,10 @@ public class NavigationDialog extends ContentDialog {
         text.setLines(2);
         text.setTextColor(context.getColor(R.color.navigation_dialog_item_color));
         text.setAlpha(alpha); // Apply alpha for greying out
-        text.setTypeface(Typeface.DEFAULT);
+        Typeface tf = ResourcesCompat.getFont(context, R.font.bricolage_grotesque_regular);
+        if (tf != null) {
+            text.setTypeface(tf);
+        }
         layout.addView(text);
 
         grid.addView(layout);

@@ -10,11 +10,10 @@ import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import app.gamenative.ui.component.NoExtractOutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -25,10 +24,10 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.gamenative.R
-import app.gamenative.ui.component.NoExtractOutlinedTextField
+import app.gamenative.ui.util.SnackbarManager
+import app.gamenative.ui.component.settings.FullScreenGlassSelectorDialog
 import app.gamenative.ui.component.settings.SettingsCenteredLabel
 import app.gamenative.ui.theme.settingsTileColors
-import app.gamenative.ui.util.SnackbarManager
 import com.alorma.compose.settings.ui.SettingsGroup
 import com.alorma.compose.settings.ui.SettingsMenuLink
 import com.winlator.container.Container
@@ -37,71 +36,76 @@ import com.winlator.container.Container
 fun DrivesTabContent(state: ContainerConfigState) {
     val context = LocalContext.current
     val config = state.config.value
-    SettingsGroup {
-        if (config.drives.isNotEmpty()) {
-            for (drive in Container.drivesIterator(config.drives)) {
-                val driveLetter = drive[0]
-                val drivePath = drive[1]
-                SettingsMenuLink(
-                    colors = settingsTileColors(),
-                    title = { Text(driveLetter) },
-                    subtitle = { Text(drivePath) },
-                    onClick = {},
-                    action = if (driveLetter !in state.nonDeletableDriveLetters) {
-                        {
-                            IconButton(
-                                onClick = {
-                                    val drivesBuilder = StringBuilder()
-                                    for (existingDrive in Container.drivesIterator(config.drives)) {
-                                        if (existingDrive[0] != driveLetter) {
-                                            drivesBuilder.append("${existingDrive[0]}:${existingDrive[1]}")
+    ContainerGlassCard {
+        SettingsGroup {
+            if (config.drives.isNotEmpty()) {
+                val drivesList = Container.drivesIterator(config.drives).toList()
+                drivesList.forEachIndexed { index, drive ->
+                    val driveLetter = drive[0]
+                    val drivePath = drive[1]
+                    if (index > 0) ContainerCardDivider()
+                    SettingsMenuLink(
+                        colors = settingsTileColors(),
+                        title = { Text(driveLetter) },
+                        subtitle = { Text(drivePath) },
+                        onClick = {},
+                        action = if (driveLetter !in state.nonDeletableDriveLetters) {
+                            {
+                                IconButton(
+                                    onClick = {
+                                        val drivesBuilder = StringBuilder()
+                                        for (existingDrive in Container.drivesIterator(config.drives)) {
+                                            if (existingDrive[0] != driveLetter) {
+                                                drivesBuilder.append("${existingDrive[0]}:${existingDrive[1]}")
+                                            }
                                         }
-                                    }
-                                    state.config.value = config.copy(drives = drivesBuilder.toString())
-                                },
-                                content = {
-                                    Icon(
-                                        Icons.Filled.Delete,
-                                        contentDescription = "Delete drive",
-                                        tint = MaterialTheme.colorScheme.error,
-                                    )
-                                },
-                            )
-                        }
-                    } else {
-                        null
-                    },
-                )
-            }
-        } else {
-            SettingsCenteredLabel(
-                colors = settingsTileColors(),
-                title = { Text(text = stringResource(R.string.no_drives)) },
-            )
-        }
-
-        SettingsMenuLink(
-            title = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.AddCircleOutline,
-                        contentDescription = "Add drive",
+                                        state.config.value = config.copy(drives = drivesBuilder.toString())
+                                    },
+                                    content = {
+                                        Icon(
+                                            Icons.Filled.Delete,
+                                            contentDescription = "Delete drive",
+                                            tint = MaterialTheme.colorScheme.error,
+                                        )
+                                    },
+                                )
+                            }
+                        } else {
+                            null
+                        },
                     )
                 }
-            },
-            onClick = {
-                if (state.availableDriveLetters.isEmpty()) {
-                    SnackbarManager.show(context.getString(R.string.no_available_drive_letters))
-                    return@SettingsMenuLink
-                }
-                state.selectedDriveLetter.value = state.availableDriveLetters.first()
-                state.driveLetterMenuExpanded.value = false
-                state.showAddDriveDialog.value = true
-            },
-        )
+            } else {
+                SettingsCenteredLabel(
+                    colors = settingsTileColors(),
+                    title = { Text(text = stringResource(R.string.no_drives)) },
+                )
+            }
+            ContainerCardDivider()
+            SettingsMenuLink(
+                colors = settingsTileColors(),
+                title = {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.AddCircleOutline,
+                            contentDescription = "Add drive",
+                        )
+                    }
+                },
+                onClick = {
+                    if (state.availableDriveLetters.isEmpty()) {
+                        SnackbarManager.show(context.getString(R.string.no_available_drive_letters))
+                        return@SettingsMenuLink
+                    }
+                    state.selectedDriveLetter.value = state.availableDriveLetters.first()
+                    state.driveLetterMenuExpanded.value = false
+                    state.showAddDriveDialog.value = true
+                },
+            )
+        }
     }
 
     if (state.showAddDriveDialog.value) {
@@ -127,20 +131,20 @@ fun DrivesTabContent(state: ContainerConfigState) {
                             )
                         },
                     )
-                    DropdownMenu(
-                        expanded = state.driveLetterMenuExpanded.value,
-                        onDismissRequest = { state.driveLetterMenuExpanded.value = false },
-                    ) {
-                        state.availableDriveLetters.forEach { letter ->
-                            DropdownMenuItem(
-                                text = { Text(text = letter) },
-                                onClick = {
-                                    state.selectedDriveLetter.value = letter
-                                    state.driveLetterMenuExpanded.value = false
-                                },
-                            )
-                        }
-                    }
+                    FullScreenGlassSelectorDialog(
+                        visible = state.driveLetterMenuExpanded.value,
+                        title = { Text(text = stringResource(R.string.drive_letter)) },
+                        items = state.availableDriveLetters,
+                        selectedIndex = state.availableDriveLetters.indexOf(state.selectedDriveLetter.value),
+                        searchable = false,
+                        emptyText = stringResource(R.string.no_available_drive_letters),
+                        onItemSelected = { idx ->
+                            state.availableDriveLetters.getOrNull(idx)?.let { letter ->
+                                state.selectedDriveLetter.value = letter
+                            }
+                        },
+                        onDismiss = { state.driveLetterMenuExpanded.value = false },
+                    )
                     if (state.availableDriveLetters.isEmpty()) {
                         Text(
                             text = stringResource(R.string.no_available_drive_letters),

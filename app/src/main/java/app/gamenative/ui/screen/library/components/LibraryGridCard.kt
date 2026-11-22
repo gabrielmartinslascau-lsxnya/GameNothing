@@ -5,7 +5,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -22,10 +21,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Face4
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Face4
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -41,16 +40,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import app.gamenative.utils.hapticClickable
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -58,15 +56,17 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.gamenative.R
+import app.gamenative.data.CommunityCompatibilitySummary
 import app.gamenative.data.GameCompatibilityStatus
 import app.gamenative.data.GameSource
 import app.gamenative.data.LibraryItem
 import app.gamenative.data.gog.GogRecommendationsRepository
+import app.gamenative.ui.component.CommunityCompatibilityBadge
 import app.gamenative.ui.component.CompatibilityBadge
 import app.gamenative.ui.component.GameStatsRow
 import app.gamenative.ui.component.focusRing
@@ -98,7 +98,9 @@ internal fun GridViewCard(
     hideText: Boolean,
     imageAlpha: Float,
     onImageLoadFailed: () -> Unit,
+    onImageLoaded: () -> Unit = {},
     compatibilityStatus: GameCompatibilityStatus?,
+    communityCompatibility: CommunityCompatibilitySummary?,
     gameStats: GameCardStats?,
     showFocusGlow: Boolean,
     context: Context,
@@ -197,16 +199,10 @@ internal fun GridViewCard(
                     shape = cardShape,
                 )
                 .then(favoriteSemantics)
-                .then(
-                    if (isItemFocused) {
-                        Modifier.border(4.dp, Color.White, cardShape)
-                    } else {
-                        Modifier
-                    }
-                )
-                .hapticClickable(
+                .clickable(
                     onClick = onClick,
                     interactionSource = interactionSource,
+                    indication = null,
                 ),
             shape = cardShape,
             colors = CardDefaults.cardColors(
@@ -222,9 +218,11 @@ internal fun GridViewCard(
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 // Game image (primary + optional fallback for Steam header/hero)
-                val imageUrls = if (appInfo.gameSource == GameSource.CUSTOM_GAME) {
-                    produceState(
-                        initialValue = GridImageUrls("", ""),
+                // Custom game URLs are resolved off the main thread; null means "not resolved yet"
+                // so the image isn't loaded (and can't report a failure) until the real URL is known.
+                val resolvedImageUrls: GridImageUrls? = if (appInfo.gameSource == GameSource.CUSTOM_GAME) {
+                    produceState<GridImageUrls?>(
+                        initialValue = null,
                         key1 = appInfo.appId,
                         key2 = paneType,
                         key3 = imageRefreshCounter,
@@ -238,6 +236,7 @@ internal fun GridViewCard(
                         getGridImageUrl(context, appInfo, paneType)
                     }
                 }
+                val imageUrls = resolvedImageUrls ?: GridImageUrls("", "")
 
                 var currentImageUrl by remember(
                     imageUrls.primary,
@@ -245,7 +244,11 @@ internal fun GridViewCard(
                     appInfo.appId,
                     imageRefreshCounter,
                 ) {
-                    mutableStateOf(imageUrls.primary)
+                    mutableStateOf(imageUrls.primary.ifEmpty { imageUrls.fallback })
+                }
+
+                if (resolvedImageUrls != null && currentImageUrl.isEmpty()) {
+                    LaunchedEffect(resolvedImageUrls) { onImageLoadFailed() }
                 }
 
                 if (isCapsule && currentImageUrl.isNotEmpty()) {
@@ -265,23 +268,26 @@ internal fun GridViewCard(
                     Modifier
                 }
 
-                ListItemImage(
-                    modifier = Modifier.fillMaxSize(),
-                    imageModifier = Modifier
-                        .fillMaxSize()
-                        .alpha(imageAlpha)
-                        .then(gridHeroZoom)
-                        .then(if (frost > 0f) Modifier.blur(10.dp * frost) else Modifier),
-                    contentScale = getGridContentScale(paneType),
-                    image = { currentImageUrl },
-                    onFailure = {
-                        if (imageUrls.fallback.isNotEmpty() && currentImageUrl == imageUrls.primary) {
-                            currentImageUrl = imageUrls.fallback
-                        } else {
-                            onImageLoadFailed()
-                        }
-                    },
-                )
+                if (currentImageUrl.isNotEmpty()) {
+                    ListItemImage(
+                        modifier = Modifier.fillMaxSize(),
+                        imageModifier = Modifier
+                            .fillMaxSize()
+                            .alpha(imageAlpha)
+                            .then(gridHeroZoom)
+                            .then(if (frost > 0f) Modifier.blur(10.dp * frost) else Modifier),
+                        contentScale = getGridContentScale(paneType),
+                        image = { currentImageUrl },
+                        onFailure = {
+                            if (imageUrls.fallback.isNotEmpty() && currentImageUrl == imageUrls.primary) {
+                                currentImageUrl = imageUrls.fallback
+                            } else {
+                                onImageLoadFailed()
+                            }
+                        },
+                        onSuccess = onImageLoaded,
+                    )
+                }
 
                 val displayName = if (appInfo.isRecTeaser) {
                     stringResource(R.string.rec_teaser_title)
@@ -345,74 +351,74 @@ internal fun GridViewCard(
 
                 // Gradient overlay at bottom for title
                 if (frost < 1f) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .height(bottomGradientHeight)
-                            .alpha(1f - frost)
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        Color.Black.copy(alpha = 0.85f),
-                                    ),
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(bottomGradientHeight)
+                        .alpha(1f - frost)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.85f),
                                 ),
                             ),
-                    )
+                        ),
+                )
 
-                    // Title + status icons, with per-device stats directly under the title
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .fillMaxWidth()
-                            .alpha(1f - frost)
-                            .padding(horizontal = 10.dp, vertical = cardContentBottomPadding),
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
+                // Title + status icons, with per-device stats directly under the title
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth()
+                        .alpha(1f - frost)
+                        .padding(horizontal = 10.dp, vertical = cardContentBottomPadding),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = appInfo.name,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                            ),
+                            color = Color.White,
+                            maxLines = if (paneType == PaneType.GRID_CAPSULE) 2 else 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+
+                        GridStatusIcons(appInfo = appInfo)
+                    }
+
+                    if (appInfo.isRecommended && appInfo.recStoreCard && appInfo.recPrice != null) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = appInfo.name,
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                ),
-                                color = Color.White,
-                                maxLines = if (paneType == PaneType.GRID_CAPSULE) 2 else 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f),
-                            )
-
-                            GridStatusIcons(appInfo = appInfo)
-                        }
-
-                        if (appInfo.isRecommended && appInfo.recStoreCard && appInfo.recPrice != null) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                appInfo.recBasePrice?.let { base ->
-                                    Text(
-                                        text = base,
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            textDecoration = TextDecoration.LineThrough,
-                                        ),
-                                        color = Color.White.copy(alpha = 0.6f),
-                                    )
-                                }
+                            appInfo.recBasePrice?.let { base ->
                                 Text(
-                                    text = appInfo.recPrice,
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = Color.White,
-                                    modifier = if (appInfo.recBasePrice != null) Modifier.padding(start = 6.dp) else Modifier,
+                                    text = base,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        textDecoration = TextDecoration.LineThrough,
+                                    ),
+                                    color = Color.White.copy(alpha = 0.6f),
                                 )
                             }
-                        }
-
-                        if (!appInfo.isFeatured) {
-                            GameStatsRow(
-                                stats = gameStats,
-                                tint = Color.White.copy(alpha = 0.55f),
-                                animate = animateStats,
+                            Text(
+                                text = appInfo.recPrice,
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = Color.White,
+                                modifier = if (appInfo.recBasePrice != null) Modifier.padding(start = 6.dp) else Modifier,
                             )
                         }
                     }
+
+                    if (!appInfo.isFeatured) {
+                        GameStatsRow(
+                            stats = gameStats,
+                            tint = Color.White.copy(alpha = 0.55f),
+                            animate = animateStats,
+                        )
+                    }
+                }
                 }
 
                 // Top-left: Featured badge, GOG rating (store rec), or Recommended/compat badge
@@ -438,19 +444,32 @@ internal fun GridViewCard(
                         )
                     }
                 } else {
-                    val badgeStatus = if (appInfo.isRecommended) {
-                        GameCompatibilityStatus.RECOMMENDED
-                    } else {
-                        compatibilityStatus
-                    }
-                    badgeStatus?.let { status ->
-                        CompatibilityBadge(
-                            status = status,
+                    if (!appInfo.isRecommended && communityCompatibility != null) {
+                        CommunityCompatibilityBadge(
+                            verdict = communityCompatibility.verdict,
+                            verdictLoaded = communityCompatibility.verdictLoaded,
+                            loadFailed = communityCompatibility.loadFailed,
+                            checking = communityCompatibility.isChecking,
                             showLabel = true,
                             modifier = Modifier
                                 .align(Alignment.TopStart)
-                                .padding(top = topOverlayPadding, start = topOverlayPadding),
+                                .padding(top = topOverlayPadding, start = topOverlayPadding, end = topIconPadding + 24.dp),
                         )
+                    } else {
+                        val badgeStatus = if (appInfo.isRecommended) {
+                            GameCompatibilityStatus.RECOMMENDED
+                        } else {
+                            compatibilityStatus
+                        }
+                        badgeStatus?.let { status ->
+                            CompatibilityBadge(
+                                status = status,
+                                showLabel = true,
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(top = topOverlayPadding, start = topOverlayPadding),
+                            )
+                        }
                     }
                 }
 
@@ -732,7 +751,7 @@ internal fun getGridImageUrl(
             GridImageUrls(primary = primary)
         }
 
-        GameSource.GOG, GameSource.EPIC, GameSource.AMAZON -> {
+        GameSource.GOG, GameSource.EPIC, GameSource.AMAZON, GameSource.XBOX -> {
             val primary = when (paneType) {
                 PaneType.GRID_CAPSULE -> appInfo.capsuleImageUrl.ifEmpty { appInfo.iconHash }
                 else -> appInfo.headerImageUrl.ifEmpty {
@@ -761,6 +780,11 @@ internal fun getGridImageUrl(
                 )
         }
 
-        GameSource.ANDROID_APP -> GridImageUrls(primary = "android-app://${appInfo.appId.substringAfter("ANDROID_APP_")}")
+        GameSource.ANDROID_APP -> {
+            GridImageUrls(
+                primary = appInfo.iconHash.ifEmpty { appInfo.capsuleImageUrl },
+                fallback = appInfo.headerImageUrl,
+            )
+        }
     }
 }

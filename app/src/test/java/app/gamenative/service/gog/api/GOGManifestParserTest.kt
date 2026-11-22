@@ -25,6 +25,7 @@ class GOGManifestParserTest {
         parser = GOGManifestParser()
     }
 
+
     // Functions to create dependency items
     private fun createTestChunk(
         md5: String = "aabbccdd11223344",
@@ -81,6 +82,8 @@ class GOGManifestParserTest {
         link = "https://cdn.gog.com/manifest",
         legacyBuildId = null,
     )
+
+
 
     // Tests here
 
@@ -177,16 +180,184 @@ class GOGManifestParserTest {
     }
 
     @Test
-    fun testFilterDepotsByOwnership() {
-        val ownedDepot = createTestDepot().copy(productId = "12345")
-        val unownedDepot = createTestDepot().copy(productId = "67890")
-        val depots = listOf(ownedDepot, unownedDepot)
-        val ownedProductIds = setOf("12345")
+    fun filterDepotsForInstall_keepsBaseAndSelectedOwnedDlcs() {
+        val base = createTestDepot().copy(productId = "100", manifest = "base")
+        val selectedOwned = createTestDepot().copy(productId = "200", manifest = "dlc-owned")
+        val selectedUnowned = createTestDepot().copy(productId = "300", manifest = "dlc-unowned")
+        val notSelected = createTestDepot().copy(productId = "400", manifest = "dlc-not-selected")
 
-        val result = parser.filterDepotsByOwnership(depots, ownedProductIds)
+        val depots = listOf(base, selectedOwned, selectedUnowned, notSelected)
+        val result = parser.filterDepotsForInstall(
+            languageDepots = depots,
+            allDepots = depots,
+            baseProductIds = setOf("100"),
+            dlcIds = setOf("200", "300"),
+            ownedProductIds = setOf("100", "200", "400"),
+        )
 
-        assertEquals(1, result.size)
-        assertEquals("12345", result[0].productId)
+        assertEquals(listOf("base", "dlc-owned"), result.map { it.manifest })
+    }
+
+    @Test
+    fun filterDepotsForInstall_emptySelectionIsBaseOnly() {
+        val base = createTestDepot().copy(productId = "100", manifest = "base")
+        val baseSecond = createTestDepot().copy(productId = "100", manifest = "base-2")
+        val ownedDlc = createTestDepot().copy(productId = "200", manifest = "dlc")
+
+        val depots = listOf(base, ownedDlc, baseSecond)
+        val result = parser.filterDepotsForInstall(
+            languageDepots = depots,
+            allDepots = depots,
+            baseProductIds = setOf("100"),
+            dlcIds = emptySet(),
+            ownedProductIds = setOf("100", "200"),
+        )
+
+        assertEquals(listOf("base", "base-2"), result.map { it.manifest })
+    }
+
+    @Test
+    fun filterDepotsForInstall_neverIncludesUnownedProducts() {
+        val base = createTestDepot().copy(productId = "100", manifest = "base")
+        val dlc = createTestDepot().copy(productId = "200", manifest = "dlc")
+
+        val depots = listOf(base, dlc)
+        val result = parser.filterDepotsForInstall(
+            languageDepots = depots,
+            allDepots = depots,
+            baseProductIds = setOf("100"),
+            dlcIds = setOf("200"),
+            ownedProductIds = emptySet(),
+        )
+
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun filterDepotsForInstall_selectedDlcWithoutLanguageDepotsFallsBackToEnglish() {
+        val base = createTestDepot(languages = listOf("de-DE"), manifest = "base-de").copy(productId = "100")
+        val dlcEnglish = createTestDepot(languages = listOf("en-US"), manifest = "dlc-en").copy(productId = "200")
+        val dlcFrench = createTestDepot(languages = listOf("fr-FR"), manifest = "dlc-fr").copy(productId = "200")
+        val baseEnglish = createTestDepot(languages = listOf("en-US"), manifest = "base-en").copy(productId = "100")
+
+        val result = parser.filterDepotsForInstall(
+            languageDepots = listOf(base),
+            allDepots = listOf(base, baseEnglish, dlcEnglish, dlcFrench),
+            baseProductIds = setOf("100"),
+            dlcIds = setOf("200"),
+            ownedProductIds = setOf("100", "200"),
+        )
+
+        assertEquals(listOf("base-de", "dlc-en"), result.map { it.manifest })
+    }
+
+    @Test
+    fun filterDepotsForInstall_selectedDlcWithoutEnglishDepotsTakesAllOfItsDepots() {
+        val base = createTestDepot(languages = listOf("en-US"), manifest = "base").copy(productId = "100")
+        val baseGerman = createTestDepot(languages = listOf("de-DE"), manifest = "base-de").copy(productId = "100")
+        val dlcGerman = createTestDepot(languages = listOf("de-DE"), manifest = "dlc-de").copy(productId = "200")
+        val dlcFrench = createTestDepot(languages = listOf("fr-FR"), manifest = "dlc-fr").copy(productId = "200")
+
+        val result = parser.filterDepotsForInstall(
+            languageDepots = listOf(base),
+            allDepots = listOf(base, baseGerman, dlcGerman, dlcFrench),
+            baseProductIds = setOf("100"),
+            dlcIds = setOf("200"),
+            ownedProductIds = setOf("100", "200"),
+        )
+
+        assertEquals(listOf("base", "dlc-de", "dlc-fr"), result.map { it.manifest })
+    }
+
+    @Test
+    fun dlcDepotsWithFallback_prefersLanguageDepots() {
+        val dlcGerman = createTestDepot(languages = listOf("de-DE"), manifest = "dlc-de").copy(productId = "200")
+        val dlcEnglish = createTestDepot(languages = listOf("en-US"), manifest = "dlc-en").copy(productId = "200")
+
+        val result = parser.dlcDepotsWithFallback(listOf(dlcGerman), listOf(dlcGerman, dlcEnglish), "200")
+
+        assertEquals(listOf("dlc-de"), result.map { it.manifest })
+    }
+
+    @Test
+    fun dlcDepotsWithFallback_starOnlyInLanguageAddsEnglishDepots() {
+        val dlcStar = createTestDepot(languages = listOf("*"), manifest = "dlc-star").copy(productId = "200")
+        val dlcEnglish = createTestDepot(languages = listOf("en-US"), manifest = "dlc-en").copy(productId = "200")
+
+        val result = parser.dlcDepotsWithFallback(listOf(dlcStar), listOf(dlcStar, dlcEnglish), "200")
+
+        assertEquals(listOf("dlc-star", "dlc-en"), result.map { it.manifest })
+    }
+
+    @Test
+    fun dlcDepotsWithFallback_starDepotListingAnotherLocaleStillAddsEnglishDepots() {
+        val dlcStarFrench = createTestDepot(languages = listOf("*", "fr-FR"), manifest = "dlc-star-fr").copy(productId = "200")
+        val dlcEnglish = createTestDepot(languages = listOf("en-US"), manifest = "dlc-en").copy(productId = "200")
+
+        val result = parser.dlcDepotsWithFallback(listOf(dlcStarFrench), listOf(dlcStarFrench, dlcEnglish), "200")
+
+        assertEquals(listOf("dlc-star-fr", "dlc-en"), result.map { it.manifest })
+    }
+
+    @Test
+    fun dlcDepotsWithFallback_starOnlyDlcKeepsItsStarDepots() {
+        val dlcStar = createTestDepot(languages = listOf("*"), manifest = "dlc-star").copy(productId = "200")
+
+        val result = parser.dlcDepotsWithFallback(listOf(dlcStar), listOf(dlcStar), "200")
+
+        assertEquals(listOf("dlc-star"), result.map { it.manifest })
+    }
+
+    @Test
+    fun filterDepotsForInstall_germanContainerGetsStarAndEnglishDepotsOfDlc() {
+        val baseGerman = createTestDepot(languages = listOf("de-DE"), manifest = "base-de").copy(productId = "100")
+        val dlcStar = createTestDepot(languages = listOf("*"), manifest = "dlc-star").copy(productId = "200")
+        val dlcEnglish = createTestDepot(languages = listOf("en-US"), manifest = "dlc-en").copy(productId = "200")
+
+        val result = parser.filterDepotsForInstall(
+            languageDepots = listOf(baseGerman, dlcStar),
+            allDepots = listOf(baseGerman, dlcStar, dlcEnglish),
+            baseProductIds = setOf("100"),
+            dlcIds = setOf("200"),
+            ownedProductIds = setOf("100", "200"),
+        )
+
+        assertEquals(listOf("base-de", "dlc-star", "dlc-en"), result.map { it.manifest })
+    }
+
+    @Test
+    fun filterDepotsForInstall_languageMatchingOnlyDlcFallsBackToEnglishForBase() {
+        val baseStar = createTestDepot(languages = listOf("*"), manifest = "base-star").copy(productId = "100")
+        val baseEnglish = createTestDepot(languages = listOf("en-US"), manifest = "base-en").copy(productId = "100")
+        val baseFrench = createTestDepot(languages = listOf("fr-FR"), manifest = "base-fr").copy(productId = "100")
+        val dlcGerman = createTestDepot(languages = listOf("de-DE"), manifest = "dlc-de").copy(productId = "200")
+
+        val result = parser.filterDepotsForInstall(
+            languageDepots = listOf(dlcGerman, baseStar),
+            allDepots = listOf(baseStar, baseEnglish, baseFrench, dlcGerman),
+            baseProductIds = setOf("100"),
+            dlcIds = setOf("200"),
+            ownedProductIds = setOf("100", "200"),
+        )
+
+        assertEquals(listOf("dlc-de", "base-star", "base-en"), result.map { it.manifest })
+    }
+
+    @Test
+    fun filterDepotsForInstall_keepsDepotsOfEitherBaseId() {
+        val baseProduct = createTestDepot(manifest = "base-product").copy(productId = "100")
+        val gameProduct = createTestDepot(manifest = "game-product").copy(productId = "101")
+
+        val depots = listOf(baseProduct, gameProduct)
+        val result = parser.filterDepotsForInstall(
+            languageDepots = depots,
+            allDepots = depots,
+            baseProductIds = setOf("100", "101"),
+            dlcIds = emptySet(),
+            ownedProductIds = setOf("100", "101"),
+        )
+
+        assertEquals(listOf("base-product", "game-product"), result.map { it.manifest })
     }
 
     @Test
@@ -339,11 +510,11 @@ class GOGManifestParserTest {
         val chunks = listOf("aabbccdd11223344", "11223344aabbccdd")
         val chunkToProductMap = mapOf(
             "aabbccdd11223344" to "12345",
-            "11223344aabbccdd" to "67890",
+            "11223344aabbccdd" to "67890"
         )
         val productUrlMap = mapOf(
             "12345" to listOf("https://cdn1.gog.com/product1"),
-            "67890" to listOf("https://cdn2.gog.com/product2"),
+            "67890" to listOf("https://cdn2.gog.com/product2")
         )
 
         val result = parser.buildChunkUrlMapWithProducts(chunks, chunkToProductMap, productUrlMap)
@@ -369,7 +540,7 @@ class GOGManifestParserTest {
         val chunks = listOf("aabbccdd11223344")
         val chunkToProductMap = mapOf("aabbccdd11223344" to "12345")
         val productUrlMap = mapOf(
-            "12345" to listOf("https://cdn.gog.com/store/1451150270?__token__=exp=123~acl=*"),
+            "12345" to listOf("https://cdn.gog.com/store/1451150270?__token__=exp=123~acl=*")
         )
 
         val result = parser.buildChunkUrlMapWithProducts(chunks, chunkToProductMap, productUrlMap)
@@ -585,44 +756,29 @@ class GOGManifestParserTest {
     @Test
     fun testParseManifestV1_handlesGen1AndLanguageNormalization() {
         val json = JSONObject().apply {
-            put(
-                "product",
-                JSONObject().apply {
-                    put("installDirectory", "Beyond Good and Evil")
-                    put("rootGameID", "1207658746")
-                    put("timestamp", "27565470")
-                    put(
-                        "depots",
-                        JSONArray().apply {
-                            put(
-                                JSONObject().apply {
-                                    put("gameIDs", JSONArray().put("1207658746"))
-                                    put("languages", JSONArray().put("Neutral"))
-                                    put("manifest", "b974058a-6dc2-41a3-b886-295a7b82a251")
-                                    put("size", 12345L)
-                                },
-                            )
-                            put(
-                                JSONObject().apply {
-                                    put("gameIDs", JSONArray().put("1207658746"))
-                                    put("languages", JSONArray().put("en-US"))
-                                    put("manifest", "494a4547-48ea-40c0-ad21-b96ab8fa8cba")
-                                    put("size", 67890L)
-                                },
-                            )
-                        },
-                    )
-                    put(
-                        "gameIDs",
-                        JSONArray().put(
-                            JSONObject().apply {
-                                put("gameID", "1207658746")
-                                put("name", JSONObject().put("en", "Beyond Good and Evil"))
-                            },
-                        ),
-                    )
-                },
-            )
+            put("product", JSONObject().apply {
+                put("installDirectory", "Beyond Good and Evil")
+                put("rootGameID", "1207658746")
+                put("timestamp", "27565470")
+                put("depots", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("gameIDs", JSONArray().put("1207658746"))
+                        put("languages", JSONArray().put("Neutral"))
+                        put("manifest", "b974058a-6dc2-41a3-b886-295a7b82a251")
+                        put("size", 12345L)
+                    })
+                    put(JSONObject().apply {
+                        put("gameIDs", JSONArray().put("1207658746"))
+                        put("languages", JSONArray().put("en-US"))
+                        put("manifest", "494a4547-48ea-40c0-ad21-b96ab8fa8cba")
+                        put("size", 67890L)
+                    })
+                })
+                put("gameIDs", JSONArray().put(JSONObject().apply {
+                    put("gameID", "1207658746")
+                    put("name", JSONObject().put("en", "Beyond Good and Evil"))
+                }))
+            })
         }
         val result = parser.parseManifestV1(json)
         assertEquals("Beyond Good and Evil", result.installDirectory)
@@ -638,25 +794,17 @@ class GOGManifestParserTest {
     @Test
     fun testParseManifestV1_emptyLanguagesBecomesWildcard() {
         val json = JSONObject().apply {
-            put(
-                "product",
-                JSONObject().apply {
-                    put("installDirectory", "Game")
-                    put("rootGameID", "1")
-                    put("timestamp", "1")
-                    put(
-                        "depots",
-                        JSONArray().put(
-                            JSONObject().apply {
-                                put("gameIDs", JSONArray().put("1"))
-                                put("manifest", "abc")
-                                put("size", 0L)
-                            },
-                        ),
-                    )
-                    put("gameIDs", JSONArray())
-                },
-            )
+            put("product", JSONObject().apply {
+                put("installDirectory", "Game")
+                put("rootGameID", "1")
+                put("timestamp", "1")
+                put("depots", JSONArray().put(JSONObject().apply {
+                    put("gameIDs", JSONArray().put("1"))
+                    put("manifest", "abc")
+                    put("size", 0L)
+                }))
+                put("gameIDs", JSONArray())
+            })
         }
         val result = parser.parseManifestV1(json)
         assertEquals(1, result.depots.size)

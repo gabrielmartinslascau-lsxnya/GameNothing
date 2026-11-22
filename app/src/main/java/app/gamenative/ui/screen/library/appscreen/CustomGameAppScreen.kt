@@ -1,26 +1,20 @@
 package app.gamenative.ui.screen.library.appscreen
 
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import app.gamenative.ui.component.dialog.LoadingDialog
 import androidx.compose.runtime.*
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.res.stringResource
-import app.gamenative.BuildConfig
-import app.gamenative.PluviaApp
 import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.data.LibraryItem
 import app.gamenative.events.AndroidEvent
-import app.gamenative.ui.component.dialog.LoadingDialog
+import app.gamenative.PluviaApp
 import app.gamenative.ui.data.AppMenuOption
 import app.gamenative.ui.data.GameDisplayInfo
 import app.gamenative.ui.enums.AppOptionMenuType
@@ -31,13 +25,14 @@ import app.gamenative.utils.GameMetadataManager
 import app.gamenative.utils.SteamGridDB
 import app.gamenative.utils.StorageUtils
 import com.winlator.container.ContainerData
-import java.io.File
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.net.Uri
+import kotlinx.coroutines.CoroutineScope
+import java.io.File
 import timber.log.Timber
 
 /**
@@ -46,22 +41,7 @@ import timber.log.Timber
 class CustomGameAppScreen : BaseAppScreen() {
     companion object {
         // Shared state for delete dialog - list of appIds that should show the dialog
-        fun showRemoveFromLibraryDialog(appId: String) {
-            if (!removeFromLibraryDialogAppIds.contains(appId)) {
-                removeFromLibraryDialogAppIds.add(appId)
-            }
-        }
-
-        fun hideRemoveFromLibraryDialog(appId: String) {
-            removeFromLibraryDialogAppIds.remove(appId)
-        }
-
-        fun shouldShowRemoveFromLibraryDialog(appId: String): Boolean {
-            return removeFromLibraryDialogAppIds.contains(appId)
-        }
-
         private val deleteDialogAppIds = mutableStateListOf<String>()
-        private val removeFromLibraryDialogAppIds = mutableStateListOf<String>()
 
         fun showDeleteDialog(appId: String) {
             if (!deleteDialogAppIds.contains(appId)) {
@@ -80,11 +60,10 @@ class CustomGameAppScreen : BaseAppScreen() {
         // Shared state for deletion progress dialog
         var showDeletingDialog by mutableStateOf(false)
     }
-
     @Composable
     override fun getGameDisplayInfo(
         context: Context,
-        libraryItem: LibraryItem,
+        libraryItem: LibraryItem
     ): GameDisplayInfo {
         val gameFolderPath = remember(libraryItem.appId) {
             CustomGameScanner.getFolderPathFromAppId(libraryItem.appId)
@@ -94,11 +73,9 @@ class CustomGameAppScreen : BaseAppScreen() {
         fun findSteamGridDBImage(folder: File, imageType: String): String? {
             return folder.listFiles()?.firstOrNull { file ->
                 file.name.startsWith("steamgriddb_$imageType") &&
-                    (
-                        file.name.endsWith(".png", ignoreCase = true) ||
-                            file.name.endsWith(".jpg", ignoreCase = true) ||
-                            file.name.endsWith(".webp", ignoreCase = true)
-                        )
+                (file.name.endsWith(".png", ignoreCase = true) ||
+                 file.name.endsWith(".jpg", ignoreCase = true) ||
+                 file.name.endsWith(".webp", ignoreCase = true))
             }?.let { Uri.fromFile(it).toString() }
         }
 
@@ -133,12 +110,10 @@ class CustomGameAppScreen : BaseAppScreen() {
                 CustomGameScanner.findHeroCoverInFolder(folder)
                     ?: folder.listFiles()?.firstOrNull { file ->
                         file.name.startsWith("steamgriddb_hero") &&
-                            !file.name.contains("grid") &&
-                            (
-                                file.name.endsWith(".png", ignoreCase = true) ||
-                                    file.name.endsWith(".jpg", ignoreCase = true) ||
-                                    file.name.endsWith(".webp", ignoreCase = true)
-                                )
+                        !file.name.contains("grid") &&
+                        (file.name.endsWith(".png", ignoreCase = true) ||
+                         file.name.endsWith(".jpg", ignoreCase = true) ||
+                         file.name.endsWith(".webp", ignoreCase = true))
                     }?.let { Uri.fromFile(it).toString() }
             }
         }
@@ -226,7 +201,7 @@ class CustomGameAppScreen : BaseAppScreen() {
     override fun onDownloadInstallClick(
         context: Context,
         libraryItem: LibraryItem,
-        onClickPlay: (Boolean) -> Unit,
+        onClickPlay: (Boolean) -> Unit
     ) {
         // custom games don't need downloading — go straight to preLaunchApp
         onClickPlay(false)
@@ -380,7 +355,7 @@ class CustomGameAppScreen : BaseAppScreen() {
     @Composable
     override fun getResetContainerOption(
         context: Context,
-        libraryItem: LibraryItem,
+        libraryItem: LibraryItem
     ): AppMenuOption {
         var showResetConfirmDialog by remember { mutableStateOf(false) }
 
@@ -390,17 +365,17 @@ class CustomGameAppScreen : BaseAppScreen() {
                     showResetConfirmDialog = false
                     resetContainerToDefaults(context, libraryItem)
                 },
-                onDismiss = { showResetConfirmDialog = false },
+                onDismiss = { showResetConfirmDialog = false }
             )
         }
 
         return AppMenuOption(
             optionType = AppOptionMenuType.ResetToDefaults,
-            onClick = { showResetConfirmDialog = true },
+            onClick = { showResetConfirmDialog = true }
         )
     }
 
-    /**
+   /**
      * Custom Game-specific menu options
      */
     @Composable
@@ -410,38 +385,12 @@ class CustomGameAppScreen : BaseAppScreen() {
         onEditContainer: () -> Unit,
         onBack: () -> Unit,
         onClickPlay: (Boolean) -> Unit,
-        isInstalled: Boolean,
+        isInstalled: Boolean
     ): List<AppMenuOption> {
         val options = mutableListOf<AppMenuOption>()
-        val scope = rememberCoroutineScope()
-
-        val moveLauncher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.OpenDocumentTree()
-        ) { uri ->
-            if (uri != null) {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                )
-                val path = StorageUtils.getPathFromTreeUri(context, uri)
-                if (path != null) {
-                    PluviaApp.events.emit<AndroidEvent.MoveCustomGame, Unit>(AndroidEvent.MoveCustomGame(libraryItem.appId, path))
-                }
-            }
-        }
 
         // Fetch images from SteamGridDB for Custom Games
         options.add(getFetchImagesOption(context, libraryItem))
-
-        options.add(AppMenuOption(
-            optionType = AppOptionMenuType.MoveGame,
-            onClick = { moveLauncher.launch(null) }
-        ))
-
-        options.add(AppMenuOption(
-            optionType = AppOptionMenuType.RemoveFromLibrary,
-            onClick = { showRemoveFromLibraryDialog(libraryItem.appId) }
-        ))
 
         return options
     }
@@ -465,25 +414,11 @@ class CustomGameAppScreen : BaseAppScreen() {
                                 steamgriddbFetched = false,
                             )
 
-                            val result = SteamGridDB.fetchGameImages(gameName, gameFolderPath, force = true)
+                            SteamGridDB.fetchGameImages(gameName, gameFolderPath)
+                            PluviaApp.events.emit(AndroidEvent.CustomGameImagesFetched(libraryItem.appId))
+                            onAfterFetchImages(context, libraryItem, gameFolderPath)
 
-                            val fetchedAny = result.gridPath != null || result.heroPath != null ||
-                                           result.logoPath != null || result.capsulePath != null
-
-                            if (fetchedAny) {
-                                PluviaApp.events.emit(AndroidEvent.CustomGameImagesFetched(libraryItem.appId))
-                                onAfterFetchImages(context, libraryItem, gameFolderPath)
-                                SnackbarManager.show(context.getString(R.string.base_app_images_fetched))
-                            } else {
-                                // If no images found, check if it's due to missing API key
-                                val apiKey = BuildConfig.STEAMGRIDDB_API_KEY
-                                val msg = if (apiKey.isEmpty()) {
-                                    "SteamGridDB API Key is missing in local.properties"
-                                } else {
-                                    "No matching images found for \"$gameName\""
-                                }
-                                SnackbarManager.show(msg)
-                            }
+                            SnackbarManager.show(context.getString(R.string.base_app_images_fetched))
                         } else {
                             SnackbarManager.show(context.getString(R.string.base_app_game_folder_not_found))
                         }
@@ -527,7 +462,7 @@ class CustomGameAppScreen : BaseAppScreen() {
         libraryItem: LibraryItem,
         onDismiss: () -> Unit,
         onEditContainer: () -> Unit,
-        onBack: () -> Unit,
+        onBack: () -> Unit
     ) {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
@@ -538,64 +473,6 @@ class CustomGameAppScreen : BaseAppScreen() {
                 visible = true,
                 progress = -1f,
                 message = stringResource(R.string.deleting),
-            )
-        }
-
-        // Track remove dialog state
-        var showRemoveDialog by remember { mutableStateOf(shouldShowRemoveFromLibraryDialog(libraryItem.appId)) }
-
-        LaunchedEffect(libraryItem.appId) {
-            snapshotFlow { shouldShowRemoveFromLibraryDialog(libraryItem.appId) }
-                .collect { shouldShow ->
-                    showRemoveDialog = shouldShow
-                }
-        }
-
-        if (showRemoveDialog) {
-            AlertDialog(
-                onDismissRequest = { hideRemoveFromLibraryDialog(libraryItem.appId) },
-                title = { Text(stringResource(R.string.option_remove_from_library)) },
-                text = { Text("Are you sure you want to remove \"${libraryItem.name}\" from your library? The game files will not be deleted.") },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            hideRemoveFromLibraryDialog(libraryItem.appId)
-                            showDeletingDialog = true
-                            scope.launch {
-                                try {
-                                    withContext(Dispatchers.Main) {
-                                        ContainerUtils.deleteContainer(context, libraryItem.appId)
-                                    }
-                                    withContext(Dispatchers.IO) {
-                                        val folderPath = CustomGameScanner.getFolderPathFromAppId(libraryItem.appId)
-                                        if (folderPath != null) {
-                                            val manualFolders = PrefManager.customGameManualFolders.toMutableSet()
-                                            manualFolders.remove(folderPath)
-                                            PrefManager.customGameManualFolders = manualFolders
-                                        }
-                                        CustomGameScanner.invalidateCache()
-                                    }
-                                    withContext(Dispatchers.Main) {
-                                        SnackbarManager.show("\"${libraryItem.name}\" has been removed")
-                                        delay(100)
-                                        onBack()
-                                    }
-                                } catch (e: Exception) {
-                                    withContext(Dispatchers.Main) {
-                                        SnackbarManager.show("Failed to remove game: ${e.message}")
-                                    }
-                                } finally {
-                                    withContext(NonCancellable + Dispatchers.Main) {
-                                        showDeletingDialog = false
-                                    }
-                                }
-                            }
-                        }
-                    ) { Text("Remove", color = MaterialTheme.colorScheme.error) }
-                },
-                dismissButton = {
-                    TextButton(onClick = { hideRemoveFromLibraryDialog(libraryItem.appId) }) { Text("Cancel") }
-                }
             )
         }
 
@@ -669,7 +546,7 @@ class CustomGameAppScreen : BaseAppScreen() {
                                     }
                                 }
                             }
-                        },
+                        }
                     ) {
                         Text("Delete", color = androidx.compose.material3.MaterialTheme.colorScheme.error)
                     }
@@ -680,8 +557,12 @@ class CustomGameAppScreen : BaseAppScreen() {
                     }) {
                         Text("Cancel")
                     }
-                },
+                }
             )
         }
     }
 }
+
+
+
+

@@ -3,9 +3,12 @@ package app.gamenative.utils
 import android.content.Context
 import android.os.Build
 import app.gamenative.BuildConfig
+import app.gamenative.MainActivity
 import app.gamenative.PrefManager
 import app.gamenative.data.GameSource
+import app.gamenative.display.GamescopeSettings
 import app.gamenative.enums.Marker
+import app.gamenative.inputcontrols.ControlProfileService
 import app.gamenative.service.SteamService
 import app.gamenative.service.amazon.AmazonService
 import app.gamenative.service.epic.EpicService
@@ -15,14 +18,15 @@ import com.winlator.container.ContainerData
 import com.winlator.container.ContainerManager
 import com.winlator.core.DefaultVersion
 import com.winlator.core.FileUtils
-import com.winlator.core.GPUInformation
 import com.winlator.core.KeyValueSet
+import com.winlator.core.GPUInformation
+import com.winlator.core.envvars.EnvVars
 import com.winlator.core.WineRegistryEditor
 import com.winlator.core.WineThemeManager
-import com.winlator.core.envvars.EnvVars
 import com.winlator.winhandler.WinHandler.PreferredInputApi
 import com.winlator.xenvironment.ImageFs
 import java.io.File
+import java.util.concurrent.ExecutionException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -49,50 +53,57 @@ object ContainerUtils {
         // Override default driver and DXVK version based on Turnip capability
         if (GPUInformation.isTurnipCapable(context)) {
             DefaultVersion.VARIANT = Container.BIONIC
-            DefaultVersion.WINE_VERSION = "proton-10.0-arm64ec-2"
+            DefaultVersion.WINE_VERSION = "proton-11.0-2-arm64ec-9"
             DefaultVersion.DEFAULT_GRAPHICS_DRIVER = "Wrapper"
             DefaultVersion.DXVK = if (GPUInformation.isAdreno6xx(context)) "1.11.1-sarek" else "2.4.1-gplasync"
             DefaultVersion.VKD3D = "2.14.1"
-            DefaultVersion.WRAPPER = WRAPPER_TURNIP_CAPABLE
-            DefaultVersion.STEAM_TYPE = Container.STEAM_TYPE_NORMAL
+            // The bundled Turnip package has no device-table entries for the
+            // Adreno 710/720/732 family, so use the device's system driver.
+            DefaultVersion.WRAPPER =
+                if (GPUInformation.isAdreno710_720_732(context)) "System" else WRAPPER_TURNIP_CAPABLE
+            DefaultVersion.STEAM_TYPE = Container.STEAM_TYPE_HEADLESS
             DefaultVersion.ASYNC_CACHE = "1"
         } else if (GPUInformation.isAdrenoA12(context)) {
             DefaultVersion.VARIANT = Container.BIONIC
-            DefaultVersion.WINE_VERSION = "proton-10.0-arm64ec-2"
+            DefaultVersion.WINE_VERSION = "proton-11.0-2-arm64ec-9"
             DefaultVersion.DEFAULT_GRAPHICS_DRIVER = "Wrapper"
             DefaultVersion.DXVK = "2.4.1-gplasync"
             DefaultVersion.VKD3D = "2.14.1"
             DefaultVersion.WRAPPER = WRAPPER_ADRENO_A12
-            DefaultVersion.STEAM_TYPE = Container.STEAM_TYPE_NORMAL
+            DefaultVersion.STEAM_TYPE = Container.STEAM_TYPE_HEADLESS
             DefaultVersion.ASYNC_CACHE = "1"
         } else if (GPUInformation.isAdreno8EliteGen5(context)) {
             DefaultVersion.VARIANT = Container.BIONIC
-            DefaultVersion.WINE_VERSION = "proton-10.0-arm64ec-2"
+            DefaultVersion.WINE_VERSION = "proton-11.0-2-arm64ec-9"
             DefaultVersion.DEFAULT_GRAPHICS_DRIVER = "Wrapper"
             DefaultVersion.DXVK = "2.4.1-gplasync"
             DefaultVersion.VKD3D = "2.14.1"
             DefaultVersion.WRAPPER = WRAPPER_ADRENO_8ELITE_GEN5
-            DefaultVersion.STEAM_TYPE = Container.STEAM_TYPE_NORMAL
+            DefaultVersion.STEAM_TYPE = Container.STEAM_TYPE_HEADLESS
             DefaultVersion.ASYNC_CACHE = "1"
         } else if (GPUInformation.isAdreno8Elite(context)) {
             DefaultVersion.VARIANT = Container.BIONIC
-            DefaultVersion.WINE_VERSION = "proton-10.0-arm64ec-2"
+            DefaultVersion.WINE_VERSION = "proton-11.0-2-arm64ec-9"
             DefaultVersion.DEFAULT_GRAPHICS_DRIVER = "Wrapper"
             DefaultVersion.DXVK = "2.4.1-gplasync"
             DefaultVersion.VKD3D = "2.14.1"
             DefaultVersion.WRAPPER = WRAPPER_ADRENO_8ELITE
-            DefaultVersion.STEAM_TYPE = Container.STEAM_TYPE_NORMAL
+            DefaultVersion.STEAM_TYPE = Container.STEAM_TYPE_HEADLESS
             DefaultVersion.ASYNC_CACHE = "1"
         } else {
             DefaultVersion.VARIANT = Container.BIONIC
-            DefaultVersion.WINE_VERSION = "proton-10.0-arm64ec-2"
+            DefaultVersion.WINE_VERSION = "proton-11.0-2-arm64ec-9"
             DefaultVersion.DEFAULT_GRAPHICS_DRIVER =
                 if (GPUInformation.isAdrenoGPU(context)) "Wrapper" else "Wrapper-gamenative"
             DefaultVersion.DXVK = "async-1.10.3"
             DefaultVersion.VKD3D = "2.14.1"
-            DefaultVersion.STEAM_TYPE = Container.STEAM_TYPE_LIGHT
+            DefaultVersion.STEAM_TYPE = Container.STEAM_TYPE_HEADLESS
             DefaultVersion.ASYNC_CACHE = "0"
         }
+        DefaultVersion.DISPLAY_SERVER = Container.defaultDisplayServer(
+            GPUInformation.getRenderer(context).orEmpty().contains("adreno", ignoreCase = true),
+            Build.VERSION.SDK_INT,
+        )
     }
 
     fun getGPUCards(context: Context): Map<Int, GpuInfo> {
@@ -119,11 +130,13 @@ object ContainerUtils {
             graphicsDriverConfig = PrefManager.graphicsDriverConfig,
             rendererPresentMode = PrefManager.rendererPresentMode,
             displayRenderer = PrefManager.displayRendererMode,
+            displayServer = PrefManager.displayServer,
             sfCompatMode = PrefManager.sfCompatMode,
             dxwrapper = PrefManager.dxWrapper,
             dxwrapperConfig = PrefManager.dxWrapperConfig,
             audioDriver = PrefManager.audioDriver,
             pulseaudioLowLatency = PrefManager.pulseaudioLowLatency,
+            micEnabled = PrefManager.micEnabled,
             wincomponents = PrefManager.winComponents,
             drives = PrefManager.drives,
             execArgs = PrefManager.execArgs,
@@ -144,10 +157,13 @@ object ContainerUtils {
             forceDlc = PrefManager.forceDlc,
             localSavesOnly = PrefManager.localSavesOnly,
             steamOfflineMode = PrefManager.steamOfflineMode,
+            loadMods = PrefManager.loadMods,
             epicOfflineMode = PrefManager.epicOfflineMode,
             useLegacyDRM = PrefManager.useLegacyDRM,
             unpackFiles = PrefManager.unpackFiles,
             suspendPolicy = PrefManager.suspendPolicy,
+            fasterExternalLoading = PrefManager.fasterExternalLoading,
+            disableLibredirect = PrefManager.disableLibredirect,
             wineVersion = PrefManager.wineVersion,
             emulator = PrefManager.emulator,
             fexcoreVersion = PrefManager.fexcoreVersion,
@@ -163,17 +179,21 @@ object ContainerUtils {
             videoMemorySize = PrefManager.videoMemorySize,
             mouseWarpOverride = PrefManager.mouseWarpOverride,
             useDRI3 = PrefManager.useDRI3,
+            hdrEnabled = PrefManager.hdrEnabled,
+            gamescopeOutputResolution = PrefManager.gamescopeOutputResolution,
             useSteamInput = PrefManager.useSteamInput,
             enableXInput = PrefManager.xinputEnabled,
-            enableDInput = PrefManager.dinputEnabled,
-            dinputMapperType = PrefManager.dinputMapperType.toByte(),
+			enableDInput = PrefManager.dinputEnabled,
+			dinputMapperType = PrefManager.dinputMapperType.toByte(),
             disableMouseInput = PrefManager.disableMouseInput,
             portraitMode = PrefManager.portraitMode,
+            portraitBelowCutout = PrefManager.portraitBelowCutout,
             externalDisplayMode = PrefManager.externalDisplayInputMode,
             externalDisplaySwap = PrefManager.externalDisplaySwap,
             sharpnessEffect = PrefManager.sharpnessEffect,
             sharpnessLevel = PrefManager.sharpnessLevel,
             sharpnessDenoise = PrefManager.sharpnessDenoise,
+            vibrationIntensity = PrefManager.vibrationIntensity,
         )
     }
 
@@ -185,11 +205,13 @@ object ContainerUtils {
         PrefManager.graphicsDriverConfig = containerData.graphicsDriverConfig
         PrefManager.rendererPresentMode = containerData.rendererPresentMode
         PrefManager.displayRendererMode = containerData.displayRenderer
+        PrefManager.displayServer = containerData.displayServer
         PrefManager.sfCompatMode = containerData.sfCompatMode
         PrefManager.dxWrapper = containerData.dxwrapper
         PrefManager.dxWrapperConfig = containerData.dxwrapperConfig
         PrefManager.audioDriver = containerData.audioDriver
         PrefManager.pulseaudioLowLatency = containerData.pulseaudioLowLatency
+        PrefManager.micEnabled = containerData.micEnabled
         PrefManager.winComponents = containerData.wincomponents
         PrefManager.drives = containerData.drives
         PrefManager.execArgs = containerData.execArgs
@@ -211,6 +233,8 @@ object ContainerUtils {
         PrefManager.videoMemorySize = containerData.videoMemorySize
         PrefManager.mouseWarpOverride = containerData.mouseWarpOverride
         PrefManager.useDRI3 = containerData.useDRI3
+        PrefManager.hdrEnabled = containerData.hdrEnabled
+        PrefManager.gamescopeOutputResolution = containerData.gamescopeOutputResolution
         PrefManager.disableMouseInput = containerData.disableMouseInput
         PrefManager.externalDisplayInputMode = containerData.externalDisplayMode
         PrefManager.externalDisplaySwap = containerData.externalDisplaySwap
@@ -224,23 +248,28 @@ object ContainerUtils {
         PrefManager.fexcoreX87Mode = containerData.fexcoreX87Mode
         PrefManager.fexcoreMultiBlock = containerData.fexcoreMultiBlock
         PrefManager.fexcorePreset = containerData.fexcorePreset
-        // Persist renderer and controller defaults
-        PrefManager.renderer = containerData.renderer
+		// Persist renderer and controller defaults
+		PrefManager.renderer = containerData.renderer
         PrefManager.useSteamInput = containerData.useSteamInput
         PrefManager.xinputEnabled = containerData.enableXInput
-        PrefManager.dinputEnabled = containerData.enableDInput
-        PrefManager.dinputMapperType = containerData.dinputMapperType.toInt()
+		PrefManager.dinputEnabled = containerData.enableDInput
+		PrefManager.dinputMapperType = containerData.dinputMapperType.toInt()
         PrefManager.forceDlc = containerData.forceDlc
         PrefManager.localSavesOnly = containerData.localSavesOnly
         PrefManager.steamOfflineMode = containerData.steamOfflineMode
+        PrefManager.loadMods = containerData.loadMods
         PrefManager.epicOfflineMode = containerData.epicOfflineMode
         PrefManager.useLegacyDRM = containerData.useLegacyDRM
         PrefManager.unpackFiles = containerData.unpackFiles
         PrefManager.suspendPolicy = containerData.suspendPolicy
+        PrefManager.fasterExternalLoading = containerData.fasterExternalLoading
+        PrefManager.disableLibredirect = containerData.disableLibredirect
         PrefManager.portraitMode = containerData.portraitMode
+        PrefManager.portraitBelowCutout = containerData.portraitBelowCutout
         PrefManager.sharpnessEffect = containerData.sharpnessEffect
         PrefManager.sharpnessLevel = containerData.sharpnessLevel
         PrefManager.sharpnessDenoise = containerData.sharpnessDenoise
+        PrefManager.vibrationIntensity = containerData.vibrationIntensity
     }
 
     fun toContainerData(container: Container): ContainerData {
@@ -304,13 +333,16 @@ object ContainerUtils {
             graphicsDriverConfig = container.graphicsDriverConfig,
             rendererPresentMode = container.rendererPresentMode,
             displayRenderer = container.displayRenderer,
+            displayServer = container.displayServer,
             xrRefreshRate = container.xrRefreshRate,
+            xrRenderScale = container.xrRenderScale,
             sfCompatMode = container.sfCompatMode,
             dxwrapper = container.dxWrapper,
             dxwrapperConfig = container.dxWrapperConfig,
             audioDriver = container.audioDriver,
             pulseaudioLowLatency = container.getPulseaudioLowLatency(),
-            wincomponents = container.winComponents,
+            micEnabled = container.getMicEnabled(),
+            wincomponents = Container.normalizeWinComponents(container.winComponents),
             drives = container.drives,
             execArgs = container.execArgs,
             executablePath = container.executablePath,
@@ -335,15 +367,20 @@ object ContainerUtils {
             fexcorePreset = container.getFEXCorePreset(),
             language = container.language,
             sdlControllerAPI = container.isSdlControllerAPI,
+            fasterExternalLoading = container.isFasterExternalLoading,
+            disableLibredirect = container.isDisableLibredirect,
             useSteamInput = useSteamInput,
             forceDlc = container.isForceDlc,
             localSavesOnly = container.isLocalSavesOnly,
             steamOfflineMode = container.isSteamOfflineMode(),
+            loadMods = container.isLoadMods(),
             epicOfflineMode = container.isEpicOfflineMode(),
+            disableEpicOverlay = container.isDisableEpicOverlay,
             useLegacyDRM = container.isUseLegacyDRM(),
             unpackFiles = container.isUnpackFiles(),
             suspendPolicy = container.suspendPolicy,
             portraitMode = container.isPortraitMode,
+            portraitBelowCutout = container.isPortraitBelowCutout,
             enableXInput = enableX,
             enableDInput = enableD,
             dinputMapperType = mapperType,
@@ -359,13 +396,29 @@ object ContainerUtils {
             offScreenRenderingMode = offScreenRenderingMode,
             strictShaderMath = strictShaderMath,
             useDRI3 = container.isUseDRI3(),
+            hdrEnabled = container.isHdrEnabled(),
+            gamescopeOutputResolution = container.getExtra(
+                GamescopeSettings.EXTRA_OUTPUT_RESOLUTION,
+                GamescopeSettings.OUTPUT_RESOLUTION_DEFAULT,
+            ),
             videoMemorySize = videoMemorySize,
             mouseWarpOverride = mouseWarpOverride,
             sharpnessEffect = container.getExtra("sharpnessEffect", "None"),
             sharpnessLevel = container.getExtra("sharpnessLevel", "100").toIntOrNull() ?: 100,
             sharpnessDenoise = container.getExtra("sharpnessDenoise", "100").toIntOrNull() ?: 100,
+            vibrationIntensity = (container.getExtra("vibrationIntensity", "100").toIntOrNull() ?: 100).coerceIn(0, 100),
             // LSFG Vulkan frame generation
             lsfgEnabled = container.getExtra(LsfgVkManager.EXTRA_ARMED, "false").toBoolean(),
+            windowsVrEnabled = container.getExtra("windowsVrEnabled", "false").toBoolean(),
+            openCompositeEnabled = container.getExtra("windowsVrOpenCompositeEnabled", "false").toBoolean(),
+            fpsLimiterEnabled = container.getExtra("fpsLimiterEnabled", "true").let {
+                !it.equals("false", ignoreCase = true) && it != "0"
+            },
+            rootlessGamePinningEnabled = container.getExtra("rootlessGamePinningEnabled", "false").toBoolean(),
+            tuningMode = app.gamenative.performance.TuningMode.fromContainer(container).id,
+            tuningModeSnapshot = container.getExtra("tuningModeSnapshot", "")
+                .ifBlank { container.getExtra("performanceModeSnapshot", "") },
+            lastAiPatchSnapshot = container.getExtra("lastAiPatchSnapshot", ""),
         )
     }
 
@@ -389,14 +442,14 @@ object ContainerUtils {
                 "graphicsDriverVersion" -> value?.let {
                     updatedData.copy(
                         graphicsDriverVersion =
-                        it as? String ?: updatedData.graphicsDriverVersion,
+                            it as? String ?: updatedData.graphicsDriverVersion,
                     )
                 }
                     ?: updatedData
                 "graphicsDriverConfig" -> value?.let {
                     updatedData.copy(
                         graphicsDriverConfig =
-                        it as? String ?: updatedData.graphicsDriverConfig,
+                            it as? String ?: updatedData.graphicsDriverConfig,
                     )
                 }
                     ?: updatedData
@@ -407,7 +460,7 @@ object ContainerUtils {
                 "startupSelection" -> value?.let {
                     updatedData.copy(
                         startupSelection =
-                        (it as? Int)?.toByte() ?: updatedData.startupSelection,
+                            (it as? Int)?.toByte() ?: updatedData.startupSelection,
                     )
                 }
                     ?: updatedData
@@ -428,20 +481,31 @@ object ContainerUtils {
                 "fexcorePreset" -> value?.let { updatedData.copy(fexcorePreset = it as? String ?: updatedData.fexcorePreset) }
                     ?: updatedData
                 "useLegacyDRM" -> value?.let { updatedData.copy(useLegacyDRM = it as? Boolean ?: updatedData.useLegacyDRM) } ?: updatedData
-                "steamOfflineMode" -> value?.let { updatedData.copy(steamOfflineMode = it as? Boolean ?: updatedData.steamOfflineMode) }
-                    ?: updatedData
-                "epicOfflineMode" -> value?.let { updatedData.copy(epicOfflineMode = it as? Boolean ?: updatedData.epicOfflineMode) }
-                    ?: updatedData
+                "steamOfflineMode" -> value?.let { updatedData.copy(steamOfflineMode = it as? Boolean ?: updatedData.steamOfflineMode) } ?: updatedData
+                "loadMods" -> value?.let { updatedData.copy(loadMods = it as? Boolean ?: updatedData.loadMods) } ?: updatedData
+                "epicOfflineMode" -> value?.let { updatedData.copy(epicOfflineMode = it as? Boolean ?: updatedData.epicOfflineMode) } ?: updatedData
                 "unpackFiles" -> value?.let { updatedData.copy(unpackFiles = it as? Boolean ?: updatedData.unpackFiles) } ?: updatedData
-                "suspendPolicy" -> value?.let { updatedData.copy(suspendPolicy = it as? String ?: updatedData.suspendPolicy) }
-                    ?: updatedData
+                "suspendPolicy" -> value?.let { updatedData.copy(suspendPolicy = it as? String ?: updatedData.suspendPolicy) } ?: updatedData
                 "envVars" -> value?.let { updatedData.copy(envVars = it as? String ?: updatedData.envVars) } ?: updatedData
                 "cpuList" -> value?.let { updatedData.copy(cpuList = it as? String ?: updatedData.cpuList) } ?: updatedData
                 "cpuListWoW64" -> value?.let { updatedData.copy(cpuListWoW64 = it as? String ?: updatedData.cpuListWoW64) } ?: updatedData
                 "audioDriver" -> value?.let { updatedData.copy(audioDriver = it as? String ?: updatedData.audioDriver) } ?: updatedData
+                "inputType" -> value?.let {
+                    val api = (it as? Int)?.let { ordinal -> PreferredInputApi.values().getOrNull(ordinal) }
+                    when (api) {
+                        PreferredInputApi.AUTO -> updatedData.copy(enableXInput = false, enableDInput = false)
+                        PreferredInputApi.DINPUT -> updatedData.copy(enableXInput = false, enableDInput = true)
+                        PreferredInputApi.XINPUT -> updatedData.copy(enableXInput = true, enableDInput = false)
+                        PreferredInputApi.BOTH -> updatedData.copy(enableXInput = true, enableDInput = true)
+                        null -> updatedData
+                    }
+                } ?: updatedData
                 "wincomponents" -> value?.let { updatedData.copy(wincomponents = it as? String ?: updatedData.wincomponents) } ?: updatedData
                 "videoMemorySize" -> value?.let { updatedData.copy(videoMemorySize = it as? String ?: updatedData.videoMemorySize) } ?: updatedData
                 "launchBionicSteam" -> value?.let { updatedData.copy(launchBionicSteam = it as? Boolean ?: updatedData.launchBionicSteam) } ?: updatedData
+                "launchRealSteam" -> value?.let { updatedData.copy(launchRealSteam = it as? Boolean ?: updatedData.launchRealSteam) } ?: updatedData
+                "steamType" -> value?.let { updatedData.copy(steamType = (it as? String)?.takeIf { s -> s.isNotBlank() } ?: updatedData.steamType) } ?: updatedData
+                "displayServer" -> value?.let { updatedData.copy(displayServer = it as? String ?: updatedData.displayServer) } ?: updatedData
                 else -> updatedData
             }
         }
@@ -492,12 +556,15 @@ object ContainerUtils {
         container.graphicsDriverConfig = containerData.graphicsDriverConfig
         container.rendererPresentMode = containerData.rendererPresentMode
         container.displayRenderer = containerData.displayRenderer
+        container.displayServer = containerData.displayServer
         container.xrRefreshRate = containerData.xrRefreshRate
+        container.xrRenderScale = containerData.xrRenderScale
         container.sfCompatMode = containerData.sfCompatMode
         container.dxWrapper = containerData.dxwrapper
         container.dxWrapperConfig = containerData.dxwrapperConfig
         container.audioDriver = containerData.audioDriver
         container.setPulseaudioLowLatency(containerData.pulseaudioLowLatency)
+        container.setMicEnabled(containerData.micEnabled)
         container.winComponents = containerData.wincomponents
         container.drives = containerData.drives
         container.execArgs = containerData.execArgs
@@ -509,8 +576,7 @@ object ContainerUtils {
         container.isLaunchRealSteam = containerData.launchRealSteam
         container.isLaunchBionicSteam = containerData.launchBionicSteam
         if (previousLaunchBionicSteam != containerData.launchBionicSteam ||
-            previousLaunchRealSteam != containerData.launchRealSteam
-        ) {
+            previousLaunchRealSteam != containerData.launchRealSteam) {
             container.setNeedsUnpacking(true)
         }
         container.isAllowSteamUpdates = containerData.allowSteamUpdates
@@ -524,6 +590,8 @@ object ContainerUtils {
         container.box86Preset = containerData.box86Preset
         container.box64Preset = containerData.box64Preset
         container.isSdlControllerAPI = containerData.sdlControllerAPI
+        container.isFasterExternalLoading = containerData.fasterExternalLoading
+        container.isDisableLibredirect = containerData.disableLibredirect
         container.putExtra("useSteamInput", containerData.useSteamInput)
         container.desktopTheme = containerData.desktopTheme
         container.graphicsDriverVersion = containerData.graphicsDriverVersion
@@ -542,19 +610,33 @@ object ContainerUtils {
         container.setForceDlc(containerData.forceDlc)
         container.setLocalSavesOnly(containerData.localSavesOnly)
         container.setSteamOfflineMode(containerData.steamOfflineMode)
+        container.setLoadMods(containerData.loadMods)
         container.setEpicOfflineMode(containerData.epicOfflineMode)
+        container.setDisableEpicOverlay(containerData.disableEpicOverlay)
         container.setUseLegacyDRM(containerData.useLegacyDRM)
         container.setUnpackFiles(containerData.unpackFiles)
         container.setSuspendPolicy(containerData.suspendPolicy)
         container.setPortraitMode(containerData.portraitMode)
+        container.setPortraitBelowCutout(containerData.portraitBelowCutout)
         if (previousUnpackFiles != containerData.unpackFiles && containerData.unpackFiles) {
             container.setNeedsUnpacking(true)
         }
         container.putExtra("sharpnessEffect", containerData.sharpnessEffect)
+        container.putExtra(GamescopeSettings.EXTRA_OUTPUT_RESOLUTION, containerData.gamescopeOutputResolution)
         container.putExtra("sharpnessLevel", containerData.sharpnessLevel.toString())
         container.putExtra("sharpnessDenoise", containerData.sharpnessDenoise.toString())
+        container.putExtra("vibrationIntensity", containerData.vibrationIntensity.coerceIn(0, 100).toString())
         // LSFG Vulkan frame generation
         container.putExtra(LsfgVkManager.EXTRA_ARMED, containerData.lsfgEnabled.toString())
+        container.putExtra("windowsVrEnabled", containerData.windowsVrEnabled.toString())
+        container.putExtra("windowsVrOpenCompositeEnabled", containerData.openCompositeEnabled.toString())
+        container.putExtra("fpsLimiterEnabled", containerData.fpsLimiterEnabled.toString())
+        container.putExtra("rootlessGamePinningEnabled", containerData.rootlessGamePinningEnabled.toString())
+        container.putExtra("tuningMode", containerData.tuningMode)
+        container.putExtra("tuningModeSnapshot", containerData.tuningModeSnapshot.ifEmpty { null })
+        container.putExtra("performanceMode", containerData.isPerformanceMode.toString())
+        container.putExtra("performanceModeSnapshot", null)
+        container.putExtra("lastAiPatchSnapshot", containerData.lastAiPatchSnapshot.ifEmpty { null })
         try {
             container.language = containerData.language
         } catch (e: Exception) {
@@ -596,6 +678,7 @@ object ContainerUtils {
         container.setInputType(api.ordinal)
         container.setDinputMapperType(containerData.dinputMapperType)
         container.setUseDRI3(containerData.useDRI3)
+        container.setHdrEnabled(containerData.hdrEnabled)
         Timber.d("Container set: preferredInputApi=%s, dinputMapperType=0x%02x", api, containerData.dinputMapperType)
 
         if (saveToDisk) {
@@ -659,6 +742,27 @@ object ContainerUtils {
         }
     }
 
+    /** Thrown when the on-disk container could not be created; the message names the cause. */
+    class ContainerCreationException(message: String, cause: Throwable? = null) : IllegalStateException(message, cause)
+
+    // Serialises container creation: two callers racing for the same id made the loser's
+    // mkdirs() fail, after which it deleted the winner's fresh directory or threw.
+    private val containerCreateLock = Any()
+
+    private fun createOrReuseContainer(
+        context: Context,
+        appId: String,
+        customConfig: ContainerData? = null,
+    ): Container = synchronized(containerCreateLock) {
+        // Re-read the home directory under the lock: another caller may have created it meanwhile.
+        val containerManager = ContainerManager(context)
+        if (containerManager.hasContainer(appId)) {
+            containerManager.getContainerById(appId)
+        } else {
+            createNewContainer(context, appId, appId, containerManager, customConfig)
+        }
+    }
+
     private fun createNewContainer(
         context: Context,
         appId: String,
@@ -666,7 +770,7 @@ object ContainerUtils {
         containerManager: ContainerManager,
         customConfig: ContainerData? = null,
     ): Container {
-        // Determine game source
+         // Determine game source
         val gameSource = extractGameSourceFromContainerId(appId)
 
         // Set up container drives to include app
@@ -676,7 +780,11 @@ object ContainerUtils {
                 // For Steam games, set up the app directory path
                 val gameId = extractGameIdFromContainerId(appId)
                 val appDirPath = SteamService.getAppDirPath(gameId)
-                val drive: Char = Container.getNextAvailableDriveLetter(defaultDrives)
+                val drive: Char = if (defaultDrives.contains("A:")) {
+                    Container.getNextAvailableDriveLetter(defaultDrives)
+                } else {
+                    'A'
+                }
                 "$defaultDrives$drive:$appDirPath"
             }
 
@@ -746,9 +854,7 @@ object ContainerUtils {
                 val appIdInt = runCatching { extractGameIdFromContainerId(appId) }.getOrNull()
                 val installPath = if (appIdInt != null) {
                     AmazonService.getInstallPathByAppId(appIdInt)
-                } else {
-                    null
-                }
+                } else null
 
                 if (installPath != null && installPath.isNotEmpty()) {
                     val drive: Char = if (defaultDrives.contains("A:")) {
@@ -759,6 +865,26 @@ object ContainerUtils {
                     "$defaultDrives$drive:$installPath"
                 } else {
                     Timber.w("Could not find Amazon game install path for appId: $appIdInt, using default drives")
+                    defaultDrives
+                }
+            }
+
+            GameSource.XBOX -> {
+                // For Xbox games, map the specific game directory to A: drive
+                val appIdInt = runCatching { extractGameIdFromContainerId(appId) }.getOrNull()
+                val installPath = if (appIdInt != null) {
+                    app.gamenative.service.xbox.XboxService.getInstallPathByAppId(appIdInt)
+                } else null
+
+                if (installPath != null && installPath.isNotEmpty()) {
+                    val drive: Char = if (defaultDrives.contains("A:")) {
+                        Container.getNextAvailableDriveLetter(defaultDrives)
+                    } else {
+                        'A'
+                    }
+                    "$defaultDrives$drive:$installPath"
+                } else {
+                    Timber.w("Could not find Xbox game install path for appId: $appIdInt, using default drives")
                     defaultDrives
                 }
             }
@@ -779,23 +905,29 @@ object ContainerUtils {
         data.put("name", "container_$containerId")
 
         // Create the actual container
-        var container = containerManager.createContainerFuture(containerId, data).get()
-
+        val rootDir = ImageFs.find(context).getRootDir()
+        val containerDir = File(File(rootDir, "home"), ImageFs.USER + "-" + containerId)
+        val create: () -> Container? = {
+            try {
+                containerManager.createContainerFuture(containerId, data).get()
+            } catch (e: ExecutionException) {
+                val cause = e.cause ?: e
+                throw ContainerCreationException("Container creation failed for $containerId: $cause", cause)
+            }
+        }
+        var container = create()
         // If container creation failed, it might be because directory already exists but is corrupted
         // Try to clean it up and retry once
         if (container == null) {
             Timber.w("Container creation failed for $containerId, checking for corrupted directory...")
-            // Get the container directory path
-            val rootDir = ImageFs.find(context).getRootDir()
-            val homeDir = File(rootDir, "home")
-            val containerDir = File(homeDir, ImageFs.USER + "-" + containerId)
-
             if (containerDir.exists() && !containerManager.hasContainer(containerId)) {
                 Timber.w("Found orphaned/corrupted container directory, deleting and retrying: $containerId")
                 try {
                     FileUtils.delete(containerDir)
                     // Retry container creation after cleanup
-                    container = containerManager.createContainerFuture(containerId, data).get()
+                    container = create()
+                } catch (e: ContainerCreationException) {
+                    throw e
                 } catch (e: Exception) {
                     Timber.e(e, "Failed to clean up corrupted container directory: $containerId")
                 }
@@ -803,8 +935,12 @@ object ContainerUtils {
 
             // If still null after retry, throw exception
             if (container == null) {
-                Timber.e("Failed to create container for $containerId after cleanup attempt")
-                throw IllegalStateException("Failed to create container: $containerId")
+                val freeMb = rootDir.usableSpace / (1024 * 1024)
+                Timber.e("Failed to create container for $containerId after cleanup attempt (free space $freeMb MB)")
+                throw ContainerCreationException(
+                    "Failed to create container $containerId: directory ${containerDir.absolutePath} " +
+                        "exists=${containerDir.exists()}, writable root=${rootDir.canWrite()}, free space $freeMb MB",
+                )
             }
         }
 
@@ -827,6 +963,7 @@ object ContainerUtils {
 
         // Check for cached best config (store-backed games only, only if no custom config provided)
         var bestConfigMap: Map<String, Any?>? = null
+        var bestConfigMatch: BestConfigService.BestConfigMatch? = null
 
         if (supportsKnownConfigAutoApply(gameSource) && customConfig == null && PrefManager.autoApplyKnownConfig) {
             try {
@@ -839,6 +976,7 @@ object ContainerUtils {
                     runBlocking(Dispatchers.IO) {
                         try {
                             val bestConfig = BestConfigService.fetchBestConfig(
+                                context = context,
                                 gameName = gameName,
                                 gpuName = gpuName,
                                 gameStore = gameSource.name,
@@ -851,10 +989,12 @@ object ContainerUtils {
                                     bestConfig.matchType,
                                     true,
                                     bestConfig.matchedStore.equals(gameSource.name, ignoreCase = true),
+                                    forceApply = true,
                                     matchedGpu = bestConfig.matchedGpu,
                                 )
                                 if (parsedConfig != null && parsedConfig.isNotEmpty()) {
                                     bestConfigMap = parsedConfig
+                                    bestConfigMatch = bestConfig.toMatch()
                                 }
                             }
                         } catch (e: Exception) {
@@ -887,11 +1027,13 @@ object ContainerUtils {
                 graphicsDriverConfig = PrefManager.graphicsDriverConfig,
                 rendererPresentMode = PrefManager.rendererPresentMode,
                 displayRenderer = PrefManager.displayRendererMode,
+                displayServer = PrefManager.displayServer,
                 sfCompatMode = PrefManager.sfCompatMode,
                 dxwrapper = initialDxWrapper,
                 dxwrapperConfig = PrefManager.dxWrapperConfig,
                 audioDriver = PrefManager.audioDriver,
                 pulseaudioLowLatency = PrefManager.pulseaudioLowLatency,
+                micEnabled = PrefManager.micEnabled,
                 wincomponents = PrefManager.winComponents,
                 drives = drives,
                 execArgs = PrefManager.execArgs,
@@ -920,6 +1062,8 @@ object ContainerUtils {
                 offScreenRenderingMode = PrefManager.offScreenRenderingMode,
                 strictShaderMath = PrefManager.strictShaderMath,
                 useDRI3 = PrefManager.useDRI3,
+                hdrEnabled = PrefManager.hdrEnabled,
+                gamescopeOutputResolution = PrefManager.gamescopeOutputResolution,
                 videoMemorySize = PrefManager.videoMemorySize,
                 mouseWarpOverride = PrefManager.mouseWarpOverride,
                 enableXInput = PrefManager.xinputEnabled,
@@ -928,13 +1072,18 @@ object ContainerUtils {
                 disableMouseInput = PrefManager.disableMouseInput,
                 forceDlc = PrefManager.forceDlc,
                 steamOfflineMode = PrefManager.steamOfflineMode,
+                loadMods = PrefManager.loadMods,
                 epicOfflineMode = PrefManager.epicOfflineMode,
                 useLegacyDRM = PrefManager.useLegacyDRM,
                 unpackFiles = PrefManager.unpackFiles,
                 suspendPolicy = PrefManager.suspendPolicy,
+                fasterExternalLoading = PrefManager.fasterExternalLoading,
+                disableLibredirect = PrefManager.disableLibredirect,
                 portraitMode = PrefManager.portraitMode,
+                portraitBelowCutout = PrefManager.portraitBelowCutout,
                 externalDisplayMode = PrefManager.externalDisplayInputMode,
                 externalDisplaySwap = PrefManager.externalDisplaySwap,
+                vibrationIntensity = PrefManager.vibrationIntensity,
             )
         }
 
@@ -945,10 +1094,21 @@ object ContainerUtils {
             containerData
         }
 
-        if (BuildConfig.XR_BUILD) {
+        if (BuildConfig.XR_BUILD && MainActivity.isMetaQuest()) {
             val kvs = KeyValueSet(containerData.graphicsDriverConfig)
             kvs.put("adrenotoolsTurnip", "0")
             containerData = containerData.copy(graphicsDriverConfig = kvs.toString())
+        }
+
+        if (BuildConfig.XR_BUILD) {
+            containerData = containerData.copy(
+                launchRealSteam = true,
+                launchBionicSteam = false,
+                steamType = Container.STEAM_TYPE_HEADLESS,
+            )
+            if (isVrGame(appId, gameSource)) {
+                containerData = containerData.copy(windowsVrEnabled = true, openCompositeEnabled = true)
+            }
         }
 
         if (Build.MANUFACTURER.equals("samsung", ignoreCase = true) && GPUInformation.isAdreno740(context)) {
@@ -962,6 +1122,7 @@ object ContainerUtils {
         // If custom config is provided, just apply it and return
         if (customConfig?.dxwrapper != null) {
             applyToContainer(context, container, containerData)
+            SessionReport.markConfigApplied(container, if (bestConfigMap.isNullOrEmpty()) "default" else "known", bestConfigMatch)
             return container
         }
 
@@ -1010,6 +1171,7 @@ object ContainerUtils {
 
         // Apply container data with the determined DX wrapper
         applyToContainer(context, container, containerData)
+        SessionReport.markConfigApplied(container, if (bestConfigMap.isNullOrEmpty()) "default" else "known", bestConfigMatch)
         return container
     }
 
@@ -1019,7 +1181,7 @@ object ContainerUtils {
         val container = if (containerManager.hasContainer(appId)) {
             containerManager.getContainerById(appId)
         } else {
-            createNewContainer(context, appId, appId, containerManager)
+            createOrReuseContainer(context, appId)
         }
 
         // Ensure Custom Games have the A: drive mapped to the game folder
@@ -1051,6 +1213,11 @@ object ContainerUtils {
                 if (appIdInt != null) AmazonService.getInstallPathByAppId(appIdInt) else null
             }
 
+            GameSource.XBOX -> {
+                val appIdInt = runCatching { extractGameIdFromContainerId(appId) }.getOrNull()
+                if (appIdInt != null) app.gamenative.service.xbox.XboxService.getInstallPathByAppId(appIdInt) else null
+            }
+
             GameSource.ANDROID_APP -> null
         }
 
@@ -1069,6 +1236,9 @@ object ContainerUtils {
                 GameSource.AMAZON ->
                     runCatching { extractGameIdFromContainerId(appId) }.getOrNull()
                         ?.let { AmazonService.updateInstallPath(it, resolvedGameFolderPath) }
+                GameSource.XBOX ->
+                    runCatching { extractGameIdFromContainerId(appId) }.getOrNull()
+                        ?.let { app.gamenative.service.xbox.XboxService.updateInstallPath(it, resolvedGameFolderPath) }
                 else -> {}
             }
         }
@@ -1137,12 +1307,12 @@ object ContainerUtils {
         } else {
             // Create new container with override config if present
             val overrideConfig = if (IntentLaunchManager.hasTemporaryOverride(appId)) {
-                IntentLaunchManager.getTemporaryOverride(appId)
+                IntentLaunchManager.getEffectiveContainerConfig(context, appId)
             } else {
                 null
             }
 
-            createNewContainer(context, appId, appId, containerManager, overrideConfig)
+            createOrReuseContainer(context, appId, overrideConfig)
         }
     }
 
@@ -1159,6 +1329,8 @@ object ContainerUtils {
             manager.removeContainerAsync(
                 manager.getContainerById(appId),
             ) {
+                runCatching { ControlProfileService.deleteWorkingProfilesForContainer(context, appId) }
+                    .onFailure { Timber.w(it, "Unable to remove control profiles for container $appId") }
                 Timber.i("[ContainerDeletion] Successfully deleted container for appId=$appId")
             }
         } else {
@@ -1185,6 +1357,11 @@ object ContainerUtils {
         }
     }
 
+    private fun isVrGame(appId: String, gameSource: GameSource): Boolean {
+        if (gameSource != GameSource.STEAM) return false
+        return runCatching { SteamService.getAppInfoOf(extractGameIdFromContainerId(appId))?.isVrGame }.getOrNull() == true
+    }
+
     /**
      * Extracts the game ID from a container ID string
      * Handles formats like:
@@ -1203,10 +1380,16 @@ object ContainerUtils {
             containerId
         }
 
+        // Split by underscores and find the last numeric part
         val parts = idWithoutSuffix.split("_")
-        val lastPart = parts.lastOrNull() ?: return 0
+        // The last part should be the numeric ID
+        val lastPart = parts.lastOrNull() ?: throw IllegalArgumentException("Invalid container ID format: $containerId")
 
-        return lastPart.toIntOrNull() ?: 0
+        return try {
+            lastPart.toInt()
+        } catch (e: NumberFormatException) {
+            throw IllegalArgumentException("Could not extract game ID from container ID: $containerId", e)
+        }
     }
 
     /**
@@ -1219,7 +1402,7 @@ object ContainerUtils {
             containerId.startsWith("GOG_") -> GameSource.GOG
             containerId.startsWith("EPIC_") -> GameSource.EPIC
             containerId.startsWith("AMAZON_") -> GameSource.AMAZON
-            containerId.startsWith("ANDROID_APP_") -> GameSource.ANDROID_APP
+            containerId.startsWith("XBOX_") -> GameSource.XBOX
             // Add other platforms here..
             else -> GameSource.STEAM // default fallback
         }
@@ -1236,7 +1419,9 @@ object ContainerUtils {
         GameSource.GOG,
         GameSource.EPIC,
         GameSource.AMAZON,
+        GameSource.XBOX,
         GameSource.CUSTOM_GAME,
+        -> true
         GameSource.ANDROID_APP -> false
     }
 
@@ -1252,12 +1437,13 @@ object ContainerUtils {
             GameSource.GOG -> GOGService.getGOGGameOf(gameId.toString())?.title
             GameSource.EPIC -> EpicService.getEpicGameOf(gameId)?.title
             GameSource.AMAZON -> AmazonService.getAmazonGameByAppId(gameId)?.title
+            GameSource.XBOX -> app.gamenative.service.xbox.XboxService.getXboxGameByAppId(gameId)?.title
             GameSource.CUSTOM_GAME -> {
                 val customAppId = "${GameSource.CUSTOM_GAME.name}_$gameId"
                 CustomGameScanner.getFolderPathFromAppId(customAppId)
                     ?.let { File(it).name }
             }
-            GameSource.ANDROID_APP -> "Android App"
+            GameSource.ANDROID_APP -> null
         } ?: "Unknown"
     }
 
@@ -1273,6 +1459,9 @@ object ContainerUtils {
         }
         return null
     }
+
+    fun isAbsoluteWindowsPath(path: String): Boolean =
+        Regex("^[A-Za-z]:[\\\\/]").containsMatchIn(path)
 
     /**
      * Scans the container's A: drive for all .exe and .bat files

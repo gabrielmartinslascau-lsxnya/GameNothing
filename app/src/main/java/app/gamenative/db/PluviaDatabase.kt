@@ -4,46 +4,48 @@ import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
-import app.gamenative.data.AmazonGame
-import app.gamenative.data.AppInfo
-import app.gamenative.data.CachedLicense
 import app.gamenative.data.ChangeNumbers
+import app.gamenative.data.AppInfo
+import app.gamenative.data.LibraryPlayHistory
+import app.gamenative.data.FileChangeLists
+import app.gamenative.data.SteamApp
+import app.gamenative.data.SteamFileHashCache
+import app.gamenative.data.SteamLicense
+import app.gamenative.data.CachedLicense
 import app.gamenative.data.DownloadingAppInfo
 import app.gamenative.data.EncryptedAppTicket
-import app.gamenative.data.EpicGame
-import app.gamenative.data.FileChangeLists
+import app.gamenative.data.SteamUnlockedBranch
 import app.gamenative.data.GOGGame
-import app.gamenative.data.LibraryPlayHistory
+import app.gamenative.data.EpicGame
+import app.gamenative.data.AmazonGame
+import app.gamenative.data.XboxGame
 import app.gamenative.data.ModInstall
 import app.gamenative.data.ModOverwriteManifest
 import app.gamenative.data.ModPlacementRecipe
 import app.gamenative.data.ModProfile
 import app.gamenative.data.ModProfileInstallState
-import app.gamenative.data.SteamApp
-import app.gamenative.data.SteamFileHashCache
-import app.gamenative.data.SteamLicense
-import app.gamenative.data.SteamUnlockedBranch
 import app.gamenative.db.converters.AppConverter
 import app.gamenative.db.converters.ByteArrayConverter
 import app.gamenative.db.converters.FriendConverter
-import app.gamenative.db.converters.GOGConverter
 import app.gamenative.db.converters.LicenseConverter
 import app.gamenative.db.converters.UserFileInfoListConverter
-import app.gamenative.db.dao.AmazonGameDao
-import app.gamenative.db.dao.AppInfoDao
-import app.gamenative.db.dao.CachedLicenseDao
-import app.gamenative.db.dao.ChangeNumbersDao
-import app.gamenative.db.dao.DownloadingAppInfoDao
-import app.gamenative.db.dao.EncryptedAppTicketDao
-import app.gamenative.db.dao.EpicGameDao
-import app.gamenative.db.dao.FileChangeListsDao
-import app.gamenative.db.dao.GOGGameDao
-import app.gamenative.db.dao.LibraryPlayHistoryDao
+import app.gamenative.db.converters.GOGConverter
 import app.gamenative.db.dao.ModDao
+import app.gamenative.db.dao.ChangeNumbersDao
+import app.gamenative.db.dao.FileChangeListsDao
+import app.gamenative.db.dao.LibraryPlayHistoryDao
 import app.gamenative.db.dao.SteamAppDao
 import app.gamenative.db.dao.SteamFileHashCacheDao
 import app.gamenative.db.dao.SteamLicenseDao
+import app.gamenative.db.dao.AppInfoDao
+import app.gamenative.db.dao.CachedLicenseDao
+import app.gamenative.db.dao.DownloadingAppInfoDao
+import app.gamenative.db.dao.EncryptedAppTicketDao
 import app.gamenative.db.dao.SteamUnlockedBranchDao
+import app.gamenative.db.dao.GOGGameDao
+import app.gamenative.db.dao.EpicGameDao
+import app.gamenative.db.dao.AmazonGameDao
+import app.gamenative.db.dao.XboxGameDao
 
 const val DATABASE_NAME = "pluvia.db"
 
@@ -61,6 +63,7 @@ const val DATABASE_NAME = "pluvia.db"
         GOGGame::class,
         EpicGame::class,
         AmazonGame::class,
+        XboxGame::class,
         DownloadingAppInfo::class,
         SteamUnlockedBranch::class,
         ModInstall::class,
@@ -69,7 +72,7 @@ const val DATABASE_NAME = "pluvia.db"
         ModPlacementRecipe::class,
         ModOverwriteManifest::class,
     ],
-    version = 25,
+    version = 31,
     // For db migration, visit https://developer.android.com/training/data-storage/room/migrating-db-versions for more information
     exportSchema = true, // It is better to handle db changes carefully, as GN is getting much more users.
     autoMigrations = [
@@ -85,14 +88,17 @@ const val DATABASE_NAME = "pluvia.db"
         // AutoMigration(from = 16, to = 17),
         // Disabled auto-migration due to duplicated column in previous version (upstream PR #1048)
         // duplicate column name: ufs_parse_version (code 1 SQLITE_ERROR)
-        // v16 users will fallback to destructive migration (only cached Steam data, re-fetched on login)
+        // Version 16 upgrades via the no-op ROOM_MIGRATION_V16_to_V17 instead.
         AutoMigration(from = 17, to = 18), // Added workshop_mods, enabled_workshop_item_ids, workshop_download_pending to steam_app
         AutoMigration(from = 18, to = 19), // Added recovered_install_size_bytes to app_info
         AutoMigration(from = 19, to = 20), // Added custom_install_path to app_info
         AutoMigration(from = 20, to = 21), // Added steam_file_hash_cache table
         AutoMigration(from = 21, to = 22), // Added GOG vertical_cover_url column
         AutoMigration(from = 22, to = 23), // Added local library play history table
-    ],
+        AutoMigration(from = 25, to = 26), // Added GOG hidden column
+        AutoMigration(from = 27, to = 28), // Added is_vr_only, is_vr_supported to steam_app
+        AutoMigration(from = 29, to = 30), // Added GOG installed_dlc_ids column
+    ]
 )
 @TypeConverters(
     AppConverter::class,
@@ -127,6 +133,8 @@ abstract class PluviaDatabase : RoomDatabase() {
     abstract fun epicGameDao(): EpicGameDao
 
     abstract fun amazonGameDao(): AmazonGameDao
+
+    abstract fun xboxGameDao(): XboxGameDao
 
     abstract fun downloadingAppInfoDao(): DownloadingAppInfoDao
 

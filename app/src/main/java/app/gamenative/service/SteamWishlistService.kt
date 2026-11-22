@@ -52,8 +52,7 @@ object SteamWishlistService {
                 if (!token.isNullOrEmpty()) {
                     if (tryWebView(context, steamId, token, appId, campaignId)) return@withContext Outcome.Success
                     val fresh = refreshAccessToken()
-                    if (!fresh.isNullOrEmpty() &&
-                        fresh != token &&
+                    if (!fresh.isNullOrEmpty() && fresh != token &&
                         tryWebView(context, steamId, fresh, appId, campaignId)
                     ) {
                         return@withContext Outcome.Success

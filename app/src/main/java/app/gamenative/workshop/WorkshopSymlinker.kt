@@ -1,10 +1,10 @@
 package app.gamenative.workshop
 
+import timber.log.Timber
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
-import timber.log.Timber
 
 /**
  * Applies a [WorkshopModPathStrategy] by linking or copying Workshop items
@@ -65,6 +65,7 @@ class WorkshopSymlinker {
         }
     }
 
+
     // ─────────────────────────────────────────────────────────────────────────
 
     private fun syncIntoAllDirs(
@@ -75,9 +76,7 @@ class WorkshopSymlinker {
         itemTitles: Map<Long, String> = emptyMap(),
         flatFileExtensions: Set<String> = emptySet(),
     ): SyncResult {
-        var totalCreated = 0
-        var totalSkipped = 0
-        var totalRemoved = 0
+        var totalCreated = 0; var totalSkipped = 0; var totalRemoved = 0
         val allErrors = mutableMapOf<String, String>()
 
         for (dir in targetDirs) {
@@ -89,15 +88,13 @@ class WorkshopSymlinker {
                 itemTitles,
                 flatFileExtensions,
             )
-            totalCreated += r.created
-            totalSkipped += r.skipped
-            totalRemoved += r.removed
+            totalCreated += r.created; totalSkipped += r.skipped; totalRemoved += r.removed
             r.errors.forEach { (k, v) -> allErrors["${dir.name}/$k"] = v }
         }
 
         Timber.tag(TAG).i(
             "sync complete (${targetDirs.size} dir(s)): created=$totalCreated " +
-                "skipped=$totalSkipped removed=$totalRemoved errors=${allErrors.size}",
+                "skipped=$totalSkipped removed=$totalRemoved errors=${allErrors.size}"
         )
         return SyncResult(totalCreated, totalSkipped, totalRemoved, allErrors)
     }
@@ -112,7 +109,7 @@ class WorkshopSymlinker {
     ): SyncResult {
         Timber.tag(TAG).i(
             "syncIntoOneDir: ${targetDir.absolutePath} " +
-                "(${if (useSymlinks) "symlink" else "copy"}, ${activeItemDirs.size} items)",
+                "(${if (useSymlinks) "symlink" else "copy"}, ${activeItemDirs.size} items)"
         )
 
         if (!targetDir.exists() && !targetDir.mkdirs()) {
@@ -138,13 +135,12 @@ class WorkshopSymlinker {
         if (useSymlinks) {
             val isModContainerDir = targetDir.name.lowercase() in MOD_CONTAINER_NAMES
             val forceFlatFiles = flatFileExtensions.isNotEmpty()
-            val allSingleFile = !isModContainerDir &&
-                activeItemDirs.values.all { srcDir ->
-                    val children = srcDir.listFiles()
-                        ?.filter { !it.name.startsWith(".") }
-                        ?: emptyList()
-                    children.size == 1 && children.single().isFile
-                }
+            val allSingleFile = !isModContainerDir && activeItemDirs.values.all { srcDir ->
+                val children = srcDir.listFiles()
+                    ?.filter { !it.name.startsWith(".") }
+                    ?: emptyList()
+                children.size == 1 && children.single().isFile
+            }
             if (forceFlatFiles || allSingleFile) {
                 return syncFlatFilesIntoDir(
                     targetDir,
@@ -156,9 +152,7 @@ class WorkshopSymlinker {
         }
 
         val errors = mutableMapOf<String, String>()
-        var created = 0
-        var skipped = 0
-        var removed = 0
+        var created = 0; var skipped = 0; var removed = 0
 
         // Build map of expected entry names (titled or numeric ID),
         // ensuring globally unique names even with secondary collisions.
@@ -213,11 +207,8 @@ class WorkshopSymlinker {
             }
 
             try {
-                val result = if (useSymlinks) {
-                    ensureSymlink(entryPath, sourceDir, workshopContentBase)
-                } else {
-                    ensureCopy(entryPath, sourceDir, workshopContentBase)
-                }
+                val result = if (useSymlinks) ensureSymlink(entryPath, sourceDir, workshopContentBase)
+                else ensureCopy(entryPath, sourceDir, workshopContentBase)
                 if (result == LinkResult.CREATED) created++ else skipped++
             } catch (e: Exception) {
                 val msg = "${e::class.simpleName}: ${e.message}"
@@ -228,7 +219,7 @@ class WorkshopSymlinker {
 
         Timber.tag(TAG).d(
             "  ${targetDir.name}: created=$created skipped=$skipped " +
-                "removed=$removed errors=${errors.size}",
+                "removed=$removed errors=${errors.size}"
         )
         return SyncResult(created, skipped, removed, errors)
     }
@@ -250,12 +241,10 @@ class WorkshopSymlinker {
         allowedExtensions: Set<String> = emptySet(),
     ): SyncResult {
         Timber.tag(TAG).i(
-            "syncFlatFilesIntoDir: ${targetDir.absolutePath} (${activeItemDirs.size} items)",
+            "syncFlatFilesIntoDir: ${targetDir.absolutePath} (${activeItemDirs.size} items)"
         )
         val errors = mutableMapOf<String, String>()
-        var created = 0
-        var skipped = 0
-        var removed = 0
+        var created = 0; var skipped = 0; var removed = 0
 
         // Collect all files from active workshop items.
         // Sort by item ID so the lowest ID consistently wins on filename collisions.
@@ -271,7 +260,7 @@ class WorkshopSymlinker {
                     if (f.name in expectedFiles) {
                         Timber.tag(TAG).w(
                             "Flat-file collision: '%s' from item %d skipped, already provided by %s",
-                            f.name, id, expectedFiles[f.name]?.parentFile?.name ?: "unknown",
+                            f.name, id, expectedFiles[f.name]?.parentFile?.name ?: "unknown"
                         )
                     } else {
                         expectedFiles[f.name] = f
@@ -280,7 +269,7 @@ class WorkshopSymlinker {
         }
         if (allowedExtensions.isNotEmpty() && expectedFiles.isEmpty()) {
             Timber.tag(TAG).w(
-                "No flat-file payloads with extensions $allowedExtensions found for ${activeItemDirs.size} items",
+                "No flat-file payloads with extensions $allowedExtensions found for ${activeItemDirs.size} items"
             )
         }
 
@@ -298,9 +287,8 @@ class WorkshopSymlinker {
         // Also clean up any stale directory symlinks from a previous non-flat run
         targetDir.listFiles()?.forEach { entry ->
             if (entry.isDirectory || Files.isSymbolicLink(entry.toPath())) {
-                if (Files.isSymbolicLink(entry.toPath()) &&
-                    isOurSymlink(entry, workshopContentBase) &&
-                    entry.name !in expectedFiles
+                if (Files.isSymbolicLink(entry.toPath()) && isOurSymlink(entry, workshopContentBase)
+                    && entry.name !in expectedFiles
                 ) {
                     if (deleteEntry(entry)) {
                         Timber.tag(TAG).i("  Removed stale dir symlink (ours): ${entry.name}")
@@ -340,7 +328,7 @@ class WorkshopSymlinker {
 
         Timber.tag(TAG).d(
             "  ${targetDir.name} (flat): created=$created skipped=$skipped " +
-                "removed=$removed errors=${errors.size}",
+                "removed=$removed errors=${errors.size}"
         )
         return SyncResult(created, skipped, removed, errors)
     }
@@ -440,9 +428,8 @@ class WorkshopSymlinker {
         }
 
         Timber.tag(TAG).i("  Copying: ${source.name} -> ${dest.absolutePath}")
-        if (!source.copyRecursively(dest, overwrite = true)) {
+        if (!source.copyRecursively(dest, overwrite = true))
             throw IOException("copyRecursively returned false for ${source.name}")
-        }
 
         File(dest, COPY_SENTINEL).createNewFile()
         return LinkResult.CREATED
@@ -450,12 +437,8 @@ class WorkshopSymlinker {
 
     private fun deleteEntry(entry: File): Boolean = try {
         val path: Path = entry.toPath()
-        if (Files.isSymbolicLink(path)) {
-            Files.delete(path)
-            true
-        } else {
-            entry.deleteRecursively()
-        }
+        if (Files.isSymbolicLink(path)) { Files.delete(path); true }
+        else entry.deleteRecursively()
     } catch (e: Exception) {
         Timber.tag(TAG).w("deleteEntry failed for ${entry.name}: ${e.message}")
         false

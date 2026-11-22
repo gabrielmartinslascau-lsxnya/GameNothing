@@ -42,4 +42,5 @@ class SteamUtilsColdClientIniTest {
         val ini = generate(gameName = "New Star GP", executablePath = "release/NSGP.exe", workingDir = "")
         assertEquals("steamapps\\common\\New Star GP\\release", ini.iniValue("ExeRunDir"))
     }
+
 }

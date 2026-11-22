@@ -1,6 +1,7 @@
 package app.gamenative.powercontrol.drivers
 
 import app.gamenative.powercontrol.PowerProfile
+import app.gamenative.powercontrol.autotuning.DeviceGate
 import app.gamenative.powercontrol.profiles.CpuGovernor
 import app.gamenative.powercontrol.profiles.PerformancePreset
 
@@ -17,8 +18,8 @@ abstract class PerformanceDriver {
      * Display unit for frequency values
      */
     enum class DisplayUnit {
-        HZ, // Display as formatted Hz (e.g., 2.4 GHz, 1800 MHz)
-        INTEGER, // Display as raw integer value (e.g., 2400000)
+        HZ,      // Display as formatted Hz (e.g., 2.4 GHz, 1800 MHz)
+        INTEGER  // Display as raw integer value (e.g., 2400000)
     }
 
     // ========================================
@@ -179,14 +180,14 @@ abstract class PerformanceDriver {
         // Return a dummy Balanced profile for devices without driver support
         return PowerProfile(
             enableAutoTuning = false,
-            enableAdaptiveFpsCap = false,
+            adaptiveFpsCapEnabled = false,
             enableGamePinning = false,
             name = PerformancePreset.BALANCED.displayName,
             governor = CpuGovernor.SCHEDUTIL,
             minCpuFreq = 0,
             maxCpuFreq = 0,
             minGpuPowerLevel = 0,
-            maxGpuPowerLevel = 0,
+            maxGpuPowerLevel = 0
         )
     }
 

@@ -4,21 +4,26 @@ import android.content.Context
 import app.gamenative.PluviaApp
 import app.gamenative.PrefManager
 import app.gamenative.R
-import app.gamenative.data.AppInfo
 import app.gamenative.data.GameSource
 import app.gamenative.data.LibraryItem
 import app.gamenative.data.SteamApp
+import app.gamenative.data.AppInfo
 import app.gamenative.db.dao.AmazonGameDao
+import app.gamenative.db.dao.XboxGameDao
 import app.gamenative.db.dao.AppInfoDao
 import app.gamenative.db.dao.EpicGameDao
 import app.gamenative.db.dao.GOGGameDao
 import app.gamenative.db.dao.SteamAppDao
 import app.gamenative.enums.AppType
+import app.gamenative.enums.OSArch
 import app.gamenative.events.AndroidEvent
+import app.gamenative.inputcontrols.ControlProfileService
 import app.gamenative.service.DownloadService
 import app.gamenative.service.SteamService
 import app.gamenative.service.amazon.AmazonConstants
 import app.gamenative.service.amazon.AmazonService
+import app.gamenative.service.xbox.XboxConstants
+import app.gamenative.service.xbox.XboxService
 import app.gamenative.service.epic.EpicConstants
 import app.gamenative.service.epic.EpicService
 import app.gamenative.service.gog.GOGConstants
@@ -30,12 +35,9 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import java.io.File
-import java.nio.file.FileVisitResult
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.nio.file.SimpleFileVisitor
-import java.nio.file.attribute.BasicFileAttributes
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -51,6 +53,7 @@ object ContainerStorageManager {
         fun gogGameDao(): GOGGameDao
         fun epicGameDao(): EpicGameDao
         fun amazonGameDao(): AmazonGameDao
+        fun xboxGameDao(): XboxGameDao
     }
 
     enum class Status {
@@ -181,7 +184,7 @@ object ContainerStorageManager {
             .filterNot { coveredInstalledIds.contains(it.appId) }
             .map { installedGame -> buildInstalledOnlyEntry(installedGame) }
 
-        val entries = (containerEntries + installedOnlyEntries)
+        val entries = attachGameSizeToFirstRowPerInstallPath(containerEntries + installedOnlyEntries)
             .sortedWith(compareByDescending<Entry> { it.combinedSizeBytes ?: 0L }.thenBy { it.displayName.lowercase() })
 
         Timber.tag("ContainerStorageManager").i(
@@ -301,6 +304,14 @@ object ContainerStorageManager {
         } else {
             null
         }
+        val xboxGame = if (gameSource == GameSource.XBOX) {
+            val gameId = extractGameId(normalizedContainerId)
+                ?: return@withContext Result.failure(IllegalArgumentException("Invalid Xbox game id"))
+            entryPoint.xboxGameDao().getByAppId(gameId)
+                ?: return@withContext Result.failure(IllegalStateException("Xbox game not found in database"))
+        } else {
+            null
+        }
 
         Timber.tag("ContainerStorageManager").i(
             "Moving game %s from %s to %s",
@@ -310,7 +321,6 @@ object ContainerStorageManager {
         )
 
         val moveResult = StorageUtils.moveDirectory(
-            context = context,
             sourceDir = sourceDir.absolutePath,
             targetDir = targetDir.absolutePath,
             onProgressUpdate = onProgressUpdate,
@@ -343,12 +353,21 @@ object ContainerStorageManager {
                 }
             }
 
-            GameSource.CUSTOM_GAME -> {
-                return@withContext Result.failure(UnsupportedOperationException("Custom games are not supported"))
+            GameSource.XBOX -> {
+                xboxGame?.let {
+                    entryPoint.xboxGameDao().markAsInstalled(
+                        productId = it.productId,
+                        path = targetDir.absolutePath,
+                        exe = it.executablePath,
+                        size = installSize,
+                        versionId = it.versionId,
+                        contentId = it.contentId,
+                    )
+                }
             }
 
-            GameSource.ANDROID_APP -> {
-                return@withContext Result.failure(UnsupportedOperationException("Android apps cannot be moved"))
+            GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> {
+                return@withContext Result.failure(UnsupportedOperationException("Custom games and Android apps are not supported"))
             }
         }
 
@@ -385,6 +404,8 @@ object ContainerStorageManager {
 
         if (deleted) {
             relinkActiveSymlinkIfNeeded(homeDir, containerDir)
+            runCatching { ControlProfileService.deleteWorkingProfilesForContainer(context, containerId) }
+                .onFailure { Timber.tag("ContainerStorageManager").w(it, "Unable to remove control profiles for %s", containerId) }
             Timber.tag("ContainerStorageManager").i("Removed container %s successfully", containerId)
         } else {
             Timber.tag("ContainerStorageManager").w("Container removal reported failure for %s", containerId)
@@ -451,8 +472,15 @@ object ContainerStorageManager {
                     result
                 }
 
-                GameSource.CUSTOM_GAME -> Result.failure(UnsupportedOperationException("Custom games are not supported"))
-                GameSource.ANDROID_APP -> Result.failure(UnsupportedOperationException("Android apps cannot be uninstalled via container manager"))
+                GameSource.XBOX -> {
+                    val productId = XboxService.getProductIdByAppId(gameId)
+                        ?: return@withContext Result.failure(Exception("Xbox product id not found"))
+                    val result = XboxService.deleteGame(context, productId)
+                    if (result.isSuccess && entry.hasContainer) removeContainer(context, entry.containerId)
+                    result
+                }
+
+                GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> Result.failure(UnsupportedOperationException("Custom games and Android apps are not supported"))
             }
 
             if (result.isSuccess) {
@@ -553,6 +581,29 @@ object ContainerStorageManager {
             games.forEach { installedGames[it.appId] = it }
         }.onFailure { e ->
             Timber.tag("ContainerStorageManager").w(e, "Failed to load installed Amazon games")
+        }
+
+        runCatching {
+            entryPoint.xboxGameDao().getAllAsList()
+                .asSequence()
+                .filter { it.isInstalled && it.installPath.isNotBlank() }
+                .mapNotNull { game ->
+                    val installDir = File(game.installPath)
+                    if (!installDir.exists()) return@mapNotNull null
+                    InstalledGame(
+                        appId = "${GameSource.XBOX.name}_${game.appId}",
+                        displayName = game.title.ifBlank { game.productId },
+                        gameSource = GameSource.XBOX,
+                        installPath = installDir.absolutePath,
+                        iconUrl = game.artUrl,
+                        installSizeBytes = game.installSize.takeIf { it > 0L },
+                    )
+                }
+                .toList()
+        }.onSuccess { games ->
+            games.forEach { installedGames[it.appId] = it }
+        }.onFailure { e ->
+            Timber.tag("ContainerStorageManager").w(e, "Failed to load installed Xbox games")
         }
 
         runCatching {
@@ -702,9 +753,7 @@ object ContainerStorageManager {
             ?: config.optString("name", "").takeIf { it.isNotBlank() }
             ?: containerId
 
-        val isCustomDesktopOrGame = gameSource == GameSource.CUSTOM_GAME || containerId.startsWith("CUSTOM_GAME")
         val status = when {
-            isCustomDesktopOrGame -> Status.READY
             installedGame != null -> Status.READY
             installPathOwnedByOtherApp -> Status.ORPHANED
             resolved == null || !resolved.known -> Status.ORPHANED
@@ -730,10 +779,33 @@ object ContainerStorageManager {
             status = status,
             installPath = installPath,
             canUninstallGame = (status == Status.READY || status == Status.GAME_FILES_MISSING) &&
-                gameSource != null &&
-                gameSource != GameSource.CUSTOM_GAME,
+                gameSource != null && gameSource != GameSource.CUSTOM_GAME,
             hasContainer = true,
         )
+    }
+
+    /**
+     * Duplicate containers (`GOG_123(1)`) and products sharing one install directory each
+     * resolve to the same game bytes. Keep the size on one row per install path, preferring
+     * the container whose id has no duplicate suffix, so rows add up to the summary total.
+     */
+    internal fun attachGameSizeToFirstRowPerInstallPath(entries: List<Entry>): List<Entry> {
+        val ownerIndexes = entries.withIndex()
+            .filter { (_, entry) -> entry.gameInstallSizeBytes != null && !entry.installPath.isNullOrBlank() }
+            .groupBy { (_, entry) -> normalizePath(entry.installPath!!) }
+            .values
+            .map { group ->
+                group.firstOrNull { (_, entry) -> entry.containerId == normalizeContainerId(entry.containerId) } ?: group.first()
+            }
+            .mapTo(mutableSetOf()) { it.index }
+
+        return entries.mapIndexed { index, entry ->
+            if (entry.gameInstallSizeBytes == null || entry.installPath.isNullOrBlank() || index in ownerIndexes) {
+                entry
+            } else {
+                entry.copy(gameInstallSizeBytes = null)
+            }
+        }
     }
 
     private fun buildInstalledOnlyEntry(
@@ -758,6 +830,7 @@ object ContainerStorageManager {
         return (entry.status == Status.READY || entry.status == Status.NO_CONTAINER) &&
             entry.gameSource != null &&
             entry.gameSource != GameSource.CUSTOM_GAME &&
+            entry.gameSource != GameSource.ANDROID_APP &&
             !entry.installPath.isNullOrBlank()
     }
 
@@ -783,6 +856,11 @@ object ContainerStorageManager {
                 MoveTarget.EXTERNAL -> AmazonConstants.externalAmazonGamesPath()
             }
 
+            GameSource.XBOX -> when (target) {
+                MoveTarget.INTERNAL -> XboxConstants.internalXboxGamesPath(context)
+                MoveTarget.EXTERNAL -> XboxConstants.externalXboxGamesPath()
+            }
+
             GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> null
         }
     }
@@ -803,6 +881,7 @@ object ContainerStorageManager {
             GameSource.GOG -> listOf(GOGConstants.internalGOGGamesPath)
             GameSource.EPIC -> listOf(EpicConstants.internalEpicGamesPath(context))
             GameSource.AMAZON -> listOf(AmazonConstants.internalAmazonGamesPath(context))
+            GameSource.XBOX -> listOf(XboxConstants.internalXboxGamesPath(context))
             GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> emptyList()
         }
 
@@ -826,6 +905,7 @@ object ContainerStorageManager {
                 GameSource.GOG -> if (PrefManager.externalStoragePath.isNotBlank()) add(GOGConstants.externalGOGGamesPath)
                 GameSource.EPIC -> if (PrefManager.externalStoragePath.isNotBlank()) add(EpicConstants.externalEpicGamesPath())
                 GameSource.AMAZON -> if (PrefManager.externalStoragePath.isNotBlank()) add(AmazonConstants.externalAmazonGamesPath())
+                GameSource.XBOX -> if (PrefManager.externalStoragePath.isNotBlank()) add(XboxConstants.externalXboxGamesPath())
                 GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> Unit
             }
 
@@ -847,6 +927,7 @@ object ContainerStorageManager {
             GameSource.GOG -> listOf("GOG", "games", "common")
             GameSource.EPIC -> listOf("Epic", "games")
             GameSource.AMAZON -> listOf("Amazon", "games")
+            GameSource.XBOX -> listOf("Xbox", "games")
             GameSource.CUSTOM_GAME, GameSource.ANDROID_APP -> emptyList()
         }
         if (expectedRootSegments.isEmpty()) return null
@@ -929,31 +1010,7 @@ object ContainerStorageManager {
         }
     }
 
-    private fun getContainerDirectorySize(root: Path): Long {
-        if (!Files.isDirectory(root)) return 0L
-
-        var totalBytes = 0L
-        runCatching {
-            Files.walkFileTree(
-                root,
-                object : SimpleFileVisitor<Path>() {
-                    override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
-                        totalBytes += attrs.size()
-                        return FileVisitResult.CONTINUE
-                    }
-
-                    override fun visitFileFailed(file: Path, exc: java.io.IOException?): FileVisitResult {
-                        Timber.tag("ContainerStorageManager").w(exc, "Failed to size file: $file")
-                        return FileVisitResult.CONTINUE
-                    }
-                },
-            )
-        }.onFailure {
-            Timber.tag("ContainerStorageManager").w(it, "Failed to calculate size for $root")
-        }
-
-        return totalBytes
-    }
+    internal fun getContainerDirectorySize(root: Path): Long = StorageUtils.directorySizeOnDisk(root)
 
     internal fun normalizeContainerId(containerId: String): String = containerId.substringBefore("(")
 
@@ -963,6 +1020,7 @@ object ContainerStorageManager {
         containerId.startsWith("GOG_") -> GameSource.GOG
         containerId.startsWith("EPIC_") -> GameSource.EPIC
         containerId.startsWith("AMAZON_") -> GameSource.AMAZON
+        containerId.startsWith("XBOX_") -> GameSource.XBOX
         else -> null
     }
 
@@ -1030,7 +1088,24 @@ object ContainerStorageManager {
                 )
             }
 
-            GameSource.ANDROID_APP -> ResolvedGame(name = null, known = false)
+            GameSource.XBOX -> {
+                val game = XboxService.getXboxGameByAppId(gameId)
+                ResolvedGame(
+                    name = game?.title,
+                    installPath = game?.installPath,
+                    iconUrl = game?.artUrl.orEmpty(),
+                    known = game != null,
+                )
+            }
+
+            GameSource.ANDROID_APP -> {
+                ResolvedGame(
+                    name = null,
+                    installPath = null,
+                    iconUrl = "",
+                    known = false,
+                )
+            }
         }
     }
 

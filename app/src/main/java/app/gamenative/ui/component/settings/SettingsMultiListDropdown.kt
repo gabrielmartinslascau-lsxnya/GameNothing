@@ -1,8 +1,8 @@
 package app.gamenative.ui.component.settings
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,8 +14,8 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
@@ -28,12 +28,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import app.gamenative.ui.theme.BrokenGlassMenuSurface
+import app.gamenative.ui.theme.LocalLooksState
 import com.alorma.compose.settings.ui.base.internal.LocalSettingsGroupEnabled
 import com.alorma.compose.settings.ui.base.internal.SettingsTileColors
 import com.alorma.compose.settings.ui.base.internal.SettingsTileDefaults
@@ -103,36 +109,45 @@ fun SettingsMultiListDropdown(
         tonalElevation = tonalElevation,
         shadowElevation = shadowElevation,
     ) {
+        val isGlass = LocalLooksState.current.isGlassEnabled
         DropdownMenu(
+            modifier = Modifier.zIndex(1000f),
             expanded = isDropdownExpanded,
             onDismissRequest = {
                 isDropdownExpanded = false
                 focusRequester.requestFocus()
             },
+            containerColor = if (isGlass) MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.94f) else MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = if (isGlass) 0.dp else 3.dp,
+            shadowElevation = if (isGlass) 6.dp else 3.dp,
         ) {
-            items.forEachIndexed { index, text ->
-                DropdownMenuItem(
-                    enabled = enabled,
-                    text = {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(text = text)
-                            Checkbox(
-                                enabled = enabled,
-                                checked = values.contains(index),
-                                onCheckedChange = {
-                                    onItemSelected(index)
-                                },
-                            )
-                        }
-                    },
-                    onClick = {
-                        onItemSelected(index)
-                    },
-                )
+            BrokenGlassMenuSurface {
+                Column {
+                    items.forEachIndexed { index, text ->
+                        DropdownMenuItem(
+                            enabled = enabled,
+                            text = {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(text = text)
+                                    Checkbox(
+                                        enabled = enabled,
+                                        checked = values.contains(index),
+                                        onCheckedChange = {
+                                            onItemSelected(index)
+                                        },
+                                    )
+                                }
+                            },
+                            onClick = {
+                                onItemSelected(index)
+                            },
+                        )
+                    }
+                }
             }
         }
         Row {

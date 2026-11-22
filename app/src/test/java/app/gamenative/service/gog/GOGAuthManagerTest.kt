@@ -1,9 +1,9 @@
 package app.gamenative.service.gog
 
 import android.content.Context
-import java.io.File
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
+import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.json.JSONObject
@@ -19,12 +19,13 @@ import org.mockito.MockitoAnnotations
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import timber.log.Timber
+import java.io.File
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(
     manifest = Config.NONE,
-    application = android.app.Application::class,
+    application = android.app.Application::class
 )
 class GOGAuthManagerTest {
     @Mock
@@ -70,12 +71,10 @@ class GOGAuthManagerTest {
             put("expires_in", 3600)
         }.toString()
 
-        mockWebServer.enqueue(
-            MockResponse()
-                .setResponseCode(200)
-                .setBody(json)
-                .addHeader("Content-Type", "application/json"),
-        )
+        mockWebServer.enqueue(MockResponse()
+            .setResponseCode(200)
+            .setBody(json)
+            .addHeader("Content-Type", "application/json"))
 
         // Act
         val result = withMockedHttpClient(mockWebServer.url("/token").toString()) {
@@ -104,12 +103,10 @@ class GOGAuthManagerTest {
             put("error_description", "Invalid code")
         }.toString()
 
-        mockWebServer.enqueue(
-            MockResponse()
-                .setResponseCode(400)
-                .setBody(json)
-                .addHeader("Content-Type", "application/json"),
-        )
+        mockWebServer.enqueue(MockResponse()
+            .setResponseCode(400)
+            .setBody(json)
+            .addHeader("Content-Type", "application/json"))
 
         // Act
         val result = withMockedHttpClient(mockWebServer.url("/token").toString()) {
@@ -124,16 +121,13 @@ class GOGAuthManagerTest {
     @Test
     fun testGetStoredCredentials_success() = runTest {
         val authJson = JSONObject().apply {
-            put(
-                GOGConstants.GOG_CLIENT_ID,
-                JSONObject().apply {
-                    put("access_token", "token123")
-                    put("refresh_token", "refresh123")
-                    put("user_id", "user123")
-                    put("expires_in", 3600)
-                    put("loginTime", System.currentTimeMillis() / 1000.0 + 1000)
-                },
-            )
+            put(GOGConstants.GOG_CLIENT_ID, JSONObject().apply {
+                put("access_token", "token123")
+                put("refresh_token", "refresh123")
+                put("user_id", "user123")
+                put("expires_in", 3600)
+                put("loginTime", System.currentTimeMillis() / 1000.0 + 1000)
+            })
         }.toString()
         val authFile = File(tempDir, "gog_auth.json")
         authFile.writeText(authJson)
@@ -148,16 +142,13 @@ class GOGAuthManagerTest {
     fun testGetStoredCredentials_expired_refreshSuccess() = runTest {
         // Arrange
         val authJson = JSONObject().apply {
-            put(
-                GOGConstants.GOG_CLIENT_ID,
-                JSONObject().apply {
-                    put("access_token", "old_token")
-                    put("refresh_token", "refresh123")
-                    put("user_id", "user123")
-                    put("expires_in", 1)
-                    put("loginTime", 0)
-                },
-            )
+            put(GOGConstants.GOG_CLIENT_ID, JSONObject().apply {
+                put("access_token", "old_token")
+                put("refresh_token", "refresh123")
+                put("user_id", "user123")
+                put("expires_in", 1)
+                put("loginTime", 0)
+            })
         }.toString()
         val authFile = File(tempDir, "gog_auth.json")
         authFile.writeText(authJson)
@@ -170,12 +161,10 @@ class GOGAuthManagerTest {
             put("expires_in", 3600)
         }.toString()
 
-        mockWebServer.enqueue(
-            MockResponse()
-                .setResponseCode(200)
-                .setBody(refreshJson)
-                .addHeader("Content-Type", "application/json"),
-        )
+        mockWebServer.enqueue(MockResponse()
+            .setResponseCode(200)
+            .setBody(refreshJson)
+            .addHeader("Content-Type", "application/json"))
 
         // Act
         val result = withMockedHttpClient(mockWebServer.url("/token").toString()) {
@@ -195,16 +184,13 @@ class GOGAuthManagerTest {
     @Test
     fun testValidateCredentials_success() = runTest {
         val authJson = JSONObject().apply {
-            put(
-                GOGConstants.GOG_CLIENT_ID,
-                JSONObject().apply {
-                    put("access_token", "token123")
-                    put("refresh_token", "refresh123")
-                    put("user_id", "user123")
-                    put("expires_in", 3600)
-                    put("loginTime", System.currentTimeMillis() / 1000.0 + 1000)
-                },
-            )
+            put(GOGConstants.GOG_CLIENT_ID, JSONObject().apply {
+                put("access_token", "token123")
+                put("refresh_token", "refresh123")
+                put("user_id", "user123")
+                put("expires_in", 3600)
+                put("loginTime", System.currentTimeMillis() / 1000.0 + 1000)
+            })
         }.toString()
         val authFile = File(tempDir, "gog_auth.json")
         authFile.writeText(authJson)

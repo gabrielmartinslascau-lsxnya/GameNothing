@@ -5,9 +5,9 @@ import app.gamenative.data.EpicGame
 import app.gamenative.data.EpicGameToken
 import app.gamenative.utils.sanitizeForFilename
 import com.winlator.container.Container
+import timber.log.Timber
 import java.io.File
 import java.io.IOException
-import timber.log.Timber
 
 /**
  * Helper functionality for launching Epic Games with correct execution params for online verification
@@ -25,57 +25,55 @@ object EpicGameLauncher {
      * Returns a list of command-line arguments to pass to the game executable
      * for Epic Games Services authentication
      *
-     */
+    */
     suspend fun buildLaunchParameters(
         context: Context,
         container: Container,
         game: EpicGame,
         offline: Boolean = false,
-        languageCode: String = "en-US",
+        languageCode: String = "en-US"
     ): Result<List<String>> {
         return try {
             val params = mutableListOf<String>()
 
-            // Offline launch if offline (either via the container settings or the device)
-            if (offline) {
+            // Offline (either via the container settings or the device) sends the same parameters without tokens
+            val gameToken: EpicGameToken? = if (offline) {
                 Timber.tag("EPIC").i("Launching ${game.appName} in offline mode (no authentication)")
-                return Result.success(params)
+                null
+            } else {
+                Timber.tag("EPIC").d("Launching ${game.appName} online, getting game launch token...")
+
+                val tokenResult = EpicAuthManager.getGameLaunchToken(
+                    context = context,
+                    namespace = game.namespace,
+                    catalogItemId = game.catalogId,
+                    requiresOwnershipToken = game.requiresOT
+                )
+
+                if (tokenResult.isFailure) {
+                    return Result.failure(tokenResult.exceptionOrNull() ?: Exception("Failed to get launch token"))
+                }
+
+                val token = tokenResult.getOrNull()
+
+                if (token == null) {
+                    Timber.tag("EPIC").w("Game Token is null for ${game.appName}")
+                    return Result.failure(Exception("Game token is null for ${game.appName}"))
+                }
+
+                Timber.tag("EPIC").i("Game launch token obtained for ${game.appName}")
+                token
             }
-
-            Timber.tag("EPIC").d("Launching ${game.appName} online, getting game launch token...")
-
-            val tokenResult = EpicAuthManager.getGameLaunchToken(
-                context = context,
-                namespace = game.namespace,
-                catalogItemId = game.catalogId,
-                requiresOwnershipToken = game.requiresOT,
-            )
-
-            if (tokenResult.isFailure) {
-                return Result.failure(tokenResult.exceptionOrNull() ?: Exception("Failed to get launch token"))
-            }
-
-            val gameToken: EpicGameToken? = tokenResult.getOrNull()
-
-            if (gameToken == null) {
-                Timber.tag("EPIC").w("Game Token is null for ${game.appName}")
-                return Result.failure(Exception("Game token is null for ${game.appName}"))
-            }
-
-            Timber.tag("EPIC").d("Got Game Token for ${game.appName}")
+            val storedCredentials = if (offline) EpicAuthManager.loadCredentials(context) else null
 
             // Save ownership token to temp file if present
-            val ownershipTokenPath = if (gameToken.ownershipToken != null) {
-                saveOwnershipTokenToFile(container, game.namespace, game.catalogId, gameToken.ownershipToken)
-            } else {
-                null
+            val ownershipTokenPath = gameToken?.ownershipToken?.let {
+                saveOwnershipTokenToFile(container, game.namespace, game.catalogId, it)
             }
-
-            Timber.tag("EPIC").i("Game launch token obtained for ${game.appName}")
 
             // Authentication parameters
             params.add("-AUTH_LOGIN=unused")
-            params.add("-AUTH_PASSWORD=${gameToken?.authCode ?: "0"}")
+            params.add("-AUTH_PASSWORD=${gameToken?.authCode ?: ""}")
             params.add("-AUTH_TYPE=exchangecode")
             params.add("-epicapp=${game.appName}")
             params.add("-epicenv=Prod")
@@ -84,8 +82,8 @@ object EpicGameLauncher {
             params.add("-EpicPortal")
 
             // User information parameters
-            val displayName = gameToken?.displayName?.takeIf { it.isNotBlank() } ?: "EpicUser"
-            val accountId = gameToken?.accountId ?: "0"
+            val displayName = (gameToken?.displayName ?: storedCredentials?.displayName)?.takeIf { it.isNotBlank() } ?: "EpicUser"
+            val accountId = gameToken?.accountId ?: storedCredentials?.accountId ?: "0"
 
             params.add("-epicusername=$displayName")
             params.add("-epicuserid=$accountId")
@@ -149,10 +147,7 @@ object EpicGameLauncher {
         for (c in input) {
             when {
                 inDouble -> if (c == '"') inDouble = false else current.append(c)
-                c == '"' -> {
-                    inDouble = true
-                    hasToken = true
-                }
+                c == '"' -> { inDouble = true; hasToken = true }
                 c.isWhitespace() -> {
                     if (hasToken) {
                         tokens.add(current.toString())
@@ -160,10 +155,7 @@ object EpicGameLauncher {
                         hasToken = false
                     }
                 }
-                else -> {
-                    current.append(c)
-                    hasToken = true
-                }
+                else -> { current.append(c); hasToken = true }
             }
         }
         if (hasToken) tokens.add(current.toString())
@@ -179,7 +171,7 @@ object EpicGameLauncher {
         container: Container,
         namespace: String,
         catalogItemId: String,
-        ownershipTokenHex: String,
+        ownershipTokenHex: String
     ): String {
         // Validate hex string
         if (ownershipTokenHex.isEmpty()) {

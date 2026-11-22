@@ -15,7 +15,13 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material3.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
@@ -28,9 +34,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInteropFilter
@@ -44,10 +50,11 @@ import app.gamenative.service.DownloadService
 import app.gamenative.service.amazon.AmazonService
 import app.gamenative.service.epic.EpicService
 import app.gamenative.service.gog.GOGService
+import app.gamenative.ui.enums.AppFilter
 import app.gamenative.ui.component.Scrollbar
 import app.gamenative.ui.data.LibraryState
 import app.gamenative.ui.data.statsFor
-import app.gamenative.ui.enums.AppFilter
+import app.gamenative.ui.data.communityCompatibilityFor
 import app.gamenative.ui.enums.PaneType
 import app.gamenative.ui.internal.fakeAppInfo
 import app.gamenative.ui.theme.PluviaTheme
@@ -187,8 +194,7 @@ internal fun LibraryListPane(
 
     Scaffold(
         modifier = modifier,
-        containerColor = if (PrefManager.videoBackgroundPath.isNotEmpty()) Color.Transparent
-                        else MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackBarHost) },
     ) { paddingValues ->
         Box(
@@ -216,35 +222,16 @@ internal fun LibraryListPane(
                 }
             }
 
-            val totalSkeletonCount =
-                remember(state.showSteamInLibrary, state.showCustomGamesInLibrary, state.showGOGInLibrary, state.showEpicInLibrary, state.showAmazonInLibrary) {
-                    val customCount = if (state.showCustomGamesInLibrary) PrefManager.customGamesCount else 0
-                    val steamCount = if (state.showSteamInLibrary) PrefManager.steamGamesCount else 0
-                    val gogInstalledCount = if (state.showGOGInLibrary &&
-                        GOGService.hasStoredCredentials(context)
-                    ) {
-                        PrefManager.gogInstalledGamesCount
-                    } else {
-                        0
-                    }
-                    val epicInstalledCount = if (state.showEpicInLibrary &&
-                        EpicService.hasStoredCredentials(context)
-                    ) {
-                        PrefManager.epicInstalledGamesCount
-                    } else {
-                        0
-                    }
-                    val amazonInstalledCount = if (state.showAmazonInLibrary &&
-                        AmazonService.hasStoredCredentials(context)
-                    ) {
-                        PrefManager.amazonInstalledGamesCount
-                    } else {
-                        0
-                    }
-                    val total = customCount + steamCount + gogInstalledCount + epicInstalledCount + amazonInstalledCount
-                    Timber.tag("LibraryListPane").d("Skeleton calculation - Custom: $customCount, Steam: $steamCount, GOG installed: $gogInstalledCount, Epic installed: $epicInstalledCount, Amazon installed: $amazonInstalledCount, Total: $total")
-                    if (total == 0) 6 else minOf(total, 20)
-                }
+            val totalSkeletonCount = remember(state.showSteamInLibrary, state.showCustomGamesInLibrary, state.showGOGInLibrary, state.showEpicInLibrary, state.showAmazonInLibrary) {
+                val customCount = if (state.showCustomGamesInLibrary) PrefManager.customGamesCount else 0
+                val steamCount = if (state.showSteamInLibrary) PrefManager.steamGamesCount else 0
+                val gogInstalledCount = if (state.showGOGInLibrary && GOGService.hasStoredCredentials(context)) PrefManager.gogInstalledGamesCount else 0
+                val epicInstalledCount = if (state.showEpicInLibrary && EpicService.hasStoredCredentials(context)) PrefManager.epicInstalledGamesCount else 0
+                val amazonInstalledCount = if (state.showAmazonInLibrary && AmazonService.hasStoredCredentials(context)) PrefManager.amazonInstalledGamesCount else 0
+                val total = customCount + steamCount + gogInstalledCount + epicInstalledCount + amazonInstalledCount
+                Timber.tag("LibraryListPane").d("Skeleton calculation - Custom: $customCount, Steam: $steamCount, GOG installed: $gogInstalledCount, Epic installed: $epicInstalledCount, Amazon installed: $amazonInstalledCount, Total: $total")
+                if (total == 0) 6 else minOf(total, 20)
+            }
 
             if (state.appInfoList.isNotEmpty()) {
                 Scrollbar(
@@ -255,90 +242,84 @@ internal fun LibraryListPane(
                         isRefreshing = state.isRefreshing,
                         onRefresh = onRefresh,
                         state = pullToRefreshState,
-                        modifier = Modifier.fillMaxSize().graphicsLayer { clip = true },
+                        modifier = Modifier.fillMaxSize(),
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .graphicsLayer { clip = true }
+                        LazyVerticalGrid(
+                            columns = columnType,
+                            state = listState,
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalArrangement = Arrangement.spacedBy(gridSpacing),
+                            contentPadding = PaddingValues(
+                                top = 80.dp,
+                                start = horizontalPadding,
+                                end = horizontalPadding + 4.dp,
+                                bottom = 72.dp,
+                            ),
                         ) {
-                            LazyVerticalGrid(
-                                columns = columnType,
-                                state = listState,
-                                modifier = Modifier.fillMaxSize(),
-                                horizontalArrangement = Arrangement.spacedBy(gridSpacing),
-                                contentPadding = PaddingValues(
-                                    top = 80.dp,
-                                    start = horizontalPadding,
-                                    end = horizontalPadding + 4.dp,
-                                    bottom = 72.dp,
-                                ),
-                            ) {
-                                items(
-                                    count = state.appInfoList.size,
-                                    key = { listIndex ->
-                                        val item = state.appInfoList[listIndex]
-                                        if (item.recSource == "hero") "HERO_SLOT" else item.appId
-                                    },
-                                    contentType = { "app_item" }
-                                ) { listIndex ->
+                            items(
+                                count = state.appInfoList.size,
+                                key = { listIndex ->
                                     val item = state.appInfoList[listIndex]
-                                    val animateFade = remember(item.index) { !listState.isScrollInProgress }
-                                    var isVisible by remember(item.index) { mutableStateOf(!animateFade) }
-                                    val alpha by animateFloatAsState(
-                                        targetValue = if (isVisible) 1f else 0f,
-                                        animationSpec = spring(
-                                            dampingRatio = Spring.DampingRatioNoBouncy,
-                                            stiffness = Spring.StiffnessLow,
-                                        ),
-                                        label = "fadeIn",
-                                    )
+                                    if (item.recSource == "hero") "HERO_SLOT" else item.appId
+                                },
+                            ) { listIndex ->
+                                val item = state.appInfoList[listIndex]
+                                val animateFade = remember(item.index) { !listState.isScrollInProgress }
+                                var isVisible by remember(item.index) { mutableStateOf(!animateFade) }
+                                val alpha by animateFloatAsState(
+                                    targetValue = if (isVisible) 1f else 0f,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                        stiffness = Spring.StiffnessLow,
+                                    ),
+                                    label = "fadeIn",
+                                )
 
-                                    if (animateFade) {
-                                        LaunchedEffect(item.index) {
-                                            delay((item.index % 8) * 30L)
-                                            isVisible = true
-                                        }
-                                    }
-
-                                    Box(modifier = Modifier.graphicsLayer { this.alpha = alpha }) {
-                                        val appItemModifier = if (firstGridItemFocusRequester != null &&
-                                            focusTargetListIndex != null &&
-                                            listIndex == focusTargetListIndex
-                                        ) {
-                                            Modifier.focusRequester(firstGridItemFocusRequester)
-                                        } else {
-                                            Modifier
-                                        }
-
-                                        if (item.index > 0 && currentLayout == PaneType.LIST) {
-                                            HorizontalDivider()
-                                        }
-                                        AppItem(
-                                            modifier = appItemModifier,
-                                            appInfo = item,
-                                            onClick = { onNavigate(item.appId) },
-                                            paneType = currentLayout,
-                                            onFocus = {
-                                                targetOfScroll = item.index
-                                                onFocusedIndexChanged(listIndex)
-                                            },
-                                            imageRefreshCounter = state.imageRefreshCounter,
-                                            compatibilityStatus = state.compatibilityMap[item.name],
-                                            gameStats = state.statsFor(item),
-                                        )
+                                if (animateFade) {
+                                    LaunchedEffect(item.index) {
+                                        delay((item.index % 8) * 30L)
+                                        isVisible = true
                                     }
                                 }
-                                if (state.appInfoList.size < state.totalAppsInFilter) {
-                                    item {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(16.dp),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            CircularProgressIndicator()
-                                        }
+
+                                Box(modifier = Modifier.graphicsLayer { this.alpha = alpha }) {
+                                    val appItemModifier = if (firstGridItemFocusRequester != null &&
+                                        focusTargetListIndex != null &&
+                                        listIndex == focusTargetListIndex
+                                    ) {
+                                        Modifier.focusRequester(firstGridItemFocusRequester)
+                                    } else {
+                                        Modifier
+                                    }
+
+                                    if (item.index > 0 && currentLayout == PaneType.LIST) {
+                                        HorizontalDivider()
+                                    }
+                                    AppItem(
+                                        modifier = appItemModifier,
+                                        appInfo = item,
+                                        onClick = { onNavigate(item.appId) },
+                                        paneType = currentLayout,
+                                        onFocus = {
+                                            targetOfScroll = item.index
+                                            onFocusedIndexChanged(listIndex)
+                                        },
+                                        imageRefreshCounter = state.imageRefreshCounter,
+                                        compatibilityStatus = state.compatibilityMap[item.name],
+                                        communityCompatibility = state.communityCompatibilityFor(item),
+                                        gameStats = state.statsFor(item),
+                                    )
+                                }
+                            }
+                            if (state.appInfoList.size < state.totalAppsInFilter) {
+                                item {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        CircularProgressIndicator()
                                     }
                                 }
                             }
@@ -353,8 +334,7 @@ internal fun LibraryListPane(
                     modifier = Modifier
                         .fillMaxSize()
                         .alpha(skeletonAlpha)
-                        .pointerInteropFilter { false }
-                        .graphicsLayer { clip = true },
+                        .pointerInteropFilter { false },
                 ) {
                     LazyVerticalGrid(
                         columns = columnType,

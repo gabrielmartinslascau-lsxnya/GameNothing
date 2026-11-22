@@ -1,23 +1,23 @@
 package app.gamenative.data
 
-import java.io.File
-import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicLong
-import kotlin.concurrent.Volatile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import timber.log.Timber
+import java.io.File
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
+import kotlin.concurrent.Volatile
 
-data class DownloadInfo(
+class DownloadInfo(
     val jobCount: Int = 1,
     val gameId: Int,
     var downloadingAppIds: CopyOnWriteArrayList<Int>,
@@ -25,6 +25,7 @@ data class DownloadInfo(
     private var downloadJob: Job? = null
     private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val downloadProgressListeners = CopyOnWriteArrayList<(Float) -> Unit>()
+
     private val progresses: Array<Float> = Array(jobCount) { 0f }
 
     // Reservation-based persistence scheduler
@@ -32,8 +33,8 @@ data class DownloadInfo(
     private var persistenceJob: Job? = null
     private val persistenceGeneration = AtomicInteger(0)
 
-    private val weights = FloatArray(jobCount) { 1f } // ⇐ new
-    private var weightSum = jobCount.toFloat()
+    private val weights    = FloatArray(jobCount) { 1f }     // ⇐ new
+    private var weightSum  = jobCount.toFloat()
 
     // === Bytes / speed tracking for more stable ETA ===
     private var totalExpectedBytes: Long = 0L
@@ -45,18 +46,14 @@ data class DownloadInfo(
     private val speedSamples = CopyOnWriteArrayList<SpeedSample>()
     private var emaSpeedBytesPerSec: Double = 0.0
     private var hasEmaSpeed: Boolean = false
+    @Volatile
     private var isActive: Boolean = true
-
     @Volatile
     private var currentStatusMessage: String = ""
     private val postInstallSyncing = MutableStateFlow(false)
 
     fun cancel() {
         cancel("Cancelled by user")
-    }
-
-    fun failedToDownload() {
-        cancel("Failed to download")
     }
 
     fun cancel(message: String) {
@@ -95,17 +92,18 @@ data class DownloadInfo(
         // Fallback to depot-based progress only if we don't have byte tracking
         var total = 0f
         for (i in progresses.indices) {
-            total += progresses[i] * weights[i] // weight each depot
+            total += progresses[i] * weights[i]   // weight each depot
         }
         return if (weightSum == 0f) 0f else total / weightSum
     }
+
 
     fun setProgress(amount: Float, jobIndex: Int = 0) {
         progresses[jobIndex] = amount
         emitProgressChange()
     }
 
-    fun setWeight(jobIndex: Int, weightBytes: Long) { // tiny helper
+    fun setWeight(jobIndex: Int, weightBytes: Long) {        // tiny helper
         weights[jobIndex] = weightBytes.toFloat()
         weightSum = weights.sum()
     }
@@ -282,8 +280,9 @@ data class DownloadInfo(
     }
 
     fun emitProgressChange() {
+        val progress = getProgress()
         for (listener in downloadProgressListeners) {
-            listener(getProgress())
+            listener(progress)
         }
     }
 

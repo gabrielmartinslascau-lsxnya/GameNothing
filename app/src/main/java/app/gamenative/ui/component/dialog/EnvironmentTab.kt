@@ -9,8 +9,6 @@ import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -25,61 +23,67 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import app.gamenative.R
 import app.gamenative.ui.component.NoExtractOutlinedTextField
+import app.gamenative.ui.component.settings.ContainerGlassMultiDropdown
+import app.gamenative.ui.component.settings.FullScreenGlassSelectorDialog
 import app.gamenative.ui.component.settings.SettingsCenteredLabel
 import app.gamenative.ui.component.settings.SettingsEnvVars
-import app.gamenative.ui.component.settings.SettingsMultiListDropdown
 import app.gamenative.ui.theme.settingsTileColors
 import com.alorma.compose.settings.ui.SettingsGroup
 import com.alorma.compose.settings.ui.SettingsMenuLink
 import com.winlator.core.envvars.EnvVarInfo
-import com.winlator.core.envvars.EnvVarSelectionType
 import com.winlator.core.envvars.EnvVars
+import com.winlator.core.envvars.EnvVarSelectionType
 
 @Composable
 fun EnvironmentTabContent(state: ContainerConfigState) {
     val config = state.config.value
     val envVars = EnvVars(config.envVars)
-    SettingsGroup {
-        if (config.envVars.isNotEmpty()) {
-            SettingsEnvVars(
+    ContainerGlassCard {
+        SettingsGroup {
+            if (config.envVars.isNotEmpty()) {
+                SettingsEnvVars(
+                    colors = settingsTileColors(),
+                    envVars = envVars,
+                    onEnvVarsChange = {
+                        state.config.value = config.copy(envVars = it.toString())
+                    },
+                    knownEnvVars = EnvVarInfo.KNOWN_ENV_VARS,
+                    useFullScreenGlassPicker = true,
+                    envVarAction = {
+                        IconButton(
+                            onClick = {
+                                envVars.remove(it)
+                                state.config.value = config.copy(envVars = envVars.toString())
+                            },
+                            content = {
+                                Icon(Icons.Filled.Delete, contentDescription = "Delete variable")
+                            },
+                        )
+                    },
+                )
+            } else {
+                SettingsCenteredLabel(
+                    colors = settingsTileColors(),
+                    title = { Text(text = stringResource(R.string.no_environment_variables)) },
+                )
+            }
+            ContainerCardDivider()
+            SettingsMenuLink(
                 colors = settingsTileColors(),
-                envVars = envVars,
-                onEnvVarsChange = {
-                    state.config.value = config.copy(envVars = it.toString())
+                title = {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.AddCircleOutline,
+                            contentDescription = "Add environment variable",
+                        )
+                    }
                 },
-                knownEnvVars = EnvVarInfo.KNOWN_ENV_VARS,
-                envVarAction = {
-                    IconButton(
-                        onClick = {
-                            envVars.remove(it)
-                            state.config.value = config.copy(envVars = envVars.toString())
-                        },
-                        content = {
-                            Icon(Icons.Filled.Delete, contentDescription = "Delete variable")
-                        },
-                    )
-                },
-            )
-        } else {
-            SettingsCenteredLabel(
-                colors = settingsTileColors(),
-                title = { Text(text = stringResource(R.string.no_environment_variables)) },
+                onClick = { state.showEnvVarCreateDialog.value = true },
             )
         }
-        SettingsMenuLink(
-            title = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.AddCircleOutline,
-                        contentDescription = "Add environment variable",
-                    )
-                }
-            },
-            onClick = { state.showEnvVarCreateDialog.value = true },
-        )
     }
 
     if (state.showEnvVarCreateDialog.value) {
@@ -110,35 +114,30 @@ fun EnvironmentTabContent(state: ContainerConfigState) {
                                 )
                             },
                         )
-                        androidx.compose.material3.DropdownMenu(
-                            expanded = knownVarsMenuOpen,
-                            onDismissRequest = { knownVarsMenuOpen = false },
-                        ) {
-                            val knownEnvVars = EnvVarInfo.KNOWN_ENV_VARS.values.filter {
+                        val availableKnownVars = remember(config.envVars) {
+                            EnvVarInfo.KNOWN_ENV_VARS.values.filter {
                                 !config.envVars.contains("${it.identifier}=")
                             }
-                            if (knownEnvVars.isNotEmpty()) {
-                                for (knownVariable in knownEnvVars) {
-                                    androidx.compose.material3.DropdownMenuItem(
-                                        text = { Text(knownVariable.identifier) },
-                                        onClick = {
-                                            envVarName = knownVariable.identifier
-                                            knownVarsMenuOpen = false
-                                        },
-                                    )
-                                }
-                            } else {
-                                androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text(text = stringResource(R.string.no_more_known_variables)) },
-                                    onClick = {},
-                                )
-                            }
                         }
+                        FullScreenGlassSelectorDialog(
+                            visible = knownVarsMenuOpen,
+                            title = { Text(text = stringResource(R.string.new_environment_variable)) },
+                            items = availableKnownVars.map { it.identifier },
+                            selectedIndex = availableKnownVars.indexOfFirst { it.identifier == envVarName },
+                            searchable = availableKnownVars.size > 5,
+                            emptyText = stringResource(R.string.no_more_known_variables),
+                            onItemSelected = { idx ->
+                                availableKnownVars.getOrNull(idx)?.let { knownVariable ->
+                                    envVarName = knownVariable.identifier
+                                }
+                            },
+                            onDismiss = { knownVarsMenuOpen = false },
+                        )
                     }
                     val selectedEnvVarInfo = EnvVarInfo.KNOWN_ENV_VARS[envVarName]
                     if (selectedEnvVarInfo?.selectionType == EnvVarSelectionType.MULTI_SELECT) {
                         var multiSelectedIndices by remember { mutableStateOf(listOf<Int>()) }
-                        SettingsMultiListDropdown(
+                        ContainerGlassMultiDropdown(
                             enabled = true,
                             values = multiSelectedIndices,
                             items = selectedEnvVarInfo.possibleValues,
@@ -171,39 +170,31 @@ fun EnvironmentTabContent(state: ContainerConfigState) {
                                             contentDescription = "Presets",
                                         )
                                     }
-                                    DropdownMenu(
-                                        expanded = suggestionsExpanded,
-                                        onDismissRequest = { suggestionsExpanded = false },
-                                    ) {
-                                        selectedEnvVarInfo!!.possibleValues.forEach { suggestion ->
-                                            // suggestion box headers
-                                            if (suggestion.startsWith("---")) {
-                                                DropdownMenuItem(
-                                                    text = {
-                                                        Text(
-                                                            text = suggestion.removePrefix("---"),
-                                                            style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-                                                            color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                                        )
-                                                    },
-                                                    onClick = {},
-                                                    enabled = false,
-                                                )
-                                            } else {
-                                                DropdownMenuItem(
-                                                    text = { Text(suggestion) },
-                                                    onClick = {
-                                                        envVarValue = suggestion
-                                                        suggestionsExpanded = false
-                                                    },
-                                                )
-                                            }
-                                        }
+                                    val possibleValues = selectedEnvVarInfo!!.possibleValues
+                                    val displayItems = remember(possibleValues) {
+                                        possibleValues.map { it.removePrefix("---") }
                                     }
+                                    val disabledMask = remember(possibleValues) {
+                                        possibleValues.map { it.startsWith("---") }
+                                    }
+                                    FullScreenGlassSelectorDialog(
+                                        visible = suggestionsExpanded,
+                                        title = { Text(envVarName.ifBlank { stringResource(R.string.value) }) },
+                                        items = displayItems,
+                                        selectedIndex = possibleValues.indexOf(envVarValue),
+                                        itemDisabled = disabledMask,
+                                        searchable = possibleValues.size > 5,
+                                        onItemSelected = { idx ->
+                                            possibleValues.getOrNull(idx)?.let { suggestion ->
+                                                if (!suggestion.startsWith("---")) {
+                                                    envVarValue = suggestion
+                                                }
+                                            }
+                                        },
+                                        onDismiss = { suggestionsExpanded = false },
+                                    )
                                 }
-                            } else {
-                                null
-                            },
+                            } else null,
                         )
                     }
                 }

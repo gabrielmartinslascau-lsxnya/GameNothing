@@ -3,6 +3,7 @@ package app.gamenative.ui.model
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.gamenative.PrefManager
 import app.gamenative.data.GameCompatibilityStatus
 import app.gamenative.data.GameSource
 import app.gamenative.data.gog.GogRecCard
@@ -13,7 +14,9 @@ import app.gamenative.db.dao.AmazonGameDao
 import app.gamenative.db.dao.EpicGameDao
 import app.gamenative.db.dao.GOGGameDao
 import app.gamenative.db.dao.LibraryPlayHistoryDao
+import app.gamenative.service.SteamService
 import app.gamenative.service.gog.GOGAuthManager
+import app.gamenative.utils.CustomGameScanner
 import app.gamenative.utils.DeviceGameStatsCache
 import app.gamenative.utils.DeviceGameStatsService.DeviceGameStats
 import app.gamenative.utils.GameCompatibilityCache
@@ -23,13 +26,14 @@ import com.winlator.core.GPUInformation
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
-import kotlin.math.ln
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.math.ln
 import timber.log.Timber
 
 private const val GPU_REVIEW_WEIGHT = 0.3
@@ -99,7 +103,7 @@ class GogRecommendationsViewModel @Inject constructor(
             if (cached != null) responses[name] = cached else uncached.add(name)
         }
         if (gpuName != "Unknown GPU") {
-            uncached.chunked(25).forEach { batch ->
+            uncached.chunked(100).forEach { batch ->
                 GameCompatibilityService.fetchCompatibility(batch, gpuName)?.let {
                     GameCompatibilityCache.cacheAll(it)
                     responses.putAll(it)
@@ -141,13 +145,7 @@ class GogRecommendationsViewModel @Inject constructor(
 
     private fun compatibilityStatusFor(
         r: GameCompatibilityService.GameCompatibilityResponse,
-    ): GameCompatibilityStatus = when {
-        r.isNotWorking -> GameCompatibilityStatus.NOT_COMPATIBLE
-        !r.hasBeenTried -> GameCompatibilityStatus.UNKNOWN
-        r.gpuPlayableCount > 0 -> GameCompatibilityStatus.GPU_COMPATIBLE
-        r.totalPlayableCount > 0 -> GameCompatibilityStatus.COMPATIBLE
-        else -> GameCompatibilityStatus.UNKNOWN
-    }
+    ): GameCompatibilityStatus = GameCompatibilityService.statusFor(r)
 
     private suspend fun collectOwnedGames(): List<OwnedGameRef> =
         GogSeedCollector.collect(context, libraryPlayHistoryDao, gogGameDao, epicGameDao, amazonGameDao)

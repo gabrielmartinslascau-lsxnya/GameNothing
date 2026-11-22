@@ -727,10 +727,8 @@ internal fun communityConfigMatchType(currentGpu: String, configGpu: String): St
     return when {
         current.isNotEmpty() && current == candidate -> "exact_gpu_match"
         currentCompatibility == candidateCompatibility &&
-            (
-                currentCompatibility == CommunityGpuCompatibility.ADRENO_STANDARD ||
-                    currentCompatibility == CommunityGpuCompatibility.ADRENO_ELITE
-                ) -> "gpu_family_match"
+            (currentCompatibility == CommunityGpuCompatibility.ADRENO_STANDARD ||
+                currentCompatibility == CommunityGpuCompatibility.ADRENO_ELITE) -> "gpu_family_match"
         else -> "fallback_match"
     }
 }
@@ -826,6 +824,15 @@ private val communityConfigAllowedKeys = setOf(
     "fexcoreMultiBlock",
     "fexcorePreset",
     "useLegacyDRM",
+    "launchRealSteam",
+    "launchBionicSteam",
+    "steamOfflineMode",
+    "epicOfflineMode",
+    "unpackFiles",
+    "suspendPolicy",
+    "executablePath",
+    "cpuList",
+    "cpuListWoW64",
     "audioDriver",
     "wincomponents",
     "videoMemorySize",
@@ -894,23 +901,32 @@ internal fun sanitizeCommunityConfig(config: JsonObject): JsonObject = JsonObjec
             if (content.length > MAX_CONFIG_VALUE_CHARS) return@forEach
 
             when (key) {
-                "execArgs" ->
-                    content
-                        .takeIf {
-                            it.length <= MAX_LAUNCH_ARGUMENT_CHARS &&
-                                it.none { char -> char == '\u0000' || char == '\r' || char == '\n' }
-                        }
-                        ?.trim()
-                        ?.takeIf { it.isNotEmpty() }
-                        ?.let { put(key, JsonPrimitive(it)) }
+                "execArgs" -> content
+                    .takeIf {
+                        it.length <= MAX_LAUNCH_ARGUMENT_CHARS &&
+                            it.none { char -> char == '\u0000' || char == '\r' || char == '\n' }
+                    }
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.let { put(key, JsonPrimitive(it)) }
                 "envVars" -> sanitizeCommunityEnvironmentVariables(content)
                     .takeIf { it.isNotEmpty() }
+                    ?.let { put(key, JsonPrimitive(it)) }
+                "executablePath" -> content.trim()
+                    .takeIf { isSafeCommunityExecutablePath(it) }
                     ?.let { put(key, JsonPrimitive(it)) }
                 else -> put(key, value)
             }
         }
     },
 )
+
+internal fun isSafeCommunityExecutablePath(path: String): Boolean {
+    if (path.isEmpty() || path.length > MAX_LAUNCH_ARGUMENT_CHARS) return false
+    if (path.any { it.code < 0x20 || it == '\u007f' }) return false
+    if (path.startsWith("/") || path.startsWith("\\") || path.contains(':')) return false
+    return path.split('/', '\\').none { it == ".." }
+}
 
 internal fun prepareCommunityConfigForApply(
     config: JsonObject,

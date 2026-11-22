@@ -3,7 +3,6 @@ package app.gamenative.utils.downloader
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.gamenative.PrefManager
-import java.io.File
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.junit.After
@@ -15,6 +14,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import timber.log.Timber
+import java.io.File
 
 /**
  * Test suite for WinComponentDownloader functionality.
@@ -70,7 +70,7 @@ class WinComponentDownloaderTest {
             "direct3d",
             "directsound",
             "vcrun2010",
-            "wmdecoder",
+            "wmdecoder"
         )
 
         requiredComponents.forEach { componentId ->
@@ -94,7 +94,7 @@ class WinComponentDownloaderTest {
             "opengl",
             "openal",
             "xaudio",
-            "ddraw",
+            "ddraw"
         )
 
         optionalComponents.forEach { componentId ->
@@ -112,19 +112,20 @@ class WinComponentDownloaderTest {
         manifest.components.forEach { component ->
             assertTrue(
                 "Component ${component.id} URL should contain 'wincomponents/'",
-                component.url.contains("wincomponents/"),
+                component.url.contains("wincomponents/")
             )
             assertTrue(
                 "Component ${component.id} URL should end with .tzst",
-                component.url.endsWith(".tzst"),
+                component.url.endsWith(".tzst")
             )
             assertEquals(
                 "Component ${component.id} name should match ID.tzst",
                 "${component.id}.tzst",
-                component.name,
+                component.name
             )
         }
     }
+
 
     @Test
     fun testCacheSizeCalculation() {
@@ -172,7 +173,7 @@ class WinComponentDownloaderTest {
             var progressCalled = false
             val downloadedFile = WinComponentDownloader.ensureWinComponentAvailable(
                 context,
-                componentId,
+                componentId
             ) { progress ->
                 progressCalled = true
                 println("Download progress: ${(progress * 100).toInt()}%")
@@ -199,12 +200,15 @@ class WinComponentDownloaderTest {
 
         // Create a mock cached file
         cacheDir.mkdirs()
-        val cachedFile = File(cacheDir, "$componentId.tzst")
+        val manifestVersion = Json { ignoreUnknownKeys = true }.decodeFromString<WinComponentDownloader.WinComponentManifest>(
+            context.assets.open(WinComponentDownloader.WINCOMPONENTS_MANIFEST_FILE).bufferedReader().use { it.readText() }
+        ).version
+        val cachedFile = File(cacheDir, "$componentId-v$manifestVersion.tzst")
         cachedFile.writeText("mock cached content")
 
         val retrievedFile = WinComponentDownloader.ensureWinComponentAvailable(
             context,
-            componentId,
+            componentId
         ) { progress ->
             // Progress should not be called for cached files
             throw AssertionError("Progress callback should not be called for cached files")
@@ -221,13 +225,13 @@ class WinComponentDownloaderTest {
         try {
             WinComponentDownloader.ensureWinComponentAvailable(
                 context,
-                "nonexistent_component_xyz",
+                "nonexistent_component_xyz"
             )
             throw AssertionError("Should have thrown exception for invalid component")
         } catch (e: Exception) {
             assertTrue(
                 "Exception message should mention component not found",
-                e.message?.contains("not found") == true,
+                e.message?.contains("not found") == true
             )
         }
     }
@@ -240,7 +244,7 @@ class WinComponentDownloaderTest {
 
         val validDomains = listOf(
             "downloads.gamenative.app",
-            "pub-9fcd5294bd0d4b85a9d73615bf98f3b5.r2.dev",
+            "pub-9fcd5294bd0d4b85a9d73615bf98f3b5.r2.dev"
         )
 
         manifest.components.forEach { component ->
@@ -249,7 +253,7 @@ class WinComponentDownloaderTest {
             }
             assertTrue(
                 "Component ${component.id} should use a valid download domain",
-                hasValidDomain,
+                hasValidDomain
             )
         }
     }
@@ -264,14 +268,14 @@ class WinComponentDownloaderTest {
             // URL should contain the component ID
             assertTrue(
                 "Component ${component.id} URL should contain its ID",
-                component.url.contains(component.id),
+                component.url.contains(component.id)
             )
 
             // Name should match ID with .tzst extension
             assertEquals(
                 "Component ${component.id} name should match ID.tzst",
                 "${component.id}.tzst",
-                component.name,
+                component.name
             )
         }
     }

@@ -5,7 +5,6 @@ import android.util.Log;
 
 import com.winlator.box86_64.Box86_64Preset;
 import com.winlator.core.DefaultVersion;
-import com.winlator.core.envvars.EnvVars;
 import com.winlator.core.FileUtils;
 import com.winlator.core.KeyValueSet;
 import com.winlator.core.WineInfo;
@@ -13,16 +12,18 @@ import com.winlator.core.WineThemeManager;
 import com.winlator.fexcore.FEXCorePreset;
 import com.winlator.winhandler.WinHandler;
 import com.winlator.xenvironment.ImageFs;
-import com.winlator.xenvironment.components.PulseAudioComponent;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Locale;
-
-import app.gamenative.BuildConfig;
+import java.util.Set;
 
 public class Container {
     public enum XrControllerMapping {
@@ -37,7 +38,7 @@ public class Container {
     public static final String EXTERNAL_DISPLAY_MODE_HYBRID = "hybrid";
     public static final String DEFAULT_EXTERNAL_DISPLAY_MODE = EXTERNAL_DISPLAY_MODE_OFF;
 
-    public static final String DEFAULT_ENV_VARS = "WRAPPER_MAX_IMAGE_COUNT=0 ZINK_DESCRIPTORS=lazy ZINK_DEBUG=compact,deck_emu MESA_SHADER_CACHE_DISABLE=false MESA_SHADER_CACHE_MAX_SIZE=4096MB mesa_glthread=true WINEESYNC=1 MESA_VK_WSI_PRESENT_MODE=mailbox TU_DEBUG=noconform VKD3D_SHADER_MODEL=6_0 PULSE_LATENCY_MSEC=144 BOX64_MMAP32=0 WINE_LARGE_ADDRESS_AWARE=1";
+    public static final String DEFAULT_ENV_VARS = "WRAPPER_MAX_IMAGE_COUNT=0 ZINK_DESCRIPTORS=lazy ZINK_DEBUG=compact MESA_SHADER_CACHE_DISABLE=false MESA_SHADER_CACHE_MAX_SIZE=512MB mesa_glthread=true WINEESYNC=1 MESA_VK_WSI_PRESENT_MODE=mailbox TU_DEBUG=noconform VKD3D_SHADER_MODEL=6_0 PULSE_LATENCY_MSEC=144";
     public static final String DEFAULT_SCREEN_SIZE_16_9 = "1280x720";
     public static final String DEFAULT_SCREEN_SIZE_16_10 = "1280x800";
     public static final String DEFAULT_SCREEN_SIZE_4_3 = "1280x960";
@@ -46,20 +47,31 @@ public class Container {
     public static final String DEFAULT_EMULATOR = "FEXCore";
     public static final String DEFAULT_DXWRAPPER = "dxvk";
     public static final String DEFAULT_DISPLAY_RENDERER = "vulkan";
+    public static final String DISPLAY_SERVER_X11 = "x11";
+    public static final String DISPLAY_SERVER_GAMESCOPE = "gamescope";
+    /** Gamescope scans out through ASurfaceControl/ASurfaceTransaction, which libandroid only exports from API 29 (Android 10). */
+    public static final int GAMESCOPE_MIN_SDK = 29;
     public static final String DEFAULT_DDRAWRAPPER = "none";
-    public static final String DEFAULT_DXWRAPPERCONFIG = "version=" + DefaultVersion.DXVK + ",framerate=0,maxDeviceMemory=0,async=" + DefaultVersion.ASYNC + ",asyncCache=" + DefaultVersion.ASYNC_CACHE + ",vkd3dVersion=" + DefaultVersion.VKD3D + ",vkd3dLevel=12_1" + ",ddrawrapper=" + Container.DEFAULT_DDRAWRAPPER + ",csmt=3" + ",gpuName=NVIDIA GeForce GTX 480" + ",videoMemorySize=8192" + ",strict_shader_math=1" + ",OffscreenRenderingMode=fbo" + ",renderer=gl";;
-    public static final String DEFAULT_GRAPHICSDRIVERCONFIG = "vulkanVersion=1.3" + ",version=" + DefaultVersion.WRAPPER + ",blacklistedExtensions=" + ",maxDeviceMemory=0" + ",presentMode=mailbox" + ",syncFrame=0" + ",disablePresentWait=0" + ",resourceType=auto" + ",bcnEmulation=auto" + ",bcnEmulationType=compute" + ",bcnEmulationCache=0" + ",gpuName=Device";
+    public static final String DEFAULT_DXWRAPPERCONFIG = "version=" + DefaultVersion.DXVK + ",framerate=0,maxDeviceMemory=0,async=" + DefaultVersion.ASYNC + ",asyncCache=" + DefaultVersion.ASYNC_CACHE + ",vkd3dVersion=" + DefaultVersion.VKD3D + ",vkd3dLevel=12_1" + ",ddrawrapper=" + Container.DEFAULT_DDRAWRAPPER + ",csmt=3" + ",gpuName=NVIDIA GeForce GTX 480" + ",videoMemorySize=2048" + ",strict_shader_math=1" + ",OffscreenRenderingMode=fbo" + ",renderer=gl";;
+    public static final String DEFAULT_GRAPHICSDRIVERCONFIG = "vulkanVersion=1.3" + ",version=" + DefaultVersion.WRAPPER + ",blacklistedExtensions=" + ",maxDeviceMemory=0" + ",presentMode=mailbox" + ",syncFrame=0" + ",disablePresentWait=0" + ",resourceType=auto" + ",bcnEmulation=auto" + ",bcnEmulationType=compute" + ",bcnEmulationCache=1" + ",gpuName=Device";
     public static final String DEFAULT_WINCOMPONENTS = "direct3d=1,directsound=1,directinput8=0,directinput=0,directmusic=0,directshow=0,directplay=0,vcrun2010=1,wmdecoder=1,opengl=0";
+    /**
+     * Wincomponents outside DEFAULT_WINCOMPONENTS that redist detection adds to a container: the
+     * vcrun families of RedistInstallerExtractor.FAMILY_MAJOR_VERSIONS, PhysXLayout.COMPONENT and
+     * the DirectX xaudio of SteamRedistDepots. Loading keeps them with their stored value.
+     */
+    public static final Set<String> REDIST_WINCOMPONENTS = Collections.unmodifiableSet(new LinkedHashSet<>(Arrays.asList(
+            "vcrun2005", "vcrun2008", "vcrun2012", "vcrun2013", "vcrun2022", "xaudio", "physx")));
     public static final String FALLBACK_WINCOMPONENTS = "direct3d=1,directsound=1,directinput8=0,directinput=0,directmusic=1,directshow=1,directplay=1,vcrun2010=1,wmdecoder=1,opengl=0";
     public static final String[] MEDIACONV_ENV_VARS = {
-            "MEDIACONV_AUDIO_DUMP_FILE=/data/data/app.gamenothing/files/imagefs/home/xuser/audio.dmp",
-            "MEDIACONV_VIDEO_DUMP_FILE=/data/data/app.gamenothing/files/imagefs/home/xuser/video.dmp",
-            "MEDIACONV_VIDEO_TRANSCODED_FILE=/data/data/app.gamenothing/files/imagefs/home/xuser/transcoded.mkv",
-            "MEDIACONV_AUDIO_TRANSCODED_FILE=/data/data/app.gamenothing/files/imagefs/home/xuser/transcoded.wav",
-            "MEDIACONV_BLANK_AUDIO_FILE=/data/data/app.gamenothing/files/imagefs/home/xuser/blank.wav",
-            "MEDIACONV_BLANK_VIDEO_FILE=/data/data/app.gamenothing/files/imagefs/home/xuser/blank.mkv",
+            "MEDIACONV_AUDIO_DUMP_FILE=/data/data/app.gamenative/files/imagefs/home/xuser/audio.dmp",
+            "MEDIACONV_VIDEO_DUMP_FILE=/data/data/app.gamenative/files/imagefs/home/xuser/video.dmp",
+            "MEDIACONV_VIDEO_TRANSCODED_FILE=/data/data/app.gamenative/files/imagefs/home/xuser/transcoded.mkv",
+            "MEDIACONV_AUDIO_TRANSCODED_FILE=/data/data/app.gamenative/files/imagefs/home/xuser/transcoded.wav",
+            "MEDIACONV_BLANK_AUDIO_FILE=/data/data/app.gamenative/files/imagefs/home/xuser/blank.wav",
+            "MEDIACONV_BLANK_VIDEO_FILE=/data/data/app.gamenative/files/imagefs/home/xuser/blank.mkv",
     };
-    public static final String DEFAULT_DRIVES = "D:"+Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)+"E:/data/data/app.gamenothing/storage";
+    public static final String DEFAULT_DRIVES = "D:"+Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)+"E:/data/data/app.gamenative/storage";
     public static final String DEFAULT_VARIANT = DefaultVersion.VARIANT;
     public static final String DEFAULT_WINE_VERSION = DefaultVersion.WINE_VERSION;
     public static final byte STARTUP_SELECTION_NORMAL = 0;
@@ -74,6 +86,7 @@ public class Container {
     public static final String STEAM_TYPE_NORMAL = "normal";
     public static final String STEAM_TYPE_LIGHT = "light";
     public static final String STEAM_TYPE_ULTRALIGHT = "ultralight";
+    public static final String STEAM_TYPE_HEADLESS = "headless";
     public static final String GLIBC = "glibc";
     public static final String BIONIC = "bionic";
     public static final byte MAX_DRIVE_LETTERS = 8;
@@ -87,15 +100,19 @@ public class Container {
     private String graphicsDriverConfig = DEFAULT_GRAPHICSDRIVERCONFIG;
     private String rendererPresentMode = "fifo";
     private String displayRenderer = Container.DEFAULT_DISPLAY_RENDERER;
+    private String displayServer = DefaultVersion.DISPLAY_SERVER;
     private int xrRefreshRate = 72;
+    private int xrRenderScale = 100;
     private boolean sfCompatMode = true;
     private String wincomponents = DEFAULT_WINCOMPONENTS;
     private String audioDriver = DEFAULT_AUDIO_DRIVER;
     private boolean pulseaudioLowLatency = false;
+    /** Exposes the Android microphone to Wine/Proton as a capture device. Opt-in, off by default. */
+    private boolean micEnabled = false;
     private String drives = DEFAULT_DRIVES;
     private String wineVersion = WineInfo.MAIN_WINE_VERSION.identifier();
     private boolean showFPS;
-    private boolean launchImmersiveMode = BuildConfig.XR_BUILD;
+    private boolean launchImmersiveMode = app.gamenative.BuildConfig.XR_BUILD;
     private boolean launchRealSteam;
     private boolean launchBionicSteam;
     private boolean allowSteamUpdates;
@@ -116,6 +133,7 @@ public class Container {
     private String installPath = "";
     private JSONObject extraData;
     private JSONObject sessionMetadata;
+    private String configSource = "";
     private int rcfileId = 0;
     private String midiSoundFont = "";
     private int inputType = WinHandler.PreferredInputApi.BOTH.ordinal();
@@ -128,6 +146,9 @@ public class Container {
     private String execArgs = ""; // Default exec arguments
     private String executablePath = ""; // Executable path for container
     private boolean sdlControllerAPI;
+    private boolean fasterExternalLoading;
+    private boolean disableLibredirect;
+    private boolean disableEpicOverlay;
 
     // Preferred game language for Goldberg force_language.txt
     private String language = "english";
@@ -138,7 +159,7 @@ public class Container {
     // Disable external mouse input
     private boolean disableMouseInput = false;
     // Touchscreen mode (defaults on for XR builds)
-    private boolean touchscreenMode = BuildConfig.XR_BUILD;
+    private boolean touchscreenMode = app.gamenative.BuildConfig.XR_BUILD;
     // Shooter mode
     private boolean shooterMode = true;
     // Serialised JSON gesture configuration (used when touchscreenMode is true)
@@ -151,7 +172,10 @@ public class Container {
     private boolean externalDisplaySwap = false;
     // Prefer DRI3 WSI path
     private boolean useDRI3 = true;
-    // Steam client type for selecting appropriate Box64 RC config: normal, light, ultralight
+    // Enable HDR output when a Gamescope session renders the display
+    private boolean hdrEnabled = false;
+    // Steam client flavour: headless (steamhost, no client UI) or the Valve GUI client under
+    // one of the Box64 RC configs (normal, light, ultralight)
     private String steamType = DefaultVersion.STEAM_TYPE;
 
     private boolean gstreamerWorkaround = false;
@@ -162,6 +186,8 @@ public class Container {
 
     private boolean steamOfflineMode = false;
 
+    private boolean loadMods = false;
+
     private boolean epicOfflineMode = false;
 
     private boolean useLegacyDRM = false;
@@ -171,8 +197,11 @@ public class Container {
     private String suspendPolicy = SUSPEND_POLICY_MANUAL;
 
     private boolean portraitMode = false;
+    private boolean portraitBelowCutout = false;
 
     private String containerVariant = DEFAULT_VARIANT;
+
+    private String basePrefix = "";
 
     public String getGraphicsDriverVersion() {
         return graphicsDriverVersion;
@@ -194,6 +223,9 @@ public class Container {
                 break;
             case STEAM_TYPE_ULTRALIGHT:
                 this.steamType = STEAM_TYPE_ULTRALIGHT;
+                break;
+            case STEAM_TYPE_HEADLESS:
+                this.steamType = STEAM_TYPE_HEADLESS;
                 break;
             default:
                 this.steamType = STEAM_TYPE_NORMAL;
@@ -276,11 +308,32 @@ public class Container {
 
     public String getDisplayRenderer() { return displayRenderer; }
 
+    public String getDisplayServer() { return displayServer; }
+
     public int getXrRefreshRate() { return xrRefreshRate; }
 
     public void setXrRefreshRate(int v) { this.xrRefreshRate = v; }
 
+    public int getXrRenderScale() { return xrRenderScale; }
+
+    public void setXrRenderScale(int v) { this.xrRenderScale = v; }
+
     public void setDisplayRenderer(String v) { this.displayRenderer = v; }
+
+    public void setDisplayServer(String v) { this.displayServer = v; }
+
+    /** Whether the gamescope display path can run on a device at this API level. */
+    public static boolean isGamescopeSupported(int sdkInt) {
+        return sdkInt >= GAMESCOPE_MIN_SDK;
+    }
+
+    public static String defaultDisplayServer(boolean isAdreno, int sdkInt) {
+        return isAdreno && isGamescopeSupported(sdkInt) ? DISPLAY_SERVER_GAMESCOPE : DISPLAY_SERVER_X11;
+    }
+
+    public static boolean isX11Display(String containerVariant, String displayServer) {
+        return !BIONIC.equalsIgnoreCase(containerVariant) || !DISPLAY_SERVER_GAMESCOPE.equalsIgnoreCase(displayServer);
+    }
 
     public boolean getSfCompatMode() { return sfCompatMode; }
 
@@ -310,12 +363,20 @@ public class Container {
         this.pulseaudioLowLatency = pulseaudioLowLatency;
     }
 
+    public boolean getMicEnabled() {
+        return micEnabled;
+    }
+
+    public void setMicEnabled(boolean micEnabled) {
+        this.micEnabled = micEnabled;
+    }
+
     public String getWinComponents() {
         return wincomponents;
     }
 
     public void setWinComponents(String wincomponents) {
-        this.wincomponents = wincomponents;
+        this.wincomponents = normalizeWinComponents(wincomponents);
     }
 
     public String getDrives() {
@@ -374,6 +435,11 @@ public class Container {
         this.launchRealSteam = launchRealSteam;
     }
 
+    /** Real Steam through the headless steamhost rather than the Valve GUI client. */
+    public boolean isLaunchHeadlessSteam() {
+        return launchRealSteam && STEAM_TYPE_HEADLESS.equals(steamType);
+    }
+
     public boolean isLaunchBionicSteam() {
         return launchBionicSteam;
     }
@@ -396,6 +462,30 @@ public class Container {
 
     public void setSdlControllerAPI(boolean sdlControllerAPI) {
         this.sdlControllerAPI = sdlControllerAPI;
+    }
+
+    public boolean isFasterExternalLoading() {
+        return fasterExternalLoading;
+    }
+
+    public void setFasterExternalLoading(boolean fasterExternalLoading) {
+        this.fasterExternalLoading = fasterExternalLoading;
+    }
+
+    public boolean isDisableLibredirect() {
+        return disableLibredirect;
+    }
+
+    public void setDisableLibredirect(boolean disableLibredirect) {
+        this.disableLibredirect = disableLibredirect;
+    }
+
+    public boolean isDisableEpicOverlay() {
+        return disableEpicOverlay;
+    }
+
+    public void setDisableEpicOverlay(boolean disableEpicOverlay) {
+        this.disableEpicOverlay = disableEpicOverlay;
     }
 
     public String getLanguage() {
@@ -514,6 +604,10 @@ public class Container {
         this.extraData = extraData;
     }
 
+    public JSONObject getExtraData() {
+        return extraData;
+    }
+
     public boolean isGstreamerWorkaround() { // Add this getter
         return this.gstreamerWorkaround;
     }
@@ -528,6 +622,18 @@ public class Container {
 
     public String getContainerVariant() {
         return this.containerVariant;
+    }
+
+    public String getBasePrefix() {
+        return basePrefix != null ? basePrefix : "";
+    }
+
+    public void setBasePrefix(String basePrefix) {
+        this.basePrefix = basePrefix != null ? basePrefix : "";
+    }
+
+    public boolean isOverlay() {
+        return ContainerOverlay.isEligible(this) && !getBasePrefix().isEmpty();
     }
 
     public String getExtra(String name) {
@@ -691,6 +797,11 @@ public class Container {
     }
 
     public void saveData() {
+        saveDataChecked();
+    }
+
+    /** Checked persistence for callers that must not report success after a failed write. */
+    public boolean saveDataChecked() {
         try {
             JSONObject data = new JSONObject();
             data.put("id", id);
@@ -704,12 +815,15 @@ public class Container {
             if (!graphicsDriverConfig.isEmpty()) data.put("graphicsDriverConfig", graphicsDriverConfig);
             data.put("rendererPresentMode", rendererPresentMode);
             data.put("displayRendererMode", displayRenderer);
+            data.put("displayServer", displayServer);
             data.put("xrRefreshRate", xrRefreshRate);
+            data.put("xrRenderScale", xrRenderScale);
             data.put("sfCompatMode", sfCompatMode);
             data.put("dxwrapper", dxwrapper);
             if (!dxwrapperConfig.isEmpty()) data.put("dxwrapperConfig", dxwrapperConfig);
             data.put("audioDriver", audioDriver);
             data.put("pulseaudioLowLatency", pulseaudioLowLatency);
+            data.put("micEnabled", micEnabled);
             data.put("wincomponents", wincomponents);
             data.put("drives", drives);
             data.put("showFPS", showFPS);
@@ -729,6 +843,7 @@ public class Container {
             data.put("desktopTheme", desktopTheme);
             data.put("extraData", extraData);
             data.put("sessionMetadata", sessionMetadata);
+            data.put("configSource", configSource);
             data.put("rcfileId", rcfileId);
             data.put("midiSoundFont", midiSoundFont);
             data.put("lc_all", lc_all);
@@ -738,6 +853,9 @@ public class Container {
             data.put("executablePath", executablePath);
             data.put("needsUnpacking", needsUnpacking);
             data.put("sdlControllerAPI", sdlControllerAPI);
+            data.put("fasterExternalLoading", fasterExternalLoading);
+            data.put("disableLibredirect", disableLibredirect);
+            data.put("disableEpicOverlay", disableEpicOverlay);
             // Disable mouse input flag
             data.put("disableMouseInput", disableMouseInput);
             // Touchscreen mode flag
@@ -755,10 +873,12 @@ public class Container {
             data.put("externalDisplayMode", externalDisplayMode);
             data.put("externalDisplaySwap", externalDisplaySwap);
             data.put("useDRI3", useDRI3);
+            data.put("hdrEnabled", hdrEnabled);
             data.put("installPath", installPath);
             data.put("steamType", steamType);
             data.put("language", language);
             data.put("containerVariant", containerVariant);
+            if (!getBasePrefix().isEmpty()) data.put("basePrefix", basePrefix);
             data.put("emulator", emulator);
             data.put("fexcoreVersion", fexcoreVersion);
 
@@ -770,6 +890,7 @@ public class Container {
 
             // Steam offline mode setting
             data.put("steamOfflineMode", steamOfflineMode);
+            data.put("loadMods", loadMods);
 
             // Steam offline mode setting
             data.put("epicOfflineMode", epicOfflineMode);
@@ -783,12 +904,14 @@ public class Container {
             // Process suspend policy setting
             data.put("suspendPolicy", suspendPolicy);
             data.put("portraitMode", portraitMode);
+            data.put("portraitBelowCutout", portraitBelowCutout);
 
             if (!WineInfo.isMainWineVersion(wineVersion)) data.put("wineVersion", wineVersion);
-            FileUtils.writeString(getConfigFile(), data.toString());
+            return FileUtils.writeString(getConfigFile(), data.toString());
         }
         catch (JSONException e) {
             Log.e("Container", "Failed to save data: " + e);
+            return false;
         }
     }
 
@@ -830,8 +953,14 @@ public class Container {
                 case "displayRendererMode" :
                     setDisplayRenderer(data.getString(key));
                     break;
+                case "displayServer" :
+                    setDisplayServer(data.getString(key));
+                    break;
                 case "xrRefreshRate" :
                     setXrRefreshRate(data.getInt(key));
+                    break;
+                case "xrRenderScale" :
+                    setXrRenderScale(data.getInt(key));
                     break;
                 case "sfCompatMode" :
                     setSfCompatMode(data.getBoolean(key));
@@ -889,6 +1018,10 @@ public class Container {
                     setExtraData(extraData);
                     break;
                 }
+                case "configSource" : {
+                    configSource = data.getString(key);
+                    break;
+                }
                 case "sessionMetadata" : {
                     try {
                         JSONObject sessionMetadata = data.getJSONObject(key);
@@ -925,6 +1058,9 @@ public class Container {
                 case "pulseaudioLowLatency" :
                     setPulseaudioLowLatency(data.getBoolean(key));
                     break;
+                case "micEnabled" :
+                    setMicEnabled(data.getBoolean(key));
+                    break;
                 case "desktopTheme" :
                     setDesktopTheme(data.getString(key));
                     break;
@@ -955,6 +1091,15 @@ public class Container {
                 case "sdlControllerAPI" :
                     setSdlControllerAPI(data.getBoolean(key));
                     break;
+                case "fasterExternalLoading" :
+                    setFasterExternalLoading(data.getBoolean(key));
+                    break;
+                case "disableLibredirect" :
+                    setDisableLibredirect(data.getBoolean(key));
+                    break;
+                case "disableEpicOverlay" :
+                    setDisableEpicOverlay(data.getBoolean(key));
+                    break;
                 case "disableMouseInput" :
                     setDisableMouseInput(data.getBoolean(key));
                     break;
@@ -979,6 +1124,9 @@ public class Container {
                 case "useDRI3" :
                     setUseDRI3(data.getBoolean(key));
                     break;
+                case "hdrEnabled" :
+                    setHdrEnabled(data.getBoolean(key));
+                    break;
                 case "fexcoreVersion" :
                     setFEXCoreVersion(data.getString(key));
                     break;
@@ -993,6 +1141,9 @@ public class Container {
                     break;
                 case "steamOfflineMode":
                     this.steamOfflineMode = data.getBoolean(key);
+                    break;
+                case "loadMods":
+                    this.loadMods = data.getBoolean(key);
                     break;
                 case "epicOfflineMode":
                     this.epicOfflineMode = data.getBoolean(key);
@@ -1009,6 +1160,12 @@ public class Container {
                 case "portraitMode":
                     this.portraitMode = data.getBoolean(key);
                     break;
+                case "portraitBelowCutout":
+                    this.portraitBelowCutout = data.getBoolean(key);
+                    break;
+                case "basePrefix":
+                    setBasePrefix(data.optString(key, ""));
+                    break;
             }
         }
 
@@ -1021,6 +1178,12 @@ public class Container {
                 data.put("displayRendererMode", legacy ? "gl" : DEFAULT_DISPLAY_RENDERER);
             }
             data.remove("useLegacyRenderer");
+
+            // displayServer: introduced with the Gamescope display path; older
+            // containers default to the winlator X11 server.
+            if (!data.has("displayServer")) {
+                data.put("displayServer", DISPLAY_SERVER_X11);
+            }
 
             if (data.has("dxcomponents")) {
                 data.put("wincomponents", data.getString("dxcomponents"));
@@ -1047,32 +1210,51 @@ public class Container {
                 }
             }
 
-            if (!data.has("wincomponents")) {
-                data.put("wincomponents", DEFAULT_WINCOMPONENTS);
-            }
-
-            KeyValueSet wincomponents1 = new KeyValueSet(DEFAULT_WINCOMPONENTS);
-            KeyValueSet wincomponents2 = new KeyValueSet(data.getString("wincomponents"));
-            String result = "";
-
-            for (String[] wincomponent1 : wincomponents1) {
-                String value = wincomponent1[1];
-
-                for (String[] wincomponent2 : wincomponents2) {
-                    if (wincomponent1[0].equals(wincomponent2[0])) {
-                        value = wincomponent2[1];
-                        break;
-                    }
-                }
-
-                result += (!result.isEmpty() ? "," : "")+wincomponent1[0]+"="+value;
-            }
-
-            data.put("wincomponents", result);
+            String rawWinComponents = data.optString("wincomponents", DEFAULT_WINCOMPONENTS);
+            data.put("wincomponents", normalizeWinComponents(rawWinComponents));
         }
         catch (JSONException e) {
             Log.e("Container", "Failed to check obsolete or missing properties: " + e);
         }
+    }
+
+    public static String normalizeWinComponents(String rawWinComponents) {
+        java.util.LinkedHashMap<String, String> parsed = new java.util.LinkedHashMap<>();
+        if (rawWinComponents != null && !rawWinComponents.isEmpty() && !"null".equals(rawWinComponents)) {
+            String[] entries = rawWinComponents.split(",");
+            for (String rawEntry : entries) {
+                if (rawEntry == null) continue;
+                String entry = rawEntry.trim();
+                if (entry.isEmpty()) continue;
+                int eq = entry.indexOf('=');
+                if (eq <= 0) continue;
+                String key = entry.substring(0, eq).trim();
+                String value = entry.substring(eq + 1).trim();
+                if (!"0".equals(value) && !"1".equals(value)) continue;
+                if (!parsed.containsKey(key)) {
+                    parsed.put(key, value);
+                }
+            }
+        }
+
+        StringBuilder result = new StringBuilder();
+        for (String[] defaultEntry : new KeyValueSet(DEFAULT_WINCOMPONENTS)) {
+            String key = defaultEntry[0];
+            String value = parsed.containsKey(key) ? parsed.get(key) : defaultEntry[1];
+            if (result.length() > 0) result.append(',');
+            result.append(key).append('=').append(value);
+        }
+
+        Set<String> kept = new HashSet<>();
+        for (java.util.Map.Entry<String, String> entry : parsed.entrySet()) {
+            String key = entry.getKey();
+            if (REDIST_WINCOMPONENTS.contains(key) && kept.add(key)) {
+                if (result.length() > 0) result.append(',');
+                result.append(key).append('=').append(entry.getValue());
+            }
+        }
+
+        return result.toString();
     }
 
     public boolean isForceDlc() {
@@ -1101,6 +1283,14 @@ public class Container {
 
     public void setSteamOfflineMode(boolean steamOfflineMode) {
         this.steamOfflineMode = steamOfflineMode;
+    }
+
+    public boolean isLoadMods() {
+        return loadMods;
+    }
+
+    public void setLoadMods(boolean loadMods) {
+        this.loadMods = loadMods;
     }
 
     public void setEpicOfflineMode(boolean epicOfflineMode) {
@@ -1150,6 +1340,22 @@ public class Container {
 
     public void setPortraitMode(boolean portraitMode) {
         this.portraitMode = portraitMode;
+    }
+
+    public boolean isPortraitBelowCutout() {
+        return portraitBelowCutout;
+    }
+
+    public void setPortraitBelowCutout(boolean portraitBelowCutout) {
+        this.portraitBelowCutout = portraitBelowCutout;
+    }
+
+    public String getConfigSource() {
+        return configSource;
+    }
+
+    public void setConfigSource(String configSource) {
+        this.configSource = configSource;
     }
 
     public String getContainerJson() {
@@ -1244,5 +1450,14 @@ public class Container {
 
     public void setUseDRI3(boolean useDRI3) {
         this.useDRI3 = useDRI3;
+    }
+
+    // Enable HDR output in a Gamescope session
+    public boolean isHdrEnabled() {
+        return hdrEnabled;
+    }
+
+    public void setHdrEnabled(boolean hdrEnabled) {
+        this.hdrEnabled = hdrEnabled;
     }
 }

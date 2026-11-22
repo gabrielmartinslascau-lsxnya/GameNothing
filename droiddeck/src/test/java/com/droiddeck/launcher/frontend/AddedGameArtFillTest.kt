@@ -1,0 +1,278 @@
+package com.droiddeck.launcher.frontend
+
+import com.droiddeck.launcher.frontend.AddedGameArt.Slot
+import com.droiddeck.launcher.session.SessionPrefs
+import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
+import java.io.File
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
+class AddedGameArtFillTest {
+    private val app get() = RuntimeEnvironment.getApplication()
+    @get:Rule val tmp = TemporaryFolder()
+
+    private val coverBytes = byteArrayOf(9, 9, 9)
+
+    private fun game(name: String, appId: Long, cover: Boolean = true, source: String = Library.ADDED, storeId: String? = null): AddedGames.Game {
+        val dir = tmp.newFolder(name)
+        File(dir, "steam_appid.txt").writeText("504230")
+        if (cover) File(dir, "cover.jpg").writeBytes(coverBytes)
+        val exe = File(dir, "$name.exe").apply { writeText("x") }
+        return AddedGames.Game(dir, name, exe, "/g/$name.exe", "/g", appId, appId, emptyList(), source = source, storeId = storeId)
+    }
+
+    private class Calls {
+        val steam = ArrayList<Set<Slot>>()
+        val sgdb = ArrayList<Set<Slot>>()
+        var lookups = 0
+        var store = 0
+    }
+
+    private val steamNames = mapOf(Slot.COVER to "p.jpg", Slot.WIDE to "header.jpg", Slot.BACKGROUND to "hero.jpg", Slot.LOGO to "logo.png")
+
+    private fun sources(
+        calls: Calls, steamHas: Set<Slot> = emptySet(), sgdbHas: Set<Slot> = emptySet(),
+        storeHas: Boolean = false, sgdbFails: Boolean = false,
+    ) = AddedGameArt.Sources(
+        storeLogo = { g ->
+            calls.store++
+            if (storeHas) File(g.folder, "logo.png").writeBytes(byteArrayOf(4))
+            storeHas
+        },
+        steamSearch = { fail("searched although the game names its appid"); null },
+        steam = { id, cache, slots ->
+            assertEquals("504230", id)
+            calls.steam += slots
+            (slots intersect steamHas).onEach { File(cache, steamNames.getValue(it)).writeBytes(byteArrayOf(1)) }.isNotEmpty()
+        },
+        sgdbGame = { _, steamId, _ ->
+            calls.lookups++
+            assertEquals(504230, steamId)
+            77
+        },
+        sgdb = { _, id, cache, slots ->
+            assertEquals(77, id)
+            if (sgdbFails) throw SteamGridDb.Failed(SteamGridDb.Status.OFFLINE)
+            calls.sgdb += slots
+            (slots intersect sgdbHas).onEach { File(cache, SteamGridDb.cacheName(it)).writeBytes(byteArrayOf(2)) }.isNotEmpty()
+        },
+    )
+
+    @Test fun aGameWithItsOwnCoverStillGetsItsLogoAndIcon() {
+        val g = game("Celeste", 0x81000001L)
+        val calls = Calls()
+        assertTrue(AddedGameArt.fetchMissing(app, listOf(g), "key", sources(calls, steamHas = setOf(Slot.LOGO), sgdbHas = setOf(Slot.ICON))))
+        assertEquals(listOf(setOf(Slot.LOGO)), calls.steam)
+        assertEquals(listOf(setOf(Slot.ICON)), calls.sgdb)
+        assertEquals(0, calls.store)
+        val cache = AddedGameArt.cacheDir(app, g)
+        assertFalse(File(cache, "p.jpg").exists())
+        assertArrayEquals(coverBytes, File(g.folder, "cover.jpg").readBytes())
+        val art = AddedGameArt.resolve(app, g)
+        assertEquals(File(g.folder, "cover.jpg"), art.portrait)
+        assertEquals(File(cache, "logo.png"), art.logo)
+        assertEquals(File(cache, "icon-sgdb.png"), art.icon)
+        assertFalse(File(cache, AddedGameArt.EXTRAS_TRIED).exists())
+    }
+
+    @Test fun filledOrChosenSlotsAreNeverAskedFor() {
+        val g = game("Hades", 0x81000002L)
+        File(g.folder, "logo.png").writeBytes(byteArrayOf(5))
+        val picked = File(tmp.root, "mine.png").apply { writeBytes(byteArrayOf(6)) }
+        assertTrue(AddedGameArt.store(AddedGameArt.cacheDir(app, g), Slot.ICON, AddedGameArt.Option(AddedGameArt.FILE, picked.path, picked.path)))
+        val calls = Calls()
+        assertFalse(AddedGameArt.fetchMissing(app, listOf(g), "key", sources(calls, steamHas = Slot.values().toSet(), sgdbHas = Slot.values().toSet())))
+        assertTrue(calls.steam.isEmpty() && calls.sgdb.isEmpty() && calls.lookups == 0)
+        assertArrayEquals(byteArrayOf(5), File(g.folder, "logo.png").readBytes())
+    }
+
+    @Test fun withoutAKeyAMissingIconAloneAsksNothing() {
+        val g = game("Inside", 0x81000003L)
+        File(g.folder, "logo.png").writeBytes(byteArrayOf(5))
+        val calls = Calls()
+        assertFalse(AddedGameArt.fetchMissing(app, listOf(g), "", sources(calls)))
+        assertTrue(calls.steam.isEmpty() && calls.sgdb.isEmpty() && calls.lookups == 0)
+        assertFalse(AddedGameArt.cacheDir(app, g).exists())
+    }
+
+    @Test fun aMissIsAskedAgainOnlyAfterAWeek() {
+        val g = game("Limbo", 0x81000004L)
+        val calls = Calls()
+        assertFalse(AddedGameArt.fetchMissing(app, listOf(g), "key", sources(calls)))
+        assertEquals(listOf(setOf(Slot.LOGO)), calls.steam)
+        assertEquals(listOf(setOf(Slot.LOGO, Slot.ICON)), calls.sgdb)
+        AddedGameArt.fetchMissing(app, listOf(g), "key", sources(calls))
+        assertEquals(1, calls.steam.size)
+        assertEquals(1, calls.sgdb.size)
+        val tried = File(AddedGameArt.cacheDir(app, g), AddedGameArt.EXTRAS_TRIED)
+        assertTrue(tried.setLastModified(System.currentTimeMillis() - 8L * 24 * 3600 * 1000))
+        assertTrue(AddedGameArt.fetchMissing(app, listOf(g), "key", sources(calls, steamHas = setOf(Slot.LOGO), sgdbHas = setOf(Slot.ICON))))
+        assertEquals(2, calls.steam.size)
+        assertEquals(setOf(Slot.ICON), calls.sgdb.last())
+        assertFalse(tried.exists())
+    }
+
+    @Test fun theStoresOwnLogoComesFirst() {
+        val g = game("Metalstorm", 0x81000005L, source = "gog")
+        val calls = Calls()
+        assertTrue(AddedGameArt.fetchMissing(app, listOf(g), "key", sources(calls, storeHas = true, steamHas = setOf(Slot.LOGO), sgdbHas = setOf(Slot.ICON))))
+        assertEquals(1, calls.store)
+        assertTrue(calls.steam.isEmpty())
+        assertEquals(listOf(setOf(Slot.ICON)), calls.sgdb)
+        assertEquals(File(g.folder, "logo.png"), AddedGameArt.resolve(app, g).logo)
+    }
+
+    @Test fun aGameWithoutACoverStillGetsEverySlot() {
+        val g = game("Tunic", 0x81000006L, cover = false)
+        val calls = Calls()
+        assertTrue(AddedGameArt.fetchMissing(app, listOf(g), "key",
+            sources(calls, steamHas = setOf(Slot.COVER, Slot.WIDE, Slot.BACKGROUND), sgdbHas = setOf(Slot.LOGO, Slot.ICON))))
+        assertEquals(listOf(setOf(Slot.COVER, Slot.WIDE, Slot.BACKGROUND, Slot.LOGO)), calls.steam)
+        assertEquals(listOf(setOf(Slot.LOGO, Slot.ICON)), calls.sgdb)
+        assertTrue(AddedGameArt.missing(app, g).isEmpty())
+    }
+
+    @Test fun aSteamGridDbFailureIsNotRememberedAndStopsThePass() {
+        val first = game("Gris", 0x81000007L)
+        val second = game("Hollow", 0x81000008L)
+        val calls = Calls()
+        AddedGameArt.fetchMissing(app, listOf(first, second), "key", sources(calls, sgdbFails = true))
+        assertEquals(2, calls.steam.size)
+        assertEquals(1, calls.lookups)
+        assertFalse(File(AddedGameArt.cacheDir(app, first), AddedGameArt.EXTRAS_TRIED).exists())
+        assertFalse(File(AddedGameArt.cacheDir(app, second), AddedGameArt.EXTRAS_TRIED).exists())
+    }
+
+    private fun steamFrom(asked: MutableList<String>, bytes: Byte, search: Int? = null, slotsAsked: MutableList<Set<Slot>> = ArrayList()) = AddedGameArt.Sources(
+        storeLogo = { false },
+        steamSearch = { if (search == null) fail("searched although the game names its appid"); search },
+        steam = { id, cache, slots ->
+            asked += id
+            slotsAsked += slots
+            slots.forEach { File(cache, steamNames.getValue(it)).writeBytes(byteArrayOf(bytes)) }
+            slots.isNotEmpty()
+        },
+        sgdbGame = { _, _, _ -> null },
+        sgdb = { _, _, _, _ -> false },
+    )
+
+    @Test fun nameMatchedBattleNetArtIsForgottenOnce() {
+        val game = game("World of Warcraft: Forever", 9001, source = com.droiddeck.launcher.stores.Store.BATTLENET.id, storeId = "wow_forever")
+        val cache = AddedGameArt.cacheDir(app, game).apply { mkdirs() }
+        File(cache, "logo.png").writeBytes(byteArrayOf(1))
+        File(cache, "p.jpg").writeBytes(byteArrayOf(3))
+        File(cache, "sgdb-id").writeText("5")
+        assertTrue(AddedGameArt.forgetNameMatchedBattleNetArt(app, game))
+        assertFalse(File(cache, "logo.png").isFile)
+        assertTrue(File(cache, "p.jpg").isFile)
+        assertFalse(File(cache, "sgdb-id").isFile)
+        File(cache, "logo.png").writeBytes(byteArrayOf(2))
+        assertFalse(AddedGameArt.forgetNameMatchedBattleNetArt(app, game))
+        assertTrue(File(cache, "logo.png").isFile)
+    }
+
+    @Test fun battleNetArtFoundByItsSteamIdIsKept() {
+        val game = game("Call of Duty: Modern Warfare III", 9002, source = com.droiddeck.launcher.stores.Store.BATTLENET.id, storeId = "pinta")
+        val cache = AddedGameArt.cacheDir(app, game).apply { mkdirs() }
+        File(cache, "logo.png").writeBytes(byteArrayOf(1))
+        assertFalse(AddedGameArt.forgetNameMatchedBattleNetArt(app, game))
+        assertTrue(File(cache, "logo.png").isFile)
+    }
+
+    @Test fun artOfTheAppTheFilesNamedBeforeIsFetchedAgain() {
+        val g = game("Peak", 0x8100000AL, cover = false)
+        File(g.folder, "steam_appid.txt").writeText("1029210")
+        val asked = ArrayList<String>()
+        assertTrue(AddedGameArt.fetchMissing(app, listOf(g), "", steamFrom(asked, 1)))
+        File(g.folder, "steam_appid.txt").writeText("3527290")
+        assertTrue(AddedGameArt.fetchMissing(app, listOf(g), "", steamFrom(asked, 2)))
+        assertEquals(listOf("1029210", "3527290"), asked)
+        assertArrayEquals(byteArrayOf(2), File(AddedGameArt.cacheDir(app, g), "p.jpg").readBytes())
+        assertFalse(AddedGameArt.fetchMissing(app, listOf(g), "", steamFrom(asked, 3)))
+        assertEquals(2, asked.size)
+    }
+
+    @Test fun aPictureTheUserChoseOutlivesTheChange() {
+        val g = game("Peak", 0x8100000BL, cover = false)
+        File(g.folder, "steam_appid.txt").writeText("1029210")
+        AddedGameArt.fetchMissing(app, listOf(g), "", steamFrom(ArrayList(), 1))
+        val picked = File(tmp.root, "mine.jpg").apply { writeBytes(byteArrayOf(7)) }
+        assertTrue(AddedGameArt.store(AddedGameArt.cacheDir(app, g), Slot.COVER, AddedGameArt.Option(AddedGameArt.FILE, picked.path, picked.path)))
+        File(g.folder, "steam_appid.txt").writeText("3527290")
+        val asked = ArrayList<String>()
+        val slots = ArrayList<Set<Slot>>()
+        AddedGameArt.fetchMissing(app, listOf(g), "", steamFrom(asked, 2, slotsAsked = slots))
+        assertArrayEquals(byteArrayOf(7), AddedGameArt.resolve(app, g).portrait!!.readBytes())
+        assertEquals(listOf("3527290"), asked)
+        assertEquals(listOf(setOf(Slot.WIDE, Slot.BACKGROUND, Slot.LOGO)), slots)
+        val cache = AddedGameArt.cacheDir(app, g)
+        assertArrayEquals(byteArrayOf(2), File(cache, "header.jpg").readBytes())
+        assertArrayEquals(byteArrayOf(2), File(cache, "hero.jpg").readBytes())
+        assertFalse(File(cache, AddedGameArt.REFETCH).exists())
+    }
+
+    private fun olderBuildsArt(g: AddedGames.Game, marker: String): File = AddedGameArt.cacheDir(app, g).apply {
+        mkdirs()
+        File(this, "steam-appid").writeText(marker)
+        steamNames.values.forEach { File(this, it).writeBytes(byteArrayOf(1)) }
+    }
+
+    @Test fun anOlderBuildsSpacewarMarkerGoesWithItsArt() {
+        val g = game("Peak", 0x8100000DL, cover = false)
+        File(g.folder, "steam_appid.txt").writeText("480")
+        val cache = olderBuildsArt(g, "480")
+        val asked = ArrayList<String>()
+        assertTrue(AddedGameArt.fetchMissing(app, listOf(g), "", steamFrom(asked, 2, search = 3527290)))
+        assertEquals(listOf("3527290"), asked)
+        assertArrayEquals(byteArrayOf(2), File(cache, "p.jpg").readBytes())
+        assertFalse(File(cache, "steam-appid").exists())
+    }
+
+    @Test fun anOlderBuildsMatchStaysWhileTheFilesNameNoApp() {
+        val g = game("Hades", 0x8100000EL, cover = false)
+        File(g.folder, "steam_appid.txt").delete()
+        val cache = olderBuildsArt(g, "1145360")
+        assertFalse(AddedGameArt.fetchMissing(app, listOf(g), "", steamFrom(ArrayList(), 2)))
+        assertEquals("1145360", File(cache, "steam-appid").readText())
+        assertArrayEquals(byteArrayOf(1), File(cache, "p.jpg").readBytes())
+    }
+
+    @Test fun anOlderBuildsMatchGivesWayToTheAppTheFilesName() {
+        val g = game("Peak", 0x8100000FL, cover = false)
+        File(g.folder, "steam_appid.txt").writeText("3527290")
+        val cache = olderBuildsArt(g, "1029210")
+        val asked = ArrayList<String>()
+        assertTrue(AddedGameArt.fetchMissing(app, listOf(g), "", steamFrom(asked, 2)))
+        assertEquals(listOf("3527290"), asked)
+        assertArrayEquals(byteArrayOf(2), File(cache, "p.jpg").readBytes())
+        assertFalse(File(cache, "steam-appid").exists())
+    }
+
+    @Test fun filesThatStopNamingAnAppFallBackToTheGamesName() {
+        val g = game("Peak", 0x8100000CL, cover = false)
+        File(g.folder, "steam_appid.txt").writeText("1029210")
+        val asked = ArrayList<String>()
+        AddedGameArt.fetchMissing(app, listOf(g), "", steamFrom(asked, 1))
+        File(g.folder, "steam_appid.txt").writeText("480")
+        assertTrue(AddedGameArt.fetchMissing(app, listOf(g), "", steamFrom(asked, 2, search = 3527290)))
+        assertEquals(listOf("1029210", "3527290"), asked)
+    }
+
+    @Test fun nothingIsFetchedWhenArtIsOff() {
+        SessionPrefs.setAddedGamesArt(app, false)
+        val calls = Calls()
+        assertFalse(AddedGameArt.fetchMissing(app, listOf(game("Off", 0x81000009L)), "key", sources(calls)))
+        assertTrue(calls.steam.isEmpty())
+    }
+}

@@ -1,6 +1,6 @@
 package app.gamenative.enums
 
-enum class Marker(val fileName: String) {
+enum class Marker(val fileName: String ) {
     DOWNLOAD_COMPLETE_MARKER(".download_complete"),
     DOWNLOAD_IN_PROGRESS_MARKER(".download_in_progress"),
     STEAM_DLL_REPLACED(".steam_dll_replaced"),
@@ -8,6 +8,11 @@ enum class Marker(val fileName: String) {
     STEAM_COLDCLIENT_USED(".steam_coldclient_used"),
     VCREDIST_INSTALLED(".vcredist_installed"),
     GOG_SCRIPT_INSTALLED(".gog_script_installed"),
+    GOG_SUPPORT_INSTALLED(".gog_support_installed"),
+    GOG_BONUS_INSTALLER_RUN(".gog_bonus_installer_run"),
+    STEAM_INSTALL_SCRIPT_INSTALLED(".steam_install_script_installed"),
+    KNOWN_INSTALL_SCRIPT_RUN(".known_install_script_run"),
+    STEAM_CEG_WRAPPED(".steam_ceg_wrapped"),
     PHYSX_INSTALLED(".physx_installed"),
     OPENAL_INSTALLED(".openal_installed"),
     XNA_INSTALLED(".xna_installed"),

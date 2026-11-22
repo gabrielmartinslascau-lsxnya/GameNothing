@@ -28,7 +28,7 @@ import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.data.LibraryItem
 import app.gamenative.ui.enums.PaneType
-import app.gamenative.ui.theme.PluviaTheme
+import app.gamenative.ui.theme.LocalLooksState
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
 import kotlinx.coroutines.Dispatchers
@@ -43,14 +43,9 @@ internal fun LibraryDynamicBackdrop(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val looks = LocalLooksState.current
+    val hasCustomBackdrop = looks.isGlassEnabled || PrefManager.videoBackgroundPath.isNotEmpty()
     val scrimColor = MaterialTheme.colorScheme.scrim
-
-    // Completely ignore game-hover backgrounds if live wallpaper is active
-    if (PrefManager.videoBackgroundPath.isNotEmpty()) {
-        Box(modifier = modifier.fillMaxSize())
-        return
-    }
-
     val desaturate = remember {
         ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0.25f) })
     }
@@ -58,21 +53,7 @@ internal fun LibraryDynamicBackdrop(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .then(
-                if (PrefManager.videoBackgroundPath.isNotEmpty()) {
-                    Modifier.background(Color.Transparent)
-                } else {
-                    Modifier.background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.background,
-                                PluviaTheme.colors.surfacePanel,
-                                MaterialTheme.colorScheme.background,
-                            ),
-                        )
-                    )
-                }
-            ),
+            .background(Color.Transparent),
     ) {
         Crossfade(
             targetState = appInfo,
@@ -127,18 +108,22 @@ internal fun LibraryDynamicBackdrop(
             }
         }
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0.0f to scrimColor.copy(alpha = 0.48f),
-                            0.4f to scrimColor.copy(alpha = 0.48f),
-                            1.0f to scrimColor.copy(alpha = 0.62f),
+        if (!hasCustomBackdrop || appInfo != null) {
+            val topAlpha = if (hasCustomBackdrop) 0.14f else 0.48f
+            val bottomAlpha = if (hasCustomBackdrop) 0.28f else 0.62f
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0.0f to scrimColor.copy(alpha = topAlpha),
+                                0.4f to scrimColor.copy(alpha = topAlpha),
+                                1.0f to scrimColor.copy(alpha = bottomAlpha),
+                            ),
                         ),
                     ),
-                ),
-        )
+            )
+        }
     }
 }

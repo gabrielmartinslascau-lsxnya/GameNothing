@@ -3,12 +3,12 @@ package app.gamenative.utils.downloader
 import android.content.Context
 import app.gamenative.BuildConfig
 import app.gamenative.service.SteamService
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import timber.log.Timber
+import java.io.File
 
 /**
  * Utility for downloading Wine components from the manifest server.
@@ -25,14 +25,14 @@ object WinComponentDownloader {
     data class WinComponentManifest(
         val version: Int,
         val updatedAt: String,
-        val components: List<WinComponent>,
+        val components: List<WinComponent>
     )
 
     @Serializable
     data class WinComponent(
         val id: String,
         val name: String,
-        val url: String,
+        val url: String
     )
 
     /**
@@ -46,15 +46,16 @@ object WinComponentDownloader {
     suspend fun ensureWinComponentAvailable(
         context: Context,
         componentId: String,
-        onProgress: (Float) -> Unit = {},
+        onProgress: (Float) -> Unit = {}
     ): File? = withContext(Dispatchers.IO) {
         // Validate component exists in manifest first (for both legacy and modern variants)
         val manifest = loadWinComponentManifest(context)
         val component = manifest.components.find { it.id == componentId }
             ?: throw Exception("WinComponent $componentId not found in $WINCOMPONENTS_MANIFEST_FILE")
 
-        // Legacy variant: use bundled assets
-        if (!BuildConfig.MODERN_ANDROID) {
+        // Legacy variant: the components it ships are extracted from bundled
+        // assets, and only the ones it does not ship (physx) are downloaded.
+        if (!BuildConfig.MODERN_ANDROID && hasBundledAsset(context, componentId)) {
             Timber.d("Legacy variant: WinComponent $componentId will be extracted from bundled assets")
             // Return null to indicate using bundled assets
             return@withContext null
@@ -62,7 +63,8 @@ object WinComponentDownloader {
 
         // Modern variant: download from server
         // Check if already downloaded and cached
-        val destFile = File(context.filesDir, "$WINCOMPONENTS_CACHE_DIR/$componentId.tzst")
+        val cacheDir = File(context.filesDir, WINCOMPONENTS_CACHE_DIR)
+        val destFile = File(cacheDir, "$componentId-v${manifest.version}.tzst")
         if (destFile.exists() && destFile.length() > 0) {
             Timber.d("Using cached wincomponent: $componentId at ${destFile.absolutePath}")
             return@withContext destFile
@@ -78,9 +80,12 @@ object WinComponentDownloader {
                 fileName = "wincomponents/$componentId.tzst",
                 dest = destFile,
                 context = context,
-                onProgress = onProgress,
+                onProgress = onProgress
             )
             Timber.i("Successfully downloaded wincomponent: $componentId")
+            cacheDir.listFiles()
+                ?.filter { it != destFile && !it.name.endsWith(".part") && (it.name == "$componentId.tzst" || it.name.startsWith("$componentId-v")) }
+                ?.forEach { it.delete() }
         } catch (e: Exception) {
             Timber.e(e, "Failed to download wincomponent: $componentId")
             destFile.delete()
@@ -102,6 +107,15 @@ object WinComponentDownloader {
             throw Exception("Failed to load wincomponents manifest: ${e.message}", e)
         }
     }
+
+
+    /**
+     * Whether this APK ships [componentId]'s archive. Legacy builds extract a component from
+     * the bundled asset, so only an absent one has to be downloaded.
+     */
+    private fun hasBundledAsset(context: Context, componentId: String): Boolean =
+        runCatching { context.assets.open("wincomponents/$componentId.tzst").close() }.isSuccess
+
 
     /**
      * Clears the cached wincomponents to free up space.

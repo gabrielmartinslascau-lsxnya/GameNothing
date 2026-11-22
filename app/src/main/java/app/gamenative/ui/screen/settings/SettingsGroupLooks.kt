@@ -1,7 +1,6 @@
 package app.gamenative.ui.screen.settings
 
 import android.net.Uri
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -14,7 +13,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -22,12 +20,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -39,8 +34,11 @@ import app.gamenative.enums.GlassMode
 import app.gamenative.ui.component.HSVColorPicker
 import app.gamenative.ui.component.settings.HapticSettingsSwitch
 import app.gamenative.ui.component.settings.SettingsListDropdown
+import app.gamenative.ui.components.glass.BrokenGlassSlider
 import app.gamenative.ui.model.MainViewModel
+import app.gamenative.ui.theme.LocalBrokenGlassBackdrop
 import app.gamenative.ui.theme.glassContentColor
+import app.gamenative.ui.theme.rememberBrokenGlassCanvasBackdrop
 import app.gamenative.ui.theme.settingsTileColors
 import app.gamenative.ui.theme.settingsTileColorsAlt
 import app.gamenative.ui.theme.toColor
@@ -55,7 +53,9 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 @Composable
-fun SettingsGroupLooks(viewModel: MainViewModel) {
+fun SettingsGroupLooks(
+    viewModel: MainViewModel,
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleScope = LocalLifecycleOwner.current.lifecycleScope
@@ -158,33 +158,114 @@ fun SettingsGroupLooks(viewModel: MainViewModel) {
             ) {
                 Column {
                     val contentColor = glassContentColor()
-                    val glassModeOptions = listOf("Normal", "Liquid")
+                    val glassModeOptions = listOf(
+                        stringResource(R.string.glass_mode_standard),
+                        stringResource(R.string.glass_mode_broken_glass)
+                    )
+                    val sliderBackdrop = LocalBrokenGlassBackdrop.current ?: rememberBrokenGlassCanvasBackdrop()
+                    val accentColor = state.mainColor.toColor()
 
                     SettingsListDropdown(
                         colors = settingsTileColorsAlt(),
-                        value = if (state.glassMode == GlassMode.LIQUID) 1 else 0,
+                        value = if (state.glassMode == GlassMode.BROKEN_GLASS) 1 else 0,
                         items = glassModeOptions,
                         onItemSelected = { index ->
-                            viewModel.setGlassMode(if (index == 1) GlassMode.LIQUID else GlassMode.STANDARD)
+                            viewModel.setGlassMode(if (index == 1) GlassMode.BROKEN_GLASS else GlassMode.STANDARD)
                         },
                         title = { Text(text = "Glass Mode", color = contentColor) }
                     )
 
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        Text(
-                            text = "Liquid Distortion",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = contentColor
+                    if (state.glassMode == GlassMode.STANDARD) {
+                        var localDistortion by remember(state.liquidDistortion) {
+                            mutableFloatStateOf(state.liquidDistortion)
+                        }
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            Text(
+                                text = "Liquid Distortion",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = contentColor
+                            )
+                            Slider(
+                                value = localDistortion,
+                                onValueChange = {
+                                    localDistortion = it
+                                    viewModel.previewLiquidDistortion(it)
+                                },
+                                onValueChangeFinished = {
+                                    viewModel.setLiquidDistortion(localDistortion)
+                                },
+                                valueRange = 0f..1f
+                            )
+                            Text(
+                                text = String.format(Locale.US, "%.1fx", 1f + localDistortion * 9f),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    } else {
+                        BrokenGlassSliderRow(
+                            label = "Refraction",
+                            formatValue = { String.format(Locale.US, "%.0f%%", it * 100f) },
+                            value = state.brokenGlassRefraction,
+                            valueRange = 0f..1f,
+                            visibilityThreshold = 0.005f,
+                            onLiveChange = { viewModel.previewBrokenGlassRefraction(it) },
+                            onCommitChange = { viewModel.setBrokenGlassRefraction(it) },
+                            backdrop = sliderBackdrop,
+                            accentColor = accentColor,
+                            contentColor = contentColor
                         )
-                        Slider(
-                            value = state.liquidDistortion,
-                            onValueChange = { viewModel.setLiquidDistortion(it) },
-                            valueRange = 0f..1f
+
+                        BrokenGlassSliderRow(
+                            label = "Dispersion (Chromatic Aberration)",
+                            formatValue = { String.format(Locale.US, "%.0f%%", it * 100f) },
+                            value = state.brokenGlassDispersion,
+                            valueRange = 0f..1f,
+                            visibilityThreshold = 0.005f,
+                            onLiveChange = { viewModel.previewBrokenGlassDispersion(it) },
+                            onCommitChange = { viewModel.setBrokenGlassDispersion(it) },
+                            backdrop = sliderBackdrop,
+                            accentColor = accentColor,
+                            contentColor = contentColor
                         )
-                        Text(
-                            text = String.format(Locale.US, "%.1fx", 1f + state.liquidDistortion * 9f),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
+
+                        BrokenGlassSliderRow(
+                            label = "Thickness",
+                            formatValue = { "${it.roundToInt()}" },
+                            value = state.brokenGlassThickness,
+                            valueRange = 12f..80f,
+                            visibilityThreshold = 0.25f,
+                            onLiveChange = { viewModel.previewBrokenGlassThickness(it) },
+                            onCommitChange = { viewModel.setBrokenGlassThickness(it) },
+                            backdrop = sliderBackdrop,
+                            accentColor = accentColor,
+                            contentColor = contentColor
+                        )
+
+                        BrokenGlassSliderRow(
+                            label = "Luminance",
+                            formatValue = { String.format(Locale.US, "%.0f%%", it * 100f) },
+                            value = state.brokenGlassLuminance,
+                            valueRange = 0f..1f,
+                            visibilityThreshold = 0.005f,
+                            onLiveChange = { viewModel.previewBrokenGlassLuminance(it) },
+                            onCommitChange = { viewModel.setBrokenGlassLuminance(it) },
+                            backdrop = sliderBackdrop,
+                            accentColor = accentColor,
+                            contentColor = contentColor
+                        )
+
+                        BrokenGlassSliderRow(
+                            label = "Blur Intensity",
+                            formatValue = { "${it.roundToInt()} dp" },
+                            value = state.blurIntensiveness,
+                            valueRange = 1f..50f,
+                            visibilityThreshold = 0.25f,
+                            onLiveChange = { viewModel.previewBlurIntensiveness(it) },
+                            onCommitChange = { viewModel.setBlurIntensiveness(it) },
+                            backdrop = sliderBackdrop,
+                            accentColor = accentColor,
+                            contentColor = contentColor
                         )
                     }
 
@@ -307,14 +388,17 @@ fun SettingsGroupLooks(viewModel: MainViewModel) {
         if (state.videoBackgroundPath.isNotEmpty()) {
             HapticSettingsSwitch(
                 colors = settingsTileColorsAlt(),
-                state = PrefManager.autoExtractWallpaperColor,
+                state = state.autoExtractWallpaperColor,
                 title = { Text(text = "Auto-extract Theme Color") },
                 subtitle = { Text(text = "Extract main theme color from video wallpaper") },
                 onCheckedChange = {
-                    PrefManager.autoExtractWallpaperColor = it
+                    viewModel.setAutoExtractWallpaperColor(it)
                 },
             )
 
+            var localDimAlpha by remember(state.videoBackgroundDimAlpha) {
+                mutableFloatStateOf(state.videoBackgroundDimAlpha)
+            }
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text(
                     text = "Grayness Scale",
@@ -322,12 +406,18 @@ fun SettingsGroupLooks(viewModel: MainViewModel) {
                     color = contentColor
                 )
                 Slider(
-                    value = state.videoBackgroundDimAlpha,
-                    onValueChange = { viewModel.setVideoBackgroundDimAlpha(it) },
+                    value = localDimAlpha,
+                    onValueChange = {
+                        localDimAlpha = it
+                        viewModel.previewVideoBackgroundDimAlpha(it)
+                    },
+                    onValueChangeFinished = {
+                        viewModel.setVideoBackgroundDimAlpha(localDimAlpha)
+                    },
                     valueRange = 0f..0.9f
                 )
                 Text(
-                    text = "${(state.videoBackgroundDimAlpha * 100).roundToInt()}%",
+                    text = "${(localDimAlpha * 100).roundToInt()}%",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -379,4 +469,70 @@ private fun ColorSelectionRow(
             )
         }
     }
+}
+
+@Composable
+private fun BrokenGlassSliderRow(
+    label: String,
+    formatValue: (Float) -> String,
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    visibilityThreshold: Float,
+    onLiveChange: (Float) -> Unit,
+    onCommitChange: (Float) -> Unit,
+    backdrop: com.kyant.backdrop.Backdrop,
+    accentColor: androidx.compose.ui.graphics.Color,
+    contentColor: androidx.compose.ui.graphics.Color,
+) {
+    var liveValue by remember(value) { mutableFloatStateOf(value) }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = contentColor
+            )
+            SliderValueReadout(
+                valueProvider = { liveValue },
+                formatValue = formatValue,
+            )
+        }
+        BrokenGlassSlider(
+            value = { value },
+            onValueChange = { newValue ->
+                liveValue = newValue
+                onLiveChange(newValue)
+            },
+            onValueChangeFinished = { committedValue ->
+                liveValue = committedValue
+                onCommitChange(committedValue)
+            },
+            valueRange = valueRange,
+            visibilityThreshold = visibilityThreshold,
+            backdrop = backdrop,
+            accentColor = accentColor,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+private fun SliderValueReadout(
+    valueProvider: () -> Float,
+    formatValue: (Float) -> String,
+) {
+    Text(
+        text = formatValue(valueProvider()),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.primary
+    )
 }

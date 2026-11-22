@@ -1,26 +1,22 @@
 package app.gamenative.sync
 
 import android.content.Context
-import androidx.core.net.toUri
-import androidx.documentfile.provider.DocumentFile
 import app.gamenative.PluviaApp
 import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.data.GameSource
 import app.gamenative.db.dao.AmazonGameDao
+import app.gamenative.db.dao.XboxGameDao
 import app.gamenative.db.dao.EpicGameDao
 import app.gamenative.db.dao.GOGGameDao
 import app.gamenative.db.dao.SteamAppDao
 import app.gamenative.events.AndroidEvent
 import app.gamenative.service.SteamService
 import app.gamenative.ui.util.SnackbarManager
-import dagger.hilt.EntryPoint
-import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
-import java.io.File
-import java.util.Collections
-import java.util.EnumMap
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +28,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.io.File
+import java.util.Collections
+import java.util.EnumMap
 
 /**
  * Manages per-source export files that frontend launchers (e.g. ES-DE) use to
@@ -49,6 +48,7 @@ object FrontendSyncManager {
         fun epicGameDao(): EpicGameDao
         fun gogGameDao(): GOGGameDao
         fun amazonGameDao(): AmazonGameDao
+        fun xboxGameDao(): XboxGameDao
     }
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -58,6 +58,7 @@ object FrontendSyncManager {
     private lateinit var epicGameDao: EpicGameDao
     private lateinit var gogGameDao: GOGGameDao
     private lateinit var amazonGameDao: AmazonGameDao
+    private lateinit var xboxGameDao: XboxGameDao
 
     /** True while a [resyncAll] job is in progress. */
     private val _isSyncing = MutableStateFlow(false)
@@ -91,6 +92,7 @@ object FrontendSyncManager {
         epicGameDao = ep.epicGameDao()
         gogGameDao = ep.gogGameDao()
         amazonGameDao = ep.amazonGameDao()
+        xboxGameDao = ep.xboxGameDao()
 
         PluviaApp.events.on<AndroidEvent.LibraryInstallStatusChanged, Unit>(onInstallStatusChanged)
 
@@ -112,8 +114,9 @@ object FrontendSyncManager {
         GameSource.EPIC -> ".epic"
         GameSource.GOG -> ".gog"
         GameSource.AMAZON -> ".amazon"
+        GameSource.XBOX -> ".xbox"
         GameSource.CUSTOM_GAME -> ".pcgame"
-        GameSource.ANDROID_APP -> ".android"
+        GameSource.ANDROID_APP -> ".apk"
     }
 
     /**
@@ -176,33 +179,14 @@ object FrontendSyncManager {
         }
 
         val isInstalled = isGameInstalled(appId, source)
-        val fileName = "${sanitizeFileName(gameName)}${extensionFor(source)}"
+        val file = File(dir, "${sanitizeFileName(gameName)}${extensionFor(source)}")
 
         try {
-            if (dir.startsWith("content://")) {
-                val treeUri = dir.toUri()
-                val pickedDir = DocumentFile.fromTreeUri(appContext, treeUri)
-                if (pickedDir != null && pickedDir.canWrite()) {
-                    if (isInstalled) {
-                        val existingFile = pickedDir.findFile(fileName)
-                        val file = existingFile ?: pickedDir.createFile("application/octet-stream", fileName)
-                        file?.uri?.let { uri ->
-                            appContext.contentResolver.openOutputStream(uri)?.use { out ->
-                                out.write(appId.toString().toByteArray(Charsets.UTF_8))
-                            }
-                        }
-                    } else {
-                        pickedDir.findFile(fileName)?.delete()
-                    }
-                }
+            if (isInstalled) {
+                file.parentFile?.mkdirs()
+                file.writeText(appId.toString(), Charsets.UTF_8)
             } else {
-                val file = File(dir, fileName)
-                if (isInstalled) {
-                    file.parentFile?.mkdirs()
-                    file.writeText(appId.toString(), Charsets.UTF_8)
-                } else {
-                    file.delete()
-                }
+                file.delete()
             }
         } catch (e: Exception) {
             Timber.e(e, "FrontendSyncManager: failed to sync file for appId=%d", appId)
@@ -225,45 +209,22 @@ object FrontendSyncManager {
                 GameSource.AMAZON -> {
                     amazonGameDao.getInstalledGames().map { it.appId to it.title }
                 }
+                GameSource.XBOX -> {
+                    xboxGameDao.getInstalledGames().map { it.appId to it.title }
+                }
                 GameSource.ANDROID_APP -> emptyList()
             }
 
+            val targetDir = File(dir).also { it.mkdirs() }
             val ext = extensionFor(source)
-
-            if (dir.startsWith("content://")) {
-                val treeUri = dir.toUri()
-                val pickedDir = DocumentFile.fromTreeUri(appContext, treeUri)
-                if (pickedDir != null && pickedDir.canWrite()) {
-                    // Delete existing files with extension
-                    pickedDir.listFiles().filter { it.isFile && it.name?.endsWith(ext) == true }.forEach { it.delete() }
-
-                    games.forEach { (appId, name) ->
-                        try {
-                            val fileName = "${sanitizeFileName(name)}$ext"
-                            val file = pickedDir.createFile("application/octet-stream", fileName)
-                            file?.uri?.let { uri ->
-                                appContext.contentResolver.openOutputStream(uri)?.use { out ->
-                                    out.write(appId.toString().toByteArray(Charsets.UTF_8))
-                                }
-                            }
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            Timber.e(e, "FrontendSyncManager: failed to write export file for appId=%d", appId)
-                        }
-                    }
-                }
-            } else {
-                val targetDir = File(dir).also { it.mkdirs() }
-                deleteAllFilesWithExtension(targetDir.absolutePath, ext)
-                games.forEach { (appId, name) ->
-                    try {
-                        File(targetDir, "${sanitizeFileName(name)}$ext").writeText(appId.toString(), Charsets.UTF_8)
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        Timber.e(e, "FrontendSyncManager: failed to write export file for appId=%d", appId)
-                    }
+            deleteAllFilesWithExtension(targetDir.absolutePath, ext)
+            games.forEach { (appId, name) ->
+                try {
+                    File(targetDir, "${sanitizeFileName(name)}$ext").writeText(appId.toString(), Charsets.UTF_8)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Timber.e(e, "FrontendSyncManager: failed to write export file for appId=%d", appId)
                 }
             }
         } catch (e: CancellationException) {
@@ -278,6 +239,7 @@ object FrontendSyncManager {
         GameSource.EPIC -> epicGameDao.getById(appId)?.title
         GameSource.GOG -> gogGameDao.getById(appId.toString())?.title
         GameSource.AMAZON -> amazonGameDao.getByAppId(appId)?.title
+        GameSource.XBOX -> xboxGameDao.getByAppId(appId)?.title
         GameSource.ANDROID_APP -> null
     }
 
@@ -286,7 +248,8 @@ object FrontendSyncManager {
         GameSource.EPIC -> epicGameDao.getById(appId)?.isInstalled ?: false
         GameSource.GOG -> gogGameDao.getById(appId.toString())?.isInstalled ?: false
         GameSource.AMAZON -> amazonGameDao.getByAppId(appId)?.isInstalled ?: false
-        GameSource.ANDROID_APP -> true
+        GameSource.XBOX -> xboxGameDao.getByAppId(appId)?.isInstalled ?: false
+        GameSource.ANDROID_APP -> false
     }
 
     private val invalidFileChars = Regex("""[\\/:*?"<>|]""")

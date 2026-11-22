@@ -1,26 +1,25 @@
 package app.gamenative.utils
 
+import android.content.ComponentName
 import android.content.Context
 import android.net.Uri
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import app.gamenative.PrefManager
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
-import timber.log.Timber
-import java.io.File
-import app.gamenative.PluviaApp
-import kotlinx.coroutines.*
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
-import android.content.ComponentName
+import app.gamenative.PrefManager
 import app.gamenative.service.MediaPlaybackService
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
+import kotlinx.coroutines.*
+import timber.log.Timber
+import java.io.File
 
 object MusicManager {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)

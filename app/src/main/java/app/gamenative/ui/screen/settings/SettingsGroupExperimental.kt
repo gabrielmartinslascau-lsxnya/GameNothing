@@ -1,5 +1,6 @@
 package app.gamenative.ui.screen.settings
 
+import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.animation.AnimatedVisibility
@@ -24,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gamenative.PrefManager
@@ -33,12 +35,9 @@ import app.gamenative.ui.theme.settingsTileColors
 import app.gamenative.ui.theme.settingsTileColorsAlt
 import app.gamenative.utils.HapticManager
 import com.alorma.compose.settings.ui.SettingsGroup
-import kotlin.math.roundToInt
-
-import androidx.compose.ui.platform.LocalContext
 import java.io.File
 import java.util.Locale
-import android.content.Context
+import kotlin.math.roundToInt
 
 @Composable
 fun SettingsGroupExperimental(viewModel: MainViewModel) {
@@ -124,10 +123,10 @@ fun SettingsGroupExperimental(viewModel: MainViewModel) {
                         value = animatedIndex,
                         onValueChange = {
                             sliderIndex = it
-                            val index = it.roundToInt()
-                            viewModel.setMaxRefreshRate(hzOptions[index])
                         },
                         onValueChangeFinished = {
+                            val index = sliderIndex.roundToInt().coerceIn(0, hzOptions.lastIndex)
+                            viewModel.setMaxRefreshRate(hzOptions[index])
                             HapticManager.trigger(HapticManager.HapticType.CLICK)
                         },
                         valueRange = 0f..(hzOptions.size - 1).toFloat(),

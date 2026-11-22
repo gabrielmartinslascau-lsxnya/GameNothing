@@ -5,10 +5,13 @@ import android.content.res.Resources
 import androidx.test.core.app.ApplicationProvider
 import app.gamenative.BuildConfig
 import app.gamenative.PrefManager
+import com.winlator.container.Container
+import com.winlator.container.ContainerData
 import java.io.File
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.*
 import org.junit.Assume.assumeFalse
@@ -103,17 +106,12 @@ class BestConfigServiceTest {
 
     @Test
     fun testExactGpuMatch_parsesAllFields() {
-        val bestConfig = parseBestConfig(cs2MaliExactMatchResponse)
+        val bestConfig = JsonObject(parseBestConfig(cs2MaliExactMatchResponse).toMutableMap().apply { put("loadMods", JsonPrimitive(true)) })
         val matchType = getMatchType(cs2MaliExactMatchResponse)
 
         assertEquals("exact_gpu_match", matchType)
 
-        val result = runBlocking {
-            BestConfigService.parseConfigToContainerData(
-                context, bestConfig, matchType,
-                matchType != "fallback_match",
-            )
-        }
+        val result = runBlocking { BestConfigService.parseConfigToContainerData(context, bestConfig, matchType, matchType != "fallback_match") }
 
         assertNotNull("Result should not be null", result)
         assertTrue("Result should not be empty", result!!.isNotEmpty())
@@ -132,6 +130,34 @@ class BestConfigServiceTest {
         assertEquals("Box64", result["emulator"])
         assertEquals(1, (result["startupSelection"] as? Byte)?.toInt() ?: (result["startupSelection"] as? Int))
         assertEquals("2507", result["fexcoreVersion"])
+        assertEquals(true, result["loadMods"])
+    }
+
+    /** A best config shared from a Samsung Adreno 740 must not carry its UBWC flag hint to other devices. */
+    @Test
+    fun testUbwcFlagHintKeptOnlyOnSamsung() {
+        val withHint = cs2MaliExactMatchResponse.replace("DXVK_FRAME_RATE=60", "FD_DEV_FEATURES=enable_tp_ubwc_flag_hint=1 PULSE_LATENCY_MSEC=144")
+        val bestConfig = parseBestConfig(withHint)
+        fun envVars(config: JsonObject = bestConfig, preserve: Boolean = false) = runBlocking {
+            BestConfigService.parseConfigToContainerData(context, config, "exact_gpu_match", true, preserveConfigValues = preserve)
+        }!!["envVars"] as String
+
+        val original = android.os.Build.MANUFACTURER
+        try {
+            org.robolectric.util.ReflectionHelpers.setStaticField(android.os.Build::class.java, "MANUFACTURER", "AYN")
+            assertFalse(envVars().contains("FD_DEV_FEATURES"))
+            assertTrue(envVars().endsWith("TU_DEBUG=noconform PULSE_LATENCY_MSEC=144"))
+            // An escaped space keeps the lookalike inside another variable's value; it must survive.
+            val escaped = "WINEDLLOVERRIDES=a\\ FD_DEV_FEATURES=enable_tp_ubwc_flag_hint=1"
+            assertEquals(escaped, envVars(JsonObject(bestConfig + ("envVars" to JsonPrimitive(escaped)))))
+            // An explicitly picked config (community/support) keeps its values.
+            assertTrue(envVars(preserve = true).contains("FD_DEV_FEATURES=enable_tp_ubwc_flag_hint=1"))
+
+            org.robolectric.util.ReflectionHelpers.setStaticField(android.os.Build::class.java, "MANUFACTURER", "samsung")
+            assertTrue(envVars().contains("FD_DEV_FEATURES=enable_tp_ubwc_flag_hint=1"))
+        } finally {
+            org.robolectric.util.ReflectionHelpers.setStaticField(android.os.Build::class.java, "MANUFACTURER", original)
+        }
     }
 
     @Test
@@ -142,12 +168,7 @@ class BestConfigServiceTest {
 
         assertEquals("gpu_family_match", matchType)
 
-        val result = runBlocking {
-            BestConfigService.parseConfigToContainerData(
-                context, bestConfig, matchType,
-                matchType != "fallback_match",
-            )
-        }
+        val result = runBlocking { BestConfigService.parseConfigToContainerData(context, bestConfig, matchType, matchType != "fallback_match") }
 
         assertNotNull("Result should not be null", result)
         assertTrue("Result should not be empty", result!!.isNotEmpty())
@@ -165,21 +186,17 @@ class BestConfigServiceTest {
         assertEquals("FEXCore", result["emulator"])
         assertEquals("COMPATIBILITY", result["box64Preset"])
         assertEquals("2507", result["fexcoreVersion"])
+        assertFalse("loadMods should not be added when absent", result.containsKey("loadMods"))
     }
 
     @Test
     fun testFallbackMatch_filtersExcludedFields() {
-        val bestConfig = parseBestConfig(cs2Adreno735Response)
+        val bestConfig = JsonObject(parseBestConfig(cs2Adreno735Response).toMutableMap().apply { put("loadMods", JsonPrimitive(true)) })
         val matchType = getMatchType(cs2Adreno735Response)
 
         assertEquals("fallback_match", matchType)
 
-        val result = runBlocking {
-            BestConfigService.parseConfigToContainerData(
-                context, bestConfig, matchType,
-                matchType != "fallback_match",
-            )
-        }
+        val result = runBlocking { BestConfigService.parseConfigToContainerData(context, bestConfig, matchType, matchType != "fallback_match") }
 
         assertNotNull("Result should not be null", result)
         assertTrue("Result should not be empty", result!!.isNotEmpty())
@@ -192,6 +209,7 @@ class BestConfigServiceTest {
         assertFalse("graphicsDriver should NOT be in map for fallback_match", result.containsKey("graphicsDriver"))
         assertFalse("dxwrapper should NOT be in map for fallback_match", result.containsKey("dxwrapper"))
         assertFalse("dxwrapperConfig should NOT be in map for fallback_match", result.containsKey("dxwrapperConfig"))
+        assertFalse("loadMods should NOT be in map for fallback_match", result.containsKey("loadMods"))
     }
 
     @Test
@@ -201,12 +219,7 @@ class BestConfigServiceTest {
 
         assertEquals("fallback_match", matchType)
 
-        val result = runBlocking {
-            BestConfigService.parseConfigToContainerData(
-                context, bestConfig, matchType,
-                matchType != "fallback_match",
-            )
-        }
+        val result = runBlocking { BestConfigService.parseConfigToContainerData(context, bestConfig, matchType, matchType != "fallback_match") }
 
         assertNotNull("Result should not be null", result)
         assertTrue("Result should not be empty", result!!.isNotEmpty())
@@ -227,12 +240,7 @@ class BestConfigServiceTest {
 
         assertEquals("fallback_match", matchType)
 
-        val result = runBlocking {
-            BestConfigService.parseConfigToContainerData(
-                context, bestConfig, matchType,
-                matchType != "fallback_match",
-            )
-        }
+        val result = runBlocking { BestConfigService.parseConfigToContainerData(context, bestConfig, matchType, matchType != "fallback_match") }
 
         assertNotNull("Result should not be null", result)
         assertTrue("Result should not be empty", result!!.isNotEmpty())
@@ -263,10 +271,8 @@ class BestConfigServiceTest {
 
         // Should only contain executablePath and/or useLegacyDRM
         val keys = result.keys
-        assertTrue(
-            "Result should only contain executablePath and/or useLegacyDRM",
-            keys.all { it == "executablePath" || it == "useLegacyDRM" },
-        )
+        assertTrue("Result should only contain executablePath and/or useLegacyDRM", 
+            keys.all { it == "executablePath" || it == "useLegacyDRM" })
 
         // Verify executablePath is present if it exists in config
         if (bestConfig.toString().contains("executablePath")) {
@@ -294,12 +300,7 @@ class BestConfigServiceTest {
         val bestConfig = parseBestConfig(cs2MaliExactMatchResponse)
         val matchType = getMatchType(cs2MaliExactMatchResponse)
 
-        val result = runBlocking {
-            BestConfigService.parseConfigToContainerData(
-                context, bestConfig, matchType,
-                matchType != "fallback_match",
-            )
-        }
+        val result = runBlocking { BestConfigService.parseConfigToContainerData(context, bestConfig, matchType, matchType != "fallback_match") }
 
         assertNotNull("Result should not be null", result)
 
@@ -358,6 +359,108 @@ class BestConfigServiceTest {
         assertNotNull("Result should not be null", result)
         assertTrue("Result should not be empty", result!!.isNotEmpty())
         assertEquals("0.3.6", result["box64Version"])
+    }
+
+    @Test
+    fun testKnownConfigAppliesSteamClientButNotSteamType() {
+        val configJson = """
+            {
+                "dxwrapper": "dxvk",
+                "dxwrapperConfig": "version=1.10.3",
+                "containerVariant": "bionic",
+                "box64Version": "0.3.6",
+                "wineVersion": "proton-9.0-x86_64",
+                "launchRealSteam": true,
+                "steamType": "normal"
+            }
+        """.trimIndent()
+
+        val bestConfig = Json.parseToJsonElement(configJson).jsonObject
+        val parsed = runBlocking { BestConfigService.parseConfigResult(context, bestConfig, "exact_gpu_match", true) }
+
+        assertEquals(true, parsed.config["launchRealSteam"])
+        assertFalse(parsed.config.containsKey("steamType"))
+
+        val updated = ContainerUtils.applyBestConfigMapToContainerData(
+            containerData = ContainerData(launchRealSteam = false, steamType = Container.STEAM_TYPE_HEADLESS),
+            bestConfigMap = parsed.config,
+        )
+
+        assertTrue(updated.launchRealSteam)
+        assertEquals(Container.STEAM_TYPE_HEADLESS, updated.steamType)
+    }
+
+    @Test
+    fun testImportedConfigAppliesDirectInputOnly() = runBlocking {
+        val configJson = """
+            {
+                "dxwrapper": "dxvk",
+                "dxwrapperConfig": "version=1.10.3",
+                "containerVariant": "bionic",
+                "wineVersion": "proton-9.0-arm64ec",
+                "inputType": 1
+            }
+        """.trimIndent()
+
+        val parsed = BestConfigService.parseConfigResult(
+            context,
+            Json.parseToJsonElement(configJson).jsonObject,
+            "exact_gpu_match",
+            true,
+        )
+        val updated = ContainerUtils.applyBestConfigMapToContainerData(
+            ContainerData(enableXInput = true, enableDInput = true),
+            parsed.config,
+        )
+
+        assertFalse(updated.enableXInput)
+        assertTrue(updated.enableDInput)
+    }
+
+    @Test
+    fun testExternalConfigDropsRedistComponentsItTurnsOff() = runBlocking {
+        val configJson = Json.parseToJsonElement(
+            """
+            {
+                "dxwrapper": "dxvk",
+                "dxwrapperConfig": "version=1.10.3",
+                "containerVariant": "bionic",
+                "wineVersion": "proton-9.0-arm64ec",
+                "wincomponents": "direct3d=1,directshow=0,vcrun2010=0,vcrun2022=0,xaudio=0,physx=1,vcrun2013=1"
+            }
+            """.trimIndent(),
+        ).jsonObject
+
+        val known = BestConfigService.parseConfigResult(context, configJson, "exact_gpu_match", true)
+        val imported = BestConfigService.parseConfigResult(context, configJson, "exact_gpu_match", true, keepRedistOff = true)
+
+        assertEquals("direct3d=1,directshow=0,vcrun2010=0,physx=1,vcrun2013=1", known.config["wincomponents"])
+        assertEquals(
+            "direct3d=1,directshow=0,vcrun2010=0,vcrun2022=0,xaudio=0,physx=1,vcrun2013=1",
+            imported.config["wincomponents"],
+        )
+    }
+
+    @Test
+    fun testExternalConfigOfOnlyRedistComponentsTurnedOffLeavesWincomponentsAlone() = runBlocking {
+        val configJson = Json.parseToJsonElement(
+            """
+            {
+                "dxwrapper": "dxvk",
+                "dxwrapperConfig": "version=1.10.3",
+                "containerVariant": "bionic",
+                "wineVersion": "proton-9.0-arm64ec",
+                "wincomponents": "xaudio=0,vcrun2022=0"
+            }
+            """.trimIndent(),
+        ).jsonObject
+
+        val parsed = BestConfigService.parseConfigResult(context, configJson, "exact_gpu_match", true)
+        val current = Container.DEFAULT_WINCOMPONENTS + ",vcrun2022=1"
+        val updated = ContainerUtils.applyBestConfigMapToContainerData(ContainerData(wincomponents = current), parsed.config)
+
+        assertFalse(parsed.config.containsKey("wincomponents"))
+        assertEquals(current, updated.wincomponents)
     }
 
     @Test
@@ -650,6 +753,39 @@ class BestConfigServiceTest {
         assertTrue("Result should not be null", result!!.isEmpty())
     }
 
+    @Test
+    fun testUnknownFexcorePreset_forceApplyDefaultsPresetAndKeepsOtherKeys() {
+        val configJson = """
+            {
+                "wineVersion": "proton-9.0-arm64ec",
+                "dxwrapper": "dxvk",
+                "dxwrapperConfig": "version=2.4.1,framerate=0,maxDeviceMemory=0,async=1,asyncCache=0",
+                "containerVariant": "bionic",
+                "box64Version": "0.3.6",
+                "emulator": "FEXCore",
+                "fexcorePreset": "CUSTOM-1",
+                "launchRealSteam": true,
+                "steamType": "headless"
+            }
+        """.trimIndent()
+
+        val bestConfig = Json.parseToJsonElement(configJson).jsonObject
+
+        val rejected = runBlocking { BestConfigService.parseConfigResult(context, bestConfig, "exact_gpu_match", true) }
+        assertTrue(rejected.config.isEmpty())
+        assertEquals(listOf("FEXCore preset CUSTOM-1"), rejected.missingComponents)
+
+        val forced = runBlocking {
+            BestConfigService.parseConfigToContainerData(context, bestConfig, "exact_gpu_match", true, forceApply = true)
+        }
+
+        assertNotNull(forced)
+        assertEquals(PrefManager.fexcorePreset, forced!!["fexcorePreset"])
+        assertEquals(true, forced["launchRealSteam"])
+        assertEquals("FEXCore", forced["emulator"])
+        assertEquals("proton-9.0-arm64ec", forced["wineVersion"])
+    }
+
     /**
      * Test to print parsed output for manual verification
      * This test prints the ContainerData output for each GPU scenario
@@ -662,12 +798,7 @@ class BestConfigServiceTest {
         println("1. Counter-Strike 2 + Adreno (TM) 735 (fallback_match, bionic)")
         val cs2Adreno = parseBestConfig(cs2Adreno735Response)
         val cs2AdrenoMatch = getMatchType(cs2Adreno735Response)
-        val cs2AdrenoResult = runBlocking {
-            BestConfigService.parseConfigToContainerData(
-                context, cs2Adreno, cs2AdrenoMatch,
-                cs2AdrenoMatch != "fallback_match",
-            )
-        }
+        val cs2AdrenoResult = runBlocking { BestConfigService.parseConfigToContainerData(context, cs2Adreno, cs2AdrenoMatch, cs2AdrenoMatch != "fallback_match") }
         println("Match Type: $cs2AdrenoMatch")
         printContainerData(cs2AdrenoResult, "CS2-Adreno735")
         println()
@@ -676,12 +807,7 @@ class BestConfigServiceTest {
         println("2. Detective Dotson + Mali-G57 MC2 (fallback_match, glibc)")
         val detectiveMali = parseBestConfig(detectiveDotsonMaliResponse)
         val detectiveMaliMatch = getMatchType(detectiveDotsonMaliResponse)
-        val detectiveMaliResult = runBlocking {
-            BestConfigService.parseConfigToContainerData(
-                context, detectiveMali, detectiveMaliMatch,
-                detectiveMaliMatch != "fallback_match",
-            )
-        }
+        val detectiveMaliResult = runBlocking { BestConfigService.parseConfigToContainerData(context, detectiveMali, detectiveMaliMatch, detectiveMaliMatch != "fallback_match") }
         println("Match Type: $detectiveMaliMatch")
         printContainerData(detectiveMaliResult, "Detective-Mali")
         println()
@@ -690,12 +816,7 @@ class BestConfigServiceTest {
         println("3. Dota 2 + Mali-G57 MC2 (fallback_match, bionic)")
         val dota2Mali = parseBestConfig(dota2MaliResponse)
         val dota2MaliMatch = getMatchType(dota2MaliResponse)
-        val dota2MaliResult = runBlocking {
-            BestConfigService.parseConfigToContainerData(
-                context, dota2Mali, dota2MaliMatch,
-                dota2MaliMatch != "fallback_match",
-            )
-        }
+        val dota2MaliResult = runBlocking { BestConfigService.parseConfigToContainerData(context, dota2Mali, dota2MaliMatch, dota2MaliMatch != "fallback_match") }
         println("Match Type: $dota2MaliMatch")
         printContainerData(dota2MaliResult, "Dota2-Mali")
         println()
@@ -704,12 +825,7 @@ class BestConfigServiceTest {
         println("4. Counter-Strike 2 + Mali-G57 MC2 (exact_gpu_match, bionic)")
         val cs2Mali = parseBestConfig(cs2MaliExactMatchResponse)
         val cs2MaliMatch = getMatchType(cs2MaliExactMatchResponse)
-        val cs2MaliResult = runBlocking {
-            BestConfigService.parseConfigToContainerData(
-                context, cs2Mali, cs2MaliMatch,
-                cs2MaliMatch != "fallback_match",
-            )
-        }
+        val cs2MaliResult = runBlocking { BestConfigService.parseConfigToContainerData(context, cs2Mali, cs2MaliMatch, cs2MaliMatch != "fallback_match") }
         println("Match Type: $cs2MaliMatch")
         printContainerData(cs2MaliResult, "CS2-Mali-Exact")
         println()
@@ -718,12 +834,7 @@ class BestConfigServiceTest {
         println("5. Dota 2 + Adreno (TM) 830 (exact_gpu_match, bionic)")
         val dota2Adreno830 = parseBestConfig(dota2Adreno830ExactMatchResponse)
         val dota2Adreno830Match = getMatchType(dota2Adreno830ExactMatchResponse)
-        val dota2Adreno830Result = runBlocking {
-            BestConfigService.parseConfigToContainerData(
-                context, dota2Adreno830, dota2Adreno830Match,
-                dota2Adreno830Match != "fallback_match",
-            )
-        }
+        val dota2Adreno830Result = runBlocking { BestConfigService.parseConfigToContainerData(context, dota2Adreno830, dota2Adreno830Match, dota2Adreno830Match != "fallback_match") }
         println("Match Type: $dota2Adreno830Match")
         printContainerData(dota2Adreno830Result, "Dota2-Adreno830-Exact")
         println()
@@ -732,12 +843,7 @@ class BestConfigServiceTest {
         println("6. Dota 2 + Adreno (TM) 835 (gpu_family_match, bionic)")
         val dota2Adreno835 = parseBestConfig(dota2Adreno835FamilyMatchResponse)
         val dota2Adreno835Match = getMatchType(dota2Adreno835FamilyMatchResponse)
-        val dota2Adreno835Result = runBlocking {
-            BestConfigService.parseConfigToContainerData(
-                context, dota2Adreno835, dota2Adreno835Match,
-                dota2Adreno835Match != "fallback_match",
-            )
-        }
+        val dota2Adreno835Result = runBlocking { BestConfigService.parseConfigToContainerData(context, dota2Adreno835, dota2Adreno835Match, dota2Adreno835Match != "fallback_match") }
         println("Match Type: $dota2Adreno835Match")
         printContainerData(dota2Adreno835Result, "Dota2-Adreno835-Family")
         println()
@@ -746,12 +852,7 @@ class BestConfigServiceTest {
         println("7. Dota 2 + XClipse xxx (fallback_match, bionic)")
         val dota2XClipse = parseBestConfig(dota2XClipseFallbackResponse)
         val dota2XClipseMatch = getMatchType(dota2XClipseFallbackResponse)
-        val dota2XClipseResult = runBlocking {
-            BestConfigService.parseConfigToContainerData(
-                context, dota2XClipse, dota2XClipseMatch,
-                dota2XClipseMatch != "fallback_match",
-            )
-        }
+        val dota2XClipseResult = runBlocking { BestConfigService.parseConfigToContainerData(context, dota2XClipse, dota2XClipseMatch, dota2XClipseMatch != "fallback_match") }
         println("Match Type: $dota2XClipseMatch")
         printContainerData(dota2XClipseResult, "Dota2-XClipse-Fallback")
         println()
@@ -760,13 +861,7 @@ class BestConfigServiceTest {
         println("8. Hades II + Adreno (TM) 835 (gpu_family_match, glibc)")
         val hades2Adreno835 = parseBestConfig(hades2Adreno835FamilyMatchResponse)
         val hades2Adreno835Match = getMatchType(hades2Adreno835FamilyMatchResponse)
-        val hades2Adreno835Result =
-            runBlocking {
-                BestConfigService.parseConfigToContainerData(
-                    context, hades2Adreno835, hades2Adreno835Match,
-                    hades2Adreno835Match != "fallback_match",
-                )
-            }
+        val hades2Adreno835Result = runBlocking { BestConfigService.parseConfigToContainerData(context, hades2Adreno835, hades2Adreno835Match, hades2Adreno835Match != "fallback_match") }
         println("Match Type: $hades2Adreno835Match")
         printContainerData(hades2Adreno835Result, "Hades2-Adreno835-Family")
         println()
@@ -775,13 +870,7 @@ class BestConfigServiceTest {
         println("9. Hades II + Adreno (TM) 735 (exact_gpu_match, bionic)")
         val hades2Adreno735 = parseBestConfig(hades2Adreno735ExactMatchResponse)
         val hades2Adreno735Match = getMatchType(hades2Adreno735ExactMatchResponse)
-        val hades2Adreno735Result =
-            runBlocking {
-                BestConfigService.parseConfigToContainerData(
-                    context, hades2Adreno735, hades2Adreno735Match,
-                    hades2Adreno735Match != "fallback_match",
-                )
-            }
+        val hades2Adreno735Result = runBlocking { BestConfigService.parseConfigToContainerData(context, hades2Adreno735, hades2Adreno735Match, hades2Adreno735Match != "fallback_match") }
         println("Match Type: $hades2Adreno735Match")
         printContainerData(hades2Adreno735Result, "Hades2-Adreno735-Exact")
         println()
@@ -790,13 +879,7 @@ class BestConfigServiceTest {
         println("10. Hades II + Mali-GC 824 (fallback_match, bionic)")
         val hades2MaliGc824 = parseBestConfig(hades2MaliGc824FallbackResponse)
         val hades2MaliGc824Match = getMatchType(hades2MaliGc824FallbackResponse)
-        val hades2MaliGc824Result =
-            runBlocking {
-                BestConfigService.parseConfigToContainerData(
-                    context, hades2MaliGc824, hades2MaliGc824Match,
-                    hades2MaliGc824Match != "fallback_match",
-                )
-            }
+        val hades2MaliGc824Result = runBlocking { BestConfigService.parseConfigToContainerData(context, hades2MaliGc824, hades2MaliGc824Match, hades2MaliGc824Match != "fallback_match") }
         println("Match Type: $hades2MaliGc824Match")
         printContainerData(hades2MaliGc824Result, "Hades2-MaliGc824-Fallback")
         println()
@@ -848,12 +931,7 @@ class BestConfigServiceTest {
         // Test that all important fields are being parsed correctly
         val bestConfig = parseBestConfig(cs2MaliExactMatchResponse)
         val matchType = getMatchType(cs2MaliExactMatchResponse)
-        val result = runBlocking {
-            BestConfigService.parseConfigToContainerData(
-                context, bestConfig, matchType,
-                matchType != "fallback_match",
-            )
-        }
+        val result = runBlocking { BestConfigService.parseConfigToContainerData(context, bestConfig, matchType, matchType != "fallback_match") }
 
         assertNotNull("Result should not be null", result)
         assertTrue("Result should not be empty", result!!.isNotEmpty())
@@ -1119,12 +1197,7 @@ class BestConfigServiceTest {
         val bestConfigJson = org.json.JSONObject(bestConfig.toString())
         assertFalse("wineVersion should be missing from bestConfig", bestConfigJson.has("wineVersion"))
 
-        val result = runBlocking {
-            BestConfigService.parseConfigToContainerData(
-                context, bestConfig, matchType,
-                matchType != "fallback_match",
-            )
-        }
+        val result = runBlocking { BestConfigService.parseConfigToContainerData(context, bestConfig, matchType, matchType != "fallback_match") }
 
         assertTrue("Result should be empty map when wineVersion is missing from bestConfig", result == null || result.isEmpty())
     }
@@ -1140,6 +1213,24 @@ class BestConfigServiceTest {
         assertEquals(entry, ManifestComponentHelper.findManifestEntryForVersion("Turnip_v26.2.0_R4", listOf(entry)))
         assertEquals(entry, ManifestComponentHelper.findManifestEntryForVersion("Turnip v26.2.0 R4", listOf(entry)))
         assertNull(ManifestComponentHelper.findManifestEntryForVersion("nope", listOf(entry)))
+    }
+
+    @Test
+    fun arm64EcBox64SelectionUsesWowBox64Only() {
+        assertFalse(BestConfigService.usesNativeBox64("proton-10.0-arm64ec-2"))
+        assertTrue(BestConfigService.usesWowBox64("proton-10.0-arm64ec-2", "Box64"))
+    }
+
+    @Test
+    fun arm64EcFexSelectionUsesNeitherBox64Profile() {
+        assertFalse(BestConfigService.usesNativeBox64("proton-11.0-arm64ec"))
+        assertFalse(BestConfigService.usesWowBox64("proton-11.0-arm64ec", "FEXCore"))
+    }
+
+    @Test
+    fun x86_64WineUsesNativeBox64Only() {
+        assertTrue(BestConfigService.usesNativeBox64("proton-9.0-x86_64"))
+        assertFalse(BestConfigService.usesWowBox64("proton-9.0-x86_64", "Box64"))
     }
 
     @Test
@@ -1187,4 +1278,36 @@ class BestConfigServiceTest {
             )
         }
     }
+
+    @Test
+    fun bestConfigMatch_roundTripsAndReadsLegacyPlainString() {
+        val m = BestConfigService.BestConfigMatch("gpu_family_match", 1234, "Adreno (TM) 740")
+        assertEquals(m, BestConfigService.BestConfigMatch.parse(m.toJson()))
+        assertEquals(BestConfigService.BestConfigMatch("fallback_match"), BestConfigService.BestConfigMatch.parse("fallback_match\n"))
+        assertEquals(BestConfigService.BestConfigMatch("exact_gpu_match"), BestConfigService.BestConfigMatch.parse(BestConfigService.BestConfigMatch("exact_gpu_match").toJson()))
+        assertNull(BestConfigService.BestConfigMatch.parse(""))
+    }
+    @Test
+    fun parseBestConfigResponse_overlayOnlyAnswerWithNullMatchFields() {
+        val json = org.json.JSONObject(
+            """{"bestConfig":{"dxwrapper":"dxvk","envVars":"A=1"},"matchType":"fallback_match","matchedGpu":null,"matchedDeviceId":null,"matchedStore":null}""",
+        )
+        val parsed = BestConfigService.parseBestConfigResponse(json, "steam")
+        assertEquals("fallback_match", parsed.matchType)
+        assertEquals("", parsed.matchedGpu)
+        assertEquals(null, parsed.matchedDeviceId)
+        assertEquals("steam", parsed.matchedStore)
+        assertEquals("dxvk", parsed.bestConfig["dxwrapper"]?.toString()?.trim('"'))
+    }
+
+    @Test
+    fun parseBestConfigResponse_learnedAnswerKeepsMatchFields() {
+        val json = org.json.JSONObject(
+            """{"bestConfig":{"dxwrapper":"dxvk"},"matchType":"exact_gpu_match","matchedGpu":"Mali-G57 MC2","matchedDeviceId":7929}""",
+        )
+        val parsed = BestConfigService.parseBestConfigResponse(json, "steam")
+        assertEquals("Mali-G57 MC2", parsed.matchedGpu)
+        assertEquals(7929, parsed.matchedDeviceId)
+    }
+
 }

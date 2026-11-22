@@ -1,5 +1,6 @@
 package app.gamenative.provider
 
+import android.content.Context
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.os.CancellationSignal
@@ -14,7 +15,7 @@ import java.io.FileNotFoundException
 class InternalStorageProvider : DocumentsProvider() {
 
     companion object {
-        private const val AUTHORITY = "app.gamenothing.documents"
+        fun getAuthority(context: Context): String = "${context.packageName}.documents"
 
         private val DEFAULT_ROOT_PROJECTION: Array<String> = arrayOf(
             DocumentsContract.Root.COLUMN_ROOT_ID,
@@ -23,7 +24,7 @@ class InternalStorageProvider : DocumentsProvider() {
             DocumentsContract.Root.COLUMN_ICON,
             DocumentsContract.Root.COLUMN_TITLE,
             DocumentsContract.Root.COLUMN_SUMMARY,
-            DocumentsContract.Root.COLUMN_DOCUMENT_ID
+            DocumentsContract.Root.COLUMN_DOCUMENT_ID,
         )
 
         private val DEFAULT_DOCUMENT_PROJECTION: Array<String> = arrayOf(
@@ -32,11 +33,11 @@ class InternalStorageProvider : DocumentsProvider() {
             DocumentsContract.Document.COLUMN_DISPLAY_NAME,
             DocumentsContract.Document.COLUMN_LAST_MODIFIED,
             DocumentsContract.Document.COLUMN_FLAGS,
-            DocumentsContract.Document.COLUMN_SIZE
+            DocumentsContract.Document.COLUMN_SIZE,
         )
 
         // Only expose specific directories to protect app metadata
-        private val EXPOSED_DIRS = setOf("home", "Steam", "Epic", "GOG", "Amazon")
+        private val EXPOSED_DIRS = setOf("home", "Steam", "Epic", "GOG", "Amazon", "Xbox", "CustomGames")
     }
 
     override fun onCreate(): Boolean = true
@@ -49,7 +50,10 @@ class InternalStorageProvider : DocumentsProvider() {
             add(DocumentsContract.Root.COLUMN_DOCUMENT_ID, "root")
             add(DocumentsContract.Root.COLUMN_TITLE, context?.getString(R.string.app_name) ?: "GameNothing")
             add(DocumentsContract.Root.COLUMN_SUMMARY, "Internal Game Data")
-            add(DocumentsContract.Root.COLUMN_FLAGS, DocumentsContract.Root.FLAG_SUPPORTS_CREATE or DocumentsContract.Root.FLAG_SUPPORTS_IS_CHILD)
+            add(
+                DocumentsContract.Root.COLUMN_FLAGS,
+                DocumentsContract.Root.FLAG_SUPPORTS_CREATE or DocumentsContract.Root.FLAG_SUPPORTS_IS_CHILD,
+            )
             add(DocumentsContract.Root.COLUMN_ICON, R.mipmap.ic_launcher)
         }
 
@@ -66,7 +70,7 @@ class InternalStorageProvider : DocumentsProvider() {
     override fun queryChildDocuments(
         parentDocumentId: String?,
         projection: Array<out String>?,
-        sortOrder: String?
+        sortOrder: String?,
     ): Cursor {
         val result = MatrixCursor(projection ?: DEFAULT_DOCUMENT_PROJECTION)
         val parent = getFileForDocId(parentDocumentId ?: "root")
@@ -88,7 +92,7 @@ class InternalStorageProvider : DocumentsProvider() {
     override fun openDocument(
         documentId: String?,
         mode: String?,
-        signal: CancellationSignal?
+        signal: CancellationSignal?,
     ): ParcelFileDescriptor {
         val file = getFileForDocId(documentId ?: throw FileNotFoundException())
         val accessMode = ParcelFileDescriptor.parseMode(mode ?: "r")
@@ -96,7 +100,7 @@ class InternalStorageProvider : DocumentsProvider() {
     }
 
     private fun getFileForDocId(documentId: String): File {
-        var root = context?.dataDir ?: throw FileNotFoundException()
+        val root = context?.dataDir ?: throw FileNotFoundException("Context dataDir not found")
         if (documentId == "root") return root
 
         val path = documentId.removePrefix("root:")
