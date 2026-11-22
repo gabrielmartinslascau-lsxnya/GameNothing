@@ -38,6 +38,8 @@ proguard/
 # Generated files
 bin/
 gen/
+!droiddeck/src/main/cpp/adrenotools/gen/
+!droiddeck/src/main/cpp/adrenotools/gen/**
 
 # Native
 .cxx
