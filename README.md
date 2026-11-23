@@ -1,130 +1,93 @@
 <div align="center">
 
-# GameNative
+[image]
 
-**Play the PC games you already own — from Steam, Epic and GOG — on your Android device, with cloud saves.**
+# GameNothing
 
-<a href="https://trendshift.io/repositories/14497" target="_blank"><img src="https://trendshift.io/api/badge/repositories/14497" alt="utkarshdalal%2FGameNative | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+**PC gaming on Android, stripped down to what matters.**  
+Nothing-inspired glass UI, high refresh rate support, built-in offline audio, and the Capri companion.
 
-<a href="https://www.star-history.com/utkarshdalal/gamenative">
+[![Download Latest APK](https://img.shields.io/badge/DOWNLOAD_LATEST_APK-D71921?style=for-the-badge&logo=android&logoColor=white)](https://github.com/gabrielmartinslascau-lsxnya/GameNothing/releases/latest/download/GameNothing.apk)
+[![All Releases](https://img.shields.io/badge/RELEASES-111111?style=for-the-badge&logo=github&logoColor=white)](https://github.com/gabrielmartinslascau-lsxnya/GameNothing/releases/latest)
+[![Discord](https://img.shields.io/badge/DISCORD-111111?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/CCtN2UUECc)
+[![TikTok](https://img.shields.io/badge/@LSXNOTHING-111111?style=for-the-badge&logo=tiktok&logoColor=white)](https://www.tiktok.com/@lsxnothing)
+[![Gmail](https://img.shields.io/badge/EMAIL-111111?style=for-the-badge&logo=gmail&logoColor=white)](mailto:gabrielmartinslascau@gmail.com)
+
+100% free. Zero telemetry. No paywalls. Your device, your library.
+
+</div>
+
+---
+
+> **Important:** GameNothing is an independent fork. **Do not** report GameNothing bugs to the upstream GameNative repository. Open an issue here or post in the [Discord](https://discord.gg/CCtN2UUECc).
+
+---
+
+## Preview
+
+[video]
+
+[1m html file video download]
+
+---
+
+## Download
+
+- **Direct APK (Latest Release):** [Download GameNothing.apk](https://github.com/gabrielmartinslascau-lsxnya/GameNothing/releases/latest/download/GameNothing.apk)
+- **Release Notes & Older Builds:** [GitHub Releases](https://github.com/gabrielmartinslascau-lsxnya/GameNothing/releases/latest)
+- **Live Updates & Builds:** Join the [GameNothing Discord](https://discord.gg/CCtN2UUECc) (`#updates`)
+
+---
+
+## What It Does
+
+### Interface & Visuals
+- Full Nothing-inspired dark/light design system with custom glass UI and minimal monochrome iconography.
+- High refresh rate control and performance-first navigation.
+- Customizable app icons, including the `GameNothing x Capri` logo suite.
+
+[image]
+
+### PC Gaming Engine
+- Steam, GOG, Epic, Amazon, and custom local or external games.
+- USB and external folder storage support for saving internal space.
+- Custom graphics driver support, cloud saves, and local / Nexus mod support.
+- Built on the upstream GameNative core.
+
+### Capri Companion
+- Optional AI companion running either on-device (**Local Gemma E2B** via LiteRT-LM) or via **Cloud Gemini**.
+- Interactive **Capri Brain** node graph for memories, custom actions, and session logs.
+- Fast 0-token local command routing for quick device actions and music playback.
+
+[image]
+
+### Offline Audio
+- Built-in offline MP3 / FLAC music player with recursive folder scanning and floating playback bubble.
+
+---
+
+## Star History
+
+<a href="https://www.star-history.com/#gabrielmartinslascau-lsxnya/GameNothing&Date">
  <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=utkarshdalal/GameNative&theme=dark" />
-  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=utkarshdalal/GameNative" />
-  <img alt="Star History Rank" src="https://api.star-history.com/badge?repo=utkarshdalal/GameNative" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=gabrielmartinslascau-lsxnya/GameNothing&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=gabrielmartinslascau-lsxnya/GameNothing&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=gabrielmartinslascau-lsxnya/GameNothing&type=Date" />
  </picture>
 </a>
 
-[![GitHub Release](https://img.shields.io/github/v/release/utkarshdalal/GameNative?style=flat-square&logo=github&label=latest)](https://github.com/utkarshdalal/GameNative/releases/latest)
-[![GitHub stars](https://img.shields.io/github/stars/utkarshdalal/GameNative?style=flat-square&logo=github&color=ffd700)](https://github.com/utkarshdalal/GameNative/stargazers)
-[![Discord](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscord.com%2Fapi%2Fv9%2Finvites%2F2hKv4VfZfE%3Fwith_counts%3Dtrue&query=%24.approximate_member_count&style=flat-square&logo=discord&logoColor=white&label=discord&color=5865F2&suffix=%20members)](https://discord.gg/2hKv4VfZfE)
-[![License](https://img.shields.io/badge/license-GPL%203.0-blue?style=flat-square)](https://github.com/utkarshdalal/GameNative/blob/master/LICENSE)
-[![Ko-fi](https://img.shields.io/badge/ko--fi-support-FF5E5B?style=flat-square&logo=ko-fi&logoColor=white)](https://ko-fi.com/gamenative)
+---
 
-[**Download**](https://github.com/utkarshdalal/GameNative/releases/download/v1.4.0/gamenative-v1.4.0.apk) · [**Discord**](https://discord.gg/2hKv4VfZfE) · [**Support on Ko-fi**](https://ko-fi.com/gamenative)
+## Links & Contact
 
-<video src="https://github.com/user-attachments/assets/95b5397b-908a-44ef-a10a-dac7723580b0" autoplay loop muted playsinline width="100%"></video>
-
-</div>
+- **Discord:** [discord.gg/CCtN2UUECc](https://discord.gg/CCtN2UUECc)
+- **TikTok:** [@lsxnothing](https://www.tiktok.com/@lsxnothing)
+- **Email:** [gabrielmartinslascau@gmail.com](mailto:gabrielmartinslascau@gmail.com)
 
 ---
 
-GameNative lets you run the PC games in your Steam, Epic and GOG libraries directly on Android — no streaming required. Your saves sync to the cloud, so you can stop on your PC and keep going on your phone.
+## Credits & License
 
-It's still early. Not every game runs yet, and some need tweaking to play well, but the community is constantly finding and sharing configs that work — and these get applied automatically. You can see if anyone has tried running your game successfully at https://gamenative.app/compatibility.
-
-## What you get
-
-- Play games you actually own on Steam, Epic, GOG and Amazon
-- Cloud saves that carry over between your PC and your phone
-- Automatically applied known configs, so many games just work out of the box with no tweaking required
-- Controller and touch support, with a custom control editor and on-screen HUD
-- Steam DLC, workshop and branch support
-- Active support over Discord if you need help getting a game running
-
-## Demo
-
-[TechDweeb](https://www.youtube.com/@TechDweeb) walks through setting up GameNative on an Android handheld in a couple of minutes:
-
-<div align="center">
-
-<a href="https://youtu.be/QqIChmAu2_A?si=Ha6xzTQXZA2H8HUN&t=53" target="_blank"><img src="https://github.com/user-attachments/assets/6957e3a1-34ac-41f5-b558-0f1868dbf3d4" alt="Youtube Video" /></a>
-
-</div>
-
-## How to use
-
-1. Download the latest release [here](https://downloads.gamenative.app/releases/1.4.0/gamenative-v1.4.0.apk)
-2. Install the APK on your Android device
-3. Log in to your Steam account
-4. Install your game
-5. Hit play and enjoy
-
-## Support
-
-The fastest way to get help is the [Discord server](https://discord.gg/2hKv4VfZfE) — we're 35k+ strong and someone's usually around.
-
-Please **don't** open issues on GitHub; they're closed automatically. Bring it to Discord instead.
-
-If you'd like to chip in, you can support the project on [Ko-fi](https://ko-fi.com/gamenative).
-
-## Contributing
-
-Want to help out? Message us to get into the **#development** channel on [Discord](https://discord.gg/2hKv4VfZfE), or open a thread there. Things we're currently looking for help with live on our [Trello board](https://trello.com/b/vGRkFoAM/open-source-board).
-
-### Fix a game that doesn't work
-
-Every night we publish the list of games that don't run in GameNative, built from real usage data, at [GameNative/gamenative-compat](https://github.com/GameNative/gamenative-compat). Each broken game has [an open issue](https://github.com/GameNative/gamenative-compat/issues?q=is%3Aopen+label%3Adoes-not-work) with the numbers behind it: how many players hit it, what they report, whether the game window ever renders.
-
-If you want to take one on:
-
-1. Pick a game from the list and open its issue. Check the comments to see whether someone is already on it, then leave a comment saying you are taking it.
-2. Work out why it fails. Most fixes land in this repo, in [proton-wine](https://github.com/GameNative/proton-wine), in [FEX](https://github.com/GameNative/FEX), in the GPU driver wrappers or in the per-game config.
-3. Open a pull request in the right repo, then comment on the game's issue with a link to it. Once the fix ships and players start getting the game to run, the issue closes itself.
-
-Own a broken game and want to donate a key so someone can fix it? Email [support@gamenative.app](mailto:support@gamenative.app).
-
-### Building
-
-Most of the time you don't need this — if you just want to play, grab the release above. This is for contributors.
-
-1. Build it like any normal Android Studio project. Ask on Discord if you get stuck.
-2. **SteamGridDB API key (optional):** to pull game artwork for custom games, add your key to `local.properties`:
-   ```properties
-   STEAMGRIDDB_API_KEY=your_api_key_here
-   ```
-   You can get one from your [SteamGridDB preferences](https://www.steamgriddb.com/profile/preferences). Without it everything still works — it just won't fetch images.
-
-## Analytics & privacy
-
-GameNative uses [PostHog](https://posthog.com) for anonymous analytics. No personal information is ever collected — no names, emails, IPs or device identifiers.
-
-**Always collected**, to improve game compatibility:
-- Game launch, close and exit events (game name, store, session length, average FPS, container config)
-- Game install, cancel and uninstall events
-
-This is how we figure out which games work, how well they run, and which configs to apply automatically for the next person. It can't identify you.
-
-**Optional**, and switchable under *Settings → Info → Usage Analytics*:
-- Feature usage (on-screen keyboard, controller, HUD, control editor)
-- Login success/failure events
-- Recommendation interactions
-- App lifecycle events (foreground/background)
-- Cloud sync events
-
-The full [Privacy Policy](PrivacyPolicy/README.md) has the details.
-
-## Supporters
-
-Thanks to our [Ko-fi sponsors](https://ko-fi.com/gamenative) and [GitHub sponsors](https://github.com/sponsors/utkarshdalal?preview=true), including [CodeRabbit](https://coderabbit.link/gnative).
-
-[![Star History Chart](https://star-history.dera.page/svg?repos=utkarshdalal/GameNative&type=Date&theme=dark)](https://star-history.dera.page/#utkarshdalal/GameNative&Date)
-
-## License
-
-[GPL 3.0](https://github.com/utkarshdalal/GameNative/blob/master/LICENSE).
-
-See [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) for attributions, copyleft source offers, and notices about third-party and proprietary components bundled with the app.
-
----
-
-**Disclaimer:** This software is meant for playing games that you legally own. Don't use it for piracy or anything else illegal. The maintainer takes no responsibility for misuse.
+- Built on top of **GameNative** (`utkarshdalal` and contributors) and the open-source emulation ecosystem behind it.
+- Licensed under **GPL-3.0**. See `LICENSE` for details.
+- 
