@@ -1,7 +1,75 @@
-<div align="center">
+[ic_launcher_custom_wire_capri_fg.xml](https://github.com/user-attachments/files/35552913/ic_launcher_custom_wire_capri_fg.xml)<div align="center">
 
 <!-- Replace with your hero banner / logo image -->
-[image]
+<img width="300" height="300" alt="capri-05-napping" src="https://github.com/user-attachments/assets/eb5d1bbf-7ded-40ca-81d7-f0fb7ca529c2" />
+
+[Up<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+    <!-- Layer 2: G Ring + Wedges (HOLLOW_WIRE, CAPRI_EYE -> #FFFFFF primary) -->
+    <path
+        android:pathData="M 61,100 A 39,39 0 0,1 100,61 L 100,80.5 A 19.5,19.5 0 0,0 80.5,100 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter"
+        android:strokeMiterLimit="12"
+        android:strokeWidth="3.4" />
+    <path
+        android:pathData="M 139,100 A 39,39 0 0,1 100,139 L 100,119.5 A 19.5,19.5 0 0,0 119.5,100 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter"
+        android:strokeMiterLimit="12"
+        android:strokeWidth="3.4" />
+    <path
+        android:pathData="M 61,100 A 39,39 0 0,0 66.57,120.09 L 76,100 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter"
+        android:strokeMiterLimit="12"
+        android:strokeWidth="3.4" />
+    <path
+        android:pathData="M 100,139 A 39,39 0 0,1 79.91,133.43 L 100,124 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter"
+        android:strokeMiterLimit="12"
+        android:strokeWidth="3.4" />
+    <!-- Layer 3: Needle Negative-Space Knockout -->
+    <path
+        android:fillColor="#0A0A0A"
+        android:pathData="M 143.6,56.4 C 119.5,71.6 97.5,82.7 90.1,90.1 C 83.4,96.8 76.5,114.6 65.3,134.7 C 85.4,123.5 103.2,116.6 109.9,109.9 C 117.3,102.5 128.4,80.5 143.6,56.4 Z"
+        android:strokeColor="#0A0A0A"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter"
+        android:strokeMiterLimit="12"
+        android:strokeWidth="9.5" />
+    <!-- Layer 4: Hollow Razor Needle (#FFFFFF stroke) -->
+    <path
+        android:fillColor="#0A0A0A"
+        android:pathData="M 143.6,56.4 C 119.5,71.6 97.5,82.7 90.1,90.1 C 83.4,96.8 76.5,114.6 65.3,134.7 C 85.4,123.5 103.2,116.6 109.9,109.9 C 117.3,102.5 128.4,80.5 143.6,56.4 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter"
+        android:strokeMiterLimit="12"
+        android:strokeWidth="4.2" />
+    <!-- Layer 5: CAPRI_EYE Tri-Color Concentric Eye -->
+    <path
+        android:fillColor="#2CFF6B"
+        android:pathData="M 100,91.6 A 8.4,8.4 0 1,0 100,108.4 A 8.4,8.4 0 1,0 100,91.6 Z" />
+    <path
+        android:fillColor="#0088FF"
+        android:pathData="M 100,93.8 A 6.2,6.2 0 1,0 100,106.2 A 6.2,6.2 0 1,0 100,93.8 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 100,97.2 A 2.8,2.8 0 1,0 100,102.8 A 2.8,2.8 0 1,0 100,97.2 Z" />
+</vector>
+loading ic_launcher_custom_wire_capri_fg.xml…]()
+
+
 
 # GameNothing
 
@@ -27,7 +95,8 @@ Nothing-inspired glass UI, high refresh rate support, built-in offline audio, Ha
 ## Preview
 
 <!-- Drop your compressed promo MP4 here (GitHub embeds it natively) -->
-[video]
+[GameNothing.2.0.Promo (1).html](https://github.com/user-attachments/files/35552695/GameNothing.2.0.Promo.1.html)
+
 
 ---
 
@@ -66,9 +135,9 @@ PS2 and 3DS are for the weak. It gets tiring seeing the internet say *"a 7 Gen 4
 
 | Chipset Tier | What to Expect |
 | :--- | :--- |
-| **Snapdragon 6s Gen 4** | Light indie PC titles |
-| **Snapdragon 6 Gen 4** *(Min. Recommended)* | Lighter modern games like *Moonlighter* |
-| **Snapdragon 7 Gen 4** | Heavy 2018 AAAs (*No Man's Sky*, *Halo MCC*, *Subnautica BZ*, *Ori*, *Crysis*) |
+| **Snapdragon 6s Gen 4** | Light indie PC titles (silksong if lucky)|
+| **Snapdragon 6 Gen 4** *(Min. Recommended)* | Lighter modern games like *Moonlighter* or *hollow Knight* |
+| **Snapdragon 7 Gen 4** | 1/3 of a z1 extreme |
 | **Snapdragon 8 Elite Gen 5** | beats the Steam Deck in 720p|
 | **Snapdragon 8 Gen 6** | Obliterates the Steam Deck |
 
