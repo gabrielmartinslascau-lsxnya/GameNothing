@@ -1,8 +1,9 @@
-<div align center>
-    
-    <!-- Replace with your hero banner / logo image -->
-<img width="300" height="300" alt="capri-05-napping" src="https://github.com/user-attachments/assets/eb5d1bbf-7ded-40ca-81d7-f0fb7ca529c2" /> <img width="300" height="300" alt="image" src="https://github.com/user-attachments/assets/7630de68-d0ae-4ac4-8ff7-0e1da7665ff7" />
+<div align="center">
 
+<p align="center">
+  <!-- Drag gamenothing-launch-arc-16x9.gif (or gamenothing-launch-eye-16x9.gif) into GitHub and replace the src URL below -->
+  <img width="720" alt="GameNothing Launch Animation" src="PASTE_16X9_LAUNCH_GIF_URL_HERE" />
+</p>
 
 # GameNothing
 
@@ -27,9 +28,9 @@ Nothing-inspired glass UI, high refresh rate support, built-in offline audio, Ha
 
 ## Preview
 
-<!-- Drop your compressed promo MP4 here (GitHub embeds it natively) -->
-[GameNothing.2.0.Promo (1).html](https://github.com/user-attachments/files/35552695/GameNothing.2.0.Promo.1.html)
+<!-- Optional: drag your second 16:9 GIF (gamenothing-launch-eye-16x9.gif) or promo MP4 here -->
 
+- **Interactive Promo (HTML):** [GameNothing 2.0 Promo](https://github.com/user-attachments/files/35552695/GameNothing.2.0.Promo.1.html)
 
 ---
 
@@ -68,14 +69,14 @@ PS2 and 3DS are for the weak. It gets tiring seeing the internet say *"a 7 Gen 4
 
 | Chipset Tier | What to Expect |
 | :--- | :--- |
-| **Snapdragon 6s Gen 4** | Light indie PC titles (silksong if lucky)|
-| **Snapdragon 6 Gen 4** *(Min. Recommended)* | Lighter modern games like *Moonlighter* or *hollow Knight* |
-| **Snapdragon 7 Gen 4** | 1/3 of a z1 extreme |
-| **Snapdragon 8 Elite Gen 5** | beats the Steam Deck in 720p|
+| **Snapdragon 6s Gen 4** | Light indie PC titles (*Silksong* if lucky) |
+| **Snapdragon 6 Gen 4** *(Min. Recommended)* | Lighter modern games like *Moonlighter* or *Hollow Knight* |
+| **Snapdragon 7 Gen 4** | ~1/3 of a Z1 Extreme |
+| **Snapdragon 8 Elite Gen 5** | Beats the Steam Deck at 720p |
 | **Snapdragon 8 Gen 6** | Obliterates the Steam Deck |
 
-> **GPU Support:** **Adreno** gives the best experience, but **MediaTek** and **Kirin** support is also included.
-> ue5 games are the line and is the only case where the steamdeck wins. and dx12 games support is limited
+> **GPU & Engine Notes:** **Adreno** gives the best experience, with **MediaTek** and **Kirin** support also included. **UE5** games are the line (pretty much the only case where the Steam Deck wins), and **DX12** support is still limited.
+
 ---
 
 ## What It Does
@@ -84,8 +85,6 @@ PS2 and 3DS are for the weak. It gets tiring seeing the internet say *"a 7 Gen 4
 - Full Nothing-inspired dark/light design system with custom glass UI and minimal monochrome iconography.
 - High refresh rate control and performance-first navigation.
 - Customizable app icons, including the `GameNothing x Capri` logo suite.
-
-[image]
 
 ### PC Gaming Engine
 - Steam, GOG, Epic, Amazon, and custom local or external games.
@@ -100,17 +99,20 @@ PS2 and 3DS are for the weak. It gets tiring seeing the internet say *"a 7 Gen 4
 - Press **Volume Up + Volume Down** together at any time as a hardware panic cancel.
 - *Real talk:* Capri is still buggy, constantly moving forward, and yes — the code is literally called `"yams"`.
 
-<!-- Drop Capri animation GIFs here later -->
-<img width="300" height="300" alt="capri-all-animations-montage" src="https://github.com/user-attachments/assets/2be49974-4c8b-4c25-9224-e8964f93f735" />
-<img width="300" height="309" alt="capri-companion-v2-3-preview" src="https://github.com/user-attachments/assets/276b4d69-93cb-4497-8b31-6c23ee7acc2c" />
-
-[image]
+<p align="center">
+  <img height="300" alt="capri-all-animations-montage" src="https://github.com/user-attachments/assets/2be49974-4c8b-4c25-9224-e8964f93f735" />
+  &nbsp;&nbsp;
+  <img height="300" alt="capri-companion-v2-3-preview" src="https://github.com/user-attachments/assets/276b4d69-93cb-4497-8b31-6c23ee7acc2c" />
+</p>
 
 ### Offline Audio & Extras
 - Built-in offline **MP3 / FLAC** music player with recursive folder scanning and floating playback bubble.
 - **Discord Rich Presence** integration.
 - **Hands-Free Scrolling** built right in.
 
+<p align="center">
+  <img width="640" alt="Discord Rich Presence — Playing GameNothing" src="https://github.com/user-attachments/assets/5703ffbe-56ef-431c-9d8c-a70a5ae848a6" />
+</p>
 
 ---
 
@@ -127,11 +129,11 @@ I keep this heavily integrated with the community — live updates drop in both 
 ## Star History
 
 <a href="https://www.star-history.com/#gabrielmartinslascau-lsxnya/GameNothing&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=gabrielmartinslascau-lsxnya/GameNothing&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=gabrielmartinslascau-lsxnya/GameNothing&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=gabrielmartinslascau-lsxnya/GameNothing&type=Date" />
- </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=gabrielmartinslascau-lsxnya/GameNothing&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=gabrielmartinslascau-lsxnya/GameNothing&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=gabrielmartinslascau-lsxnya/GameNothing&type=Date" />
+  </picture>
 </a>
 
 ---
@@ -140,3 +142,7 @@ I keep this heavily integrated with the community — live updates drop in both 
 
 - Built on top of **GameNative** (`utkarshdalal` and contributors), **DroidDeck**, and the open-source emulation ecosystem behind them.
 - Licensed under **GPL-3.0**. See `LICENSE` for details.
+
+<p align="center">
+  <img width="260" height="260" alt="capri-05-napping" src="https://github.com/user-attachments/assets/eb5d1bbf-7ded-40ca-81d7-f0fb7ca529c2" />
+</p>
