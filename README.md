@@ -99,12 +99,15 @@ PS2 and 3DS are for the weak. It gets tiring seeing the internet say *"a 7 Gen 4
 - *Real talk:* Capri is still buggy, constantly moving forward, and yes — the code is literally called `"yams"`.
 
 <!-- Drop Capri animation GIFs here later -->
+<img width="480" height="480" alt="capri-all-animations-montage" src="https://github.com/user-attachments/assets/2be49974-4c8b-4c25-9224-e8964f93f735" />
+
 [image]
 
 ### Offline Audio & Extras
 - Built-in offline **MP3 / FLAC** music player with recursive folder scanning and floating playback bubble.
 - **Discord Rich Presence** integration.
 - **Hands-Free Scrolling** built right in.
+
 
 ---
 
